@@ -1136,12 +1136,12 @@
                       return (
                         <div 
                           key={entry.id} onClick={() => (!isCapsuleLocked || isGeoLocked) && handleVaultClick(entry)}
-                          className={`break-inside-avoid relative rounded-[1.5rem] p-5 shadow-sm transition-all cursor-pointer border flex flex-col justify-between items-center text-center aspect-square ${user.isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100'}`}
+                          className={`break-inside-avoid relative rounded-[1.5rem] p-5 shadow-sm transition-all cursor-pointer border flex flex-col justify-between items-center text-center aspect-square flex justify-center ${user.isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100'}`}
                         >
-                          <div className={`p-4 rounded-full mt-2 ${isCapsuleLocked ? 'bg-indigo-100 text-indigo-600' : isGeoLocked ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-                            {isCapsuleLocked ? <Icon name="calendar-clock" size={28} /> : isGeoLocked ? <Icon name="map-pin" size={28} /> : <Icon name="lock" size={28} />}
+                          <div className={`p-4 rounded-full mb-4 ${isCapsuleLocked ? 'bg-indigo-100 text-indigo-600' : isGeoLocked ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                            {isCapsuleLocked ? <Icon name="calendar-clock" size={36} /> : isGeoLocked ? <Icon name="map-pin" size={36} /> : <Icon name="lock" size={36} />}
                           </div>
-                          <div className="mb-2 w-full px-2">
+                          <div className="w-full px-2">
                             <h3 className="font-bold text-lg tracking-tight leading-snug truncate">{entry.title}</h3>
                             <span className="text-[10px] opacity-50 uppercase tracking-widest mt-1 block truncate">
                               {isCapsuleLocked ? `Öffnet ${new Date(entry.unlockDate).toLocaleDateString('de-DE')}` : isGeoLocked ? 'Orts-Siegel' : 'Verwahrt'}
@@ -1158,7 +1158,7 @@
                     return (
                       <div 
                         key={entry.id} onClick={() => view === 'dashboard' ? openEditor(entry) : null}
-                        className={`break-inside-avoid group relative rounded-[1.5rem] shadow-sm transition-all duration-300 overflow-hidden cursor-pointer border ${user.isDark && entry.color === '#ffffff' ? 'border-white/10' : 'border-black/5'} ${entry.manifested ? 'ring-2 ring-amber-400/50' : ''}`}
+                        className={`break-inside-avoid group relative rounded-[1.5rem] shadow-sm transition-all duration-300 overflow-hidden cursor-pointer border flex flex-col ${user.isDark && entry.color === '#ffffff' ? 'border-white/10' : 'border-black/5'} ${entry.manifested ? 'ring-2 ring-amber-400/50' : ''}`}
                         style={{ backgroundColor: user.isDark && entry.color === '#ffffff' ? '#1e293b' : entry.color }}
                       >
                         {entry.inheritedFrom && (
@@ -1173,14 +1173,14 @@
                         )}
                         
                         {entry.image && (
-                          <div className="w-full min-h-[160px] max-h-[220px] overflow-hidden relative">
-                            <img src={entry.image} alt="Vision" className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent z-10" />
+                          <div className="w-full relative overflow-hidden bg-black/5 dark:bg-black/20 flex justify-center items-center">
+                            <img src={entry.image} alt="Vision" className="w-full h-auto max-h-[400px] object-contain transform group-hover:scale-105 transition-transform duration-1000" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10 pointer-events-none" />
                             <h3 className="absolute bottom-4 left-4 right-4 z-20 font-bold text-xl text-white drop-shadow-md leading-snug line-clamp-2">{entry.title}</h3>
                           </div>
                         )}
 
-                        <div className="p-5">
+                        <div className="p-5 flex-1 flex flex-col">
                           {!entry.image && <h3 className={`font-bold text-xl leading-snug mb-2 ${textColor} line-clamp-2`}>{entry.title}</h3>}
                           
                           {entry.type === 'letter' && <div className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-50 flex items-center gap-1"><Icon name="quote" size={12}/> Zukunfts-Brief</div>}
@@ -1189,7 +1189,7 @@
                             <div className={`text-sm leading-relaxed mb-4 ${subTextColor} font-light line-clamp-3 legacy-content`} dangerouslySetInnerHTML={{ __html: entry.text }} />
                           )}
 
-                          <div className="flex flex-wrap items-center justify-between pt-3 border-t border-current border-opacity-10">
+                          <div className="flex flex-wrap items-center justify-between pt-3 border-t border-current border-opacity-10 mt-auto">
                             <div className="flex flex-col">
                                <span className={`text-[9px] font-black uppercase tracking-widest ${subTextColor} opacity-60`}>
                                  {new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })}
@@ -1290,8 +1290,8 @@
 
                   {!zenMode && (
                     <div className="space-y-3">
-                      {selectedImage && <div className="relative rounded-2xl overflow-hidden shadow-sm"><img src={selectedImage} alt="Preview" className="w-full max-h-64 object-cover" /><button onClick={() => setSelectedImage(null)} className="absolute top-2 right-2 bg-black/60 text-white p-2 rounded-full"><Icon name="x" size={14}/></button></div>}
-                      {selectedVideo && <div className="relative rounded-2xl overflow-hidden shadow-sm"><video src={selectedVideo} controls className="w-full max-h-64 object-cover bg-black" /><button onClick={() => setSelectedVideo(null)} className="absolute top-2 right-2 bg-black/60 text-white p-2 rounded-full z-10"><Icon name="x" size={14}/></button></div>}
+                      {selectedImage && <div className="relative rounded-2xl overflow-hidden shadow-sm bg-black/5 dark:bg-black/20 flex justify-center"><img src={selectedImage} alt="Preview" className="w-full h-auto max-h-[50vh] object-contain" /><button onClick={() => setSelectedImage(null)} className="absolute top-2 right-2 bg-black/60 text-white p-2 rounded-full z-10"><Icon name="x" size={14}/></button></div>}
+                      {selectedVideo && <div className="relative rounded-2xl overflow-hidden shadow-sm flex justify-center bg-black/5 dark:bg-black/20"><video src={selectedVideo} controls className="w-full h-auto max-h-[50vh] object-contain bg-black" /><button onClick={() => setSelectedVideo(null)} className="absolute top-2 right-2 bg-black/60 text-white p-2 rounded-full z-10"><Icon name="x" size={14}/></button></div>}
                       {audioUrl && <div className="bg-white/10 p-3 rounded-xl flex items-center justify-between backdrop-blur-md"><audio src={audioUrl} controls className="w-full h-8" /><button onClick={() => setAudioUrl(null)} className="p-1.5 bg-rose-500/20 text-rose-500 rounded-full ml-2"><Icon name="trash-2" size={14}/></button></div>}
                     </div>
                   )}
