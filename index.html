@@ -5,6 +5,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Legacy Vision Journal</title>
   
+  <!-- PWA & Standalone App Setup -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#f8fafc">
+  
+  <!-- Dynamisches Web App Manifest (Erfüllt Chrome-Richtlinien für echten Vollbildmodus) -->
+  <link rel="manifest" id="manifest-link" href="">
+  <script>
+    const manifest = {
+      name: "Legacy Vision Journal",
+      short_name: "Legacy",
+      display: "standalone",
+      start_url: ".",
+      background_color: "#f8fafc",
+      theme_color: "#f8fafc",
+      icons: [
+        {
+          src: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0iI2Y1OWUwYiIvPjx0ZXh0IHg9IjI1NiIgeT0iMzUwIiBmb250LXNpemU9IjI1NiIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IndoaXRlIj5MPC90ZXh0Pjwvc3ZnPg==",
+          sizes: "512x512",
+          type: "image/svg+xml",
+          purpose: "any maskable"
+        }
+      ]
+    };
+    const blob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
+    document.getElementById('manifest-link').href = URL.createObjectURL(blob);
+  </script>
+  
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
@@ -19,14 +48,12 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
-    /* Globale Styles & Animationen */
-    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; transition: background-color 0.5s ease; }
     .pb-safe { padding-bottom: env(safe-area-inset-bottom, 24px); }
     @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } } .animate-fade-in { animation: fade-in 0.4s ease-out forwards; }
     @keyframes slide-up { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } .animate-slide-up { animation: slide-up 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
     @keyframes scale-in { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } } .animate-scale-in { animation: scale-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
     @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } } .animate-shake { animation: shake 0.4s ease-in-out; }
-    @keyframes heartbeat { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } } .animate-heartbeat { animation: heartbeat 2s infinite ease-in-out; }
     
     .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(150, 150, 150, 0.3); border-radius: 10px; }
     .hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -125,9 +152,10 @@
       const [searchQuery, setSearchQuery] = useState('');
       const [isSearchOpen, setIsSearchOpen] = useState(false);
       
-      // CUSTOM ALERT SYSTEM
+      // CUSTOM ALERT SYSTEM & HINTS
       const [customAlert, setCustomAlert] = useState(null);
       const [exitAppPrompt, setExitAppPrompt] = useState(false);
+      const [installHint, setInstallHint] = useState('');
       
       const [showEditor, setShowEditor] = useState(false);
       const [affirmation, setAffirmation] = useState(null);
@@ -196,15 +224,24 @@
         closeEditorRef.current = closeEditor;
       });
 
-      // --- KUGELSICHERE BACK BUTTON LOGIK (App Beenden Schutz) ---
+      // --- VOLLBILD-ERKENNUNG (INSTALL HINT) ---
+      useEffect(() => {
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone || document.referrer.includes('android-app://');
+        if (!isStandalone) {
+          if (window.location.protocol.includes('file') || window.location.protocol.includes('content')) {
+             setInstallHint("Tipp: Du hast die Datei lokal geöffnet. Um den Chrome-Balken oben zu entfernen, rufe deinen GitHub-Link auf und installiere sie von dort!");
+          } else {
+             setInstallHint("Tipp: Tippe oben auf die drei Punkte (⋮) und wähle 'Zum Startbildschirm hinzufügen', um die App im perfekten Vollbild zu nutzen!");
+          }
+        }
+      }, []);
+
+      // --- KUGELSICHERE BACK BUTTON LOGIK ---
       useEffect(() => {
         if (!isLoaded) return;
-        
-        // Blockade initial setzen
         window.history.pushState({ locked: true }, '');
 
         const handlePopState = (e) => {
-          // Blockade sofort wiederherstellen
           window.history.pushState({ locked: true }, '');
 
           if (editorRefState.current && closeEditorRef.current) {
@@ -281,10 +318,28 @@
         }
       };
 
+      // --- THEME & SAMSUNG NAV BAR FIX ---
       useEffect(() => {
-        if (isLoaded) localStorage.setItem('legacy_user', JSON.stringify(user));
-        if (user.isDark) document.documentElement.classList.add('dark');
-        else document.documentElement.classList.remove('dark');
+        if (isLoaded) {
+          try {
+             localStorage.setItem('legacy_user', JSON.stringify(user));
+          } catch (e) {
+             console.error(e);
+             setCustomAlert("Achtung: Profil konnte nicht gespeichert werden. Das Bild ist zu groß.");
+          }
+        }
+        
+        // Dark Mode Steuerung (Färbt auch Android Nav Bar & Status Bar)
+        const metaThemeColor = document.querySelector("meta[name=theme-color]");
+        if (user.isDark) {
+          document.documentElement.classList.add('dark');
+          document.body.style.backgroundColor = '#020617'; // slate-950
+          if (metaThemeColor) metaThemeColor.setAttribute("content", "#020617");
+        } else {
+          document.documentElement.classList.remove('dark');
+          document.body.style.backgroundColor = '#f8fafc'; // slate-50
+          if (metaThemeColor) metaThemeColor.setAttribute("content", "#f8fafc");
+        }
       }, [user, isLoaded]);
 
       useEffect(() => {
@@ -297,7 +352,7 @@
             image: selectedImage, video: selectedVideo, audio: audioUrl,
             locked: isLocked, archived: false, manifested: isManifested,
             unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
-            date: editingId ? entries.find(e => e.id === editingId)?.date || new Date().toISOString() : new Date().toISOString(),
+            date: editingId ? (entries.find(e => e.id === editingId)?.date || new Date().toISOString()) : new Date().toISOString(),
           };
           if (!editingId) setEditingId(currentEntry.id);
           
@@ -422,14 +477,54 @@
           reader.readAsDataURL(file);
         }
       };
+      
+      const handleAudioUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setAudioUrl(reader.result);
+          };
+          reader.readAsDataURL(file);
+        }
+      };
 
       const handleAvatarUpload = (e) => {
         const file = e.target.files[0];
         if (file) {
           const reader = new FileReader();
-          reader.onloadend = () => setUser(prev => ({ ...prev, avatar: reader.result }));
+          reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const MAX_SIZE = 400; 
+              let width = img.width;
+              let height = img.height;
+
+              if (width > height) {
+                if (width > MAX_SIZE) {
+                  height *= MAX_SIZE / width;
+                  width = MAX_SIZE;
+                }
+              } else {
+                if (height > MAX_SIZE) {
+                  width *= MAX_SIZE / height;
+                  height = MAX_SIZE;
+                }
+              }
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, width, height);
+              
+              const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+              setUser(prev => ({ ...prev, avatar: compressedDataUrl }));
+            };
+            img.src = event.target.result;
+          };
           reader.readAsDataURL(file);
         }
+        e.target.value = null;
       };
 
       const exportBackup = () => {
@@ -498,7 +593,7 @@
       const toggleDictation = () => {
         if (isDictating) { dictationRef.current?.stop(); setIsDictating(false); return; }
         const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRec) { setCustomAlert("Dein Browser unterstützt leider kein automatisches Diktieren."); return; }
+        if (!SpeechRec) { setCustomAlert("Dein Browser unterstützt leider kein automatisches Diktieren. Tipp: Nutze die Spracheingabe deiner Handy-Tastatur!"); return; }
         
         dictationRef.current = new SpeechRec();
         dictationRef.current.lang = 'de-DE';
@@ -515,8 +610,13 @@
              setText(editorRef.current.innerHTML);
           }
         };
-        dictationRef.current.start();
-        setIsDictating(true);
+        
+        try {
+          dictationRef.current.start();
+          setIsDictating(true);
+        } catch(e) {
+          setCustomAlert("Mikrofon-Zugriff verweigert. Diktieren ist ohne HTTPS oder entsprechende Browser-Rechte nicht möglich.");
+        }
       };
 
       const setGeoLock = () => {
@@ -591,19 +691,6 @@
         setShowEditor(true);
       };
 
-      const saveEntry = () => {
-        const newEntry = {
-          id: editingId || generateId(),
-          title: title || 'Ohne Titel', text, color: selectedColor,
-          image: selectedImage, video: selectedVideo, audio: audioUrl,
-          locked: isLocked, archived: false, manifested: isManifested,
-          unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
-          date: editingId ? (entries.find(e => e.id === editingId)?.date || new Date().toISOString()) : new Date().toISOString(),
-        };
-        saveToDB(newEntry);
-        closeEditor();
-      };
-
       const handleVaultClick = async (entry) => {
         if (entry.unlockLocation) {
            if (!("geolocation" in navigator)) { setCustomAlert("Ortung nicht verfügbar."); return; }
@@ -650,8 +737,7 @@
       });
 
       const isDarkColor = (c) => ['#1f2937', '#7f1d1d', '#78350f', '#14532d', '#1e3a8a', '#4c1d95', '#831843'].includes(c);
-      const currentMoodGlow = mood ? MOODS.find(m => m.label === mood)?.glow : 'transparent';
-
+      
       const getWisdoms = () => {
         let wisdoms = [];
         entries.forEach(e => {
@@ -758,7 +844,7 @@
         return (
           <div className="min-h-screen bg-slate-950 text-white flex flex-col p-4 sm:p-6 items-center justify-center relative overflow-hidden">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-900/40 via-slate-950 to-slate-950 animate-pulse" />
-            <button onClick={() => setView('menu')} className="absolute top-4 left-4 p-3 bg-white/10 rounded-full hover:bg-white/20 z-10"><Icon name="x" size={24}/></button>
+            <button onClick={() => setView('dashboard')} className="absolute top-4 left-4 p-3 bg-white/10 rounded-full hover:bg-white/20 z-10"><Icon name="x" size={24}/></button>
             
             <Icon name="headphones" size={48} className="text-indigo-500 mb-8 z-10 opacity-80" />
             <h1 className="text-2xl sm:text-3xl font-serif mb-2 z-10">Lebens-Symphonie</h1>
@@ -793,7 +879,7 @@
         const wisdoms = getWisdoms();
         return (
           <div className="min-h-screen bg-[#fcfbf9] text-[#2c2c2a] p-4 sm:p-10 font-serif">
-            <button onClick={() => setView('menu')} className="mb-8 p-3 bg-black/5 rounded-full hover:bg-black/10"><Icon name="x" size={24}/></button>
+            <button onClick={() => setView('dashboard')} className="mb-8 p-3 bg-black/5 rounded-full hover:bg-black/10"><Icon name="x" size={24}/></button>
             <div className="max-w-2xl mx-auto">
                <h1 className="text-3xl sm:text-5xl font-bold mb-4 text-center border-b border-black/10 pb-4">Buch der Weisheit</h1>
                <p className="text-center italic opacity-60 mb-12 text-sm">Extrahierte Essenzen deines Lebens.</p>
@@ -865,7 +951,7 @@
       }
 
       return (
-        <div className={`min-h-screen transition-colors duration-700 font-sans pb-[env(safe-area-inset-bottom,4rem)] mb-16 sm:mb-20 ${user.isDark ? 'bg-slate-950 text-slate-100 selection:bg-amber-900 selection:text-amber-100' : 'bg-slate-50 text-slate-800 selection:bg-rose-200 selection:text-rose-900'}`}>
+        <div className={`min-h-screen transition-colors duration-700 font-sans pb-[env(safe-area-inset-bottom,4rem)] mb-16 sm:mb-20 ${user.isDark ? 'text-slate-100 selection:bg-amber-900 selection:text-amber-100' : 'text-slate-800 selection:bg-rose-200 selection:text-rose-900'}`}>
           
           {/* BEENDEN POPUP (ZURÜCK-TASTE) */}
           {exitAppPrompt && (
@@ -982,6 +1068,14 @@
           </header>
 
           <main className="p-3 sm:p-6 max-w-4xl mx-auto min-h-[60vh]">
+            
+            {installHint && view === 'dashboard' && (
+              <div className="mb-4 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex gap-3 items-start text-indigo-600 dark:text-indigo-300 text-xs font-medium shadow-sm animate-fade-in">
+                 <Icon name="info" size={16} className="shrink-0 mt-0.5" />
+                 <p className="flex-1 leading-relaxed">{installHint}</p>
+                 <button onClick={() => setInstallHint('')} className="shrink-0 opacity-50 hover:opacity-100"><Icon name="x" size={16}/></button>
+              </div>
+            )}
             
             {view === 'menu' && (
               <div className="grid grid-cols-2 gap-3 sm:gap-4 animate-slide-up">
@@ -1175,7 +1269,7 @@
                         {entry.image && (
                           <div className="w-full relative overflow-hidden bg-black/5 dark:bg-black/20 flex justify-center items-center">
                             <img src={entry.image} alt="Vision" className="w-full h-auto max-h-[400px] object-contain transform group-hover:scale-105 transition-transform duration-1000" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10 pointer-events-none" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent z-10 pointer-events-none" />
                             <h3 className="absolute bottom-4 left-4 right-4 z-20 font-bold text-xl text-white drop-shadow-md leading-snug line-clamp-2">{entry.title}</h3>
                           </div>
                         )}
@@ -1224,8 +1318,8 @@
 
           {/* EDITOR OVERLAY */}
           {showEditor && (
-            <div className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 transition-all ${zenMode ? 'bg-slate-950' : 'bg-slate-900/40 backdrop-blur-md'} ${currentMoodGlow !== 'transparent' && !zenMode ? 'animate-heartbeat' : ''}`}>
-              {!zenMode && <div className="absolute inset-0 transition-colors duration-1000" style={{ backgroundColor: currentMoodGlow }} onClick={closeEditor} />}
+            <div className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 transition-all ${zenMode ? 'bg-slate-950' : 'bg-slate-900/40 backdrop-blur-md'}`}>
+              {!zenMode && <div className="absolute inset-0 transition-colors duration-1000 bg-transparent" onClick={closeEditor} />}
               
               <div 
                 className={`relative w-full max-w-2xl flex flex-col shadow-2xl transition-all ${zenMode ? 'h-full sm:rounded-none bg-transparent' : 'h-[92dvh] sm:h-[90vh] rounded-t-3xl sm:rounded-3xl'} ${user.isDark && selectedColor === '#ffffff' ? 'border-white/10' : 'border-black/5'}`}
@@ -1238,13 +1332,29 @@
                     <div className="flex gap-1 overflow-x-auto hide-scrollbar items-center">
                       {autoSaveStatus && <span className="flex items-center text-[10px] font-bold text-emerald-500 animate-pulse mr-1"><Icon name="check" size={12} className="mr-0.5"/> {autoSaveStatus}</span>}
                       
-                      <button onClick={() => { if(editingId) deleteFromDB(editingId); closeEditor(); }} className="p-2 rounded-full hover:bg-rose-500/10 text-rose-500 dark:text-rose-400 transition-colors" title="Verwerfen / Löschen">
+                      <button onClick={() => { if(editingId) deleteFromDB(editingId); closeEditor(); }} className="p-2 rounded-full hover:bg-rose-500/10 text-rose-500 dark:text-slate-300 hover:dark:text-rose-400 transition-colors" title="Verwerfen / Löschen">
                         <Icon name="trash-2" size={18}/>
                       </button>
+                      
+                      {/* ARCHIV KNOPF (Immer sichtbar) */}
+                      <button onClick={() => {
+                          const entryToArchive = {
+                            id: editingId || generateId(),
+                            title: title || 'Ohne Titel', text, color: selectedColor,
+                            image: selectedImage, video: selectedVideo, audio: audioUrl,
+                            locked: isLocked, archived: true, manifested: isManifested,
+                            unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
+                            date: editingId ? (entries.find(e => e.id === editingId)?.date || new Date().toISOString()) : new Date().toISOString(),
+                          };
+                          saveToDB(entryToArchive);
+                          closeEditor();
+                      }} className="p-2 rounded-full hover:bg-amber-500/10 text-amber-500 dark:text-slate-300 hover:dark:text-amber-400 transition-colors" title="Ins Archiv verschieben">
+                          <Icon name="archive" size={18}/>
+                      </button>
 
-                      <button onClick={() => setZenMode(true)} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-800 dark:text-slate-200"><Icon name="maximize-2" size={18}/></button>
-                      <button onClick={() => setIsManifested(!isManifested)} className={`p-2 rounded-full ${isManifested ? 'bg-amber-400 text-amber-900' : 'text-slate-800 dark:text-slate-200 opacity-80 hover:opacity-100'}`}><Icon name="sparkles" size={18}/></button>
-                      <button onClick={() => setIsLocked(!isLocked)} className={`p-2 rounded-full ${isLocked ? 'bg-rose-500 text-white' : 'text-slate-800 dark:text-slate-200 opacity-80 hover:opacity-100'}`}><Icon name="lock" size={18}/></button>
+                      <button onClick={() => setZenMode(true)} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-800 dark:text-slate-300"><Icon name="maximize-2" size={18}/></button>
+                      <button onClick={() => setIsManifested(!isManifested)} className={`p-2 rounded-full ${isManifested ? 'bg-amber-400 text-amber-900' : 'text-slate-800 dark:text-slate-300 opacity-80 hover:opacity-100'}`}><Icon name="sparkles" size={18}/></button>
+                      <button onClick={() => setIsLocked(!isLocked)} className={`p-2 rounded-full ${isLocked ? 'bg-rose-500 text-white' : 'text-slate-800 dark:text-slate-300 opacity-80 hover:opacity-100'}`}><Icon name="lock" size={18}/></button>
                     </div>
                   )}
                   {zenMode && <button onClick={() => setZenMode(false)} className="text-white/70 hover:text-white"><Icon name="minimize-2" size={22}/></button>}
@@ -1304,16 +1414,25 @@
                       <div className="flex gap-1.5 shrink-0">
                         <label className="p-2.5 rounded-full bg-white/50 dark:bg-white/10 shadow-sm cursor-pointer"><Icon name="image" size={18}/><input type="file" accept="image/*" onChange={(e)=>handleFileUpload(e,'image')} className="hidden" /></label>
                         <button onClick={() => setIsDrawing(true)} className="p-2.5 rounded-full bg-white/50 dark:bg-white/10 shadow-sm"><Icon name="pen-tool" size={18}/></button>
-                        <button onClick={isRecording ? stopRecording : startRecording} className={`p-2.5 rounded-full shadow-sm transition-all ${isRecording ? 'bg-rose-500 text-white animate-pulse' : 'bg-white/50 dark:bg-white/10'}`}><Icon name={isRecording ? "square" : "mic"} size={18}/></button>
+                        
+                        <label className="p-2.5 rounded-full bg-white/50 dark:bg-white/10 shadow-sm cursor-pointer" title="Video aufnehmen">
+                           <Icon name="video" size={18}/>
+                           <input type="file" accept="video/*" capture="environment" onChange={(e)=>handleFileUpload(e,'video')} className="hidden" />
+                        </label>
+
+                        <label className="p-2.5 rounded-full bg-white/50 dark:bg-white/10 shadow-sm cursor-pointer" title="Sprachnotiz aufnehmen / hochladen">
+                           <Icon name="mic" size={18}/>
+                           <input type="file" accept="audio/*" capture="environment" onChange={handleAudioUpload} className="hidden" />
+                        </label>
                       </div>
                       
                       <div className="flex gap-1.5 shrink-0 border-l border-black/10 dark:border-white/10 pl-2">
                         <button onClick={insertPrompt} className="p-2.5 rounded-full bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300 shadow-sm flex items-center gap-1 text-[10px] font-bold"><Icon name="sparkles" size={14}/> Deep Prompt</button>
                         
-                        <div className="relative group flex items-center">
-                          <button className={`p-2.5 rounded-full shadow-sm ${unlockDate ? 'bg-indigo-500 text-white' : 'bg-white/50 dark:bg-white/10'}`}><Icon name="calendar-clock" size={18}/></button>
-                          <input type="date" value={unlockDate} onChange={e=>setUnlockDate(e.target.value)} className="absolute bottom-full right-0 mb-2 p-1.5 rounded-lg border-none shadow-xl opacity-0 group-hover:opacity-100 focus:opacity-100 bg-white text-black z-50 text-xs w-32" />
-                        </div>
+                        <label className={`relative p-2.5 rounded-full shadow-sm flex items-center justify-center cursor-pointer overflow-hidden ${unlockDate ? 'bg-indigo-500 text-white' : 'bg-white/50 dark:bg-white/10'}`}>
+                          <Icon name="calendar-clock" size={18}/>
+                          <input type="date" value={unlockDate} onChange={e=>setUnlockDate(e.target.value)} className="absolute opacity-0 w-[200%] h-[200%] -top-1/2 -left-1/2 cursor-pointer" />
+                        </label>
                       </div>
                     </div>
 
@@ -1383,14 +1502,14 @@
           )}
 
           <nav className={`fixed bottom-0 left-0 right-0 backdrop-blur-2xl border-t z-40 transition-colors duration-500 ${user.isDark ? 'bg-slate-950/90 border-white/10' : 'bg-white/95 border-slate-200'} pb-[env(safe-area-inset-bottom,0px)]`}>
-            <div className="flex justify-around items-center h-16 max-w-lg mx-auto px-6">
-              <button onClick={() => setView('dashboard')} className={`flex flex-col items-center justify-center w-16 h-full space-y-1 transition-colors ${view === 'dashboard' ? 'text-indigo-500' : 'opacity-40'}`}><Icon name="layout-grid" size={22} /><span className="text-[9px] font-bold">Visionen</span></button>
+            <div className="flex justify-between items-center h-16 max-w-sm mx-auto px-8">
+              <button onClick={() => setView('dashboard')} className={`flex flex-col items-center justify-center h-full space-y-1 transition-colors ${view === 'dashboard' ? 'text-indigo-500' : 'opacity-40'}`}><Icon name="layout-grid" size={24} /><span className="text-[10px] font-bold">Visionen</span></button>
               
               <div className="relative -top-5">
-                <button onClick={() => openEditor()} className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center active:scale-95 text-white border-[3px] border-slate-50 dark:border-slate-950 transition-colors duration-300" style={{ backgroundColor: user.nameColor || '#f59e0b' }}><Icon name="plus" size={28} /></button>
+                <button onClick={() => openEditor()} className="w-16 h-16 rounded-full shadow-lg flex items-center justify-center active:scale-95 text-white border-[4px] border-slate-50 dark:border-slate-950 transition-colors duration-300" style={{ backgroundColor: user.nameColor || '#f59e0b' }}><Icon name="plus" size={32} /></button>
               </div>
               
-              <button onClick={() => setView('vault')} className={`flex flex-col items-center justify-center w-16 h-full space-y-1 transition-colors ${view === 'vault' ? 'text-amber-500' : 'opacity-40'}`}><Icon name="lock" size={22} /><span className="text-[9px] font-bold">Tresor</span></button>
+              <button onClick={() => setView('vault')} className={`flex flex-col items-center justify-center h-full space-y-1 transition-colors ${view === 'vault' ? 'text-amber-500' : 'opacity-40'}`}><Icon name="lock" size={24} /><span className="text-[10px] font-bold">Tresor</span></button>
             </div>
           </nav>
           
