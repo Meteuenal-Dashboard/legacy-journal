@@ -54,7 +54,14 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
-    // Error Boundary als Schutzschild gegen weiße Bildschirme
+    // KUGELSICHERER SPEICHER-ZUGRIFF (Verhindert Abstürze in E-Mails)
+    const safeStorageGet = (key) => {
+      try { return localStorage.getItem(key); } catch(e) { return null; }
+    };
+    const safeStorageSet = (key, val) => {
+      try { localStorage.setItem(key, val); } catch(e) {}
+    };
+
     class ErrorBoundary extends React.Component {
       constructor(props) { super(props); this.state = { hasError: false, error: null }; }
       static getDerivedStateFromError(error) { return { hasError: true, error }; }
@@ -65,8 +72,8 @@
             <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white p-8 text-center">
               <div>
                 <h1 className="text-2xl font-bold text-rose-500 mb-4">Ein Moment bitte...</h1>
-                <p className="opacity-70 mb-8">Die App hat sich beim Laden der Inhalte verschluckt. Bitte lade die Seite einmal neu.</p>
-                <button onClick={() => window.location.reload()} className="px-6 py-3 bg-amber-500 text-slate-900 font-bold rounded-xl shadow-lg">App neu starten</button>
+                <p className="opacity-70 mb-8">Die App hat sich beim Laden verschluckt (Möglicherweise bist du im E-Mail-Sandkasten). Bitte öffne den Link direkt in Chrome.</p>
+                <button onClick={() => window.location.reload()} className="px-6 py-3 bg-amber-500 text-slate-900 font-bold rounded-xl shadow-lg">Neu laden</button>
               </div>
             </div>
           );
@@ -153,7 +160,6 @@
       const [searchQuery, setSearchQuery] = useState('');
       const [isSearchOpen, setIsSearchOpen] = useState(false);
       
-      // CUSTOM ALERT SYSTEM & HINTS
       const [customAlert, setCustomAlert] = useState(null);
       const [exitAppPrompt, setExitAppPrompt] = useState(false);
       const [installHint, setInstallHint] = useState('');
@@ -162,7 +168,6 @@
       const [affirmation, setAffirmation] = useState(null);
       const [echoEntry, setEchoEntry] = useState(null);
       
-      // Security State
       const [unlockTarget, setUnlockTarget] = useState(null);
       const [pinInput, setPinInput] = useState('');
       const [pinError, setPinError] = useState(false);
@@ -170,7 +175,6 @@
       const [oldPinInput, setOldPinInput] = useState('');
       const [newPinInput, setNewPinInput] = useState('');
 
-      // Editor State
       const [editingId, setEditingId] = useState(null);
       const [title, setTitle] = useState('');
       const [text, setText] = useState('');
@@ -220,24 +224,23 @@
         if (isDictating) toggleDictation();
       };
 
-      // Halte die closeEditor Referenz immer aktuell
       useEffect(() => {
         closeEditorRef.current = closeEditor;
       });
 
-      // --- VOLLBILD-ERKENNUNG (INSTALL HINT) ---
+      // --- VOLLBILD-ERKENNUNG ---
       useEffect(() => {
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone || document.referrer.includes('android-app://');
         if (!isStandalone) {
           if (window.location.protocol.includes('file') || window.location.protocol.includes('content')) {
-             setInstallHint("Tipp: Du hast die Datei lokal geöffnet. Um den Chrome-Balken oben zu entfernen, rufe deinen GitHub-Link auf und installiere sie von dort!");
+             setInstallHint("Tipp: Du hast die Datei lokal geöffnet (Datenbank blockiert!). Rufe deinen GitHub-Link auf und installiere sie von dort!");
           } else {
              setInstallHint("Tipp: Tippe oben auf die drei Punkte (⋮) und wähle 'Zum Startbildschirm hinzufügen', um die App im perfekten Vollbild zu nutzen!");
           }
         }
       }, []);
 
-      // --- KUGELSICHERE BACK BUTTON LOGIK ---
+      // --- BACK BUTTON LOGIK ---
       useEffect(() => {
         if (!isLoaded) return;
         window.history.pushState({ locked: true }, '');
@@ -265,42 +268,49 @@
       useEffect(() => {
         const loadApp = async () => {
           try {
-            const savedUser = localStorage.getItem('legacy_user');
+            const savedUser = safeStorageGet('legacy_user');
             let currentUser = { name: '', isDark: false };
             if (savedUser) {
               currentUser = JSON.parse(savedUser);
-              if (currentUser.useBiometrics !== undefined) delete currentUser.useBiometrics;
               setUser(currentUser);
             }
 
-            const database = await initDB();
-            setDb(database);
+            try {
+                const database = await initDB();
+                setDb(database);
+                
+                const transaction = database.transaction('entries', 'readonly');
+                const request = transaction.objectStore('entries').getAll();
+                
+                request.onsuccess = () => {
+                  let loadedEntries = request.result || [];
+                  const lastActiveStr = safeStorageGet('legacy_last_active');
+                  const lastActive = lastActiveStr ? new Date(lastActiveStr) : new Date();
+                  const daysInactive = (new Date() - lastActive) / (1000 * 60 * 60 * 24);
+                  
+                  safeStorageSet('legacy_last_active', new Date().toISOString());
 
-            const transaction = database.transaction('entries', 'readonly');
-            const request = transaction.objectStore('entries').getAll();
-            
-            request.onsuccess = () => {
-              let loadedEntries = request.result || [];
-              const lastActiveStr = localStorage.getItem('legacy_last_active');
-              const lastActive = lastActiveStr ? new Date(lastActiveStr) : new Date();
-              const daysInactive = (new Date() - lastActive) / (1000 * 60 * 60 * 24);
-              
-              localStorage.setItem('legacy_last_active', new Date().toISOString());
+                  setEntries(loadedEntries.sort((a,b) => new Date(b.date) - new Date(a.date)));
+                  setIsLoaded(true);
 
-              setEntries(loadedEntries.sort((a,b) => new Date(b.date) - new Date(a.date)));
-              setIsLoaded(true);
-
-              if (!currentUser.name) {
-                setView('onboarding');
-              } else if (currentUser.testamentId && daysInactive > 365) {
-                setView('testament'); 
-              } else {
-                setView('dashboard');
-                checkDailyAffirmation(loadedEntries);
-              }
-            };
+                  if (!currentUser.name) {
+                    setView('onboarding');
+                  } else if (currentUser.testamentId && daysInactive > 365) {
+                    setView('testament'); 
+                  } else {
+                    setView('dashboard');
+                    checkDailyAffirmation(loadedEntries);
+                  }
+                };
+            } catch (dbError) {
+                console.error("IndexedDB blocked (Email Sandbox/Private Mode)", dbError);
+                setCustomAlert("Achtung: Dein Browser blockiert die Datenbank (E-Mail-Modus?). Du kannst die App ansehen, aber Speichern ist eingeschränkt. Nutze Chrome für den vollen Umfang!");
+                setIsLoaded(true);
+                if (!currentUser.name) setView('onboarding');
+                else setView('dashboard');
+            }
           } catch (e) {
-            console.error("Storage Error", e);
+            console.error("Critical Boot Error", e);
             setIsLoaded(true);
             setView('onboarding');
           }
@@ -310,38 +320,69 @@
 
       const checkDailyAffirmation = (allEntries) => {
         const today = new Date().toDateString();
-        if (localStorage.getItem('legacy_last_affirmation') !== today && allEntries.length > 0) {
+        if (safeStorageGet('legacy_last_affirmation') !== today && allEntries.length > 0) {
           const publicEntries = allEntries.filter(e => !e.locked && !e.archived);
           if (publicEntries.length > 0) {
             setAffirmation(publicEntries[Math.floor(Math.random() * publicEntries.length)]);
-            localStorage.setItem('legacy_last_affirmation', today);
+            safeStorageSet('legacy_last_affirmation', today);
           }
         }
       };
 
-      // --- THEME & SAMSUNG NAV BAR FIX ---
       useEffect(() => {
         if (isLoaded) {
-          try {
-             localStorage.setItem('legacy_user', JSON.stringify(user));
-          } catch (e) {
-             console.error(e);
-             setCustomAlert("Achtung: Profil konnte nicht gespeichert werden. Das Bild ist zu groß.");
-          }
+           safeStorageSet('legacy_user', JSON.stringify(user));
         }
         
-        // Dark Mode Steuerung (Färbt auch Android Nav Bar & Status Bar)
         const metaThemeColor = document.querySelector("meta[name=theme-color]");
         if (user.isDark) {
           document.documentElement.classList.add('dark');
-          document.body.style.backgroundColor = '#020617'; // slate-950
+          document.body.style.backgroundColor = '#020617'; 
           if (metaThemeColor) metaThemeColor.setAttribute("content", "#020617");
         } else {
           document.documentElement.classList.remove('dark');
-          document.body.style.backgroundColor = '#f8fafc'; // slate-50
+          document.body.style.backgroundColor = '#f8fafc'; 
           if (metaThemeColor) metaThemeColor.setAttribute("content", "#f8fafc");
         }
       }, [user, isLoaded]);
+
+      const saveToDB = async (entry) => {
+        try {
+            if (db) {
+              const tx = db.transaction('entries', 'readwrite');
+              tx.objectStore('entries').put(entry);
+              tx.oncomplete = () => {
+                setEntries(prev => {
+                  const exists = prev.find(e => e.id === entry.id);
+                  if (exists) return prev.map(e => e.id === entry.id ? entry : e);
+                  return [entry, ...prev].sort((a,b) => new Date(b.date) - new Date(a.date));
+                });
+              };
+            } else {
+              // Not-Speicher für kaputte Browser
+              setEntries(prev => {
+                  const exists = prev.find(e => e.id === entry.id);
+                  if (exists) return prev.map(e => e.id === entry.id ? entry : e);
+                  return [entry, ...prev].sort((a,b) => new Date(b.date) - new Date(a.date));
+              });
+            }
+        } catch (e) {
+            console.error("Save Error", e);
+        }
+      };
+
+      const saveEntry = () => {
+        const newEntry = {
+          id: editingId || generateId(),
+          title: title || 'Ohne Titel', text, color: selectedColor,
+          image: selectedImage, video: selectedVideo, audio: audioUrl,
+          locked: isLocked, archived: false, manifested: isManifested,
+          unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
+          date: editingId ? (entries.find(e => e.id === editingId)?.date || new Date().toISOString()) : new Date().toISOString(),
+        };
+        saveToDB(newEntry);
+        closeEditor();
+      };
 
       useEffect(() => {
         if (!showEditor || (!title && !text) || view === 'burn') return;
@@ -447,19 +488,6 @@
         if (canvasRef.current) canvasRef.current.isPainting = false;
       };
 
-      const saveToDB = async (entry) => {
-        if (!db) return;
-        const tx = db.transaction('entries', 'readwrite');
-        tx.objectStore('entries').put(entry);
-        tx.oncomplete = () => {
-          setEntries(prev => {
-            const exists = prev.find(e => e.id === entry.id);
-            if (exists) return prev.map(e => e.id === entry.id ? entry : e);
-            return [entry, ...prev].sort((a,b) => new Date(b.date) - new Date(a.date));
-          });
-        };
-      };
-
       const deleteFromDB = async (id) => {
         if (!db) return;
         const tx = db.transaction('entries', 'readwrite');
@@ -547,22 +575,24 @@
             const data = JSON.parse(e.target.result);
             if (data.entries) {
               const isForeign = data.user && data.user.name !== user.name;
-              const tx = db.transaction('entries', 'readwrite');
-              const store = tx.objectStore('entries');
-              
-              let mergedCount = 0;
-              data.entries.forEach(entry => {
-                 if (!entries.find(ex => ex.id === entry.id)) {
-                    if (isForeign) entry.inheritedFrom = data.user.name;
-                    store.put(entry);
-                    mergedCount++;
-                 }
-              });
-              
-              const req = store.getAll();
-              req.onsuccess = () => {
-                 setEntries(req.result.sort((a,b) => new Date(b.date) - new Date(a.date)));
-                 setCustomAlert(`Fusion erfolgreich! ${mergedCount} neue Visionen importiert.`);
+              if (db) {
+                  const tx = db.transaction('entries', 'readwrite');
+                  const store = tx.objectStore('entries');
+                  
+                  let mergedCount = 0;
+                  data.entries.forEach(entry => {
+                     if (!entries.find(ex => ex.id === entry.id)) {
+                        if (isForeign) entry.inheritedFrom = data.user.name;
+                        store.put(entry);
+                        mergedCount++;
+                     }
+                  });
+                  
+                  const req = store.getAll();
+                  req.onsuccess = () => {
+                     setEntries(req.result.sort((a,b) => new Date(b.date) - new Date(a.date)));
+                     setCustomAlert(`Fusion erfolgreich! ${mergedCount} neue Visionen importiert.`);
+                  }
               }
             }
           } catch (err) { setCustomAlert("Ungültige Legacy-Datei."); }
@@ -585,7 +615,7 @@
           mediaRecorderRef.current.start();
           setIsRecording(true);
         } catch (err) { 
-          setCustomAlert("Mikrofon-Zugriff verweigert. Wenn du die Datei lokal auf dem Handy ausführst, blockiert Android dies zu deiner Sicherheit. Nutze einen Web-Hoster, um es freizuschalten."); 
+          setCustomAlert("Mikrofon-Zugriff verweigert. Nutze den Upload-Button (Kassette), wenn du keine HTTPS-Verbindung hast."); 
         }
       };
       
@@ -1320,11 +1350,11 @@
 
           {/* EDITOR OVERLAY */}
           {showEditor && (
-            <div className={`fixed inset-0 z-[90] flex items-end sm:items-center justify-center sm:p-6 transition-all bg-slate-900/60 backdrop-blur-sm`}>
+            <div className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 transition-all bg-slate-900/60 backdrop-blur-sm`}>
               <div className="absolute inset-0 bg-transparent" onClick={closeEditor} />
               
               <div 
-                className={`relative w-full max-w-2xl mx-auto flex flex-col shadow-2xl transition-all ${zenMode ? 'h-[100dvh] sm:rounded-none bg-transparent' : 'h-[92dvh] sm:h-[90dvh] max-h-[900px] rounded-t-[2rem] sm:rounded-[2rem]'} ${user.isDark && selectedColor === '#ffffff' ? 'border-t border-white/10' : ''}`}
+                className={`relative w-full max-w-2xl mx-auto flex flex-col shadow-2xl transition-all ${zenMode ? 'h-full sm:rounded-none bg-transparent' : 'h-[92%] sm:h-[90%] max-h-[900px] rounded-t-[2rem] sm:rounded-[2rem]'} ${user.isDark && selectedColor === '#ffffff' ? 'border-t border-white/10' : ''}`}
                 style={{ backgroundColor: zenMode ? 'transparent' : (user.isDark && selectedColor === '#ffffff' ? '#0f172a' : selectedColor) }}
               >
                 <div className={`flex justify-between items-center px-5 py-4 border-b ${zenMode ? 'border-transparent' : 'border-black/5 dark:border-white/5 bg-white/10'}`}>
@@ -1383,9 +1413,9 @@
                   {!zenMode && (
                     <div className="flex gap-1 py-1.5 border-y border-current border-opacity-10 opacity-70 shrink-0">
                       <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); }} className="p-1.5 rounded" title="Fett"><Icon name="bold" size={16}/></button>
-                      <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); }} className="p-1.5 rounded" title="Kursiv"><Icon name="italic" size={16}/></button>
-                      <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); }} className="p-1.5 rounded"><Icon name="list-todo" size={16}/></button>
-                      <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); }} className="p-1.5 rounded"><Icon name="quote" size={16}/></button>
+                        <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); }} className="p-1.5 rounded" title="Kursiv"><Icon name="italic" size={16}/></button>
+                        <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); }} className="p-1.5 rounded"><Icon name="list-todo" size={16}/></button>
+                        <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); }} className="p-1.5 rounded"><Icon name="quote" size={16}/></button>
                     </div>
                   )}
 
