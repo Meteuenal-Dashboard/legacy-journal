@@ -11,9 +11,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#ffffff">
   
-  <!-- DAS SCHUTZSCHILD: Verhindert das erzwungene Dark-Mode-Überschreiben -->
-  <meta name="color-scheme" content="light dark">
+  <!-- DAS SCHUTZSCHILD -->
+  <meta name="color-scheme" content="light dark" id="meta-color-scheme">
   
+  <!-- Verweist auf die echte manifest.json auf deinem GitHub für eine echte App-Installation -->
   <link rel="manifest" href="manifest.json">
   
   <!-- Tailwind CSS -->
@@ -32,24 +33,18 @@
   <style>
     /* =========================================================================
        DER ULTIMATIVE ANTI-SAMSUNG-DARK-MODE HACK 
-       (Verwandelt das Weiß in ein Bild, das Android nicht überschreiben darf)
+       (Verwandelt das Weiß in ein 1x1 Pixel großes echtes PNG-Bild)
        ========================================================================= */
     :root { color-scheme: light dark; }
     
     html:not(.dark) body, 
     html:not(.dark) #root,
-    html:not(.dark) .light-protect {
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Crect width='100%25' height='100%25' fill='%23ffffff'/%3E%3C/svg%3E") !important;
-      background-size: cover !important;
-      background-attachment: fixed !important;
+    .samsung-white-lock {
+      /* Base64 eines echten, puren weißen PNG-Bildes. Handy-Browser fassen Bilder nicht an! */
+      background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVQI12P4//8/AAX+Av7czFnnAAAAAElFTkSuQmCC') !important;
+      background-repeat: repeat !important;
       background-color: transparent !important;
       color: #0f172a !important; 
-      -webkit-text-fill-color: #0f172a !important;
-    }
-
-    html:not(.dark) .modal-bg-white {
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Crect width='100%25' height='100%25' fill='%23ffffff'/%3E%3C/svg%3E") !important;
-      background-color: transparent !important;
     }
 
     html:not(.dark) .light-text-protect {
@@ -330,7 +325,7 @@
                 };
             } catch (dbError) {
                 console.error("IndexedDB blocked", dbError);
-                setCustomAlert("Achtung: Dein Browser blockiert die Datenbank. Du kannst die App ansehen, aber Speichern ist eingeschränkt. Nutze Chrome für den vollen Umfang!");
+                setCustomAlert("Achtung: Dein Browser blockiert die Datenbank. Nutze Chrome für den vollen Umfang!");
                 setIsLoaded(true);
                 if (!currentUser.name) setView('onboarding');
                 else setView('dashboard');
@@ -355,18 +350,29 @@
         }
       };
 
+      // --- DER MEGA THEME FIX (Blockiert erzwungenen Dark Mode von Samsung komplett) ---
       useEffect(() => {
         if (isLoaded) {
            safeStorageSet('legacy_user', JSON.stringify(user));
         }
         
         const metaThemeColor = document.querySelector("meta[name=theme-color]");
+        const metaColorScheme = document.getElementById("meta-color-scheme");
+        
         if (user.isDark) {
           document.documentElement.classList.add('dark');
+          document.body.style.backgroundImage = 'none';
+          document.body.style.backgroundColor = '#020617'; 
           if (metaThemeColor) metaThemeColor.setAttribute("content", "#020617");
+          if (metaColorScheme) metaColorScheme.setAttribute("content", "dark");
         } else {
           document.documentElement.classList.remove('dark');
+          // Samsung PNG Hack per JavaScript durchsetzen
+          document.body.style.backgroundImage = "url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVQI12P4//8/AAX+Av7czFnnAAAAAElFTkSuQmCC')";
+          document.body.style.backgroundRepeat = 'repeat';
+          document.body.style.backgroundColor = 'transparent'; 
           if (metaThemeColor) metaThemeColor.setAttribute("content", "#ffffff");
+          if (metaColorScheme) metaColorScheme.setAttribute("content", "only light");
         }
       }, [user, isLoaded]);
 
@@ -805,7 +811,7 @@
         return wisdoms;
       };
 
-      if (view === 'loading') return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>;
+      if (view === 'loading') return <div className="min-h-screen flex items-center justify-center samsung-white-lock"><div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>;
 
       if (view === 'testament') {
         const testamentEntry = entries.find(e => e.id === user.testamentId);
@@ -981,18 +987,18 @@
 
       if (view === 'onboarding') {
         return (
-          <div className={`min-h-screen flex items-center justify-center p-6 transition-colors duration-700 light-protect ${user.isDark ? 'bg-slate-950 text-white' : ''}`}>
+          <div className={`min-h-screen flex items-center justify-center p-6 transition-colors duration-700 ${user.isDark ? 'bg-slate-950 text-white' : 'samsung-white-lock'}`}>
             <div className="max-w-md w-full space-y-8 animate-slide-up">
               <div className="text-center space-y-2">
                 <Icon name="book-open" size={48} className="mx-auto text-amber-500 mb-6" />
                 <h1 className="text-4xl font-extrabold bg-gradient-to-r from-amber-500 to-rose-600 bg-clip-text text-transparent">Dein Vermächtnis</h1>
                 <p className="text-lg opacity-60 font-light light-text-protect">Ein Ort für deine tiefsten Visionen. Für die Ewigkeit.</p>
               </div>
-              <div className={`p-8 rounded-3xl shadow-2xl backdrop-blur-xl border ${user.isDark ? 'bg-white/5 border-white/10' : 'bg-white/80 border-slate-200 modal-bg-white'}`}>
+              <div className={`p-8 rounded-3xl shadow-2xl backdrop-blur-xl border ${user.isDark ? 'bg-white/5 border-white/10' : 'modal-bg-white border-slate-200'}`}>
                 <div className="space-y-6">
                   <div>
                     <label className="block text-sm font-medium opacity-70 mb-2 light-text-protect">Wie lautet dein Name?</label>
-                    <input type="text" value={user.name} onChange={(e) => setUser({...user, name: e.target.value})} className={`w-full p-4 rounded-xl border-none focus:ring-2 focus:ring-amber-500 transition-all text-lg ${user.isDark ? 'bg-black/20' : 'bg-slate-100 light-text-protect'}`} placeholder="Dein Name..." />
+                    <input type="text" value={user.name} onChange={(e) => setUser({...user, name: e.target.value})} className={`w-full p-4 rounded-xl border-none focus:ring-2 focus:ring-amber-500 transition-all text-lg ${user.isDark ? 'bg-black/20' : 'samsung-white-lock border border-slate-200 light-text-protect shadow-inner'}`} placeholder="Dein Name..." />
                   </div>
                   <button onClick={() => user.name.trim() ? setView('dashboard') : setCustomAlert("Bitte gib deinen Namen ein.")} className="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 text-white font-bold text-lg hover:opacity-90 transition-opacity shadow-lg">
                     Journal beginnen
@@ -1006,12 +1012,12 @@
 
       return (
         <ErrorBoundary>
-        <div className={`min-h-screen transition-colors duration-700 font-sans pb-[env(safe-area-inset-bottom,4rem)] mb-16 sm:mb-20 light-protect ${user.isDark ? 'text-slate-100 selection:bg-amber-900 selection:text-amber-100 bg-slate-950' : 'text-slate-800 selection:bg-rose-200 selection:text-rose-900'}`}>
+        <div className={`min-h-screen transition-colors duration-700 font-sans pb-[env(safe-area-inset-bottom,4rem)] mb-16 sm:mb-20 ${user.isDark ? 'text-slate-100 selection:bg-amber-900 selection:text-amber-100 bg-slate-950' : 'samsung-white-lock selection:bg-rose-200 selection:text-rose-900'}`}>
           
           {/* BEENDEN POPUP (ZURÜCK-TASTE) */}
           {exitAppPrompt && (
             <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in" onClick={() => setExitAppPrompt(false)}>
-              <div className={`w-full max-w-sm rounded-[2rem] p-6 text-center shadow-2xl animate-scale-in border ${user.isDark ? 'bg-slate-900 border-white/10' : 'border-slate-200 modal-bg-white light-text-protect'}`} onClick={e => e.stopPropagation()}>
+              <div className={`w-full max-w-sm rounded-[2rem] p-6 text-center shadow-2xl animate-scale-in border ${user.isDark ? 'bg-slate-900 border-white/10' : 'modal-bg-white border-slate-200 light-text-protect'}`} onClick={e => e.stopPropagation()}>
                 <Icon name="log-out" size={40} className="mx-auto text-rose-500 mb-4" />
                 <p className="text-lg font-bold leading-tight mb-6">Möchtest du das Vermächtnis wirklich verlassen?</p>
                 <div className="flex gap-3">
@@ -1025,7 +1031,7 @@
           {/* DAS EIGENE IN-APP NACHRICHTEN-SYSTEM (CUSTOM ALERTS) */}
           {customAlert && (
             <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in" onClick={() => setCustomAlert(null)}>
-              <div className={`w-full max-w-sm rounded-[2rem] p-6 text-center shadow-2xl animate-scale-in border ${user.isDark ? 'bg-slate-900 border-white/10' : 'border-slate-200 modal-bg-white light-text-protect'}`}>
+              <div className={`w-full max-w-sm rounded-[2rem] p-6 text-center shadow-2xl animate-scale-in border ${user.isDark ? 'bg-slate-900 border-white/10' : 'modal-bg-white border-slate-200 light-text-protect'}`}>
                 <Icon name="info" size={40} className="mx-auto text-indigo-500 mb-4" />
                 <p className="text-lg font-bold leading-tight mb-6">{customAlert}</p>
                 <button className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold shadow-md text-sm" onClick={() => setCustomAlert(null)}>Verstanden</button>
@@ -1037,12 +1043,12 @@
           {unlockTarget && (
             <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
               <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => { setUnlockTarget(null); }} />
-              <div className={`relative w-full max-w-sm rounded-[2rem] p-6 text-center shadow-2xl animate-scale-in border ${user.isDark ? 'bg-slate-900 border-white/10' : 'border-slate-200 modal-bg-white light-text-protect'}`}>
+              <div className={`relative w-full max-w-sm rounded-[2rem] p-6 text-center shadow-2xl animate-scale-in border ${user.isDark ? 'bg-slate-900 border-white/10' : 'modal-bg-white border-slate-200 light-text-protect'}`}>
                 <div className="flex flex-col items-center w-full animate-fade-in">
                   <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-inner ${user.isDark ? 'bg-slate-800' : 'bg-slate-100'}`}><Icon name="lock" size={28} className="text-rose-500" /></div>
                   <h3 className="text-xl font-bold mb-1">Tresor Entsperren</h3>
                   <p className="text-sm opacity-60 mb-6 truncate w-full">"{unlockTarget.title}"</p>
-                  <input type="password" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitPin()} className={`w-full p-4 text-center text-2xl tracking-[1em] rounded-xl border-2 outline-none ${pinError ? 'border-rose-500 bg-rose-50 animate-shake' : user.isDark ? 'bg-black/50 border-transparent focus:border-indigo-500' : 'modal-bg-white border-slate-300 focus:border-indigo-500 shadow-inner'}`} placeholder="••••" />
+                  <input type="password" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitPin()} className={`w-full p-4 text-center text-2xl tracking-[1em] rounded-xl border-2 outline-none ${pinError ? 'border-rose-500 bg-rose-50 animate-shake' : user.isDark ? 'bg-black/50 border-transparent focus:border-indigo-500' : 'modal-bg-white border-slate-300 focus:border-indigo-500 shadow-inner light-text-protect'}`} placeholder="••••" />
                   <div className="flex gap-3 w-full mt-6">
                     <button onClick={() => setUnlockTarget(null)} className="flex-1 py-3 font-medium opacity-60 text-sm">Abbrechen</button>
                     <button onClick={submitPin} className="flex-1 py-3 rounded-xl font-bold text-white bg-rose-600 shadow-md text-sm">Öffnen</button>
@@ -1054,7 +1060,7 @@
 
           {(affirmation || echoEntry) && (
             <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in" onClick={() => {setAffirmation(null); setEchoEntry(null);}}>
-              <div className={`w-full max-w-sm rounded-[2rem] p-6 text-center shadow-2xl animate-slide-up border ${user.isDark ? 'bg-slate-900 border-white/10' : 'border-slate-200 modal-bg-white light-text-protect'}`}>
+              <div className={`w-full max-w-sm rounded-[2rem] p-6 text-center shadow-2xl animate-slide-up border ${user.isDark ? 'bg-slate-900 border-white/10' : 'modal-bg-white border-slate-200 light-text-protect'}`}>
                 {echoEntry ? (
                    <>
                      <Icon name="activity" size={32} className="mx-auto text-indigo-500 mb-3 animate-pulse" />
@@ -1082,7 +1088,7 @@
             </div>
           )}
 
-          <header className={`sticky top-0 z-30 backdrop-blur-xl border-b px-4 py-3 sm:px-6 sm:py-4 transition-all duration-500 flex justify-between items-center ${user.isDark ? 'bg-slate-950/80 border-white/10' : 'bg-white/90 border-slate-200'}`}>
+          <header className={`sticky top-0 z-30 backdrop-blur-xl border-b px-4 py-3 sm:px-6 sm:py-4 transition-all duration-500 flex justify-between items-center ${user.isDark ? 'bg-slate-950/80 border-white/10' : 'modal-bg-white border-slate-200'}`}>
             <div className="flex items-center gap-3 flex-1 overflow-hidden">
               {view === 'settings' ? <h1 className="text-xl font-extrabold tracking-tight light-text-protect">Einstellungen</h1> :
                view === 'menu' ? <h1 className="text-xl font-extrabold tracking-tight light-text-protect">Entdecken</h1> :
@@ -1111,14 +1117,14 @@
                         value={searchQuery} 
                         onChange={e=>setSearchQuery(e.target.value)} 
                         placeholder="Suchen..." 
-                        className={`transition-all duration-300 border-none focus:ring-0 text-sm rounded-full ${user.isDark?'bg-white/10':'bg-black/5 light-text-protect'} ${isSearchOpen ? 'w-32 px-4 py-2 mr-1 opacity-100' : 'w-0 p-0 opacity-0 pointer-events-none'}`} 
+                        className={`transition-all duration-300 border-none focus:ring-0 text-sm rounded-full ${user.isDark?'bg-white/10':'modal-bg-white border border-slate-200 light-text-protect'} ${isSearchOpen ? 'w-32 px-4 py-2 mr-1 opacity-100' : 'w-0 p-0 opacity-0 pointer-events-none'}`} 
                       />
-                      <button onClick={() => setIsSearchOpen(!isSearchOpen)} className={`p-2 rounded-full transition-colors ${user.isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-slate-100 hover:bg-slate-200 light-text-protect'} ${isSearchOpen ? 'bg-amber-100 text-amber-600' : ''}`}><Icon name="search" size={18}/></button>
+                      <button onClick={() => setIsSearchOpen(!isSearchOpen)} className={`p-2.5 rounded-full transition-colors ${user.isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-slate-100 hover:bg-slate-200 light-text-protect'} ${isSearchOpen ? 'bg-amber-100 text-amber-600' : ''}`}><Icon name="search" size={18}/></button>
                    </div>
-                   <button onClick={() => setView('menu')} className={`p-2 rounded-full transition-colors ${user.isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-slate-100 hover:bg-slate-200 light-text-protect'}`}><Icon name="menu" size={18}/></button>
+                   <button onClick={() => setView('menu')} className={`p-2.5 rounded-full transition-colors ${user.isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-slate-100 hover:bg-slate-200 light-text-protect'}`}><Icon name="menu" size={18}/></button>
                  </>
               )}
-              {(view === 'settings' || view === 'menu' || view === 'archive') && <button onClick={() => setView('dashboard')} className={`p-2 rounded-full bg-slate-100 dark:bg-white/10 hover:bg-slate-200`}><Icon name="x" size={18} /></button>}
+              {(view === 'settings' || view === 'menu' || view === 'archive') && <button onClick={() => setView('dashboard')} className={`p-2.5 rounded-full bg-slate-100 dark:bg-white/10 hover:bg-slate-200 light-text-protect`}><Icon name="x" size={18} /></button>}
             </div>
           </header>
 
@@ -1134,28 +1140,28 @@
             
             {view === 'menu' && (
               <div className="grid grid-cols-2 gap-3 sm:gap-4 animate-slide-up">
-                 <button onClick={() => setView('wisdom')} className={`p-5 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border transition-all active:scale-95 shadow-sm ${user.isDark ? 'bg-amber-950/20 border-amber-900/50' : 'bg-amber-50 border-amber-100'}`}>
+                 <button onClick={() => setView('wisdom')} className={`p-5 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border transition-all active:scale-95 shadow-sm ${user.isDark ? 'bg-amber-950/20 border-amber-900/50' : 'modal-bg-white border-amber-200'}`}>
                     <Icon name="book-open" size={32} className="text-amber-500" />
                     <span className="font-bold text-xs light-text-protect">Buch der Weisheit</span>
                  </button>
-                 <button onClick={() => setView('symphony')} className={`p-5 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border transition-all active:scale-95 shadow-sm ${user.isDark ? 'bg-indigo-950/20 border-indigo-900/50' : 'bg-indigo-50 border-indigo-100'}`}>
+                 <button onClick={() => setView('symphony')} className={`p-5 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border transition-all active:scale-95 shadow-sm ${user.isDark ? 'bg-indigo-950/20 border-indigo-900/50' : 'modal-bg-white border-indigo-200'}`}>
                     <Icon name="headphones" size={32} className="text-indigo-500" />
                     <span className="font-bold text-xs light-text-protect">Symphonie</span>
                  </button>
-                 <button onClick={() => setView('burn')} className={`p-5 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border transition-all active:scale-95 shadow-sm ${user.isDark ? 'bg-rose-950/20 border-rose-900/50' : 'bg-rose-50 border-rose-100'}`}>
+                 <button onClick={() => setView('burn')} className={`p-5 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border transition-all active:scale-95 shadow-sm ${user.isDark ? 'bg-rose-950/20 border-rose-900/50' : 'modal-bg-white border-rose-200'}`}>
                     <Icon name="flame" size={32} className="text-rose-500" />
                     <span className="font-bold text-xs light-text-protect">Katharsis (Burn)</span>
                  </button>
                  <button onClick={() => setView('galaxy')} className={`p-5 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border transition-all active:scale-95 shadow-sm ${user.isDark ? 'bg-slate-900 border-white/10' : 'modal-bg-white border-slate-200'}`}>
-                    <Icon name="orbit" size={32} className={user.isDark ? 'text-white' : 'text-slate-800'} />
+                    <Icon name="orbit" size={32} className={user.isDark ? 'text-white' : 'text-slate-800 light-text-protect'} />
                     <span className="font-bold text-xs light-text-protect">Galaxie</span>
                  </button>
                  <button onClick={() => setView('archive')} className={`p-5 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border transition-all active:scale-95 shadow-sm ${user.isDark ? 'bg-slate-900 border-white/10' : 'modal-bg-white border-slate-200'}`}>
-                    <Icon name="archive" size={32} className="opacity-50" />
+                    <Icon name="archive" size={32} className="opacity-50 light-text-protect" />
                     <span className="font-bold text-xs light-text-protect">Archiv</span>
                  </button>
                  <button onClick={() => setView('settings')} className={`p-5 rounded-2xl flex flex-col items-center justify-center gap-3 text-center border transition-all active:scale-95 shadow-sm ${user.isDark ? 'bg-slate-900 border-white/10' : 'modal-bg-white border-slate-200'}`}>
-                    <Icon name="settings" size={32} className="opacity-50" />
+                    <Icon name="settings" size={32} className="opacity-50 light-text-protect" />
                     <span className="font-bold text-xs light-text-protect">Einstellungen</span>
                  </button>
               </div>
@@ -1168,13 +1174,13 @@
                   <h2 className="text-base font-bold mb-5 flex items-center gap-2 light-text-protect"><Icon name="user" size={18} className="text-amber-500" /> Profil</h2>
                   <div className="flex items-center gap-4 mb-5">
                     <div className="relative shrink-0">
-                      <div className={`w-16 h-16 rounded-full overflow-hidden border-[3px] shadow-sm flex items-center justify-center ${user.isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-white'}`} style={{ borderColor: user.avatar ? user.nameColor : undefined }}>
+                      <div className={`w-16 h-16 rounded-full overflow-hidden border-[3px] shadow-sm flex items-center justify-center ${user.isDark ? 'bg-slate-800 border-slate-700' : 'modal-bg-white border-slate-200'}`} style={{ borderColor: user.avatar ? user.nameColor : undefined }}>
                         {user.avatar ? <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" /> : <Icon name="user" size={28} className="text-slate-400" />}
                       </div>
                       <label className="absolute -bottom-1 -right-1 p-1.5 bg-amber-500 text-white rounded-full cursor-pointer shadow-md"><Icon name="camera" size={12} /><input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" /></label>
                     </div>
                     <div className="flex-1 space-y-2">
-                      <input type="text" value={user.name} onChange={(e) => setUser({...user, name: e.target.value})} className={`w-full p-2.5 rounded-lg border-none focus:ring-2 focus:ring-amber-500 text-sm ${user.isDark ? 'bg-black/30' : 'bg-slate-50 light-text-protect'}`} placeholder="Dein Name" />
+                      <input type="text" value={user.name} onChange={(e) => setUser({...user, name: e.target.value})} className={`w-full p-2.5 rounded-lg border-none focus:ring-2 focus:ring-amber-500 text-sm ${user.isDark ? 'bg-black/30' : 'samsung-white-lock border border-slate-200 light-text-protect shadow-inner'}`} placeholder="Dein Name" />
                       <div className="flex gap-1.5 flex-wrap">
                         {['#f59e0b', '#ef4444', '#3b82f6', '#10b981', '#8b5cf6', '#000000', '#1f2937'].map(color => (
                           <button key={color} onClick={() => setUser({...user, nameColor: color})} className={`w-5 h-5 rounded-full border-2 ${user.nameColor === color ? 'border-slate-400 scale-125' : 'border-transparent'}`} style={{ backgroundColor: color }} />
@@ -1182,14 +1188,14 @@
                       </div>
                     </div>
                   </div>
-                  <textarea value={user.motto} onChange={(e) => setUser({...user, motto: e.target.value})} className={`w-full p-3 rounded-xl border-none focus:ring-2 focus:ring-amber-500 h-16 resize-none text-sm ${user.isDark ? 'bg-black/30' : 'bg-slate-50 light-text-protect'}`} placeholder="Dein Lebensmotto..." />
+                  <textarea value={user.motto} onChange={(e) => setUser({...user, motto: e.target.value})} className={`w-full p-3 rounded-xl border-none focus:ring-2 focus:ring-amber-500 h-16 resize-none text-sm ${user.isDark ? 'bg-black/30' : 'samsung-white-lock border border-slate-200 light-text-protect shadow-inner'}`} placeholder="Dein Lebensmotto..." />
                 </div>
                 
-                <div className={`p-5 rounded-3xl shadow-sm border ${user.isDark ? 'bg-rose-950/20 border-rose-900/50' : 'bg-rose-50 border-rose-200'}`}>
+                <div className={`p-5 rounded-3xl shadow-sm border ${user.isDark ? 'bg-rose-950/20 border-rose-900/50' : 'modal-bg-white border-rose-200'}`}>
                   <h2 className="text-base font-bold mb-3 flex items-center gap-2 text-rose-600"><Icon name="key-round" size={18} /> Sicherheit</h2>
                   {!user.pin ? (
                     <div>
-                      <input type="password" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN (z.B. 4 Zahlen)" className={`w-full p-3 rounded-xl border-none focus:ring-2 focus:ring-rose-500 tracking-[0.5em] text-center text-lg mb-2 ${user.isDark ? 'bg-black/30' : 'modal-bg-white shadow-inner light-text-protect'}`} />
+                      <input type="password" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN (z.B. 4 Zahlen)" className={`w-full p-3 rounded-xl border-none focus:ring-2 focus:ring-rose-500 tracking-[0.5em] text-center text-lg mb-2 ${user.isDark ? 'bg-black/30' : 'modal-bg-white border border-slate-200 shadow-inner light-text-protect'}`} />
                       <button onClick={() => { if(newPinInput.length >= 4) { setUser({...user, pin: newPinInput}); setNewPinInput(''); } else setCustomAlert("Min. 4 Zeichen."); }} className="w-full py-2.5 bg-rose-600 text-white rounded-xl font-bold text-sm">PIN speichern</button>
                     </div>
                   ) : isChangingPin ? (
@@ -1197,7 +1203,7 @@
                       <input type="password" value={oldPinInput} onChange={(e) => setOldPinInput(e.target.value)} placeholder="Alte PIN" className={`w-full p-2.5 rounded-xl text-center tracking-[0.5em] text-sm ${user.isDark ? 'bg-black/30' : 'modal-bg-white border border-slate-200 shadow-inner light-text-protect'}`} />
                       <input type="password" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN" className={`w-full p-2.5 rounded-xl text-center tracking-[0.5em] text-sm ${user.isDark ? 'bg-black/30' : 'modal-bg-white border border-slate-200 shadow-inner light-text-protect'}`} />
                       <div className="flex gap-2">
-                        <button onClick={() => setIsChangingPin(false)} className="flex-1 py-2.5 bg-slate-500/20 rounded-xl text-sm font-medium">Abbrechen</button>
+                        <button onClick={() => setIsChangingPin(false)} className="flex-1 py-2.5 bg-slate-500/20 rounded-xl text-sm font-medium light-text-protect">Abbrechen</button>
                         <button onClick={() => { if (oldPinInput === user.pin) { setUser({...user, pin: newPinInput}); setIsChangingPin(false); setCustomAlert("PIN erfolgreich geändert."); } else setCustomAlert("Die alte PIN ist falsch."); }} className="flex-1 py-2.5 bg-rose-600 text-white rounded-xl text-sm font-bold">Speichern</button>
                       </div>
                     </div>
@@ -1212,27 +1218,27 @@
                 <div className={`p-5 rounded-3xl shadow-sm border ${user.isDark ? 'bg-white/5 border-white/10' : 'modal-bg-white border-slate-200'}`}>
                   <h2 className="text-lg font-bold mb-4 flex items-center gap-2 light-text-protect"><Icon name="sparkles" size={20} className="text-amber-500" /> Lebensstatistik</h2>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className={`p-4 rounded-2xl text-center ${user.isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
+                    <div className={`p-4 rounded-2xl text-center ${user.isDark ? 'bg-black/30' : 'samsung-white-lock border border-slate-100 shadow-sm'}`}>
                       <p className="text-3xl font-black text-indigo-500">{entries.length}</p>
                       <p className="text-xs opacity-60 uppercase tracking-widest mt-1 light-text-protect">Erinnerungen</p>
                     </div>
-                    <div className={`p-4 rounded-2xl text-center ${user.isDark ? 'bg-black/30' : 'bg-amber-50'}`}>
+                    <div className={`p-4 rounded-2xl text-center ${user.isDark ? 'bg-black/30' : 'samsung-white-lock border border-amber-100 shadow-sm'}`}>
                       <p className="text-3xl font-black text-amber-500">{entries.filter(e => e.manifested).length}</p>
                       <p className="text-xs opacity-60 uppercase tracking-widest mt-1 light-text-protect">Manifestiert</p>
                     </div>
                   </div>
                 </div>
 
-                <div className={`p-5 rounded-3xl shadow-sm border space-y-3 ${user.isDark ? 'bg-indigo-950/20 border-indigo-900/50' : 'bg-indigo-50 border-indigo-200'}`}>
+                <div className={`p-5 rounded-3xl shadow-sm border space-y-3 ${user.isDark ? 'bg-indigo-950/20 border-indigo-900/50' : 'modal-bg-white border-indigo-200'}`}>
                   <h2 className="text-base font-bold mb-1 flex items-center gap-2 text-indigo-600"><Icon name="archive" size={18} /> System</h2>
-                  <button onClick={() => setUser({...user, isDark: !user.isDark})} className="w-full flex items-center justify-between p-3 bg-white/50 dark:bg-black/30 rounded-xl text-sm font-medium light-text-protect">
-                    {user.isDark ? 'Dark Mode' : 'Light Mode'} {user.isDark ? <Icon name="moon" size={16}/> : <Icon name="sun" size={16}/>}
+                  <button onClick={() => setUser({...user, isDark: !user.isDark})} className="w-full flex items-center justify-between p-3 bg-white/50 dark:bg-black/30 rounded-xl text-sm font-medium light-text-protect border border-transparent dark:border-transparent hover:border-slate-300">
+                    {user.isDark ? 'Dark Mode' : 'Light Mode'} {user.isDark ? <Icon name="moon" size={16}/> : <Icon name="sun" size={16} className="text-amber-500"/>}
                   </button>
                   
-                  <div className="p-3 bg-white/50 dark:bg-black/30 rounded-xl space-y-2">
+                  <div className="p-3 bg-white/50 dark:bg-black/30 rounded-xl space-y-2 border border-transparent dark:border-transparent">
                      <div className="flex items-center justify-between">
                         <span className="font-medium text-xs light-text-protect">Testament</span>
-                        <Icon name="skull" size={14} className="opacity-50" />
+                        <Icon name="skull" size={14} className="opacity-50 light-text-protect" />
                      </div>
                      <select value={user.testamentId || ''} onChange={e => setUser({...user, testamentId: e.target.value})} className="w-full p-2 rounded-lg text-xs bg-black/5 dark:bg-white/10 border-none outline-none light-text-protect">
                        <option value="">Kein Testament gewählt</option>
@@ -1259,7 +1265,7 @@
                     {['Alle', ...CATEGORIES].map(cat => (
                       <button 
                         key={cat} onClick={() => setSearchQuery(cat === 'Alle' ? '' : cat)}
-                        className={`px-4 py-1.5 rounded-full whitespace-nowrap snap-start text-xs font-bold transition-all ${searchQuery === cat || (searchQuery === '' && cat === 'Alle') ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-md' : 'bg-white/50 border border-slate-200 dark:border-white/10 opacity-70 light-text-protect'}`}
+                        className={`px-4 py-1.5 rounded-full whitespace-nowrap snap-start text-xs font-bold transition-all ${searchQuery === cat || (searchQuery === '' && cat === 'Alle') ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-md' : 'samsung-white-lock border border-slate-200 dark:border-white/10 opacity-70 light-text-protect hover:opacity-100'}`}
                       >
                         {cat}
                       </button>
@@ -1307,7 +1313,7 @@
                     return (
                       <div 
                         key={entry.id} onClick={() => view === 'dashboard' ? openEditor(entry) : null}
-                        className={`break-inside-avoid group relative rounded-[1.5rem] shadow-sm transition-all duration-300 overflow-hidden cursor-pointer border flex flex-col ${user.isDark && entry.color === '#ffffff' ? 'border-white/10' : 'border-slate-200'} ${entry.manifested ? 'ring-2 ring-amber-400/50' : ''}`}
+                        className={`break-inside-avoid group relative rounded-[1.5rem] shadow-sm transition-all duration-300 overflow-hidden cursor-pointer border flex flex-col ${user.isDark && entry.color === '#ffffff' ? 'border-white/10' : 'border-slate-200'} ${entry.manifested ? 'ring-2 ring-amber-400/50' : ''} ${(!user.isDark && entry.color === '#ffffff') ? 'modal-bg-white' : ''}`}
                         style={{ backgroundColor: user.isDark && entry.color === '#ffffff' ? '#1e293b' : entry.color }}
                       >
                         {entry.inheritedFrom && (
@@ -1377,7 +1383,7 @@
               <div className="absolute inset-0 bg-transparent" onClick={closeEditor} />
               
               <div 
-                className={`relative w-full max-w-2xl mx-auto flex flex-col shadow-2xl transition-all ${zenMode ? 'h-[100dvh] sm:rounded-none bg-transparent' : 'h-[92dvh] sm:h-[90dvh] max-h-[900px] rounded-t-[2rem] sm:rounded-[2rem]'} ${user.isDark && selectedColor === '#ffffff' ? 'border-t border-white/10' : ''}`}
+                className={`relative w-full max-w-2xl mx-auto flex flex-col shadow-2xl transition-all ${zenMode ? 'h-[100dvh] sm:rounded-none bg-transparent' : 'h-[92dvh] sm:h-[90dvh] max-h-[900px] rounded-t-[2rem] sm:rounded-[2rem]'} ${user.isDark && selectedColor === '#ffffff' ? 'border-t border-white/10' : ''} ${(!user.isDark && selectedColor === '#ffffff') ? 'modal-bg-white border-t border-slate-200' : ''}`}
                 style={{ backgroundColor: zenMode ? 'transparent' : (user.isDark && selectedColor === '#ffffff' ? '#0f172a' : selectedColor) }}
               >
                 <div className={`flex justify-between items-center px-5 py-4 border-b ${zenMode ? 'border-transparent' : 'border-black/5 dark:border-white/5 bg-white/10'}`}>
@@ -1554,7 +1560,7 @@
             </div>
           )}
 
-          <nav className={`fixed bottom-0 left-0 right-0 backdrop-blur-2xl border-t z-40 transition-colors duration-500 ${user.isDark ? 'bg-slate-950/90 border-white/10' : 'bg-white/95 border-slate-200'} pb-[env(safe-area-inset-bottom,0px)]`}>
+          <nav className={`fixed bottom-0 left-0 right-0 backdrop-blur-2xl border-t z-40 transition-colors duration-500 ${user.isDark ? 'bg-slate-950/90 border-white/10' : 'modal-bg-white border-slate-200'} pb-[env(safe-area-inset-bottom,0px)]`}>
             <div className="flex justify-between items-center h-16 max-w-sm mx-auto px-8">
               <button onClick={() => setView('dashboard')} className={`flex flex-col items-center justify-center h-full space-y-1 transition-colors ${view === 'dashboard' ? 'text-indigo-500' : 'opacity-40'}`}><Icon name="layout-grid" size={24} /><span className="text-[10px] font-bold">Visionen</span></button>
               
