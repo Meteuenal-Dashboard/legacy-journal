@@ -11,28 +11,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#f8fafc">
   
-  <!-- Dynamisches Web App Manifest (Erfüllt Chrome-Richtlinien für echten Vollbildmodus) -->
-  <link rel="manifest" id="manifest-link" href="">
-  <script>
-    const manifest = {
-      name: "Legacy Vision Journal",
-      short_name: "Legacy",
-      display: "standalone",
-      start_url: ".",
-      background_color: "#f8fafc",
-      theme_color: "#f8fafc",
-      icons: [
-        {
-          src: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0iI2Y1OWUwYiIvPjx0ZXh0IHg9IjI1NiIgeT0iMzUwIiBmb250LXNpemU9IjI1NiIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IndoaXRlIj5MPC90ZXh0Pjwvc3ZnPg==",
-          sizes: "512x512",
-          type: "image/svg+xml",
-          purpose: "any maskable"
-        }
-      ]
-    };
-    const blob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
-    document.getElementById('manifest-link').href = URL.createObjectURL(blob);
-  </script>
+  <!-- Verweist auf die echte manifest.json auf deinem GitHub für eine echte App-Installation -->
+  <link rel="manifest" href="manifest.json">
   
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -73,6 +53,27 @@
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
+
+    // Error Boundary als Schutzschild gegen weiße Bildschirme
+    class ErrorBoundary extends React.Component {
+      constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+      static getDerivedStateFromError(error) { return { hasError: true, error }; }
+      componentDidCatch(error, errorInfo) { console.error("App Crash:", error, errorInfo); }
+      render() { 
+        if (this.state.hasError) {
+          return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white p-8 text-center">
+              <div>
+                <h1 className="text-2xl font-bold text-rose-500 mb-4">Ein Moment bitte...</h1>
+                <p className="opacity-70 mb-8">Die App hat sich beim Laden der Inhalte verschluckt. Bitte lade die Seite einmal neu.</p>
+                <button onClick={() => window.location.reload()} className="px-6 py-3 bg-amber-500 text-slate-900 font-bold rounded-xl shadow-lg">App neu starten</button>
+              </div>
+            </div>
+          );
+        }
+        return this.props.children; 
+      }
+    }
 
     const Icon = ({ name, size = 24, className = '', ...props }) => {
       const spanRef = useRef(null);
@@ -657,7 +658,7 @@
       };
 
       const openEditor = (entry = null) => {
-        if (entry) {
+        if (entry && entry.id) {
           setEditingId(entry.id);
           setTitle(entry.title); 
           let initialText = entry.text || '';
@@ -951,6 +952,7 @@
       }
 
       return (
+        <ErrorBoundary>
         <div className={`min-h-screen transition-colors duration-700 font-sans pb-[env(safe-area-inset-bottom,4rem)] mb-16 sm:mb-20 ${user.isDark ? 'text-slate-100 selection:bg-amber-900 selection:text-amber-100' : 'text-slate-800 selection:bg-rose-200 selection:text-rose-900'}`}>
           
           {/* BEENDEN POPUP (ZURÜCK-TASTE) */}
@@ -1318,11 +1320,11 @@
 
           {/* EDITOR OVERLAY */}
           {showEditor && (
-            <div className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 transition-all ${zenMode ? 'bg-slate-950' : 'bg-slate-900/40 backdrop-blur-md'}`}>
-              {!zenMode && <div className="absolute inset-0 transition-colors duration-1000 bg-transparent" onClick={closeEditor} />}
+            <div className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 transition-all bg-slate-900/40 backdrop-blur-md`}>
+              <div className="absolute inset-0 transition-colors duration-1000 bg-transparent" onClick={closeEditor} />
               
               <div 
-                className={`relative w-full max-w-2xl flex flex-col shadow-2xl transition-all ${zenMode ? 'h-full sm:rounded-none bg-transparent' : 'h-[92dvh] sm:h-[90vh] rounded-t-3xl sm:rounded-3xl'} ${user.isDark && selectedColor === '#ffffff' ? 'border-white/10' : 'border-black/5'}`}
+                className={`relative w-full max-w-2xl flex flex-col shadow-2xl transition-all ${zenMode ? 'h-full sm:rounded-none bg-transparent' : 'h-[85%] sm:h-[90%] max-h-[800px] rounded-t-3xl sm:rounded-3xl'} ${user.isDark && selectedColor === '#ffffff' ? 'border-white/10' : 'border-black/5'}`}
                 style={{ backgroundColor: zenMode ? 'transparent' : (user.isDark && selectedColor === '#ffffff' ? '#0f172a' : selectedColor) }}
               >
                 <div className={`flex justify-between items-center px-4 py-3 sm:py-4 border-b ${zenMode ? 'border-transparent' : 'border-black/5 dark:border-white/5 bg-white/10'}`}>
@@ -1514,6 +1516,7 @@
           </nav>
           
         </div>
+        </ErrorBoundary>
       );
     };
 
