@@ -957,7 +957,7 @@
           
           {/* BEENDEN POPUP (ZURÜCK-TASTE) */}
           {exitAppPrompt && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in" onClick={() => setExitAppPrompt(false)}>
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in" onClick={() => setExitAppPrompt(false)}>
               <div className={`w-full max-w-sm rounded-[2rem] p-6 text-center shadow-2xl animate-scale-in border ${user.isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`} onClick={e => e.stopPropagation()}>
                 <Icon name="log-out" size={40} className="mx-auto text-rose-500 mb-4" />
                 <p className="text-lg font-bold leading-tight mb-6">Möchtest du das Vermächtnis wirklich verlassen?</p>
@@ -971,7 +971,7 @@
 
           {/* DAS EIGENE IN-APP NACHRICHTEN-SYSTEM (CUSTOM ALERTS) */}
           {customAlert && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in" onClick={() => setCustomAlert(null)}>
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in" onClick={() => setCustomAlert(null)}>
               <div className={`w-full max-w-sm rounded-[2rem] p-6 text-center shadow-2xl animate-scale-in border ${user.isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}>
                 <Icon name="info" size={40} className="mx-auto text-indigo-500 mb-4" />
                 <p className="text-lg font-bold leading-tight mb-6">{customAlert}</p>
@@ -1320,14 +1320,14 @@
 
           {/* EDITOR OVERLAY */}
           {showEditor && (
-            <div className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 transition-all bg-slate-900/40 backdrop-blur-md`}>
-              <div className="absolute inset-0 transition-colors duration-1000 bg-transparent" onClick={closeEditor} />
+            <div className={`fixed inset-0 z-[90] flex items-end sm:items-center justify-center sm:p-6 transition-all bg-slate-900/60 backdrop-blur-sm`}>
+              <div className="absolute inset-0 bg-transparent" onClick={closeEditor} />
               
               <div 
-                className={`relative w-full max-w-2xl flex flex-col shadow-2xl transition-all ${zenMode ? 'h-full sm:rounded-none bg-transparent' : 'h-[85%] sm:h-[90%] max-h-[800px] rounded-t-3xl sm:rounded-3xl'} ${user.isDark && selectedColor === '#ffffff' ? 'border-white/10' : 'border-black/5'}`}
+                className={`relative w-full max-w-2xl mx-auto flex flex-col shadow-2xl transition-all ${zenMode ? 'h-[100dvh] sm:rounded-none bg-transparent' : 'h-[92dvh] sm:h-[90dvh] max-h-[900px] rounded-t-[2rem] sm:rounded-[2rem]'} ${user.isDark && selectedColor === '#ffffff' ? 'border-t border-white/10' : ''}`}
                 style={{ backgroundColor: zenMode ? 'transparent' : (user.isDark && selectedColor === '#ffffff' ? '#0f172a' : selectedColor) }}
               >
-                <div className={`flex justify-between items-center px-4 py-3 sm:py-4 border-b ${zenMode ? 'border-transparent' : 'border-black/5 dark:border-white/5 bg-white/10'}`}>
+                <div className={`flex justify-between items-center px-5 py-4 border-b ${zenMode ? 'border-transparent' : 'border-black/5 dark:border-white/5 bg-white/10'}`}>
                   <button onClick={closeEditor} className={`p-1.5 rounded-full transition-colors ${zenMode ? 'text-white' : 'text-slate-800 dark:text-white hover:bg-black/5'}`}><Icon name="x" size={22}/></button>
                   
                   {!zenMode && (
@@ -1338,7 +1338,6 @@
                         <Icon name="trash-2" size={18}/>
                       </button>
                       
-                      {/* ARCHIV KNOPF (Immer sichtbar) */}
                       <button onClick={() => {
                           const entryToArchive = {
                             id: editingId || generateId(),
@@ -1364,10 +1363,10 @@
                   <button onClick={saveEntry} className="bg-slate-900 dark:bg-white dark:text-slate-900 text-white p-2.5 rounded-full font-bold shadow-md hover:scale-105 transition-transform flex items-center justify-center"><Icon name="save" size={20}/></button>
                 </div>
 
-                <div className={`flex-1 overflow-y-auto p-4 sm:p-8 space-y-5 custom-scrollbar ${zenMode ? 'w-full text-slate-100' : isDarkColor(selectedColor) || (user.isDark && selectedColor === '#ffffff') ? 'text-white' : 'text-slate-800'}`}>
+                <div className={`flex-1 overflow-y-auto p-5 sm:p-8 flex flex-col gap-4 custom-scrollbar ${zenMode ? 'w-full text-slate-100' : isDarkColor(selectedColor) || (user.isDark && selectedColor === '#ffffff') ? 'text-white' : 'text-slate-800'}`}>
                   
                   {!zenMode && (
-                    <div className="flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest opacity-60">
+                    <div className="flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest opacity-60 shrink-0">
                       <select value={category} onChange={e=>setCategory(e.target.value)} className="bg-transparent border-none outline-none focus:ring-0 p-0 font-bold">
                         {CATEGORIES.map(c => <option key={c} value={c} className="text-black">{c}</option>)}
                       </select>
@@ -1379,38 +1378,37 @@
                     </div>
                   )}
 
-                  <div className="space-y-3">
-                    <input type="text" placeholder="Titel..." value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-transparent text-2xl sm:text-3xl font-serif font-bold placeholder-current opacity-90 border-none focus:ring-0 p-0 focus:outline-none" style={{'::placeholder': { opacity: 0.3 }}} />
-                    
-                    {!zenMode && (
-                      <div className="flex gap-1 py-1.5 border-y border-current border-opacity-10 opacity-70">
-                        <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); }} className="p-1.5 rounded" title="Fett"><Icon name="bold" size={16}/></button>
-                        <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); }} className="p-1.5 rounded" title="Kursiv"><Icon name="italic" size={16}/></button>
-                        <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); }} className="p-1.5 rounded"><Icon name="list-todo" size={16}/></button>
-                        <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); }} className="p-1.5 rounded"><Icon name="quote" size={16}/></button>
-                      </div>
-                    )}
+                  <input type="text" placeholder="Titel..." value={title} onChange={(e) => setTitle(e.target.value)} className="w-full shrink-0 bg-transparent text-3xl font-serif font-bold placeholder-current opacity-90 border-none focus:ring-0 p-0 focus:outline-none" style={{'::placeholder': { opacity: 0.3 }}} />
+                  
+                  {!zenMode && (
+                    <div className="flex gap-1 py-1.5 border-y border-current border-opacity-10 opacity-70 shrink-0">
+                      <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); }} className="p-1.5 rounded" title="Fett"><Icon name="bold" size={16}/></button>
+                      <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); }} className="p-1.5 rounded" title="Kursiv"><Icon name="italic" size={16}/></button>
+                      <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); }} className="p-1.5 rounded"><Icon name="list-todo" size={16}/></button>
+                      <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); }} className="p-1.5 rounded"><Icon name="quote" size={16}/></button>
+                    </div>
+                  )}
 
-                    <div 
-                      ref={editorRef}
-                      contentEditable
-                      data-placeholder="Schreibe hier..."
-                      onInput={(e) => setText(e.currentTarget.innerHTML)}
-                      className="w-full min-h-[35vh] bg-transparent text-base leading-relaxed focus:outline-none font-serif empty:before:content-[attr(data-placeholder)] empty:before:opacity-30 empty:before:cursor-text legacy-editor-content"
-                    />
-                  </div>
+                  <div 
+                    ref={editorRef}
+                    contentEditable={true}
+                    suppressContentEditableWarning={true}
+                    data-placeholder="Schreibe deine Gedanken hier..."
+                    onInput={(e) => setText(e.currentTarget.innerHTML)}
+                    className="w-full flex-1 min-h-[250px] bg-transparent text-lg sm:text-xl leading-relaxed focus:outline-none font-serif empty:before:content-[attr(data-placeholder)] empty:before:opacity-40 empty:before:cursor-text legacy-editor-content pb-10"
+                  />
 
                   {!zenMode && (
-                    <div className="space-y-3">
-                      {selectedImage && <div className="relative rounded-2xl overflow-hidden shadow-sm bg-black/5 dark:bg-black/20 flex justify-center"><img src={selectedImage} alt="Preview" className="w-full h-auto max-h-[50vh] object-contain" /><button onClick={() => setSelectedImage(null)} className="absolute top-2 right-2 bg-black/60 text-white p-2 rounded-full z-10"><Icon name="x" size={14}/></button></div>}
-                      {selectedVideo && <div className="relative rounded-2xl overflow-hidden shadow-sm flex justify-center bg-black/5 dark:bg-black/20"><video src={selectedVideo} controls className="w-full h-auto max-h-[50vh] object-contain bg-black" /><button onClick={() => setSelectedVideo(null)} className="absolute top-2 right-2 bg-black/60 text-white p-2 rounded-full z-10"><Icon name="x" size={14}/></button></div>}
+                    <div className="space-y-3 shrink-0 pb-4">
+                      {selectedImage && <div className="relative rounded-2xl overflow-hidden shadow-sm bg-black/5 dark:bg-black/20 flex justify-center"><img src={selectedImage} alt="Preview" className="w-full h-auto max-h-[40vh] object-contain" /><button onClick={() => setSelectedImage(null)} className="absolute top-2 right-2 bg-black/60 text-white p-2 rounded-full z-10"><Icon name="x" size={14}/></button></div>}
+                      {selectedVideo && <div className="relative rounded-2xl overflow-hidden shadow-sm flex justify-center bg-black/5 dark:bg-black/20"><video src={selectedVideo} controls className="w-full h-auto max-h-[40vh] object-contain bg-black" /><button onClick={() => setSelectedVideo(null)} className="absolute top-2 right-2 bg-black/60 text-white p-2 rounded-full z-10"><Icon name="x" size={14}/></button></div>}
                       {audioUrl && <div className="bg-white/10 p-3 rounded-xl flex items-center justify-between backdrop-blur-md"><audio src={audioUrl} controls className="w-full h-8" /><button onClick={() => setAudioUrl(null)} className="p-1.5 bg-rose-500/20 text-rose-500 rounded-full ml-2"><Icon name="trash-2" size={14}/></button></div>}
                     </div>
                   )}
                 </div>
 
                 {!zenMode && (
-                  <div className="border-t border-black/5 dark:border-white/5 bg-white/40 dark:bg-black/40 backdrop-blur-xl p-3 sm:p-4 flex flex-col gap-3">
+                  <div className="border-t border-black/5 dark:border-white/5 bg-white/40 dark:bg-black/40 backdrop-blur-xl p-3 sm:p-4 flex flex-col gap-3 pb-[env(safe-area-inset-bottom,16px)]">
                     
                     <div className="flex justify-between items-center overflow-x-auto hide-scrollbar gap-2">
                       <div className="flex gap-1.5 shrink-0">
@@ -1459,7 +1457,7 @@
           )}
 
           {isDrawing && (
-            <div className="fixed inset-0 z-[90] flex flex-col bg-slate-900 text-white">
+            <div className="fixed inset-0 z-[120] flex flex-col bg-slate-900 text-white">
               <div className="flex justify-between items-center p-4 border-b border-white/10">
                 <button onClick={() => setIsDrawing(false)} className="p-2 text-white/70 hover:text-white"><Icon name="x" size={24} /></button>
                 <span className="font-bold">Freihand Skizze</span>
