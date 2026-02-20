@@ -9,9 +9,6 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  
-  <!-- Zwingt den Browser, unsere Farb-Vorgaben zu respektieren -->
-  <meta name="color-scheme" content="light dark">
   <meta name="theme-color" id="meta-theme-color" content="#ffffff">
   
   <!-- Verweist auf die echte manifest.json auf deinem GitHub für eine echte App-Installation -->
@@ -38,10 +35,72 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
-    /* Grundlegendes CSS - KEINE BILD-HACKS MEHR, NUR PURES WEISS */
+    /* =========================================================================
+       DER ULTIMATIVE ANTI-SAMSUNG-DARK-MODE HACK 
+       (Verwandelt alle Farben in un-invertierbare SVG-Bilder und erzwingt Textfarben)
+       ========================================================================= */
     :root { color-scheme: light dark; }
     html.dark { color-scheme: dark; }
 
+    /* HINTERGRUND-SCHUTZSCHILD */
+    html:not(.dark) body, 
+    html:not(.dark) #root, 
+    html:not(.dark) .bg-white {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='%23ffffff'/%3E%3C/svg%3E") !important;
+        background-color: transparent !important;
+    }
+    
+    html:not(.dark) .bg-slate-50 {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='%23f8fafc'/%3E%3C/svg%3E") !important;
+        background-color: transparent !important;
+    }
+
+    html:not(.dark) .bg-slate-100 {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='%23f1f5f9'/%3E%3C/svg%3E") !important;
+        background-color: transparent !important;
+    }
+
+    html:not(.dark) .bg-slate-200 {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='%23e2e8f0'/%3E%3C/svg%3E") !important;
+        background-color: transparent !important;
+    }
+
+    html:not(.dark) .bg-white\/90 {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='rgba(255,255,255,0.9)'/%3E%3C/svg%3E") !important;
+        background-color: transparent !important;
+    }
+
+    html:not(.dark) .bg-black\/5 {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='rgba(0,0,0,0.05)'/%3E%3C/svg%3E") !important;
+        background-color: transparent !important;
+    }
+
+    /* TEXTFARBEN-SCHUTZSCHILD (Verhindert, dass Text ungewollt weiß wird) */
+    html:not(.dark) body, html:not(.dark) .text-slate-900 { color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; }
+    html:not(.dark) .text-slate-800 { color: #1e293b !important; -webkit-text-fill-color: #1e293b !important; }
+    html:not(.dark) .text-slate-700 { color: #334155 !important; -webkit-text-fill-color: #334155 !important; }
+    html:not(.dark) .text-slate-600 { color: #475569 !important; -webkit-text-fill-color: #475569 !important; }
+    html:not(.dark) .text-slate-500 { color: #64748b !important; -webkit-text-fill-color: #64748b !important; }
+    html:not(.dark) .text-slate-400 { color: #94a3b8 !important; -webkit-text-fill-color: #94a3b8 !important; }
+    html:not(.dark) .text-black { color: #000000 !important; -webkit-text-fill-color: #000000 !important; }
+    html:not(.dark) .text-\[\#2c2c2a\] { color: #2c2c2a !important; -webkit-text-fill-color: #2c2c2a !important; }
+    
+    html:not(.dark) input, 
+    html:not(.dark) textarea, 
+    html:not(.dark) select, 
+    html:not(.dark) [contenteditable="true"] {
+        color: #0f172a !important;
+        -webkit-text-fill-color: #0f172a !important;
+    }
+
+    html:not(.dark) input::placeholder, 
+    html:not(.dark) textarea::placeholder,
+    html:not(.dark) [contenteditable="true"]:empty:before {
+        color: #94a3b8 !important;
+        -webkit-text-fill-color: #94a3b8 !important;
+    }
+
+    /* Standard Styles */
     body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; transition: background-color 0.5s ease; }
     .pb-safe { padding-bottom: env(safe-area-inset-bottom, 24px); }
     @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } } .animate-fade-in { animation: fade-in 0.4s ease-out forwards; }
@@ -85,7 +144,7 @@
             <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white p-8 text-center">
               <div>
                 <h1 className="text-2xl font-bold text-rose-500 mb-4">Ein Moment bitte...</h1>
-                <p className="opacity-70 mb-8">Die App hat sich beim Laden verschluckt (Möglicherweise bist du im E-Mail-Sandkasten). Bitte öffne den Link direkt in Chrome.</p>
+                <p className="opacity-70 mb-8">Die App hat sich beim Laden verschluckt. Bitte lade die Seite neu.</p>
                 <button onClick={() => window.location.reload()} className="px-6 py-3 bg-amber-500 text-slate-900 font-bold rounded-xl shadow-lg">Neu laden</button>
               </div>
             </div>
@@ -173,7 +232,6 @@
       const [searchQuery, setSearchQuery] = useState('');
       const [isSearchOpen, setIsSearchOpen] = useState(false);
       
-      // CUSTOM ALERT SYSTEM & HINTS
       const [customAlert, setCustomAlert] = useState(null);
       const [exitAppPrompt, setExitAppPrompt] = useState(false);
       const [installHint, setInstallHint] = useState('');
@@ -182,7 +240,6 @@
       const [affirmation, setAffirmation] = useState(null);
       const [echoEntry, setEchoEntry] = useState(null);
       
-      // Security State
       const [unlockTarget, setUnlockTarget] = useState(null);
       const [pinInput, setPinInput] = useState('');
       const [pinError, setPinError] = useState(false);
@@ -190,7 +247,6 @@
       const [oldPinInput, setOldPinInput] = useState('');
       const [newPinInput, setNewPinInput] = useState('');
 
-      // Editor State
       const [editingId, setEditingId] = useState(null);
       const [title, setTitle] = useState('');
       const [text, setText] = useState('');
@@ -247,7 +303,7 @@
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone || document.referrer.includes('android-app://');
         if (!isStandalone) {
           if (window.location.protocol.includes('file') || window.location.protocol.includes('content')) {
-             setInstallHint("Tipp: Du hast die Datei lokal geöffnet (Datenbank blockiert!). Rufe deinen GitHub-Link auf und installiere sie von dort!");
+             setInstallHint("Tipp: Du hast die Datei lokal geöffnet. Rufe deinen GitHub-Link auf und installiere sie von dort!");
           } else {
              setInstallHint("Tipp: Tippe oben auf die drei Punkte (⋮) und wähle 'Zum Startbildschirm hinzufügen', um die App im perfekten Vollbild zu nutzen!");
           }
@@ -342,7 +398,7 @@
         }
       };
 
-      // --- DAS ECHTE THEME CONTROL (PURES WEISS OHNE HACKS) ---
+      // --- DAS KUGELSICHERE THEME CONTROL ---
       useEffect(() => {
         if (isLoaded) {
            safeStorageSet('legacy_user', JSON.stringify(user));
@@ -352,12 +408,9 @@
         
         if (user.isDark) {
           document.documentElement.classList.add('dark');
-          document.body.style.backgroundColor = '#020617'; 
           if (metaThemeColor) metaThemeColor.setAttribute("content", "#020617");
         } else {
           document.documentElement.classList.remove('dark');
-          document.body.style.backgroundImage = 'none';
-          document.body.style.backgroundColor = '#ffffff'; 
           if (metaThemeColor) metaThemeColor.setAttribute("content", "#ffffff");
         }
       }, [user, isLoaded]);
@@ -924,7 +977,7 @@
       if (view === 'wisdom') {
         const wisdoms = getWisdoms();
         return (
-          <div className="min-h-screen bg-white text-slate-900 p-4 sm:p-10 font-serif">
+          <div className="min-h-screen bg-[#fcfbf9] text-[#2c2c2a] p-4 sm:p-10 font-serif">
             <button onClick={() => setView('dashboard')} className="mb-8 p-3 bg-black/5 rounded-full hover:bg-black/10"><Icon name="x" size={24}/></button>
             <div className="max-w-2xl mx-auto">
                <h1 className="text-3xl sm:text-5xl font-bold mb-4 text-center border-b border-black/10 pb-4">Buch der Weisheit</h1>
@@ -1546,7 +1599,7 @@
             </div>
           )}
 
-          <nav className={`fixed bottom-0 left-0 right-0 backdrop-blur-2xl border-t z-40 transition-colors duration-500 ${user.isDark ? 'bg-slate-950/90 border-white/10' : 'bg-white/95 border-slate-200'} pb-[env(safe-area-inset-bottom,0px)]`}>
+          <nav className={`fixed bottom-0 left-0 right-0 backdrop-blur-2xl border-t z-40 transition-colors duration-500 ${user.isDark ? 'bg-slate-950/90 border-white/10' : 'bg-white/90 border-slate-200'} pb-[env(safe-area-inset-bottom,0px)]`}>
             <div className="flex justify-between items-center h-16 max-w-sm mx-auto px-8">
               <button onClick={() => setView('dashboard')} className={`flex flex-col items-center justify-center h-full space-y-1 transition-colors ${view === 'dashboard' ? 'text-indigo-500' : 'opacity-40'}`}><Icon name="layout-grid" size={24} /><span className="text-[10px] font-bold">Visionen</span></button>
               
