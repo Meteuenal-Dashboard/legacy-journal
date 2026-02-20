@@ -9,20 +9,12 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  
-  <!-- Fest verankert im Dark Mode -->
-  <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#020617">
   
   <link rel="manifest" href="manifest.json">
   
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class', 
-    }
-  </script>
   
   <!-- React & ReactDOM -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -35,15 +27,16 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
-    :root { color-scheme: dark; }
+    /* PURE DARK MODE - Kein Zurück, keine Überschreibungen durch Samsung */
+    :root { color-scheme: dark !important; }
     
     body { 
       margin: 0; 
       padding: 0; 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
       -webkit-tap-highlight-color: transparent; 
-      background-color: #020617; 
-      color: #f8fafc;
+      background-color: #020617 !important; 
+      color: #f8fafc !important;
     }
     
     .pb-safe { padding-bottom: env(safe-area-inset-bottom, 24px); }
@@ -52,20 +45,20 @@
     @keyframes scale-in { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } } .animate-scale-in { animation: scale-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
     @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } } .animate-shake { animation: shake 0.4s ease-in-out; }
     
-    .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(150, 150, 150, 0.3); border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
     .hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     
     .legacy-editor-content ul, .legacy-content ul { list-style-type: disc; padding-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.5rem; }
     .legacy-editor-content li, .legacy-content li { margin-bottom: 0.25rem; }
-    .legacy-editor-content b, .legacy-editor-content strong, .legacy-content b, .legacy-content strong { font-weight: bold; }
+    .legacy-editor-content b, .legacy-editor-content strong, .legacy-content b, .legacy-content strong { font-weight: bold; color: white; }
     .legacy-editor-content i, .legacy-editor-content em, .legacy-content i, .legacy-content em { font-style: italic; }
-    .legacy-editor-content blockquote, .legacy-content blockquote { border-left: 4px solid #f59e0b; padding-left: 1rem; margin-left: 0; font-style: italic; opacity: 0.8; background: rgba(245, 158, 11, 0.1); padding: 0.5rem 1rem; border-radius: 0 8px 8px 0; }
-    [contenteditable="true"]:empty:before { content: attr(data-placeholder); opacity: 0.4; pointer-events: none; display: block; }
+    .legacy-editor-content blockquote, .legacy-content blockquote { border-left: 4px solid #f59e0b; padding-left: 1rem; margin-left: 0; font-style: italic; opacity: 0.9; background: rgba(245, 158, 11, 0.1); padding: 0.5rem 1rem; border-radius: 0 8px 8px 0; }
+    [contenteditable="true"]:empty:before { content: attr(data-placeholder); opacity: 0.3; pointer-events: none; display: block; color: #cbd5e1; }
 
     html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
   </style>
 </head>
-<body>
+<body class="bg-slate-950 text-slate-100">
   <div id="root"></div>
 
   <script type="text/babel">
@@ -88,7 +81,7 @@
             <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white p-8 text-center">
               <div>
                 <h1 className="text-2xl font-bold text-rose-500 mb-4">Ein Moment bitte...</h1>
-                <p className="opacity-70 mb-8">Die App hat sich beim Laden verschluckt. Bitte lade die Seite neu.</p>
+                <p className="opacity-70 mb-8">Die App hat sich beim Laden verschluckt. Bitte öffne den Link direkt im Browser neu.</p>
                 <button onClick={() => window.location.reload()} className="px-6 py-3 bg-amber-500 text-slate-900 font-bold rounded-xl shadow-lg">Neu laden</button>
               </div>
             </div>
@@ -121,19 +114,18 @@
     };
 
     const COLORS = [
-      '#ffffff', '#f3f4f6', '#fee2e2', '#ffedd5', '#fef3c7', '#ecfccb', 
-      '#dcfce7', '#d1fae5', '#ccfbf1', '#e0f2fe', '#dbeafe', '#e0e7ff', 
-      '#ede9fe', '#f3e8ff', '#fae8ff', '#fce7f3', '#ffe4e6', '#1f2937', 
-      '#7f1d1d', '#78350f', '#14532d', '#1e3a8a', '#4c1d95', '#831843'
+      '#1f2937', '#111827', '#0f172a', '#374151', '#475569', '#334155',
+      '#7f1d1d', '#991b1b', '#78350f', '#92400e', '#14532d', '#166534',
+      '#1e3a8a', '#1e40af', '#4c1d95', '#5b21b6', '#831843', '#9d174d'
     ];
 
     const CATEGORIES = ['Allgemein', 'Familie', 'Karriere', 'Seele', 'Gesundheit', 'Finanzen'];
     const MOODS = [
-      { id: 'smile', label: 'Strahlend', color: 'text-amber-500', glow: 'rgba(245, 158, 11, 0.4)' },
-      { id: 'heart', label: 'Liebevoll', color: 'text-rose-500', glow: 'rgba(244, 63, 94, 0.4)' },
-      { id: 'coffee', label: 'Fokussiert', color: 'text-amber-700', glow: 'rgba(180, 83, 9, 0.4)' },
-      { id: 'cloud-lightning', label: 'Stürmisch', color: 'text-indigo-500', glow: 'rgba(99, 102, 241, 0.4)' },
-      { id: 'frown', label: 'Nachdenklich', color: 'text-slate-500', glow: 'rgba(100, 116, 139, 0.4)' }
+      { id: 'smile', label: 'Strahlend', color: 'text-amber-500' },
+      { id: 'heart', label: 'Liebevoll', color: 'text-rose-500' },
+      { id: 'coffee', label: 'Fokussiert', color: 'text-amber-700' },
+      { id: 'cloud-lightning', label: 'Stürmisch', color: 'text-indigo-500' },
+      { id: 'frown', label: 'Nachdenklich', color: 'text-slate-400' }
     ];
 
     const DEEP_PROMPTS = [
@@ -174,12 +166,11 @@
       const [isLoaded, setIsLoaded] = useState(false);
       
       const [searchQuery, setSearchQuery] = useState('');
-      const [activeCategory, setActiveCategory] = useState('Alle'); // NEU: Echter Kategorie-Filter
+      const [activeCategory, setActiveCategory] = useState('Alle');
       const [isSearchOpen, setIsSearchOpen] = useState(false);
       
-      // CUSTOM ALERT SYSTEM & HINTS
-      const [customAlert, setCustomAlert] = useState(null);
-      const [exitAppPrompt, setExitAppPrompt] = useState(false);
+      // DAS NEUE GLASSMORPHISM DIALOG SYSTEM
+      const [dialog, setDialog] = useState(null);
       const [installHint, setInstallHint] = useState('');
       
       const [showEditor, setShowEditor] = useState(false);
@@ -193,14 +184,12 @@
       const [isChangingPin, setIsChangingPin] = useState(false);
       const [oldPinInput, setOldPinInput] = useState('');
       const [newPinInput, setNewPinInput] = useState('');
-      const [showBioPrompt, setShowBioPrompt] = useState(false);
-      const [bioAttempts, setBioAttempts] = useState(0);
 
       // Editor State
       const [editingId, setEditingId] = useState(null);
       const [title, setTitle] = useState('');
       const [text, setText] = useState('');
-      const [selectedColor, setSelectedColor] = useState(COLORS[17]);
+      const [selectedColor, setSelectedColor] = useState(COLORS[2]);
       const [selectedImage, setSelectedImage] = useState(null);
       const [selectedVideo, setSelectedVideo] = useState(null);
       const [isLocked, setIsLocked] = useState(false);
@@ -232,12 +221,19 @@
 
       const viewRef = useRef(view);
       const editorRefState = useRef(showEditor);
-      const exitPromptRef = useRef(exitAppPrompt);
       const closeEditorRef = useRef(null);
 
       useEffect(() => { viewRef.current = view; }, [view]);
       useEffect(() => { editorRefState.current = showEditor; }, [showEditor]);
-      useEffect(() => { exitPromptRef.current = exitAppPrompt; }, [exitAppPrompt]);
+
+      // Hilfsfunktion für den neuen Dialog
+      const showDialog = (options) => {
+         setDialog({
+             type: 'alert',
+             confirmLabel: 'Verstanden',
+             ...options
+         });
+      };
 
       const closeEditor = () => {
         setShowEditor(false);
@@ -254,8 +250,6 @@
         if (!isStandalone) {
           if (window.location.protocol.includes('file') || window.location.protocol.includes('content')) {
              setInstallHint("Tipp: Du hast die Datei lokal geöffnet (Datenbank blockiert!). Rufe deinen GitHub-Link auf und installiere sie von dort!");
-          } else {
-             setInstallHint("Tipp: Tippe oben auf die drei Punkte (⋮) und wähle 'Zum Startbildschirm hinzufügen', um die App im perfekten Vollbild zu nutzen!");
           }
         }
       }, []);
@@ -272,11 +266,16 @@
           } else if (viewRef.current !== 'dashboard' && viewRef.current !== 'loading' && viewRef.current !== 'onboarding') {
             setView('dashboard');
           } else if (viewRef.current === 'dashboard') {
-            if (exitPromptRef.current) {
-               setExitAppPrompt(false);
-            } else {
-               setExitAppPrompt(true);
-            }
+            showDialog({
+                type: 'confirm',
+                title: 'Journal verlassen?',
+                message: 'Möchtest du das Vermächtnis wirklich verlassen?',
+                icon: 'log-out',
+                iconColor: 'text-rose-500',
+                confirmLabel: 'Verlassen',
+                confirmColor: 'bg-rose-600',
+                onConfirm: () => { window.location.href = "about:blank"; }
+            });
           }
         };
 
@@ -288,7 +287,7 @@
         const loadApp = async () => {
           try {
             const savedUser = safeStorageGet('legacy_user');
-            let currentUser = { name: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', testamentId: null, useBiometrics: false };
+            let currentUser = { name: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', testamentId: null };
             if (savedUser) {
               const parsed = JSON.parse(savedUser);
               if (parsed.isDark !== undefined) delete parsed.isDark;
@@ -325,7 +324,12 @@
                 };
             } catch (dbError) {
                 console.error("IndexedDB blocked", dbError);
-                setCustomAlert("Achtung: Dein Browser blockiert die Datenbank. Nutze Chrome für den vollen Umfang!");
+                showDialog({
+                   title: 'Datenbank blockiert',
+                   message: 'Dein Browser blockiert den Speicher. Nutze Chrome für den vollen Umfang!',
+                   icon: 'alert-triangle',
+                   iconColor: 'text-amber-500'
+                });
                 setIsLoaded(true);
                 if (!currentUser.name) setView('onboarding');
                 else setView('dashboard');
@@ -380,17 +384,86 @@
         }
       };
 
-      const saveEntry = () => {
-        const newEntry = {
-          id: editingId || generateId(),
-          title: title || 'Ohne Titel', text, color: selectedColor,
-          image: selectedImage, video: selectedVideo, audio: audioUrl,
-          locked: isLocked, archived: false, manifested: isManifested,
-          unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
-          date: editingId ? (entries.find(e => e.id === editingId)?.date || new Date().toISOString()) : new Date().toISOString(),
+      // --- DER NEUE SPEICHER-WÄCHTER ---
+      const checkSaveEntry = () => {
+        const executeSave = () => {
+            const newEntry = {
+              id: editingId || generateId(),
+              title: title || 'Ohne Titel', text, color: selectedColor,
+              image: selectedImage, video: selectedVideo, audio: audioUrl,
+              locked: isLocked, archived: false, manifested: isManifested,
+              unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
+              date: editingId ? (entries.find(e => e.id === editingId)?.date || new Date().toISOString()) : new Date().toISOString(),
+            };
+            saveToDB(newEntry);
+            closeEditor();
         };
-        saveToDB(newEntry);
-        closeEditor();
+
+        const isEmpty = !title.trim() && !text.replace(/<[^>]*>?/gm, '').trim() && !selectedImage && !selectedVideo && !audioUrl;
+        
+        if (isEmpty && unlockDate) {
+            showDialog({
+                type: 'confirm',
+                title: 'Leeres Datums-Siegel?',
+                message: 'Du hast ein Datum im Kalender ausgewählt, aber keinen Text geschrieben. Möchtest du diese leere Kapsel wirklich versiegeln?',
+                icon: 'calendar-clock',
+                iconColor: 'text-indigo-400',
+                confirmLabel: 'Trotzdem speichern',
+                confirmColor: 'bg-indigo-500 hover:bg-indigo-600',
+                cancelLabel: 'Abbrechen',
+                onConfirm: () => { executeSave(); setDialog(null); }
+            });
+        } else if (isEmpty && !editingId) {
+            // Neuer, komplett leerer Eintrag
+            showDialog({
+                type: 'confirm',
+                title: 'Leerer Gedanke',
+                message: 'Dein Eintrag enthält noch keinen Inhalt. Möchtest du ihn trotzdem speichern oder den Vorgang abbrechen?',
+                icon: 'file-question',
+                iconColor: 'text-slate-400',
+                confirmLabel: 'Speichern',
+                confirmColor: 'bg-slate-700 hover:bg-slate-600',
+                cancelLabel: 'Verwerfen',
+                onCancel: () => { closeEditor(); setDialog(null); },
+                onConfirm: () => { executeSave(); setDialog(null); }
+            });
+        } else {
+            executeSave();
+        }
+      };
+
+      // --- DER NEUE LÖSCH-WÄCHTER ---
+      const confirmDelete = (id) => {
+        showDialog({
+            type: 'confirm',
+            title: 'Vision vernichten?',
+            message: 'Bist du sicher, dass du diesen Gedanken für immer aus deinem Vermächtnis löschen möchtest? Dieser Schritt kann nicht rückgängig gemacht werden.',
+            icon: 'trash-2',
+            iconColor: 'text-rose-500',
+            confirmLabel: 'Ja, löschen',
+            confirmColor: 'bg-rose-600 hover:bg-rose-700',
+            onConfirm: () => {
+                deleteFromDB(id);
+                closeEditor();
+                setDialog(null);
+            }
+        });
+      };
+
+      const confirmArchiveDelete = (id) => {
+        showDialog({
+            type: 'confirm',
+            title: 'Endgültig löschen?',
+            message: 'Dieser Eintrag wird unwiderruflich aus dem Archiv gelöscht. Es gibt kein Zurück.',
+            icon: 'alert-triangle',
+            iconColor: 'text-rose-500',
+            confirmLabel: 'Vernichten',
+            confirmColor: 'bg-rose-600 hover:bg-rose-700',
+            onConfirm: () => {
+                deleteFromDB(id);
+                setDialog(null);
+            }
+        });
       };
 
       useEffect(() => {
@@ -600,11 +673,11 @@
                   const req = store.getAll();
                   req.onsuccess = () => {
                      setEntries(req.result.sort((a,b) => new Date(b.date) - new Date(a.date)));
-                     setCustomAlert(`Fusion erfolgreich! ${mergedCount} neue Visionen importiert.`);
+                     showDialog({ title: 'Erfolg', message: `Fusion erfolgreich! ${mergedCount} neue Visionen importiert.`, icon: 'check' });
                   };
               }
             }
-          } catch (err) { setCustomAlert("Ungültige Legacy-Datei."); }
+          } catch (err) { showDialog({ title: 'Fehler', message: 'Ungültige Legacy-Datei.', icon: 'x' }); }
         };
         reader.readAsText(file);
       };
@@ -624,7 +697,7 @@
           mediaRecorderRef.current.start();
           setIsRecording(true);
         } catch (err) { 
-          setCustomAlert("Mikrofon-Zugriff verweigert. Nutze den Upload-Button (Kassette), wenn du keine HTTPS-Verbindung hast."); 
+          showDialog({ title: 'Fehler', message: 'Mikrofon-Zugriff verweigert. Nutze den Upload-Button (Kassette), wenn du keine HTTPS-Verbindung hast.', icon: 'x' }); 
         }
       };
       
@@ -633,7 +706,7 @@
       const toggleDictation = () => {
         if (isDictating) { dictationRef.current?.stop(); setIsDictating(false); return; }
         const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRec) { setCustomAlert("Dein Browser unterstützt leider kein automatisches Diktieren. Tipp: Nutze die Spracheingabe deiner Handy-Tastatur!"); return; }
+        if (!SpeechRec) { showDialog({ title: 'Fehler', message: 'Dein Browser unterstützt leider kein automatisches Diktieren. Tipp: Nutze die Spracheingabe deiner Handy-Tastatur!', icon: 'x' }); return; }
         
         dictationRef.current = new SpeechRec();
         dictationRef.current.lang = 'de-DE';
@@ -655,7 +728,7 @@
           dictationRef.current.start();
           setIsDictating(true);
         } catch(e) {
-          setCustomAlert("Mikrofon-Zugriff verweigert. Diktieren ist ohne HTTPS oder entsprechende Browser-Rechte nicht möglich.");
+          showDialog({ title: 'Fehler', message: 'Mikrofon-Zugriff verweigert. Diktieren ist ohne HTTPS oder entsprechende Browser-Rechte nicht möglich.', icon: 'x' });
         }
       };
 
@@ -664,8 +737,8 @@
           navigator.geolocation.getCurrentPosition((pos) => {
             setUnlockLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
             setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-            setCustomAlert("Der Eintrag wurde magisch an diesen physischen Ort gebunden!");
-          }, () => setCustomAlert("Dein Standort konnte nicht ermittelt werden. Überprüfe dein GPS."));
+            showDialog({ title: 'Erfolg', message: 'Der Eintrag wurde magisch an diesen physischen Ort gebunden!', icon: 'map-pin', iconColor: 'text-emerald-500' });
+          }, () => showDialog({ title: 'Fehler', message: 'Dein Standort konnte nicht ermittelt werden. Überprüfe dein GPS.', icon: 'x' }));
         }
       };
 
@@ -720,12 +793,11 @@
         } else {
           setEditingId(null);
           setTitle(''); setText('');
-          setSelectedColor(COLORS[17]);
+          setSelectedColor(COLORS[2]); // Dunkles Default-Blau
           setSelectedImage(null); setSelectedVideo(null);
           setIsLocked(view === 'vault'); setAudioUrl(null);
           setIsManifested(false); setUnlockDate(''); setUnlockLocation(null);
           setEntryType('vision'); 
-          // AUTO-SELECTION DER KATEGORIE
           setCategory(activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory);
           setMood(null); setLocation(null); setParentId(''); setInheritedFrom(null);
         }
@@ -735,32 +807,26 @@
 
       const handleVaultClick = async (entry) => {
         if (entry.unlockLocation) {
-           if (!("geolocation" in navigator)) { setCustomAlert("Ortung nicht verfügbar."); return; }
+           if (!("geolocation" in navigator)) { showDialog({ title: 'Fehler', message: 'Ortung nicht verfügbar.', icon: 'x' }); return; }
            navigator.geolocation.getCurrentPosition((pos) => {
              const dist = getDistance(pos.coords.latitude, pos.coords.longitude, entry.unlockLocation.lat, entry.unlockLocation.lng);
              if (dist > 200) {
-               setCustomAlert(`Das Orts-Siegel hält stand. Du bist zu weit entfernt. Gehe an den Ursprungsort zurück.`);
+               showDialog({ title: 'Blockiert', message: 'Das Orts-Siegel hält stand. Du bist zu weit entfernt. Gehe an den Ursprungsort zurück.', icon: 'lock', iconColor: 'text-rose-500' });
                return;
              } else {
                triggerUnlock(entry);
              }
-           }, () => { setCustomAlert("Dein Ort konnte nicht ermittelt werden."); });
+           }, () => { showDialog({ title: 'Fehler', message: 'Dein Ort konnte nicht ermittelt werden.', icon: 'x' }); });
         } else {
            triggerUnlock(entry);
         }
       };
 
       const triggerUnlock = (entry) => {
-        if (!user.pin) { setCustomAlert("Bitte richte zuerst eine PIN in den Einstellungen ein."); setView('settings'); return; }
+        if (!user.pin) { showDialog({ title: 'Hinweis', message: 'Bitte richte zuerst eine PIN in den Einstellungen ein.', icon: 'key-round' }); setView('settings'); return; }
         setUnlockTarget(entry); 
         setPinInput(''); 
         setPinError(false); 
-        setBioAttempts(0);
-        if (user.useBiometrics) {
-          setShowBioPrompt(true);
-        } else {
-          setShowBioPrompt(false);
-        }
       };
 
       const submitPin = () => {
@@ -775,7 +841,6 @@
       };
 
       const now = new Date();
-      // FILTRATION LOGIC FIXED
       const visibleEntries = entries.filter(e => {
         const matchesSearch = e.title.toLowerCase().includes(searchQuery.toLowerCase()) || (e.text && e.text.toLowerCase().includes(searchQuery.toLowerCase()));
         const matchesCategory = activeCategory === 'Alle' || e.category === activeCategory;
@@ -787,8 +852,6 @@
         if (view === 'archive') return e.archived;
         return false;
       });
-
-      const isDarkColor = (c) => ['#1f2937', '#7f1d1d', '#78350f', '#14532d', '#1e3a8a', '#4c1d95', '#831843'].includes(c);
       
       const getWisdoms = () => {
         let wisdoms = [];
@@ -867,7 +930,7 @@
                    const y = Math.sin(angle) * radius;
                    
                    const isBig = entry.manifested;
-                   const starColor = MOODS.find(m => m.label === entry.mood)?.color.replace('text-', 'bg-') || 'bg-white';
+                   const starColor = MOODS.find(m => m.label === entry.mood)?.color.replace('text-', 'bg-') || 'bg-slate-700';
                    
                    return (
                      <div 
@@ -930,10 +993,10 @@
       if (view === 'wisdom') {
         const wisdoms = getWisdoms();
         return (
-          <div className="min-h-screen bg-[#fcfbf9] text-[#2c2c2a] p-4 sm:p-10 font-serif">
+          <div className="min-h-screen bg-slate-900 text-slate-100 p-4 sm:p-10 font-serif">
             <button onClick={() => setView('dashboard')} className="mb-8 p-3 bg-black/20 rounded-full hover:bg-black/40"><Icon name="x" size={24}/></button>
             <div className="max-w-2xl mx-auto">
-               <h1 className="text-3xl sm:text-5xl font-bold mb-4 text-center border-b border-black/10 pb-4">Buch der Weisheit</h1>
+               <h1 className="text-3xl sm:text-5xl font-bold mb-4 text-center border-b border-white/10 pb-4">Buch der Weisheit</h1>
                <p className="text-center italic opacity-60 mb-12 text-sm">Extrahierte Essenzen deines Lebens.</p>
                
                <div className="space-y-12">
@@ -941,7 +1004,7 @@
                  {wisdoms.map((w, i) => (
                     <div key={i} className="relative px-4">
                       <Icon name="quote" size={28} className="absolute -top-3 -left-2 text-amber-500/20 rotate-180" />
-                      <p className="text-lg sm:text-2xl leading-relaxed z-10 relative text-black/80">{w.text}</p>
+                      <p className="text-lg sm:text-2xl leading-relaxed z-10 relative text-white/90">{w.text}</p>
                       <p className="text-[10px] font-sans uppercase tracking-widest mt-3 opacity-40">— aus "{w.entry.title}" ({new Date(w.entry.date).getFullYear()})</p>
                     </div>
                  ))}
@@ -992,7 +1055,7 @@
                     <label className="block text-sm font-medium opacity-70 mb-2">Wie lautet dein Name?</label>
                     <input type="text" value={user.name} onChange={(e) => setUser({...user, name: e.target.value})} className="w-full p-4 rounded-xl border-none focus:ring-2 focus:ring-amber-500 transition-all text-lg bg-black/20 text-white" placeholder="Dein Name..." />
                   </div>
-                  <button onClick={() => user.name.trim() ? setView('dashboard') : setCustomAlert("Bitte gib deinen Namen ein.")} className="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 text-white font-bold text-lg hover:opacity-90 transition-opacity shadow-lg">
+                  <button onClick={() => user.name.trim() ? setView('dashboard') : showDialog({ title: 'Name fehlt', message: 'Bitte gib deinen Namen ein.', icon: 'user', iconColor: 'text-amber-500'})} className="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 text-white font-bold text-lg hover:opacity-90 transition-opacity shadow-lg">
                     Journal beginnen
                   </button>
                 </div>
@@ -1006,27 +1069,44 @@
         <ErrorBoundary>
         <div className="min-h-screen transition-colors duration-700 font-sans pb-[env(safe-area-inset-bottom,4rem)] mb-16 sm:mb-20 text-slate-100 selection:bg-amber-900 selection:text-amber-100 bg-slate-950">
           
-          {/* BEENDEN POPUP (ZURÜCK-TASTE) */}
-          {exitAppPrompt && (
-            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in" onClick={() => setExitAppPrompt(false)}>
-              <div className="w-full max-w-sm rounded-[2rem] p-6 text-center shadow-2xl animate-scale-in border bg-slate-900 border-white/10" onClick={e => e.stopPropagation()}>
-                <Icon name="log-out" size={40} className="mx-auto text-rose-500 mb-4" />
-                <p className="text-lg font-bold leading-tight mb-6">Möchtest du das Vermächtnis wirklich verlassen?</p>
-                <div className="flex gap-3">
-                  <button className="flex-1 py-3 rounded-xl font-bold text-sm bg-slate-800 text-white" onClick={() => setExitAppPrompt(false)}>Bleiben</button>
-                  <button className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-bold shadow-md text-sm" onClick={() => { setExitAppPrompt(false); window.location.href = "about:blank"; }}>Verlassen</button>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* DAS NEUE GLASSMORPHISM DIALOG SYSTEM (Ersetzt alle alert() und prompt() Boxen) */}
+          {dialog && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-xl animate-fade-in" onClick={() => { if(dialog.type === 'alert') setDialog(null); }}>
+              <div className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10 bg-slate-900/90 backdrop-blur-md animate-scale-in" onClick={e => e.stopPropagation()}>
+                {dialog.icon && (
+                  <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 shadow-inner bg-slate-800 border border-white/5">
+                    <Icon name={dialog.icon} size={36} className={dialog.iconColor || 'text-indigo-500'} />
+                  </div>
+                )}
+                <h3 className="text-2xl font-bold leading-tight mb-4 text-white tracking-tight">{dialog.title}</h3>
+                <p className="text-base opacity-70 mb-8 text-white leading-relaxed px-2">{dialog.message}</p>
+                
+                {dialog.type === 'prompt' && (
+                  <textarea 
+                    autoFocus
+                    value={dialog.inputValue || ''}
+                    onChange={(e) => setDialog({...dialog, inputValue: e.target.value})}
+                    className="w-full p-4 mb-6 rounded-2xl bg-black/30 border border-white/10 text-white placeholder-white/30 focus:ring-2 focus:ring-amber-500 outline-none resize-none h-32 custom-scrollbar"
+                    placeholder={dialog.placeholder || "Schreibe hier..."}
+                  />
+                )}
 
-          {/* DAS EIGENE IN-APP NACHRICHTEN-SYSTEM (CUSTOM ALERTS) */}
-          {customAlert && (
-            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in" onClick={() => setCustomAlert(null)}>
-              <div className="w-full max-w-sm rounded-[2rem] p-6 text-center shadow-2xl animate-scale-in border bg-slate-900 border-white/10">
-                <Icon name="info" size={40} className="mx-auto text-indigo-500 mb-4" />
-                <p className="text-lg font-bold leading-tight mb-6">{customAlert}</p>
-                <button className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold shadow-md text-sm" onClick={() => setCustomAlert(null)}>Verstanden</button>
+                <div className="flex flex-col gap-3 w-full">
+                  <button 
+                    className={`w-full py-4 text-white rounded-2xl font-bold shadow-lg text-base transition-transform active:scale-95 ${dialog.confirmColor || 'bg-indigo-500 hover:bg-indigo-600'}`} 
+                    onClick={() => { if(dialog.onConfirm) dialog.onConfirm(dialog.inputValue); else setDialog(null); }}
+                  >
+                    {dialog.confirmLabel || 'Verstanden'}
+                  </button>
+                  {dialog.type !== 'alert' && (
+                    <button 
+                      className="w-full py-4 rounded-2xl font-bold text-base bg-white/5 text-white hover:bg-white/10 transition-colors active:scale-95" 
+                      onClick={() => { if(dialog.onCancel) dialog.onCancel(); else setDialog(null); }}
+                    >
+                      {dialog.cancelLabel || 'Abbrechen'}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -1034,39 +1114,18 @@
           {/* TRESOR PIN MODAL */}
           {unlockTarget && (
             <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => { setUnlockTarget(null); setShowBioPrompt(false); }} />
+              <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => { setUnlockTarget(null); }} />
               <div className="relative w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl animate-scale-in border bg-slate-900 border-white/10">
-                {showBioPrompt ? (
-                  <div className="animate-scale-in flex flex-col items-center w-full">
-                    <div className="w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-inner animate-pulse bg-slate-800">
-                      <Icon name="shield-check" size={40} className="text-indigo-500" />
-                    </div>
-                    <h3 className="text-xl font-bold mb-2">Face ID / Touch ID</h3>
-                    <p className="text-sm opacity-60 mb-6">Authentifizieren, um "{unlockTarget.title}" zu öffnen.</p>
-                    <p className="text-xs text-rose-500 mb-6 font-bold">Versuch {bioAttempts}/3</p>
-                    
-                    <div className="flex gap-3 w-full mb-4">
-                      <button onClick={() => {
-                         const newAttempts = bioAttempts + 1;
-                         setBioAttempts(newAttempts);
-                         if (newAttempts >= 3) { setShowBioPrompt(false); setCustomAlert("Biometrie 3x fehlgeschlagen. Bitte nutze deine PIN."); }
-                      }} className="flex-1 py-3 bg-rose-500/10 text-rose-500 rounded-xl font-bold hover:bg-rose-500/20">Fehlschlag</button>
-                      <button onClick={() => { setShowBioPrompt(false); openEditor(unlockTarget); setUnlockTarget(null); }} className="flex-1 py-3 bg-indigo-500 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-600">Erfolg</button>
-                    </div>
-                    <button onClick={() => setShowBioPrompt(false)} className="text-sm opacity-60 hover:opacity-100 underline pb-2">PIN verwenden</button>
+                <div className="flex flex-col items-center w-full animate-fade-in">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-inner bg-slate-800"><Icon name="lock" size={28} className="text-rose-500" /></div>
+                  <h3 className="text-xl font-bold mb-1">Tresor Entsperren</h3>
+                  <p className="text-sm opacity-60 mb-6 truncate w-full">"{unlockTarget.title}"</p>
+                  <input type="password" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitPin()} className={`w-full p-4 text-center text-2xl tracking-[1em] rounded-xl border-2 outline-none ${pinError ? 'border-rose-500 bg-rose-50 animate-shake' : 'bg-black/50 border-transparent focus:border-indigo-500'}`} placeholder="••••" />
+                  <div className="flex gap-3 w-full mt-6">
+                    <button onClick={() => setUnlockTarget(null)} className="flex-1 py-3 font-medium opacity-60 text-sm">Abbrechen</button>
+                    <button onClick={submitPin} className="flex-1 py-3 rounded-xl font-bold text-white bg-rose-600 shadow-md text-sm">Öffnen</button>
                   </div>
-                ) : (
-                  <div className="flex flex-col items-center w-full animate-fade-in">
-                    <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-inner bg-slate-800"><Icon name="lock" size={28} className="text-rose-500" /></div>
-                    <h3 className="text-xl font-bold mb-1">Tresor Entsperren</h3>
-                    <p className="text-sm opacity-60 mb-6 truncate w-full">"{unlockTarget.title}"</p>
-                    <input type="password" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitPin()} className={`w-full p-4 text-center text-2xl tracking-[1em] rounded-xl border-2 outline-none ${pinError ? 'border-rose-500 bg-rose-50 animate-shake' : 'bg-black/50 border-transparent focus:border-indigo-500'}`} placeholder="••••" />
-                    <div className="flex gap-3 w-full mt-6">
-                      <button onClick={() => setUnlockTarget(null)} className="flex-1 py-3 font-medium opacity-60 text-sm">Abbrechen</button>
-                      <button onClick={submitPin} className="flex-1 py-3 rounded-xl font-bold text-white bg-rose-600 shadow-md text-sm">Öffnen</button>
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
             </div>
           )}
@@ -1179,7 +1238,7 @@
                   {!user.pin ? (
                     <div>
                       <input type="password" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN (z.B. 4 Zahlen)" className="w-full p-3 rounded-xl border-none focus:ring-2 focus:ring-rose-500 tracking-[0.5em] text-center text-lg mb-2 bg-black/30 text-white" />
-                      <button onClick={() => { if(newPinInput.length >= 4) { setUser({...user, pin: newPinInput}); setNewPinInput(''); } else setCustomAlert("Die PIN muss mindestens 4 Zeichen lang sein."); }} className="w-full py-2.5 bg-rose-600 text-white rounded-xl font-bold text-sm">PIN speichern</button>
+                      <button onClick={() => { if(newPinInput.length >= 4) { setUser({...user, pin: newPinInput}); setNewPinInput(''); } else showDialog({ title: 'PIN zu kurz', message: 'Die PIN muss mindestens 4 Zeichen lang sein.', icon: 'x' }); }} className="w-full py-2.5 bg-rose-600 text-white rounded-xl font-bold text-sm">PIN speichern</button>
                     </div>
                   ) : isChangingPin ? (
                     <div className="space-y-2">
@@ -1187,7 +1246,7 @@
                       <input type="password" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN" className="w-full p-2.5 rounded-xl text-center tracking-[0.5em] text-sm bg-black/30 text-white" />
                       <div className="flex gap-2">
                         <button onClick={() => setIsChangingPin(false)} className="flex-1 py-2.5 bg-slate-500/20 rounded-xl text-sm font-medium">Abbrechen</button>
-                        <button onClick={() => { if (oldPinInput === user.pin) { setUser({...user, pin: newPinInput}); setIsChangingPin(false); setCustomAlert("PIN erfolgreich geändert."); } else setCustomAlert("Die alte PIN ist falsch."); }} className="flex-1 py-2.5 bg-rose-600 text-white rounded-xl text-sm font-bold">Speichern</button>
+                        <button onClick={() => { if (oldPinInput === user.pin) { setUser({...user, pin: newPinInput}); setIsChangingPin(false); showDialog({ title: 'Erfolg', message: 'PIN erfolgreich geändert.', icon: 'check' }); } else showDialog({ title: 'Fehler', message: 'Die alte PIN ist falsch.', icon: 'x' }); }} className="flex-1 py-2.5 bg-rose-600 text-white rounded-xl text-sm font-bold">Speichern</button>
                       </div>
                     </div>
                   ) : (
@@ -1195,12 +1254,6 @@
                       <span className="font-bold text-sm">PIN Aktiv</span>
                       <button onClick={() => setIsChangingPin(true)} className="px-3 py-1.5 bg-rose-200 text-rose-700 rounded-lg font-bold text-xs">Ändern</button>
                     </div>
-                  )}
-                  {window.PublicKeyCredential && (
-                    <label className="flex items-center justify-between mt-4 p-3 bg-black/10 rounded-xl cursor-pointer">
-                      <span className="text-sm font-medium">Biometrie erlauben</span>
-                      <input type="checkbox" checked={user.useBiometrics} onChange={e => setUser({...user, useBiometrics: e.target.checked})} className="rounded text-rose-500 w-5 h-5 focus:ring-rose-500" />
-                    </label>
                   )}
                 </div>
 
@@ -1292,14 +1345,14 @@
                       );
                     }
 
-                    const textColor = isDarkColor(entry.color) ? 'text-white' : 'text-slate-900';
-                    const subTextColor = isDarkColor(entry.color) ? 'text-white/70' : 'text-slate-600';
+                    const textColor = 'text-white';
+                    const subTextColor = 'text-white/70';
 
                     return (
                       <div 
                         key={entry.id} onClick={() => view === 'dashboard' ? openEditor(entry) : null}
-                        className={`break-inside-avoid group relative rounded-[1.5rem] shadow-sm transition-all duration-300 overflow-hidden cursor-pointer border flex flex-col ${entry.color === '#ffffff' ? 'border-white/10' : 'border-white/5'} ${entry.manifested ? 'ring-2 ring-amber-400/50' : ''}`}
-                        style={{ backgroundColor: entry.color === '#ffffff' ? '#1e293b' : entry.color }}
+                        className={`break-inside-avoid group relative rounded-[1.5rem] shadow-sm transition-all duration-300 overflow-hidden cursor-pointer border flex flex-col border-white/5 ${entry.manifested ? 'ring-2 ring-amber-400/50' : ''}`}
+                        style={{ backgroundColor: entry.color }}
                       >
                         {entry.inheritedFrom && (
                           <div className="absolute top-3 left-3 z-30 bg-black/80 text-amber-400 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md shadow-sm flex items-center gap-1 backdrop-blur-md">
@@ -1348,7 +1401,7 @@
                               {view === 'archive' && (
                                 <div className="flex gap-1 ml-1">
                                   <button onClick={(e) => { e.stopPropagation(); setEntries(prev => prev.map(ex => ex.id === entry.id ? { ...ex, archived: false } : ex)); }} className={`p-1.5 rounded-full bg-white/20 ${textColor}`}><Icon name="rotate-ccw" size={14} /></button>
-                                  <button onClick={(e) => { e.stopPropagation(); deleteFromDB(entry.id); }} className="p-1.5 rounded-full bg-rose-500/20 text-rose-500"><Icon name="trash-2" size={14} /></button>
+                                  <button onClick={(e) => { e.stopPropagation(); confirmArchiveDelete(entry.id); }} className="p-1.5 rounded-full bg-rose-500/20 text-rose-500"><Icon name="trash-2" size={14} /></button>
                                 </div>
                               )}
                             </div>
@@ -1368,17 +1421,17 @@
               <div className="absolute inset-0 bg-transparent" onClick={closeEditor} />
               
               <div 
-                className={`relative w-full max-w-2xl mx-auto flex flex-col shadow-2xl transition-all ${zenMode ? 'h-[100dvh] sm:rounded-none bg-transparent' : 'h-[92dvh] sm:h-[90dvh] max-h-[900px] rounded-t-[2rem] sm:rounded-[2rem] border-t border-white/10'}`}
-                style={{ backgroundColor: zenMode ? 'transparent' : (selectedColor === '#ffffff' ? '#0f172a' : selectedColor) }}
+                className="relative w-full max-w-2xl mx-auto flex flex-col shadow-2xl transition-all h-[100dvh] sm:rounded-none bg-transparent sm:h-[90dvh] max-h-[900px] rounded-t-[2rem] sm:rounded-[2rem] border-t border-white/10"
+                style={{ backgroundColor: zenMode ? 'transparent' : selectedColor }}
               >
                 <div className={`flex justify-between items-center px-5 py-4 border-b ${zenMode ? 'border-transparent' : 'border-white/5 bg-white/10'}`}>
-                  <button onClick={closeEditor} className={`p-1.5 rounded-full transition-colors ${zenMode ? 'text-white' : 'text-white hover:bg-black/5'}`}><Icon name="x" size={22}/></button>
+                  <button onClick={closeEditor} className="p-1.5 rounded-full transition-colors text-white hover:bg-black/5"><Icon name="x" size={22}/></button>
                   
                   {!zenMode && (
                     <div className="flex gap-1 overflow-x-auto hide-scrollbar items-center">
                       {autoSaveStatus && <span className="flex items-center text-[10px] font-bold text-emerald-500 animate-pulse mr-1"><Icon name="check" size={12} className="mr-0.5"/> {autoSaveStatus}</span>}
                       
-                      <button onClick={() => { if(editingId) deleteFromDB(editingId); closeEditor(); }} className="p-2 rounded-full hover:bg-rose-500/10 text-slate-300 hover:text-rose-400 transition-colors" title="Verwerfen / Löschen">
+                      <button onClick={() => confirmDelete(editingId)} className="p-2 rounded-full hover:bg-rose-500/10 text-slate-300 hover:text-rose-400 transition-colors" title="Verwerfen / Löschen">
                         <Icon name="trash-2" size={18}/>
                       </button>
                       
@@ -1404,25 +1457,25 @@
                   )}
                   {zenMode && <button onClick={() => setZenMode(false)} className="text-white/70 hover:text-white"><Icon name="minimize-2" size={22}/></button>}
 
-                  <button onClick={saveEntry} className="bg-white text-slate-900 p-2.5 rounded-full font-bold shadow-md hover:scale-105 transition-transform flex items-center justify-center"><Icon name="save" size={20}/></button>
+                  <button onClick={checkSaveEntry} className="bg-white text-slate-900 p-2.5 rounded-full font-bold shadow-md hover:scale-105 transition-transform flex items-center justify-center"><Icon name="save" size={20}/></button>
                 </div>
 
-                <div className={`flex-1 overflow-y-auto p-5 sm:p-8 flex flex-col gap-4 custom-scrollbar ${zenMode ? 'w-full text-slate-100' : isDarkColor(selectedColor) || selectedColor === '#ffffff' ? 'text-white' : 'text-slate-800'}`}>
+                <div className={`flex-1 overflow-y-auto p-5 sm:p-8 flex flex-col gap-4 custom-scrollbar w-full text-white`}>
                   
                   {!zenMode && (
                     <div className="flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest opacity-60 shrink-0">
-                      <select value={category} onChange={e=>setCategory(e.target.value)} className="bg-transparent border-none outline-none focus:ring-0 p-0 font-bold text-black">
+                      <select value={category} onChange={e=>setCategory(e.target.value)} className="bg-transparent border-none outline-none focus:ring-0 p-0 font-bold text-white">
                         {CATEGORIES.map(c => <option key={c} value={c} className="text-black">{c}</option>)}
                       </select>
                       <span>•</span>
-                      <select value={entryType} onChange={e=>setEntryType(e.target.value)} className="bg-transparent border-none outline-none focus:ring-0 p-0 font-bold text-black">
+                      <select value={entryType} onChange={e=>setEntryType(e.target.value)} className="bg-transparent border-none outline-none focus:ring-0 p-0 font-bold text-white">
                         <option value="vision" className="text-black">Vision</option>
                         <option value="letter" className="text-black">Brief</option>
                       </select>
                     </div>
                   )}
 
-                  <input type="text" placeholder="Titel..." value={title} onChange={(e) => setTitle(e.target.value)} className="w-full shrink-0 bg-transparent text-3xl font-serif font-bold placeholder-current opacity-90 border-none focus:ring-0 p-0 focus:outline-none" style={{'::placeholder': { opacity: 0.3 }}} />
+                  <input type="text" placeholder="Titel..." value={title} onChange={(e) => setTitle(e.target.value)} className="w-full shrink-0 bg-transparent text-3xl font-serif font-bold placeholder-white/30 opacity-90 border-none focus:ring-0 p-0 focus:outline-none" />
                   
                   {!zenMode && (
                     <div className="flex gap-1 py-1.5 border-y border-current border-opacity-10 opacity-70 shrink-0">
@@ -1489,7 +1542,7 @@
                          ))}
                       </div>
                       <div className="flex gap-1.5 shrink-0">
-                        {COLORS.slice(0, 8).map((c) => (
+                        {COLORS.slice(0, 18).map((c) => (
                           <button key={c} onClick={() => setSelectedColor(c)} className={`w-6 h-6 rounded-full shadow-sm border-2 ${selectedColor === c ? 'scale-125 border-current z-10' : 'border-transparent opacity-80'}`} style={{ backgroundColor: c }} />
                         ))}
                       </div>
