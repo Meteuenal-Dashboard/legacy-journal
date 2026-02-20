@@ -9,6 +9,9 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+  <!-- Zwingt den Browser auf Systemebene ins Licht -->
+  <meta name="color-scheme" id="meta-color-scheme" content="light">
   <meta name="theme-color" id="meta-theme-color" content="#ffffff">
   
   <!-- Verweist auf die echte manifest.json auf deinem GitHub für eine echte App-Installation -->
@@ -36,46 +39,42 @@
 
   <style>
     /* =========================================================================
-       DER ULTIMATIVE ANTI-SAMSUNG-DARK-MODE HACK 
-       (Verwandelt alle Farben in un-invertierbare SVG-Bilder und erzwingt Textfarben)
+       DER ULTIMATIVE SAMSUNG-DARK-MODE KILLER
+       Keine Bilder mehr! Samsung dimmt Bilder ab. 
+       Wir nutzen den "Box-Shadow-Hack" + "Webkit-Text-Fill",
+       den das Betriebssystem nicht überschreiben darf.
        ========================================================================= */
     :root { color-scheme: light dark; }
     html.dark { color-scheme: dark; }
 
-    /* HINTERGRUND-SCHUTZSCHILD */
+    /* HINTERGRUND-SCHUTZSCHILD (Schatten lassen sich nicht invertieren/dimmen!) */
     html:not(.dark) body, 
     html:not(.dark) #root, 
     html:not(.dark) .bg-white {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='%23ffffff'/%3E%3C/svg%3E") !important;
-        background-color: transparent !important;
+        background-image: none !important;
+        background-color: #ffffff !important;
+        box-shadow: inset 0 0 0 9999px #ffffff !important;
     }
     
     html:not(.dark) .bg-slate-50 {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='%23f8fafc'/%3E%3C/svg%3E") !important;
-        background-color: transparent !important;
+        background-image: none !important;
+        background-color: #f8fafc !important;
+        box-shadow: inset 0 0 0 9999px #f8fafc !important;
     }
 
     html:not(.dark) .bg-slate-100 {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='%23f1f5f9'/%3E%3C/svg%3E") !important;
-        background-color: transparent !important;
+        background-image: none !important;
+        background-color: #f1f5f9 !important;
+        box-shadow: inset 0 0 0 9999px #f1f5f9 !important;
     }
 
     html:not(.dark) .bg-slate-200 {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='%23e2e8f0'/%3E%3C/svg%3E") !important;
-        background-color: transparent !important;
+        background-image: none !important;
+        background-color: #e2e8f0 !important;
+        box-shadow: inset 0 0 0 9999px #e2e8f0 !important;
     }
 
-    html:not(.dark) .bg-white\/90 {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='rgba(255,255,255,0.9)'/%3E%3C/svg%3E") !important;
-        background-color: transparent !important;
-    }
-
-    html:not(.dark) .bg-black\/5 {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='rgba(0,0,0,0.05)'/%3E%3C/svg%3E") !important;
-        background-color: transparent !important;
-    }
-
-    /* TEXTFARBEN-SCHUTZSCHILD (Verhindert, dass Text ungewollt weiß wird) */
+    /* TEXTFARBEN-SCHUTZSCHILD (Verhindert, dass Text ungewollt hell wird) */
     html:not(.dark) body, html:not(.dark) .text-slate-900 { color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; }
     html:not(.dark) .text-slate-800 { color: #1e293b !important; -webkit-text-fill-color: #1e293b !important; }
     html:not(.dark) .text-slate-700 { color: #334155 !important; -webkit-text-fill-color: #334155 !important; }
@@ -83,7 +82,6 @@
     html:not(.dark) .text-slate-500 { color: #64748b !important; -webkit-text-fill-color: #64748b !important; }
     html:not(.dark) .text-slate-400 { color: #94a3b8 !important; -webkit-text-fill-color: #94a3b8 !important; }
     html:not(.dark) .text-black { color: #000000 !important; -webkit-text-fill-color: #000000 !important; }
-    html:not(.dark) .text-\[\#2c2c2a\] { color: #2c2c2a !important; -webkit-text-fill-color: #2c2c2a !important; }
     
     html:not(.dark) input, 
     html:not(.dark) textarea, 
@@ -232,6 +230,7 @@
       const [searchQuery, setSearchQuery] = useState('');
       const [isSearchOpen, setIsSearchOpen] = useState(false);
       
+      // CUSTOM ALERT SYSTEM & HINTS
       const [customAlert, setCustomAlert] = useState(null);
       const [exitAppPrompt, setExitAppPrompt] = useState(false);
       const [installHint, setInstallHint] = useState('');
@@ -398,20 +397,28 @@
         }
       };
 
-      // --- DAS KUGELSICHERE THEME CONTROL ---
+      // --- DAS ABSOLUT KUGELSICHERE THEME CONTROL ---
       useEffect(() => {
         if (isLoaded) {
            safeStorageSet('legacy_user', JSON.stringify(user));
         }
         
         const metaThemeColor = document.getElementById("meta-theme-color");
+        const metaColorScheme = document.getElementById("meta-color-scheme");
         
         if (user.isDark) {
           document.documentElement.classList.add('dark');
+          document.body.style.backgroundColor = '#020617';
+          document.body.style.colorScheme = 'dark';
           if (metaThemeColor) metaThemeColor.setAttribute("content", "#020617");
+          if (metaColorScheme) metaColorScheme.setAttribute("content", "dark");
         } else {
           document.documentElement.classList.remove('dark');
+          document.body.style.backgroundImage = 'none'; // Bilder entfernen, damit Samsung nicht dimmt
+          document.body.style.backgroundColor = '#ffffff'; 
+          document.body.style.colorScheme = 'light';
           if (metaThemeColor) metaThemeColor.setAttribute("content", "#ffffff");
+          if (metaColorScheme) metaColorScheme.setAttribute("content", "light");
         }
       }, [user, isLoaded]);
 
