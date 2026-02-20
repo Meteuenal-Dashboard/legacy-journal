@@ -174,6 +174,7 @@
       const [isLoaded, setIsLoaded] = useState(false);
       
       const [searchQuery, setSearchQuery] = useState('');
+      const [activeCategory, setActiveCategory] = useState('Alle'); // NEU: Echter Kategorie-Filter
       const [isSearchOpen, setIsSearchOpen] = useState(false);
       
       // CUSTOM ALERT SYSTEM & HINTS
@@ -192,12 +193,14 @@
       const [isChangingPin, setIsChangingPin] = useState(false);
       const [oldPinInput, setOldPinInput] = useState('');
       const [newPinInput, setNewPinInput] = useState('');
+      const [showBioPrompt, setShowBioPrompt] = useState(false);
+      const [bioAttempts, setBioAttempts] = useState(0);
 
       // Editor State
       const [editingId, setEditingId] = useState(null);
       const [title, setTitle] = useState('');
       const [text, setText] = useState('');
-      const [selectedColor, setSelectedColor] = useState(COLORS[0]);
+      const [selectedColor, setSelectedColor] = useState(COLORS[17]);
       const [selectedImage, setSelectedImage] = useState(null);
       const [selectedVideo, setSelectedVideo] = useState(null);
       const [isLocked, setIsLocked] = useState(false);
@@ -285,10 +288,9 @@
         const loadApp = async () => {
           try {
             const savedUser = safeStorageGet('legacy_user');
-            let currentUser = { name: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', testamentId: null };
+            let currentUser = { name: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', testamentId: null, useBiometrics: false };
             if (savedUser) {
               const parsed = JSON.parse(savedUser);
-              // Clean up legacy isDark toggle if it exists
               if (parsed.isDark !== undefined) delete parsed.isDark;
               currentUser = { ...currentUser, ...parsed };
               setUser(currentUser);
@@ -718,12 +720,13 @@
         } else {
           setEditingId(null);
           setTitle(''); setText('');
-          // In Dark Mode verwenden wir für neue Einträge standardmäßig ein edles Dunkelblau/Grau statt Weiß
           setSelectedColor(COLORS[17]);
           setSelectedImage(null); setSelectedVideo(null);
           setIsLocked(view === 'vault'); setAudioUrl(null);
           setIsManifested(false); setUnlockDate(''); setUnlockLocation(null);
-          setEntryType('vision'); setCategory(CATEGORIES[0]);
+          setEntryType('vision'); 
+          // AUTO-SELECTION DER KATEGORIE
+          setCategory(activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory);
           setMood(null); setLocation(null); setParentId(''); setInheritedFrom(null);
         }
         setZenMode(false);
@@ -752,6 +755,12 @@
         setUnlockTarget(entry); 
         setPinInput(''); 
         setPinError(false); 
+        setBioAttempts(0);
+        if (user.useBiometrics) {
+          setShowBioPrompt(true);
+        } else {
+          setShowBioPrompt(false);
+        }
       };
 
       const submitPin = () => {
@@ -766,9 +775,13 @@
       };
 
       const now = new Date();
+      // FILTRATION LOGIC FIXED
       const visibleEntries = entries.filter(e => {
-        const matchesSearch = e.title.toLowerCase().includes(searchQuery.toLowerCase()) || e.text.toLowerCase().includes(searchQuery.toLowerCase());
-        if (!matchesSearch) return false;
+        const matchesSearch = e.title.toLowerCase().includes(searchQuery.toLowerCase()) || (e.text && e.text.toLowerCase().includes(searchQuery.toLowerCase()));
+        const matchesCategory = activeCategory === 'Alle' || e.category === activeCategory;
+        
+        if (!matchesSearch || !matchesCategory) return false;
+        
         if (view === 'dashboard') return !e.locked && !e.archived;
         if (view === 'vault') return e.locked && !e.archived;
         if (view === 'archive') return e.archived;
@@ -917,10 +930,10 @@
       if (view === 'wisdom') {
         const wisdoms = getWisdoms();
         return (
-          <div className="min-h-screen bg-slate-900 text-slate-100 p-4 sm:p-10 font-serif">
+          <div className="min-h-screen bg-[#fcfbf9] text-[#2c2c2a] p-4 sm:p-10 font-serif">
             <button onClick={() => setView('dashboard')} className="mb-8 p-3 bg-black/20 rounded-full hover:bg-black/40"><Icon name="x" size={24}/></button>
             <div className="max-w-2xl mx-auto">
-               <h1 className="text-3xl sm:text-5xl font-bold mb-4 text-center border-b border-white/10 pb-4">Buch der Weisheit</h1>
+               <h1 className="text-3xl sm:text-5xl font-bold mb-4 text-center border-b border-black/10 pb-4">Buch der Weisheit</h1>
                <p className="text-center italic opacity-60 mb-12 text-sm">Extrahierte Essenzen deines Lebens.</p>
                
                <div className="space-y-12">
@@ -928,7 +941,7 @@
                  {wisdoms.map((w, i) => (
                     <div key={i} className="relative px-4">
                       <Icon name="quote" size={28} className="absolute -top-3 -left-2 text-amber-500/20 rotate-180" />
-                      <p className="text-lg sm:text-2xl leading-relaxed z-10 relative text-white/90">{w.text}</p>
+                      <p className="text-lg sm:text-2xl leading-relaxed z-10 relative text-black/80">{w.text}</p>
                       <p className="text-[10px] font-sans uppercase tracking-widest mt-3 opacity-40">— aus "{w.entry.title}" ({new Date(w.entry.date).getFullYear()})</p>
                     </div>
                  ))}
@@ -1021,18 +1034,39 @@
           {/* TRESOR PIN MODAL */}
           {unlockTarget && (
             <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => { setUnlockTarget(null); }} />
-              <div className="relative w-full max-w-sm rounded-[2rem] p-6 text-center shadow-2xl animate-scale-in border bg-slate-900 border-white/10">
-                <div className="flex flex-col items-center w-full animate-fade-in">
-                  <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-inner bg-slate-800"><Icon name="lock" size={28} className="text-rose-500" /></div>
-                  <h3 className="text-xl font-bold mb-1">Tresor Entsperren</h3>
-                  <p className="text-sm opacity-60 mb-6 truncate w-full">"{unlockTarget.title}"</p>
-                  <input type="password" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitPin()} className={`w-full p-4 text-center text-2xl tracking-[1em] rounded-xl border-2 outline-none ${pinError ? 'border-rose-500 bg-rose-50 animate-shake' : 'bg-black/50 border-transparent focus:border-indigo-500'}`} placeholder="••••" />
-                  <div className="flex gap-3 w-full mt-6">
-                    <button onClick={() => setUnlockTarget(null)} className="flex-1 py-3 font-medium opacity-60 text-sm">Abbrechen</button>
-                    <button onClick={submitPin} className="flex-1 py-3 rounded-xl font-bold text-white bg-rose-600 shadow-md text-sm">Öffnen</button>
+              <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => { setUnlockTarget(null); setShowBioPrompt(false); }} />
+              <div className="relative w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl animate-scale-in border bg-slate-900 border-white/10">
+                {showBioPrompt ? (
+                  <div className="animate-scale-in flex flex-col items-center w-full">
+                    <div className="w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-inner animate-pulse bg-slate-800">
+                      <Icon name="shield-check" size={40} className="text-indigo-500" />
+                    </div>
+                    <h3 className="text-xl font-bold mb-2">Face ID / Touch ID</h3>
+                    <p className="text-sm opacity-60 mb-6">Authentifizieren, um "{unlockTarget.title}" zu öffnen.</p>
+                    <p className="text-xs text-rose-500 mb-6 font-bold">Versuch {bioAttempts}/3</p>
+                    
+                    <div className="flex gap-3 w-full mb-4">
+                      <button onClick={() => {
+                         const newAttempts = bioAttempts + 1;
+                         setBioAttempts(newAttempts);
+                         if (newAttempts >= 3) { setShowBioPrompt(false); setCustomAlert("Biometrie 3x fehlgeschlagen. Bitte nutze deine PIN."); }
+                      }} className="flex-1 py-3 bg-rose-500/10 text-rose-500 rounded-xl font-bold hover:bg-rose-500/20">Fehlschlag</button>
+                      <button onClick={() => { setShowBioPrompt(false); openEditor(unlockTarget); setUnlockTarget(null); }} className="flex-1 py-3 bg-indigo-500 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-600">Erfolg</button>
+                    </div>
+                    <button onClick={() => setShowBioPrompt(false)} className="text-sm opacity-60 hover:opacity-100 underline pb-2">PIN verwenden</button>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex flex-col items-center w-full animate-fade-in">
+                    <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-inner bg-slate-800"><Icon name="lock" size={28} className="text-rose-500" /></div>
+                    <h3 className="text-xl font-bold mb-1">Tresor Entsperren</h3>
+                    <p className="text-sm opacity-60 mb-6 truncate w-full">"{unlockTarget.title}"</p>
+                    <input type="password" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitPin()} className={`w-full p-4 text-center text-2xl tracking-[1em] rounded-xl border-2 outline-none ${pinError ? 'border-rose-500 bg-rose-50 animate-shake' : 'bg-black/50 border-transparent focus:border-indigo-500'}`} placeholder="••••" />
+                    <div className="flex gap-3 w-full mt-6">
+                      <button onClick={() => setUnlockTarget(null)} className="flex-1 py-3 font-medium opacity-60 text-sm">Abbrechen</button>
+                      <button onClick={submitPin} className="flex-1 py-3 rounded-xl font-bold text-white bg-rose-600 shadow-md text-sm">Öffnen</button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1145,7 +1179,7 @@
                   {!user.pin ? (
                     <div>
                       <input type="password" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN (z.B. 4 Zahlen)" className="w-full p-3 rounded-xl border-none focus:ring-2 focus:ring-rose-500 tracking-[0.5em] text-center text-lg mb-2 bg-black/30 text-white" />
-                      <button onClick={() => { if(newPinInput.length >= 4) { setUser({...user, pin: newPinInput}); setNewPinInput(''); } else setCustomAlert("Min. 4 Zeichen."); }} className="w-full py-2.5 bg-rose-600 text-white rounded-xl font-bold text-sm">PIN speichern</button>
+                      <button onClick={() => { if(newPinInput.length >= 4) { setUser({...user, pin: newPinInput}); setNewPinInput(''); } else setCustomAlert("Die PIN muss mindestens 4 Zeichen lang sein."); }} className="w-full py-2.5 bg-rose-600 text-white rounded-xl font-bold text-sm">PIN speichern</button>
                     </div>
                   ) : isChangingPin ? (
                     <div className="space-y-2">
@@ -1161,6 +1195,12 @@
                       <span className="font-bold text-sm">PIN Aktiv</span>
                       <button onClick={() => setIsChangingPin(true)} className="px-3 py-1.5 bg-rose-200 text-rose-700 rounded-lg font-bold text-xs">Ändern</button>
                     </div>
+                  )}
+                  {window.PublicKeyCredential && (
+                    <label className="flex items-center justify-between mt-4 p-3 bg-black/10 rounded-xl cursor-pointer">
+                      <span className="text-sm font-medium">Biometrie erlauben</span>
+                      <input type="checkbox" checked={user.useBiometrics} onChange={e => setUser({...user, useBiometrics: e.target.checked})} className="rounded text-rose-500 w-5 h-5 focus:ring-rose-500" />
+                    </label>
                   )}
                 </div>
 
@@ -1210,8 +1250,8 @@
                   <div className="flex overflow-x-auto gap-2 pb-3 mb-2 custom-scrollbar snap-x">
                     {['Alle', ...CATEGORIES].map(cat => (
                       <button 
-                        key={cat} onClick={() => setSearchQuery(cat === 'Alle' ? '' : cat)}
-                        className={`px-4 py-1.5 rounded-full whitespace-nowrap snap-start text-xs font-bold transition-all ${searchQuery === cat || (searchQuery === '' && cat === 'Alle') ? 'bg-white text-slate-900 shadow-md' : 'bg-white/10 border border-white/10 opacity-70 hover:opacity-100'}`}
+                        key={cat} onClick={() => setActiveCategory(cat)}
+                        className={`px-4 py-1.5 rounded-full whitespace-nowrap snap-start text-xs font-bold transition-all ${activeCategory === cat ? 'bg-slate-800 text-white shadow-md' : 'bg-white/10 border border-white/10 opacity-70 hover:opacity-100 text-white'}`}
                       >
                         {cat}
                       </button>
