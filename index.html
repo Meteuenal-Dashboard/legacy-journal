@@ -143,6 +143,20 @@
       '#ffe4e6', '#fecdd3', '#fda4af', '#fb7185', '#f43f5e', '#e11d48', '#be123c', '#9f1239', '#881337', '#4c0519'
     ];
 
+    // HILFSFUNKTION FÜR FARB-KONTRAST (HELL/DUNKEL)
+    const isDarkColor = (color) => {
+      if (!color) return true;
+      const hex = color.replace('#', '');
+      if (hex.length === 6) {
+        const r = parseInt(hex.substr(0, 2), 16);
+        const g = parseInt(hex.substr(2, 2), 16);
+        const b = parseInt(hex.substr(4, 2), 16);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        return brightness < 128;
+      }
+      return true; // Im Zweifel dunkler Text
+    };
+
     const CATEGORIES = ['Allgemein', 'Familie', 'Karriere', 'Seele', 'Gesundheit', 'Finanzen'];
     const MOODS = [
       { id: 'smile', label: 'Strahlend', color: 'text-amber-500', iconName: 'smile' },
@@ -193,14 +207,17 @@
       const [activeCategory, setActiveCategory] = useState('Alle');
       const [isSearchOpen, setIsSearchOpen] = useState(false);
       
+      // Dialog & Picker
       const [dialog, setDialog] = useState(null);
       const [picker, setPicker] = useState(null);
       const [installHint, setInstallHint] = useState('');
       
+      // Fokus-Lesemodus
       const [viewingEntry, setViewingEntry] = useState(null);
       const [showEditor, setShowEditor] = useState(false);
       const [affirmation, setAffirmation] = useState(null);
       
+      // Security
       const [unlockTarget, setUnlockTarget] = useState(null);
       const [pinInput, setPinInput] = useState('');
       const [pinError, setPinError] = useState(false);
@@ -208,6 +225,7 @@
       const [oldPinInput, setOldPinInput] = useState('');
       const [newPinInput, setNewPinInput] = useState('');
 
+      // Editor
       const [editingId, setEditingId] = useState(null);
       const [title, setTitle] = useState('');
       const [text, setText] = useState('');
@@ -227,6 +245,7 @@
       const [zenMode, setZenMode] = useState(false);
       const [inheritedFrom, setInheritedFrom] = useState(null); 
 
+      // Tools
       const [isDrawing, setIsDrawing] = useState(false);
       const canvasRef = useRef(null);
       const editorRef = useRef(null); 
@@ -268,6 +287,7 @@
         }
       }, []);
 
+      // Navigation & Back-Button Protection
       useEffect(() => {
         if (!isLoaded) return;
         window.history.pushState({ locked: true }, '');
@@ -299,6 +319,7 @@
         return () => window.removeEventListener('popstate', handlePopState);
       }, [isLoaded]);
 
+      // Initial Load
       useEffect(() => {
         const loadApp = async () => {
           try {
@@ -368,6 +389,7 @@
         }
       };
 
+      // --- THEME CONTROL (Hell / Dunkel) ---
       useEffect(() => {
         if (isLoaded) {
            safeStorageSet('legacy_user', JSON.stringify(user));
@@ -478,12 +500,15 @@
         });
       };
 
+      // --- DER EINGABE-BUG FIX (Kein Cursor-Springen mehr) ---
       useEffect(() => {
         if (showEditor && editorRef.current && editorRef.current.innerHTML !== text) {
            editorRef.current.innerHTML = text || '';
         }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       }, [showEditor, editingId]);
 
+      // Auto-Save Timeout
       useEffect(() => {
         if (!showEditor || (!title && !text) || view === 'burn') return;
         const timer = setTimeout(() => {
@@ -515,6 +540,7 @@
         return () => clearTimeout(timer);
       }, [title, text, selectedColor, selectedImage, selectedVideo, audioUrl, isLocked, isManifested, unlockDate, unlockLocation, category, mood, location, parentId, inheritedFrom, db, showEditor, editingId, entries, view]);
 
+      // Zeichenfläche
       const startDrawing = (e) => {
         if (!canvasRef.current) return;
         const ctx = canvasRef.current.getContext('2d');
@@ -543,6 +569,7 @@
         if (canvasRef.current) canvasRef.current.isPainting = false;
       };
 
+      // Fix für die Darstellung des Canvas-Hintergrunds beim Start
       useEffect(() => {
         let canvasEl = canvasRef.current;
         const preventScroll = (e) => { e.preventDefault(); };
@@ -554,6 +581,7 @@
              const rect = canvasEl.parentElement.getBoundingClientRect();
              canvasEl.width = rect.width; canvasEl.height = rect.height;
              const ctx = canvasEl.getContext('2d'); 
+             // Hintergrund je nach Theme ausfüllen, damit PNG-Export nicht unsichtbar ist
              ctx.fillStyle = user.isDark ? '#18181b' : '#ffffff'; 
              ctx.fillRect(0, 0, rect.width, rect.height);
            }, 50);
@@ -739,7 +767,7 @@
           setParentId(entry.parentId || ''); setInheritedFrom(entry.inheritedFrom || null);
         } else {
           setEditingId(null); setTitle(''); setText(''); 
-          setSelectedColor(user.isDark ? COLORS[8] : COLORS[1]); 
+          setSelectedColor(user.isDark ? COLORS[8] : COLORS[1]); // Neutral Grey für neue Seite
           setSelectedImage(null); setSelectedVideo(null); setIsLocked(view === 'vault');
           setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setUnlockLocation(null);
           setEntryType('vision'); setCategory(activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory);
@@ -748,6 +776,7 @@
         setZenMode(false); setShowEditor(true);
       };
 
+      // --- DAS NEUE BUCH-BLÄTTERN (Neues Kapitel) ---
       const startNewChapter = (parent) => {
         setViewingEntry(null);
         setEditingId(null); 
@@ -760,7 +789,7 @@
         setEntryType('vision'); 
         setCategory(parent.category || CATEGORIES[0]);
         setMood(null); setLocation(null); 
-        setParentId(parent.id); 
+        setParentId(parent.id); // Verlinkt die Seiten logisch miteinander
         setInheritedFrom(null);
         setZenMode(false); 
         setShowEditor(true);
@@ -917,16 +946,6 @@
                 <h3 className="text-2xl font-bold leading-tight mb-4 font-serif">{dialog.title}</h3>
                 <p className="text-base opacity-70 mb-8 leading-relaxed px-2">{dialog.message}</p>
                 
-                {dialog.type === 'prompt' && (
-                  <textarea 
-                    autoFocus
-                    value={dialog.inputValue || ''}
-                    onChange={(e) => setDialog({...dialog, inputValue: e.target.value})}
-                    className="w-full p-4 mb-6 rounded-2xl bg-black/30 border border-white/10 text-white placeholder-white/30 focus:ring-2 focus:ring-amber-500 outline-none resize-none h-32 custom-scrollbar font-serif"
-                    placeholder={dialog.placeholder || "Schreibe hier..."}
-                  />
-                )}
-
                 <div className="flex flex-col gap-3 w-full">
                   <button 
                     className={`w-full py-4 text-white rounded-2xl font-bold shadow-md text-base transition-transform active:scale-95 ${dialog.confirmColor || 'bg-slate-900 dark:bg-white dark:text-slate-900'}`} 
@@ -978,11 +997,13 @@
               <div className="relative w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl animate-scale-in border bg-slate-900 border-white/10 z-10">
                 <div className="flex flex-col items-center w-full animate-fade-in">
                   <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-inner bg-slate-800"><Icon name="lock" size={28} className="text-rose-500" /></div>
-                  <h3 className="text-2xl font-bold mb-2 font-serif">Tresor Entsperren</h3>
-                  <p className="text-sm opacity-60 mb-6 truncate w-full font-serif">"{unlockTarget.title}"</p>
-                  <input type="password" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitPin()} className={`w-full p-4 text-center text-2xl tracking-[1em] rounded-xl border-2 outline-none ${pinError ? 'border-rose-500 bg-rose-50/10 animate-shake' : 'bg-black/50 border-transparent focus:border-indigo-500'}`} placeholder="••••" />
+                  <h3 className="text-2xl font-bold mb-2 font-serif text-white">Tresor Entsperren</h3>
+                  <p className="text-sm opacity-60 mb-6 truncate w-full text-white">"{unlockTarget.title}"</p>
+                  
+                  <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitPin()} className={`w-full p-4 text-center text-2xl tracking-[1em] rounded-xl border-2 outline-none text-white ${pinError ? 'border-rose-500 bg-rose-50/10 animate-shake' : 'bg-black/50 border-transparent focus:border-indigo-500'}`} placeholder="••••" />
+                  
                   <div className="flex gap-3 w-full mt-6">
-                    <button onClick={() => setUnlockTarget(null)} className="flex-1 py-3 font-medium opacity-60 bg-white/5 rounded-xl hover:bg-white/10">Abbrechen</button>
+                    <button onClick={() => setUnlockTarget(null)} className="flex-1 py-3 font-medium opacity-60 bg-white/5 rounded-xl hover:bg-white/10 text-white">Abbrechen</button>
                     <button onClick={submitPin} className="flex-1 py-3 rounded-xl font-bold text-white bg-rose-600 shadow-md">Öffnen</button>
                   </div>
                 </div>
@@ -1016,6 +1037,8 @@
                       <input type="text" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Suchen..." className={`transition-all duration-300 border-none focus:ring-0 text-sm rounded-full bg-black/5 dark:bg-white/10 text-slate-900 dark:text-white ${isSearchOpen ? 'w-32 px-4 py-2 mr-1 opacity-100' : 'w-0 p-0 opacity-0 pointer-events-none'}`} />
                       <button onClick={() => setIsSearchOpen(!isSearchOpen)} className={`p-2.5 rounded-full transition-colors bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 ${isSearchOpen ? 'bg-amber-100 text-amber-600' : ''}`}><Icon name="search" size={18}/></button>
                    </div>
+                   
+                   {/* HAMBURGER MENÜ */}
                    <button onClick={() => setView('menu')} className="p-2.5 rounded-full transition-colors bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"><Icon name="menu" size={18}/></button>
                  </>
               )}
@@ -1090,13 +1113,13 @@
                   <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-rose-600 font-serif"><Icon name="key-round" size={20} /> Tresor PIN</h2>
                   {!user.pin ? (
                     <div>
-                      <input type="password" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN (z.B. 4 Zahlen)" className="w-full p-4 rounded-xl border-none focus:ring-2 focus:ring-rose-500 tracking-[0.5em] text-center text-xl mb-4 bg-white dark:bg-black/30 outline-none" />
+                      <input type="password" inputMode="numeric" pattern="[0-9]*" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN (z.B. 4 Zahlen)" className="w-full p-4 rounded-xl border-none focus:ring-2 focus:ring-rose-500 tracking-[0.5em] text-center text-xl mb-4 bg-white dark:bg-black/30 outline-none" />
                       <button onClick={() => { if(newPinInput.length >= 4) { setUser({...user, pin: newPinInput}); setNewPinInput(''); } else showDialog({ title: 'PIN zu kurz', message: 'Die PIN muss mindestens 4 Zeichen lang sein.', icon: 'x' }); }} className="w-full py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-sm transition-colors shadow-sm">PIN speichern</button>
                     </div>
                   ) : isChangingPin ? (
                     <div className="space-y-3">
-                      <input type="password" value={oldPinInput} onChange={(e) => setOldPinInput(e.target.value)} placeholder="Alte PIN" className="w-full p-3 rounded-xl text-center tracking-[0.5em] text-lg bg-white dark:bg-black/30 outline-none" />
-                      <input type="password" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN" className="w-full p-3 rounded-xl text-center tracking-[0.5em] text-lg bg-white dark:bg-black/30 outline-none" />
+                      <input type="password" inputMode="numeric" pattern="[0-9]*" value={oldPinInput} onChange={(e) => setOldPinInput(e.target.value)} placeholder="Alte PIN" className="w-full p-3 rounded-xl text-center tracking-[0.5em] text-lg bg-white dark:bg-black/30 outline-none" />
+                      <input type="password" inputMode="numeric" pattern="[0-9]*" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN" className="w-full p-3 rounded-xl text-center tracking-[0.5em] text-lg bg-white dark:bg-black/30 outline-none" />
                       <div className="flex gap-3">
                         <button onClick={() => setIsChangingPin(false)} className="flex-1 py-3 bg-slate-200 dark:bg-slate-800 rounded-xl text-sm font-bold">Abbrechen</button>
                         <button onClick={() => { if (oldPinInput === user.pin) { setUser({...user, pin: newPinInput}); setIsChangingPin(false); showDialog({ title: 'Erfolg', message: 'PIN erfolgreich geändert.', icon: 'check', iconColor: 'text-emerald-500' }); } else showDialog({ title: 'Fehler', message: 'Die alte PIN ist falsch.', icon: 'x', iconColor: 'text-rose-500' }); }} className="flex-1 py-3 bg-rose-600 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-rose-700">Speichern</button>
@@ -1274,7 +1297,7 @@
             )}
           </main>
 
-          {/* EDITOR OVERLAY */}
+          {/* EDITOR OVERLAY (Das Textfeld zum Schreiben) */}
           {showEditor && (
             <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-6 transition-all bg-slate-900/40 dark:bg-slate-950/80 backdrop-blur-md">
               <div className="absolute inset-0 bg-transparent" onClick={() => checkSaveEntry()} />
@@ -1283,24 +1306,42 @@
                 className="relative w-full max-w-3xl mx-auto flex flex-col shadow-2xl transition-all h-[100dvh] sm:rounded-none bg-white dark:bg-graphite-900 sm:h-[90dvh] max-h-[900px] rounded-t-[2rem] sm:rounded-[2.5rem] border border-slate-200 dark:border-white/10"
                 style={{ backgroundColor: zenMode ? 'transparent' : (user.isDark && selectedColor === '#ffffff' ? '#18181b' : selectedColor) }}
               >
+                {/* --- HIER SIND DIE WERKZEUGE WIEDER DA --- */}
                 <div className={`flex justify-between items-center px-6 py-5 border-b ${zenMode ? 'border-transparent' : 'border-black/5 dark:border-white/5'}`}>
-                  <button onClick={() => checkSaveEntry()} className={`p-2 rounded-full transition-colors ${user.isDark ? 'text-white hover:bg-white/10' : 'text-slate-900 hover:bg-black/5'}`}><Icon name="chevron-down" size={24}/></button>
+                  <button onClick={() => checkSaveEntry()} className={`p-2 rounded-full transition-colors ${isDarkColor(selectedColor) ? 'text-white hover:bg-white/10' : 'text-slate-900 hover:bg-black/5'}`}><Icon name="chevron-down" size={24}/></button>
                   
                   {!zenMode && (
-                    <div className="flex gap-2 overflow-x-auto hide-scrollbar items-center">
-                      {autoSaveStatus && <span className="flex items-center text-xs font-bold text-emerald-500 animate-pulse mr-2"><Icon name="check" size={14} className="mr-1"/> {autoSaveStatus}</span>}
+                    <div className="flex gap-1 sm:gap-2 overflow-x-auto hide-scrollbar items-center">
+                      {autoSaveStatus && <span className="flex items-center text-[10px] sm:text-xs font-bold text-emerald-500 animate-pulse mr-1 sm:mr-2"><Icon name="check" size={14} className="mr-1"/> {autoSaveStatus}</span>}
                       
-                      {editingId && <button onClick={() => confirmDelete(editingId)} className="p-2.5 rounded-full hover:bg-rose-500/10 opacity-50 hover:opacity-100 text-rose-500 transition-colors" title="Seite herausreißen"><Icon name="trash-2" size={20}/></button>}
+                      {editingId && <button onClick={() => confirmDelete(editingId)} className="p-2 sm:p-2.5 rounded-full hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 transition-colors" title="Seite herausreißen"><Icon name="trash-2" size={20}/></button>}
                       
-                      <button onClick={() => setZenMode(true)} className={`p-2.5 rounded-full opacity-50 hover:opacity-100 transition-colors ${user.isDark ? 'text-white hover:bg-white/10' : 'text-slate-900 hover:bg-black/5'}`} title="Fokus Modus"><Icon name="maximize-2" size={20}/></button>
+                      {editingId && <button onClick={() => {
+                          const entryToArchive = {
+                            id: editingId || generateId(),
+                            title: title || 'Neue Seite', text, color: selectedColor,
+                            image: selectedImage, video: selectedVideo, audio: audioUrl,
+                            locked: isLocked, archived: true, manifested: isManifested,
+                            unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
+                            date: editingId ? (entries.find(e => e.id === editingId)?.date || new Date().toISOString()) : new Date().toISOString(),
+                          };
+                          saveToDB(entryToArchive);
+                          closeEditor();
+                      }} className="p-2 sm:p-2.5 rounded-full transition-colors text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10" title="Ins Archiv"><Icon name="archive" size={20}/></button>}
+
+                      <button onClick={() => setZenMode(true)} className={`p-2 sm:p-2.5 rounded-full transition-colors text-slate-400 ${isDarkColor(selectedColor) ? 'hover:text-white hover:bg-white/10' : 'hover:text-slate-900 hover:bg-black/5'}`} title="Fokus Modus"><Icon name="maximize-2" size={20}/></button>
+
+                      <button onClick={() => setIsManifested(!isManifested)} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isManifested ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-500/10'}`} title="Manifestieren (Stern)"><Icon name="sparkles" size={20}/></button>
+
+                      <button onClick={() => setIsLocked(!isLocked)} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isLocked ? 'bg-rose-500/20 text-rose-500' : 'text-slate-400 hover:text-rose-500 hover:bg-rose-500/10'}`} title="PIN-Schutz (Tresor)"><Icon name="lock" size={20}/></button>
                     </div>
                   )}
                   {zenMode && <button onClick={() => setZenMode(false)} className="text-current opacity-50 hover:opacity-100"><Icon name="minimize-2" size={24}/></button>}
 
-                  <button onClick={checkSaveEntry} className={`px-6 py-2.5 rounded-full font-bold shadow-md hover:scale-105 transition-transform text-sm ${user.isDark ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}`}>Sichern</button>
+                  {!zenMode && <button onClick={checkSaveEntry} className={`hidden sm:flex px-6 py-2.5 rounded-full font-bold shadow-md hover:scale-105 transition-transform text-sm ${isDarkColor(selectedColor) ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}`}>Sichern</button>}
                 </div>
 
-                <div className={`flex-1 overflow-y-auto p-6 sm:p-10 flex flex-col gap-6 custom-scrollbar w-full ${zenMode ? '' : user.isDark ? 'text-white' : 'text-slate-900'}`}>
+                <div className={`flex-1 overflow-y-auto p-6 sm:p-10 flex flex-col gap-6 custom-scrollbar w-full ${zenMode ? '' : isDarkColor(selectedColor) ? 'text-white' : 'text-slate-900'}`}>
                   
                   {!zenMode && (
                     <div className="flex flex-wrap gap-3 text-xs font-bold uppercase tracking-widest opacity-60 shrink-0">
@@ -1353,20 +1394,19 @@
                     
                     <div className="flex justify-between items-center overflow-x-auto hide-scrollbar gap-4">
                       <div className="flex gap-2 shrink-0">
-                        <label className={`p-3.5 rounded-full shadow-sm cursor-pointer transition-colors ${user.isDark ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`}><Icon name="image" size={20}/><input type="file" accept="image/*" onChange={(e)=>handleFileUpload(e,'image')} className="hidden" /></label>
-                        <button onClick={() => setIsDrawing(true)} className={`p-3.5 rounded-full shadow-sm transition-colors ${user.isDark ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`}><Icon name="pen-tool" size={20}/></button>
+                        <label className={`p-3.5 rounded-full shadow-sm cursor-pointer transition-colors ${isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`}><Icon name="image" size={20}/><input type="file" accept="image/*" onChange={(e)=>handleFileUpload(e,'image')} className="hidden" /></label>
+                        <button onClick={() => setIsDrawing(true)} className={`p-3.5 rounded-full shadow-sm transition-colors ${isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`}><Icon name="pen-tool" size={20}/></button>
                       </div>
                       
-                      <div className={`flex gap-2 shrink-0 border-l pl-4 ${user.isDark ? 'border-white/10' : 'border-black/10'}`}>
-                        <label className={`relative p-3.5 rounded-full shadow-sm flex items-center justify-center cursor-pointer overflow-hidden transition-colors ${unlockDate ? 'bg-indigo-500 text-white' : user.isDark ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`}>
+                      <div className={`flex gap-2 shrink-0 border-l pl-4 ${isDarkColor(selectedColor) ? 'border-white/10' : 'border-black/10'}`}>
+                        <label className={`relative p-3.5 rounded-full shadow-sm flex items-center justify-center cursor-pointer overflow-hidden transition-colors ${unlockDate ? 'bg-indigo-500 text-white' : isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`}>
                           <Icon name="calendar-clock" size={20}/>
                           <input type="date" value={unlockDate} onChange={e=>setUnlockDate(e.target.value)} className="absolute opacity-0 w-[200%] h-[200%] -top-1/2 -left-1/2 cursor-pointer" />
                         </label>
-                        <button onClick={() => setIsLocked(!isLocked)} className={`p-3.5 rounded-full shadow-sm transition-colors ${isLocked ? 'bg-rose-500 text-white' : user.isDark ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`}><Icon name="lock" size={20}/></button>
                       </div>
                     </div>
 
-                    <div className={`flex justify-between items-center overflow-x-auto hide-scrollbar gap-6 border-t pt-4 ${user.isDark ? 'border-white/5' : 'border-black/5'}`}>
+                    <div className={`flex justify-between items-center overflow-x-auto hide-scrollbar gap-6 border-t pt-4 ${isDarkColor(selectedColor) ? 'border-white/5' : 'border-black/5'}`}>
                       <div className="flex gap-2 shrink-0">
                          {MOODS.map(m => (
                            <button key={m.id} onClick={()=>setMood(m.label===mood ? null : m.label)} className={`p-2.5 rounded-full transition-all ${mood===m.label ? 'bg-slate-800 dark:bg-white shadow-lg scale-110 ' + m.color : 'opacity-40 hover:opacity-100 text-current'}`}>
