@@ -8,7 +8,27 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" id="meta-theme-color" content="#f4f4f5">
+<meta name="theme-color" id="meta-theme-color" content="#09090b">
+
+<!-- Dynamisches PWA Manifest für Android/Samsung "Zum Startbildschirm hinzufügen" -->
+<link rel="manifest" id="dynamic-manifest" href="">
+<script>
+  const manifest = {
+    "name": "Legacy Vision",
+    "short_name": "Legacy",
+    "start_url": window.location.href,
+    "display": "standalone",
+    "background_color": "#09090b",
+    "theme_color": "#f59e0b",
+    "icons": [{
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }]
+  };
+  const manifestUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
+  document.getElementById('dynamic-manifest').setAttribute('href', manifestUrl);
+</script>
 
 <!-- Moderne Premium-Schriftarten -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -49,6 +69,7 @@ body {
   font-family: 'Inter', -apple-system, sans-serif;
   -webkit-tap-highlight-color: transparent;
   transition: background-color 0.4s ease, color 0.4s ease;
+  overscroll-behavior-y: none; /* Verhindert Android Pull-to-Refresh für Native App Feeling */
 }
 
 h1, h2, h3, .font-serif {
@@ -307,7 +328,7 @@ const App = () => {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone || document.referrer.includes('android-app://');
     if (!isStandalone) {
       if (window.location.protocol.includes('file') || window.location.protocol.includes('content')) {
-        setInstallHint("Tipp: Du hast die Datei lokal geöffnet (Datenbank blockiert!). Rufe deinen GitHub-Link auf und installiere sie von dort!");
+        setInstallHint("Tipp: Du hast die Datei lokal geöffnet. Um sie als echte App zu nutzen, rufe sie über deinen Browser auf und wähle 'Zum Startbildschirm hinzufügen'!");
       }
     }
   }, []);
@@ -736,10 +757,8 @@ const App = () => {
     setSelectedColor(user.isDark ? COLORS[8] : COLORS[1]);
     setSelectedImage(null); setSelectedVideo(null); setIsLocked(parent.locked || false);
     setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setUnlockLocation(null);
-    // Behalte die Kategorie des Buches bei
     setEntryType('vision'); setCategory(parent.category || CATEGORIES[0]);
     setMood(null); setLocation(null); 
-    // Setze das Eltern-Element für das saubere Buch-Prinzip
     setParentId(parent.id); 
     setInheritedFrom(null);
     setZenMode(false); setShowEditor(true);
@@ -772,7 +791,6 @@ const App = () => {
     if (withMood.length > 0) setViewingEntry(withMood[Math.floor(Math.random() * withMood.length)]);
   };
 
-  // Hilfsfunktion: Berechnet, wie viele Seiten ein Buch (Eintrag) insgesamt hat
   const getBookLength = (rootId) => {
     let count = 1;
     let currentId = rootId;
@@ -791,8 +809,6 @@ const App = () => {
   const now = new Date();
   
   const visibleEntries = entries.filter(e => {
-    // DAS NEUE "BUCH-DECKEL" PRINZIP:
-    // Wenn wir NICHT gerade suchen, verstecken wir alle Unterseiten vom Dashboard/Tresor/Archiv
     if (!searchQuery && e.parentId) return false;
 
     const matchesSearch = e.title.toLowerCase().includes(searchQuery.toLowerCase()) || (e.text && e.text.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -839,15 +855,12 @@ const App = () => {
       <div className="min-h-screen">
 
         {viewingEntry && !showEditor && (() => {
-          // NEUE ECHTE BLÄTTER-LOGIK IM BUCH
-          // Die vorherige Seite ist die Seite, deren ID in der aktuellen `parentId` steht.
           const prevPage = viewingEntry.parentId ? entries.find(e => e.id === viewingEntry.parentId) : null;
-          // Die nächste Seite ist die Seite, die die aktuelle ID als ihre `parentId` hinterlegt hat.
           const children = entries.filter(e => e.parentId === viewingEntry.id).sort((a,b) => new Date(a.date) - new Date(b.date));
           const nextPage = children.length > 0 ? children[0] : null;
 
           return (
-            <div className="fixed inset-0 z-[80] bg-paper-100 dark:bg-graphite-950 overflow-y-auto animate-fade-in custom-scrollbar flex flex-col">
+            <div className="fixed inset-0 z-[80] bg-paper-100 dark:bg-graphite-950 overflow-y-auto animate-fade-in custom-scrollbar flex flex-col overscroll-contain">
               <div className="max-w-2xl w-full mx-auto min-h-screen flex flex-col p-6 sm:p-12">
                 <div className="flex justify-between items-center mb-10 pt-4 shrink-0">
                   <button onClick={() => setViewingEntry(null)} className="p-3 bg-white dark:bg-white/5 rounded-full shadow-sm border border-slate-200 dark:border-transparent hover:scale-105 transition-transform"><Icon name="x" size={20}/></button>
@@ -870,7 +883,6 @@ const App = () => {
                 </div>
                 <div className="flex flex-col gap-6 mt-12 pt-8 border-t border-slate-300 dark:border-white/10 pb-20 shrink-0">
                   
-                  {/* Das Erstellen einer neuen Seite (hängt sich als child an) */}
                   {!nextPage && (
                     <button onClick={() => startNewChapter(viewingEntry)} className="w-full py-4 rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold text-base hover:scale-[1.02] transition-transform shadow-md flex items-center justify-center gap-2">
                       <Icon name="plus" size={20}/> Neue Seite (Weiterblättern)
@@ -937,7 +949,7 @@ const App = () => {
                 <h3 className="font-bold text-xl font-serif">{picker.title}</h3>
                 <button onClick={() => setPicker(null)} className="p-2 bg-slate-200 dark:bg-white/10 rounded-full hover:scale-110 transition-transform"><Icon name="x" size={20}/></button>
               </div>
-              <div className="overflow-y-auto custom-scrollbar p-3 space-y-1">
+              <div className="overflow-y-auto custom-scrollbar p-3 space-y-1 overscroll-contain">
                 {picker.options.map(opt => (
                   <button
                     key={opt.value}
@@ -1253,7 +1265,6 @@ const App = () => {
                             </span>
                           </div>
                           <div className="flex gap-2 items-center opacity-60">
-                            {/* NEU: Indikator für mehrere Seiten im Buch */}
                             {pagesCount > 1 && (
                               <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest bg-black/10 dark:bg-white/10 px-2 py-1 rounded-md mr-1">
                                 <Icon name="layers" size={12} /> {pagesCount}
@@ -1315,15 +1326,22 @@ const App = () => {
                   </div>
                 )}
                 {zenMode && <button onClick={() => setZenMode(false)} className="text-current opacity-50 hover:opacity-100"><Icon name="minimize-2" size={24}/></button>}
-                {!zenMode && <button onClick={checkSaveEntry} className={`hidden sm:flex px-6 py-2.5 rounded-full font-bold shadow-md hover:scale-105 transition-transform text-sm ${isDarkColor(selectedColor) ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}`}>Sichern</button>}
+                
+                {/* Geänderter Sichern-Button: Auf Handys als Check-Icon sichtbar */}
+                {!zenMode && (
+                  <button onClick={checkSaveEntry} className={`flex items-center gap-1 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full font-bold shadow-md hover:scale-105 transition-transform text-sm ${isDarkColor(selectedColor) ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}`}>
+                    <Icon name="check" size={16} className="sm:hidden" />
+                    <span className="hidden sm:inline">Sichern</span>
+                  </button>
+                )}
               </div>
 
-              <div className={`flex-1 overflow-y-auto p-6 sm:p-10 flex flex-col gap-6 custom-scrollbar w-full ${zenMode ? '' : isDarkColor(selectedColor) ? 'text-white' : 'text-slate-900'}`}>
+              <div className={`flex-1 overflow-y-auto p-6 sm:p-10 flex flex-col gap-6 custom-scrollbar w-full overscroll-contain ${zenMode ? '' : isDarkColor(selectedColor) ? 'text-white' : 'text-slate-900'}`}>
                 
                 {pillarGuidance && !zenMode && (
-                  <div className="bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 p-4 rounded-2xl text-sm font-medium flex gap-3 shrink-0">
+                  <div className="bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 p-3 sm:p-4 rounded-2xl flex gap-3 shrink-0">
                     <Icon name="book-open" size={20} className="shrink-0 mt-0.5" />
-                    <p>{pillarGuidance}</p>
+                    <p className="line-clamp-2 text-xs sm:text-sm font-medium">{pillarGuidance}</p>
                   </div>
                 )}
 
