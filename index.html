@@ -753,7 +753,10 @@ const App = () => {
 
   const startNewChapter = (parent) => {
     setViewingEntry(null);
-    setEditingId(null); setTitle(''); setText('');
+    setEditingId(null); 
+    // Der Titel der Ursprungsseite wird übernommen!
+    setTitle(parent.title || ''); 
+    setText('');
     setSelectedColor(user.isDark ? COLORS[8] : COLORS[1]);
     setSelectedImage(null); setSelectedVideo(null); setIsLocked(parent.locked || false);
     setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setUnlockLocation(null);
