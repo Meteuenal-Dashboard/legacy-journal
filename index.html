@@ -124,6 +124,31 @@ html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
   100% { transform: scale(1); opacity: 1; }
 }
 .audio-active { animation: audio-pulse 1.5s infinite ease-in-out; color: #f59e0b !important; }
+
+/* NEU: DRUCK-OPTIMIERUNG (ECHTES BUCH) */
+@media print {
+  body, html, #root, .min-h-screen { 
+    background: #ffffff !important; 
+    color: #000000 !important; 
+    height: auto !important; 
+    overflow: visible !important; 
+  }
+  nav, header, button, .no-print, .custom-scrollbar::-webkit-scrollbar { 
+    display: none !important; 
+  }
+  .card-bg, .group { 
+    box-shadow: none !important; 
+    border: 1px solid #ddd !important; 
+    background: #ffffff !important; 
+    color: #000000 !important; 
+    page-break-inside: avoid; 
+    margin-bottom: 24px !important; 
+  }
+  * { color: #000000 !important; }
+  img { max-height: 400px; object-fit: contain; }
+  .text-white { color: #000 !important; }
+  h1, h2, h3 { page-break-after: avoid; }
+}
 </style>
 </head>
 <body>
@@ -722,30 +747,8 @@ const App = () => {
   };
 
   const exportText = () => {
-    let textContent = "# LEGACY VISION JOURNAL\n\n";
-    textContent += `Eigentümer: ${user.name}\n`;
-    if (user.motto) textContent += `Lebensmotto: ${user.motto}\n`;
-    textContent += `Exportiert am: ${new Date().toLocaleDateString('de-DE')}\n\n`;
-    textContent += "=========================================\n\n";
-
-    entries.filter(e => !e.locked && !e.archived).forEach(entry => {
-      textContent += `## ${entry.title}\n`;
-      textContent += `Datum: ${new Date(entry.date).toLocaleDateString('de-DE')}\n`;
-      if (entry.category) textContent += `Kategorie: ${entry.category}\n`;
-      if (entry.mood) textContent += `Stimmung: ${entry.mood}\n`;
-      textContent += "\n";
-      const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = entry.text || '';
-      textContent += tempDiv.textContent || tempDiv.innerText || "";
-      textContent += "\n\n-----------------------------------------\n\n";
-    });
-
-    const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Legacy_Text_Export_${new Date().toISOString().split('T')[0]}.txt`;
-    a.click();
+    // Öffne systemweiten Druckdialog für PDF/Drucker (Echtes Buch Modus)
+    window.print();
   };
 
   const exportBackup = () => {
@@ -964,6 +967,22 @@ const App = () => {
       return { __html: highlighted };
   };
 
+  // --- FEATURE 2: Zeitmaschine (Heute vor X Jahren) ---
+  const today = new Date();
+  const timeMachineEntries = entries.filter(e => {
+    if (e.locked || e.archived || e.parentId) return false;
+    const eDate = new Date(e.date);
+    return eDate.getDate() === today.getDate() &&
+           eDate.getMonth() === today.getMonth() &&
+           eDate.getFullYear() < today.getFullYear();
+  });
+  const timeMachineEntry = timeMachineEntries.length > 0 ? timeMachineEntries[0] : null;
+
+  // --- FEATURE 3: Fortschrittsanzeige für die Säulen ---
+  const completedPillars = PILLARS.filter(p => entries.some(e => e.title === p.title)).length;
+  const totalPillars = PILLARS.length;
+  const progressPercent = Math.round((completedPillars / totalPillars) * 100);
+
   if (view === 'loading') return <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff') }}><div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>;
 
   if (view === 'onboarding') {
@@ -995,6 +1014,7 @@ const App = () => {
     <ErrorBoundary>
       <div className="min-h-screen">
 
+        {/* LESE-MODUS */}
         {viewingEntry && !showEditor && (() => {
           const prevPage = viewingEntry.parentId ? entries.find(e => e.id === viewingEntry.parentId) : null;
           const children = entries.filter(e => e.parentId === viewingEntry.id).sort((a,b) => new Date(a.date) - new Date(b.date));
@@ -1003,7 +1023,7 @@ const App = () => {
           return (
             <div className="fixed inset-0 z-[80] overflow-y-auto animate-fade-in custom-scrollbar flex flex-col overscroll-contain" style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff'), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}>
               <div className="max-w-2xl w-full mx-auto min-h-screen flex flex-col p-6 sm:p-12">
-                <div className="flex justify-between items-center mb-10 pt-4 shrink-0">
+                <div className="flex justify-between items-center mb-10 pt-4 shrink-0 no-print">
                   <button onClick={() => { setViewingEntry(null); if (isSpeaking) handleReadAloud({}); }} className="p-3 bg-white dark:bg-white/5 rounded-full shadow-sm border border-slate-200 dark:border-transparent hover:scale-105 transition-transform"><Icon name="x" size={20}/></button>
                   <div className="flex gap-2">
                     <button 
@@ -1029,9 +1049,9 @@ const App = () => {
                     })()}
                   </div>
                   <div className="text-lg sm:text-xl leading-relaxed legacy-content pb-10" dangerouslySetInnerHTML={{__html: viewingEntry.text}} />
-                  {viewingEntry.audio && <div className="mt-8 mb-10 p-4 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10"><audio src={viewingEntry.audio} controls className="w-full" /></div>}
+                  {viewingEntry.audio && <div className="mt-8 mb-10 p-4 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 no-print"><audio src={viewingEntry.audio} controls className="w-full" /></div>}
                 </div>
-                <div className="flex flex-col gap-6 mt-12 pt-8 border-t border-slate-300 dark:border-white/10 pb-20 shrink-0">
+                <div className="flex flex-col gap-6 mt-12 pt-8 border-t border-slate-300 dark:border-white/10 pb-20 shrink-0 no-print">
                   
                   {!nextPage && (
                     <button onClick={() => startNewChapter(viewingEntry)} className="w-full py-4 rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold text-base hover:scale-[1.02] transition-transform shadow-md flex items-center justify-center gap-2">
@@ -1067,7 +1087,7 @@ const App = () => {
         })()}
 
         {dialog && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xl animate-fade-in" onClick={() => { if(dialog.type === 'alert') setDialog(null); }}>
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xl animate-fade-in no-print" onClick={() => { if(dialog.type === 'alert') setDialog(null); }}>
             <div className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl border bg-white border-slate-200 dark:bg-graphite-900 dark:border-white/10 animate-scale-in" onClick={e => e.stopPropagation()}>
               {dialog.icon && (
                 <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 shadow-inner bg-slate-50 dark:bg-slate-800">
@@ -1093,7 +1113,7 @@ const App = () => {
         )}
 
         {picker && (
-          <div className="fixed inset-0 z-[250] flex items-end sm:items-center justify-center p-4 sm:p-6 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xl animate-fade-in" onClick={() => setPicker(null)}>
+          <div className="fixed inset-0 z-[250] flex items-end sm:items-center justify-center p-4 sm:p-6 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xl animate-fade-in no-print" onClick={() => setPicker(null)}>
             <div className="w-full max-w-sm rounded-[2.5rem] shadow-2xl border overflow-hidden animate-slide-up flex flex-col max-h-[80vh] bg-white border-slate-200 dark:bg-graphite-900 dark:border-white/10" onClick={e => e.stopPropagation()}>
               <div className="p-6 border-b border-slate-100 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5 shrink-0">
                 <h3 className="font-bold text-xl font-serif">{picker.title}</h3>
@@ -1116,7 +1136,7 @@ const App = () => {
         )}
 
         {unlockTarget && (
-          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 no-print">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => { setUnlockTarget(null); }} />
             <div className="relative w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl animate-scale-in border bg-slate-900 border-white/10 z-10">
               <div className="flex flex-col items-center w-full animate-fade-in">
@@ -1133,7 +1153,7 @@ const App = () => {
           </div>
         )}
 
-        <header className="sticky top-0 z-30 backdrop-blur-xl border-b px-4 py-3 sm:px-6 sm:py-4 transition-all duration-500 flex justify-between items-center bg-white/90 border-slate-200 dark:bg-graphite-950/80 dark:border-white/10 relative">
+        <header className="sticky top-0 z-30 backdrop-blur-xl border-b px-4 py-3 sm:px-6 sm:py-4 transition-all duration-500 flex justify-between items-center bg-white/90 border-slate-200 dark:bg-graphite-950/80 dark:border-white/10 relative no-print">
           <div className="flex items-center gap-3 flex-1 overflow-hidden z-10">
             {view === 'settings' ? <h1 className="text-xl font-bold tracking-tight font-serif">Einstellungen</h1> :
              view === 'menu' ? <h1 className="text-xl font-bold tracking-tight font-serif">Entdecken</h1> :
@@ -1169,7 +1189,7 @@ const App = () => {
         <main className="p-4 sm:p-6 max-w-4xl mx-auto min-h-[60vh] relative z-10 pb-24">
 
           {view === 'menu' && (
-            <div className="grid grid-cols-2 gap-4 sm:gap-6 animate-slide-up">
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 animate-slide-up no-print">
               <button onClick={() => setView('wisdom')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50">
                 <Icon name="book-open" size={32} className="text-amber-500" />
                 <span className="font-bold text-xs uppercase tracking-widest">Buch der Weisheit</span>
@@ -1190,10 +1210,24 @@ const App = () => {
           )}
 
           {view === 'wisdom' && (
-            <div className="animate-slide-up space-y-8">
+            <div className="animate-slide-up space-y-8 no-print">
               <div className="text-center mb-8">
                 <h2 className="text-3xl font-serif font-bold mb-3">Die 25 Säulen deines Vermächtnisses</h2>
                 <p className="opacity-60 max-w-xl mx-auto">Dieser Blueprint ist dein Wegweiser. Wähle eine Säule aus, um sie zu füllen. Zusammen ergeben sie das zeitloseste Bild deines Lebens für die Generationen, die nach dir kommen.</p>
+              </div>
+
+              {/* NEU: Fortschrittsanzeige Säulen */}
+              <div className="mb-8 p-6 rounded-[2rem] bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-500/30">
+                 <div className="flex justify-between items-end mb-3">
+                   <div>
+                     <h3 className="font-bold text-amber-700 dark:text-amber-500 text-sm uppercase tracking-widest">Dein Vermächtnis wächst</h3>
+                     <p className="text-xs opacity-70 text-slate-800 dark:text-slate-300 mt-1">{completedPillars} von {totalPillars} Säulen versiegelt</p>
+                   </div>
+                   <span className="text-2xl font-black text-amber-500">{progressPercent}%</span>
+                 </div>
+                 <div className="w-full bg-amber-200 dark:bg-amber-900/30 h-3 rounded-full overflow-hidden">
+                   <div className="bg-amber-500 h-full transition-all duration-1000" style={{width: `${progressPercent}%`}}></div>
+                 </div>
               </div>
               
               {['Fundament', 'Kommunikation', 'Struktur', 'Tiefe', 'Anpassung'].map((phaseTitle, index) => (
@@ -1221,7 +1255,7 @@ const App = () => {
           )}
 
           {view === 'burn' && (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center animate-fade-in relative overflow-hidden p-6">
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center animate-fade-in relative overflow-hidden p-6 no-print">
               {isBurning && <div className="absolute inset-0 bg-rose-500/20 animate-pulse z-0 rounded-3xl" />}
               <Icon name="flame" size={64} className={`mb-6 ${isBurning ? 'text-rose-500 animate-flame' : 'text-slate-400'}`} />
               <h2 className="text-3xl font-serif font-bold mb-4 z-10">Katharsis</h2>
@@ -1244,7 +1278,7 @@ const App = () => {
           )}
 
           {view === 'settings' && (
-            <div className="space-y-6 animate-slide-up grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-6 animate-slide-up max-w-md mx-auto no-print">
               <div className="p-6 rounded-[2rem] shadow-sm border card-bg">
                 <h2 className="text-lg font-bold mb-6 flex items-center gap-2 font-serif"><Icon name="user" size={20} className="text-amber-500" /> Profil</h2>
                 <div className="flex items-center gap-5 mb-6">
@@ -1334,7 +1368,7 @@ const App = () => {
                   </label>
                 </div>
                 <button onClick={exportText} className="w-full flex items-center justify-center gap-1.5 p-3 bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold border border-slate-300 dark:border-transparent shadow-sm hover:bg-slate-50">
-                  <Icon name="file-text" size={14}/> Als lesbaren Text (.txt) exportieren
+                  <Icon name="printer" size={14}/> Als echtes Buch drucken / PDF
                 </button>
               </div>
             </div>
@@ -1342,8 +1376,19 @@ const App = () => {
 
           {['dashboard', 'vault', 'archive'].includes(view) && (
             <>
+              {/* NEU: Zeitmaschine Banner (Heute vor X Jahren) */}
+              {view === 'dashboard' && timeMachineEntry && !searchQuery && (
+                <div onClick={() => handleBookClick(timeMachineEntry)} className="mb-6 p-5 rounded-[2rem] bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-500/30 cursor-pointer flex items-center gap-4 hover:scale-[1.02] transition-transform shadow-sm">
+                  <div className="p-3 bg-indigo-500 text-white rounded-full shrink-0 shadow-md"><Icon name="history" size={24}/></div>
+                  <div className="overflow-hidden">
+                    <h4 className="font-bold text-indigo-700 dark:text-indigo-400 text-xs uppercase tracking-widest mb-1">Heute vor {today.getFullYear() - new Date(timeMachineEntry.date).getFullYear()} {today.getFullYear() - new Date(timeMachineEntry.date).getFullYear() === 1 ? 'Jahr' : 'Jahren'}</h4>
+                    <p className="font-medium text-slate-900 dark:text-white truncate w-full text-lg font-serif">{timeMachineEntry.title}</p>
+                  </div>
+                </div>
+              )}
+
               {view === 'dashboard' && (
-                <div className="flex overflow-x-auto gap-3 pb-4 mb-6 custom-scrollbar snap-x">
+                <div className="flex overflow-x-auto gap-3 pb-4 mb-6 custom-scrollbar snap-x no-print">
                   {['Alle', ...CATEGORIES].map(cat => (
                     <button
                       key={cat} onClick={() => setActiveCategory(cat)}
@@ -1364,9 +1409,8 @@ const App = () => {
                 </div>
               )}
 
-              {/* NEU: Bei aktiver Suche einen Hinweis einblenden */}
               {searchQuery && renderEntries.length > 0 && (
-                <p className="text-xs font-bold uppercase tracking-widest text-amber-600 dark:text-amber-500 mb-4 pl-2">
+                <p className="text-xs font-bold uppercase tracking-widest text-amber-600 dark:text-amber-500 mb-4 pl-2 no-print">
                   Suchergebnisse in allen Seiten ({renderEntries.length})
                 </p>
               )}
@@ -1415,12 +1459,12 @@ const App = () => {
                       style={{ backgroundColor: cardBg, color: isDarkColor(cardBg) ? '#f8fafc' : '#0f172a' }}
                     >
                       {entry.inheritedFrom && (
-                        <div className="absolute top-4 left-4 z-30 bg-black/80 text-amber-400 text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1 backdrop-blur-md">
+                        <div className="absolute top-4 left-4 z-30 bg-black/80 text-amber-400 text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1 backdrop-blur-md no-print">
                           <Icon name="git-merge" size={12}/> Von {entry.inheritedFrom.split(' ')[0]}
                         </div>
                       )}
                       {entry.manifested && (
-                        <div className="absolute top-4 right-4 z-30 bg-amber-500 text-slate-900 text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1">
+                        <div className="absolute top-4 right-4 z-30 bg-amber-500 text-slate-900 text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1 no-print">
                           <Icon name="sparkles" size={12}/> Manifestiert
                         </div>
                       )}
@@ -1428,8 +1472,7 @@ const App = () => {
                       {entry.image && (
                         <div className="w-full relative overflow-hidden bg-slate-100 dark:bg-black/20 flex justify-center items-center min-h-[200px]">
                           <img src={entry.image} alt="Vision" className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent z-10 pointer-events-none" />
-                          {/* Highlight Title if searched */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent z-10 pointer-events-none no-print" />
                           <h3 className="absolute bottom-6 left-6 right-6 z-20 font-bold text-2xl text-white drop-shadow-md leading-snug line-clamp-2 font-serif" dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
                         </div>
                       )}
@@ -1438,9 +1481,8 @@ const App = () => {
                         {!entry.image && <h3 className={`font-bold text-2xl leading-tight mb-4 line-clamp-2 font-serif`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />}
                         {entry.category === 'Weisheit' && <div className="mb-4 text-[10px] font-bold uppercase tracking-widest opacity-50 flex items-center gap-1 text-amber-500"><Icon name="book-open" size={12}/> Säule der Weisheit</div>}
                         
-                        {/* NEU: Bei der Suche zeigen wir den Buch-Namen an, falls dies eine Unterseite ist */}
                         {searchQuery && entry.parentId && (
-                          <div className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60 flex items-center gap-1 text-indigo-500">
+                          <div className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60 flex items-center gap-1 text-indigo-500 no-print">
                              <Icon name="link" size={12}/> Gefunden auf Unterseite
                           </div>
                         )}
@@ -1455,8 +1497,7 @@ const App = () => {
                               {new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}
                             </span>
                           </div>
-                          <div className="flex gap-2 items-center opacity-60">
-                            {/* Seitenzahl anzeigen, falls es ein Buch ist (und wir nicht gerade suchen) */}
+                          <div className="flex gap-2 items-center opacity-60 no-print">
                             {pagesCount > 1 && !searchQuery && (
                               <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest bg-black/10 dark:bg-white/10 px-2 py-1 rounded-md mr-1">
                                 <Icon name="layers" size={12} /> {pagesCount}
@@ -1487,140 +1528,145 @@ const App = () => {
         </main>
 
         {showEditor && (
-          <div className="fixed inset-0 z-[100] flex flex-col" style={{ backgroundColor: user.appBgColor || (user.isDark ? '#18181b' : '#ffffff'), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}>
-            <div className={`flex justify-between items-center px-6 py-5 border-b ${zenMode ? 'border-transparent' : 'border-black/5 dark:border-white/5'}`}>
-              <button onClick={() => checkSaveEntry()} className={`p-2 rounded-full transition-colors ${isDarkColor(selectedColor) ? 'text-white hover:bg-white/10' : 'text-slate-900 hover:bg-black/5'}`}><Icon name="chevron-down" size={24}/></button>
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-6 transition-all bg-slate-900/40 dark:bg-slate-950/80 backdrop-blur-md no-print">
+            <div className="absolute inset-0 bg-transparent" onClick={() => checkSaveEntry()} />
+            <div
+              className="relative w-full max-w-3xl mx-auto flex flex-col shadow-2xl transition-all h-[100dvh] sm:rounded-none bg-white dark:bg-graphite-900 sm:h-[90dvh] max-h-[900px] rounded-t-[2rem] sm:rounded-[2.5rem] border border-slate-200 dark:border-white/10"
+              style={{ backgroundColor: zenMode ? 'transparent' : (user.appBgColor || (user.isDark ? '#18181b' : '#ffffff')), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
+            >
+              <div className={`flex justify-between items-center px-6 py-5 border-b ${zenMode ? 'border-transparent' : 'border-black/5 dark:border-white/5'}`}>
+                <button onClick={() => checkSaveEntry()} className={`p-2 rounded-full transition-colors ${isDarkColor(selectedColor) ? 'text-white hover:bg-white/10' : 'text-slate-900 hover:bg-black/5'}`}><Icon name="chevron-down" size={24}/></button>
 
-              {!zenMode && (
-                <div className="flex gap-1 sm:gap-2 overflow-x-auto hide-scrollbar items-center">
-                  {autoSaveStatus && <span className="flex items-center text-[10px] sm:text-xs font-bold text-emerald-500 animate-pulse mr-1 sm:mr-2"><Icon name="check" size={14} className="mr-1"/> {autoSaveStatus}</span>}
-                  {editingId && <button onClick={() => confirmDelete(editingId)} className="p-2 sm:p-2.5 rounded-full hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 transition-colors" title="Seite herausreißen"><Icon name="trash-2" size={20}/></button>}
-                  {editingId && <button onClick={() => {
-                    const entryToArchive = {
-                      id: editingId || generateId(),
-                      title: title || 'Neue Seite', text, color: selectedColor,
-                      image: selectedImage, video: selectedVideo, audio: audioUrl,
-                      locked: isLocked, archived: true, manifested: isManifested,
-                      unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
-                      date: editingId ? (entries.find(e => e.id === editingId)?.date || new Date().toISOString()) : new Date().toISOString(),
-                    };
-                    saveToDB(entryToArchive);
-                    closeEditor();
-                  }} className="p-2 sm:p-2.5 rounded-full transition-colors text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10" title="Ins Archiv"><Icon name="archive" size={20}/></button>}
-                  <button onClick={() => setZenMode(true)} className={`p-2 sm:p-2.5 rounded-full transition-colors text-slate-400 ${isDarkColor(selectedColor) ? 'hover:text-white hover:bg-white/10' : 'hover:text-slate-900 hover:bg-black/5'}`} title="Fokus Modus"><Icon name="maximize-2" size={20}/></button>
-                  <button onClick={() => setIsManifested(!isManifested)} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isManifested ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-500/10'}`} title="Manifestieren (Stern)"><Icon name="sparkles" size={20}/></button>
-                  <button onClick={() => setIsLocked(!isLocked)} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isLocked ? 'bg-rose-500/20 text-rose-500' : 'text-slate-400 hover:text-rose-500 hover:bg-rose-500/10'}`} title="PIN-Schutz (Tresor)"><Icon name="lock" size={20}/></button>
-                </div>
-              )}
-              {zenMode && <button onClick={() => setZenMode(false)} className="text-current opacity-50 hover:opacity-100"><Icon name="minimize-2" size={24}/></button>}
-              
-              {/* Geänderter Sichern-Button: Auf Handys als Check-Icon sichtbar */}
-              {!zenMode && (
-                <button onClick={checkSaveEntry} className={`flex items-center gap-1 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full font-bold shadow-md hover:scale-105 transition-transform text-sm ${isDarkColor(selectedColor) ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}`}>
-                  <Icon name="check" size={16} className="sm:hidden" />
-                  <span className="hidden sm:inline">Sichern</span>
-                </button>
-              )}
-            </div>
-
-            <div className={`flex-1 overflow-y-auto p-6 sm:p-10 flex flex-col gap-6 custom-scrollbar w-full overscroll-contain ${zenMode ? '' : isDarkColor(selectedColor) ? 'text-white' : 'text-slate-900'}`}>
-              
-              {pillarGuidance && !zenMode && (
-                <div className="bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 p-3 sm:p-4 rounded-2xl flex gap-3 shrink-0">
-                  <Icon name="book-open" size={20} className="shrink-0 mt-0.5" />
-                  <p className="line-clamp-2 text-xs sm:text-sm font-medium">{pillarGuidance}</p>
-                </div>
-              )}
-
-              {!zenMode && (
-                <div className="flex flex-wrap gap-3 text-xs font-bold uppercase tracking-widest opacity-60 shrink-0">
-                  <button onClick={() => setPicker({
-                    title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c => ({label: c, value: c})), onSelect: setCategory
-                  })} className="bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2">
-                    {category} <Icon name="chevron-down" size={14} className="shrink-0"/>
+                {!zenMode && (
+                  <div className="flex gap-1 sm:gap-2 overflow-x-auto hide-scrollbar items-center">
+                    {autoSaveStatus && <span className="flex items-center text-[10px] sm:text-xs font-bold text-emerald-500 animate-pulse mr-1 sm:mr-2"><Icon name="check" size={14} className="mr-1"/> {autoSaveStatus}</span>}
+                    {editingId && <button onClick={() => confirmDelete(editingId)} className="p-2 sm:p-2.5 rounded-full hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 transition-colors" title="Seite herausreißen"><Icon name="trash-2" size={20}/></button>}
+                    {editingId && <button onClick={() => {
+                      const entryToArchive = {
+                        id: editingId || generateId(),
+                        title: title || 'Neue Seite', text, color: selectedColor,
+                        image: selectedImage, video: selectedVideo, audio: audioUrl,
+                        locked: isLocked, archived: true, manifested: isManifested,
+                        unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
+                        date: editingId ? (entries.find(e => e.id === editingId)?.date || new Date().toISOString()) : new Date().toISOString(),
+                      };
+                      saveToDB(entryToArchive);
+                      closeEditor();
+                    }} className="p-2 sm:p-2.5 rounded-full transition-colors text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10" title="Ins Archiv"><Icon name="archive" size={20}/></button>}
+                    <button onClick={() => setZenMode(true)} className={`p-2 sm:p-2.5 rounded-full transition-colors text-slate-400 ${isDarkColor(selectedColor) ? 'hover:text-white hover:bg-white/10' : 'hover:text-slate-900 hover:bg-black/5'}`} title="Fokus Modus"><Icon name="maximize-2" size={20}/></button>
+                    <button onClick={() => setIsManifested(!isManifested)} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isManifested ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-500/10'}`} title="Manifestieren (Stern)"><Icon name="sparkles" size={20}/></button>
+                    <button onClick={() => setIsLocked(!isLocked)} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isLocked ? 'bg-rose-500/20 text-rose-500' : 'text-slate-400 hover:text-rose-500 hover:bg-rose-500/10'}`} title="PIN-Schutz (Tresor)"><Icon name="lock" size={20}/></button>
+                  </div>
+                )}
+                {zenMode && <button onClick={() => setZenMode(false)} className="text-current opacity-50 hover:opacity-100"><Icon name="minimize-2" size={24}/></button>}
+                
+                {!zenMode && (
+                  <button onClick={checkSaveEntry} className={`flex items-center gap-1 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full font-bold shadow-md hover:scale-105 transition-transform text-sm ${isDarkColor(selectedColor) ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}`}>
+                    <Icon name="check" size={16} className="sm:hidden" />
+                    <span className="hidden sm:inline">Sichern</span>
                   </button>
-                  <button onClick={() => setPicker({
-                    title: 'Art des Eintrags', currentValue: entryType, options: [{label: 'Vision', value: 'vision'}, {label: 'Brief an die Zukunft', value: 'letter'}], onSelect: setEntryType
-                  })} className="bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2">
-                    {entryType === 'vision' ? 'Vision' : 'Brief'} <Icon name="chevron-down" size={14} className="shrink-0"/>
-                  </button>
-                </div>
-              )}
+                )}
+              </div>
 
-              <input type="text" placeholder="Titel..." value={title} onChange={(e) => setTitle(e.target.value)} className="w-full shrink-0 bg-transparent text-4xl sm:text-5xl font-bold placeholder-current opacity-90 border-none focus:ring-0 p-0 focus:outline-none font-serif" style={{'::placeholder': { opacity: 0.3 }}} />
+              <div className={`flex-1 overflow-y-auto p-6 sm:p-10 flex flex-col gap-6 custom-scrollbar w-full overscroll-contain ${zenMode ? '' : isDarkColor(selectedColor) ? 'text-white' : 'text-slate-900'}`}>
+                
+                {pillarGuidance && !zenMode && (
+                  <div className="bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 p-3 sm:p-4 rounded-2xl flex gap-3 shrink-0">
+                    <Icon name="book-open" size={20} className="shrink-0 mt-0.5" />
+                    <p className="line-clamp-2 text-xs sm:text-sm font-medium">{pillarGuidance}</p>
+                  </div>
+                )}
 
-              {!zenMode && (
-                <div className="flex gap-2 py-3 border-y border-current border-opacity-10 opacity-70 shrink-0">
-                  <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); }} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Fett"><Icon name="bold" size={18}/></button>
-                  <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); }} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Kursiv"><Icon name="italic" size={18}/></button>
-                  <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); }} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors"><Icon name="list-todo" size={18}/></button>
-                  <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); }} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Zitat / Weisheit"><Icon name="quote" size={18}/></button>
-                </div>
-              )}
-
-              <div
-                ref={editorRef}
-                contentEditable={true}
-                suppressContentEditableWarning={true}
-                data-placeholder="Schreibe deine Gedanken auf diese leere Seite..."
-                onInput={(e) => setText(e.currentTarget.innerHTML)}
-                className="w-full flex-1 min-h-[300px] bg-transparent text-lg sm:text-xl leading-relaxed focus:outline-none font-medium empty:before:content-[attr(data-placeholder)] empty:before:cursor-text legacy-editor-content pb-20"
-                style={{'::before': { opacity: 0.3 }}}
-              />
-
-              {!zenMode && (
-                <div className="space-y-4 shrink-0 pb-6">
-                  {selectedImage && <div className="relative rounded-[2rem] overflow-hidden shadow-md bg-black/5 dark:bg-black/20 flex justify-center"><img src={selectedImage} alt="Preview" className="w-full h-auto max-h-[40vh] object-cover" /><button onClick={() => setSelectedImage(null)} className="absolute top-4 right-4 bg-white/80 dark:bg-black/60 backdrop-blur-md p-3 rounded-full hover:scale-110 transition-transform"><Icon name="x" size={18}/></button></div>}
-                  {audioUrl && (
-                     <div className="relative p-4 rounded-2xl shadow-sm border border-current border-opacity-20 flex flex-col">
-                       <span className="text-xs font-bold uppercase tracking-widest mb-2 opacity-60">Sprachnachricht</span>
-                       <audio src={audioUrl} controls className="w-full" />
-                       <button onClick={() => setAudioUrl(null)} className="absolute top-4 right-4 text-current opacity-50 hover:opacity-100"><Icon name="x" size={16}/></button>
-                     </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {!zenMode && (
-              <div className="border-t border-black/5 dark:border-white/5 bg-white/50 dark:bg-black/40 backdrop-blur-2xl p-4 sm:p-6 flex flex-col gap-4 pb-[env(safe-area-inset-bottom,24px)] shrink-0">
-                <div className="flex justify-between items-center overflow-x-auto hide-scrollbar gap-4">
-                  <div className="flex gap-2 shrink-0">
-                    <label className={`p-3.5 rounded-full shadow-sm cursor-pointer transition-colors ${isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`} title="Bild hinzufügen"><Icon name="image" size={20}/><input type="file" accept="image/*" onChange={(e)=>handleFileUpload(e,'image')} className="hidden" /></label>
-                    <button onClick={() => setIsDrawing(true)} className={`p-3.5 rounded-full shadow-sm transition-colors ${isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`} title="Zeichnen"><Icon name="pen-tool" size={20}/></button>
-                    <button onClick={isRecording ? stopRecording : startRecording} className={`p-3.5 rounded-full shadow-sm transition-colors ${isRecording ? 'bg-rose-500 text-white animate-pulse' : isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`} title="Sprache aufnehmen">
-                      {isRecording ? <Icon name="square" size={20}/> : <Icon name="mic" size={20}/>}
+                {!zenMode && (
+                  <div className="flex flex-wrap gap-3 text-xs font-bold uppercase tracking-widest opacity-60 shrink-0">
+                    <button onClick={() => setPicker({
+                      title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c => ({label: c, value: c})), onSelect: setCategory
+                    })} className="bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2">
+                      {category} <Icon name="chevron-down" size={14} className="shrink-0"/>
+                    </button>
+                    <button onClick={() => setPicker({
+                      title: 'Art des Eintrags', currentValue: entryType, options: [{label: 'Vision', value: 'vision'}, {label: 'Brief an die Zukunft', value: 'letter'}], onSelect: setEntryType
+                    })} className="bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2">
+                      {entryType === 'vision' ? 'Vision' : 'Brief'} <Icon name="chevron-down" size={14} className="shrink-0"/>
                     </button>
                   </div>
-                  <div className={`flex gap-2 shrink-0 border-l pl-4 ${isDarkColor(selectedColor) ? 'border-white/10' : 'border-black/10'}`}>
-                    <label className={`relative p-3.5 rounded-full shadow-sm flex items-center justify-center cursor-pointer overflow-hidden transition-colors ${unlockDate ? 'bg-indigo-500 text-white' : isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`} title="Datums-Siegel (Zeitkapsel)">
-                      <Icon name="calendar-clock" size={20}/>
-                      <input type="date" value={unlockDate} onChange={e=>setUnlockDate(e.target.value)} className="absolute opacity-0 w-[200%] h-[200%] -top-1/2 -left-1/2 cursor-pointer" />
-                    </label>
-                  </div>
-                </div>
+                )}
 
-                <div className={`flex justify-between items-center overflow-x-auto hide-scrollbar gap-6 border-t pt-4 ${isDarkColor(selectedColor) ? 'border-white/5' : 'border-black/5'}`}>
-                  <div className="flex gap-2 shrink-0">
-                    {MOODS.map(m => (
-                      <button key={m.id} onClick={()=>setMood(m.label===mood ? null : m.label)} className={`p-2.5 rounded-full transition-all ${mood===m.label ? 'bg-slate-800 dark:bg-white shadow-lg scale-110 ' + m.color : 'opacity-40 hover:opacity-100 text-current'}`}>
-                        <Icon name={m.iconName} size={20} />
-                      </button>
-                    ))}
+                <input type="text" placeholder="Titel..." value={title} onChange={(e) => setTitle(e.target.value)} className="w-full shrink-0 bg-transparent text-4xl sm:text-5xl font-bold placeholder-current opacity-90 border-none focus:ring-0 p-0 focus:outline-none font-serif" style={{'::placeholder': { opacity: 0.3 }}} />
+
+                {!zenMode && (
+                  <div className="flex gap-2 py-3 border-y border-current border-opacity-10 opacity-70 shrink-0">
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); }} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Fett"><Icon name="bold" size={18}/></button>
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); }} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Kursiv"><Icon name="italic" size={18}/></button>
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); }} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors"><Icon name="list-todo" size={18}/></button>
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); }} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Zitat / Weisheit"><Icon name="quote" size={18}/></button>
                   </div>
-                  <div className="flex gap-2 shrink-0">
-                    {COLORS.slice(0, 18).map((c) => (
-                      <button key={c} onClick={() => setSelectedColor(c)} className={`w-8 h-8 rounded-full shadow-sm border-2 transition-transform ${selectedColor === c ? 'scale-110 border-current z-10' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`} style={{ backgroundColor: c }} />
-                    ))}
+                )}
+
+                <div
+                  ref={editorRef}
+                  contentEditable={true}
+                  suppressContentEditableWarning={true}
+                  data-placeholder="Schreibe deine Gedanken auf diese leere Seite..."
+                  onInput={(e) => setText(e.currentTarget.innerHTML)}
+                  className="w-full flex-1 min-h-[300px] bg-transparent text-lg sm:text-xl leading-relaxed focus:outline-none font-medium empty:before:content-[attr(data-placeholder)] empty:before:cursor-text legacy-editor-content pb-20"
+                  style={{'::before': { opacity: 0.3 }}}
+                />
+
+                {!zenMode && (
+                  <div className="space-y-4 shrink-0 pb-6">
+                    {selectedImage && <div className="relative rounded-[2rem] overflow-hidden shadow-md bg-black/5 dark:bg-black/20 flex justify-center"><img src={selectedImage} alt="Preview" className="w-full h-auto max-h-[40vh] object-cover" /><button onClick={() => setSelectedImage(null)} className="absolute top-4 right-4 bg-white/80 dark:bg-black/60 backdrop-blur-md p-3 rounded-full hover:scale-110 transition-transform"><Icon name="x" size={18}/></button></div>}
+                    {audioUrl && (
+                       <div className="relative p-4 rounded-2xl shadow-sm border border-current border-opacity-20 flex flex-col">
+                         <span className="text-xs font-bold uppercase tracking-widest mb-2 opacity-60">Sprachnachricht</span>
+                         <audio src={audioUrl} controls className="w-full" />
+                         <button onClick={() => setAudioUrl(null)} className="absolute top-4 right-4 text-current opacity-50 hover:opacity-100"><Icon name="x" size={16}/></button>
+                       </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {!zenMode && (
+                <div className="border-t border-black/5 dark:border-white/5 bg-white/50 dark:bg-black/40 backdrop-blur-2xl p-4 sm:p-6 flex flex-col gap-4 pb-[env(safe-area-inset-bottom,24px)] shrink-0">
+                  <div className="flex justify-between items-center overflow-x-auto hide-scrollbar gap-4">
+                    <div className="flex gap-2 shrink-0">
+                      <label className={`p-3.5 rounded-full shadow-sm cursor-pointer transition-colors ${isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`} title="Bild hinzufügen"><Icon name="image" size={20}/><input type="file" accept="image/*" onChange={(e)=>handleFileUpload(e,'image')} className="hidden" /></label>
+                      <button onClick={() => setIsDrawing(true)} className={`p-3.5 rounded-full shadow-sm transition-colors ${isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`} title="Zeichnen"><Icon name="pen-tool" size={20}/></button>
+                      <button onClick={isRecording ? stopRecording : startRecording} className={`p-3.5 rounded-full shadow-sm transition-colors ${isRecording ? 'bg-rose-500 text-white animate-pulse' : isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`} title="Sprache aufnehmen">
+                        {isRecording ? <Icon name="square" size={20}/> : <Icon name="mic" size={20}/>}
+                      </button>
+                    </div>
+                    <div className={`flex gap-2 shrink-0 border-l pl-4 ${isDarkColor(selectedColor) ? 'border-white/10' : 'border-black/10'}`}>
+                      <label className={`relative p-3.5 rounded-full shadow-sm flex items-center justify-center cursor-pointer overflow-hidden transition-colors ${unlockDate ? 'bg-indigo-500 text-white' : isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`} title="Datums-Siegel (Zeitkapsel)">
+                        <Icon name="calendar-clock" size={20}/>
+                        <input type="date" value={unlockDate} onChange={e=>setUnlockDate(e.target.value)} className="absolute opacity-0 w-[200%] h-[200%] -top-1/2 -left-1/2 cursor-pointer" />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className={`flex justify-between items-center overflow-x-auto hide-scrollbar gap-6 border-t pt-4 ${isDarkColor(selectedColor) ? 'border-white/5' : 'border-black/5'}`}>
+                    <div className="flex gap-2 shrink-0">
+                      {MOODS.map(m => (
+                        <button key={m.id} onClick={()=>setMood(m.label===mood ? null : m.label)} className={`p-2.5 rounded-full transition-all ${mood===m.label ? 'bg-slate-800 dark:bg-white shadow-lg scale-110 ' + m.color : 'opacity-40 hover:opacity-100 text-current'}`}>
+                          <Icon name={m.iconName} size={20} />
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      {COLORS.slice(0, 18).map((c) => (
+                        <button key={c} onClick={() => setSelectedColor(c)} className={`w-8 h-8 rounded-full shadow-sm border-2 transition-transform ${selectedColor === c ? 'scale-110 border-current z-10' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`} style={{ backgroundColor: c }} />
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
 
         {isDrawing && (
-          <div className="fixed inset-0 z-[120] flex flex-col bg-slate-900 text-white">
+          <div className="fixed inset-0 z-[120] flex flex-col bg-slate-900 text-white no-print">
             <div className="flex justify-between items-center p-6 border-b border-white/10 bg-slate-950">
               <button onClick={() => setIsDrawing(false)} className="p-3 text-white/70 hover:text-white bg-white/5 rounded-full"><Icon name="x" size={24} /></button>
               <span className="font-bold text-xl font-serif">Skizze</span>
@@ -1648,7 +1694,7 @@ const App = () => {
           </div>
         )}
 
-        <nav className="fixed bottom-0 left-0 right-0 backdrop-blur-3xl border-t z-40 transition-colors duration-500 bg-white/90 border-slate-200 dark:bg-graphite-950/90 dark:border-white/10 pb-[env(safe-area-inset-bottom,0px)]">
+        <nav className="fixed bottom-0 left-0 right-0 backdrop-blur-3xl border-t z-40 transition-colors duration-500 bg-white/90 border-slate-200 dark:bg-graphite-950/90 dark:border-white/10 pb-[env(safe-area-inset-bottom,0px)] no-print">
           <div className="flex justify-between items-center h-20 max-w-md mx-auto px-8">
             <button onClick={() => setView('dashboard')} className={`flex flex-col items-center justify-center h-full space-y-1 transition-all ${view === 'dashboard' ? 'text-amber-500 scale-105' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}><Icon name="layout-grid" size={24} /><span className="text-[10px] font-bold uppercase tracking-widest">Buch</span></button>
             <div className="relative -top-6">
