@@ -623,6 +623,21 @@ const App = () => {
     });
   };
 
+  // --- NEU: Samsung Keyboard Scroll-Fix ---
+  const handleEditorInteraction = () => {
+    setTimeout(() => {
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount) return;
+      const range = selection.getRangeAt(0).cloneRange();
+      range.collapse(false);
+      const marker = document.createElement('span');
+      marker.appendChild(document.createTextNode('\u200B'));
+      range.insertNode(marker);
+      marker.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      marker.parentNode.removeChild(marker);
+    }, 400); // Verzögerung, bis die Tastatur vollständig ausgefahren ist
+  };
+
   useEffect(() => {
     if (showEditor && editorRef.current && editorRef.current.innerHTML !== text) {
       editorRef.current.innerHTML = text || '';
@@ -845,7 +860,7 @@ const App = () => {
       setEditingId(null); 
       setTitle(pillar ? pillar.title : ''); 
       setText('');
-      setSelectedColor(user.isDark ? COLORS[8] : COLORS[0]); 
+      setSelectedColor(user.isDark ? COLORS[8] : COLORS[1]); 
       setSelectedImage(null); setSelectedVideo(null); setIsLocked(view === 'vault');
       setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setUnlockLocation(null);
       setEntryType('vision'); 
@@ -861,7 +876,7 @@ const App = () => {
     setEditingId(null); 
     setTitle(parent.title || ''); 
     setText('');
-    setSelectedColor(user.isDark ? COLORS[8] : COLORS[0]);
+    setSelectedColor(user.isDark ? COLORS[8] : COLORS[1]);
     setSelectedImage(null); setSelectedVideo(null); setIsLocked(parent.locked || false);
     setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setUnlockLocation(null);
     setEntryType('vision'); setCategory(parent.category || CATEGORIES[0]);
@@ -1170,12 +1185,13 @@ const App = () => {
                     {view === 'archive' ? 'Archiv' : user.name}
                   </h1>
                   {view === 'vault' && <p className="text-xs mt-0.5 font-medium flex items-center gap-1 text-rose-500"><Icon name="shield-check" size={14} /> Sicherer Tresor</p>}
+                  {/* FEATURE 3: Lebensmotto bricht jetzt um und schneidet nicht mehr ab */}
                   {view === 'dashboard' && user.motto && <p className="text-[10px] sm:text-xs mt-1 italic font-medium whitespace-normal leading-snug opacity-70 w-full pr-4">"{user.motto}"</p>}
                 </div>
               </>
             )}
           </div>
-          <div className="flex gap-1 items-center z-10">
+          <div className="flex gap-1 items-center z-10 relative">
             {view === 'dashboard' && (
               <>
                 <div className="flex items-center relative">
@@ -1187,6 +1203,29 @@ const App = () => {
             )}
             {(view === 'settings' || view === 'menu' || view === 'archive' || view === 'wisdom' || view === 'burn') && <button onClick={() => setView('dashboard')} className="p-2.5 rounded-full border border-transparent bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"><Icon name="x" size={18} /></button>}
           </div>
+
+          {/* FEATURE 2: WhatsApp-Style Live-Dropdown für die Suche */}
+          {isSearchOpen && searchQuery && (
+            <div className="absolute top-full left-4 right-4 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-h-[60vh] overflow-y-auto custom-scrollbar z-[100]">
+              {renderEntries.length === 0 ? (
+                <div className="p-4 text-center opacity-50 text-sm font-medium text-slate-900 dark:text-white">Keine Einträge gefunden.</div>
+              ) : (
+                renderEntries.map(entry => (
+                  <button 
+                    key={entry.id} 
+                    onClick={() => { handleBookClick(entry); setIsSearchOpen(false); setSearchQuery(''); }} 
+                    className="w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700/50 last:border-0 transition-colors flex flex-col gap-1"
+                  >
+                    <div className="font-bold text-sm text-slate-900 dark:text-white" dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)}></div>
+                    <div className="text-xs opacity-70 line-clamp-2 text-slate-800 dark:text-slate-300" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)}></div>
+                    <div className="text-[10px] text-amber-500 font-bold uppercase tracking-widest mt-1">
+                      {new Date(entry.date).toLocaleDateString()} {entry.parentId && '• Gefunden auf Unterseite'}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
         </header>
 
         <main className="p-4 sm:p-6 max-w-4xl mx-auto min-h-[60vh] relative z-10 pb-24">
@@ -1219,7 +1258,6 @@ const App = () => {
                 <p className="opacity-60 max-w-xl mx-auto">Dieser Blueprint ist dein Wegweiser. Wähle eine Säule aus, um sie zu füllen. Zusammen ergeben sie das zeitloseste Bild deines Lebens für die Generationen, die nach dir kommen.</p>
               </div>
 
-              {/* NEU: Fortschrittsanzeige Säulen */}
               <div className="mb-8 p-6 rounded-[2rem] bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-500/30">
                  <div className="flex justify-between items-end mb-3">
                    <div>
@@ -1379,7 +1417,6 @@ const App = () => {
 
           {['dashboard', 'vault', 'archive'].includes(view) && (
             <>
-              {/* NEU: Zeitmaschine Banner (Heute vor X Jahren) */}
               {view === 'dashboard' && timeMachineEntry && !searchQuery && (
                 <div onClick={() => handleBookClick(timeMachineEntry)} className="mb-6 p-5 rounded-[2rem] bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-500/30 cursor-pointer flex items-center gap-4 hover:scale-[1.02] transition-transform shadow-sm">
                   <div className="p-3 bg-indigo-500 text-white rounded-full shrink-0 shadow-md"><Icon name="history" size={24}/></div>
@@ -1403,23 +1440,17 @@ const App = () => {
                 </div>
               )}
 
-              {visibleEntries.length === 0 && view !== 'menu' && view !== 'settings' && (
+              {visibleEntries.length === 0 && view !== 'menu' && view !== 'settings' && !searchQuery && (
                 <div className="flex flex-col items-center justify-center py-32 text-center opacity-30 animate-fade-in text-slate-900 dark:text-white">
                   {view === 'vault' ? <Icon name="shield-check" size={64} className="mb-6"/> : view === 'archive' ? <Icon name="archive" size={64} className="mb-6"/> : <Icon name="book-open" size={64} className="mb-6"/>}
                   <p className="text-xl font-bold font-serif">
-                    {searchQuery ? 'Keine Einträge für diese Suche gefunden.' : view === 'vault' ? 'Tresor leer.' : view === 'archive' ? 'Archiv leer.' : 'Dein Buch ist noch leer.'}
+                    {view === 'vault' ? 'Tresor leer.' : view === 'archive' ? 'Archiv leer.' : 'Dein Buch ist noch leer.'}
                   </p>
                 </div>
               )}
 
-              {searchQuery && renderEntries.length > 0 && (
-                <p className="text-xs font-bold uppercase tracking-widest text-amber-600 dark:text-amber-500 mb-4 pl-2 no-print">
-                  Suchergebnisse in allen Seiten ({renderEntries.length})
-                </p>
-              )}
-
               <div className="columns-1 sm:columns-2 gap-6 space-y-6 pb-20">
-                {renderEntries.map(entry => {
+                {!searchQuery && renderEntries.map(entry => {
                   const isCapsuleLocked = entry.unlockDate && new Date(entry.unlockDate) > now;
                   const isGeoLocked = entry.unlockLocation;
                   const pagesCount = getBookLength(entry.id);
@@ -1449,7 +1480,7 @@ const App = () => {
                   }
 
                   const isDarkTheme = user.isDark;
-                  const entryColor = entry.color || (isDarkTheme ? COLORS[8] : COLORS[0]); // COLORS[0] ist jetzt #ffffff
+                  const entryColor = entry.color || (isDarkTheme ? COLORS[8] : COLORS[0]);
                   let cardBg = entryColor;
                   if (isDarkTheme && entryColor === '#ffffff') cardBg = '#18181b';
                   if (!isDarkTheme && entryColor === '#0f172a') cardBg = '#ffffff';
@@ -1476,7 +1507,6 @@ const App = () => {
                         <div className="w-full relative overflow-hidden bg-slate-100 dark:bg-black/20 flex justify-center items-center min-h-[200px]">
                           <img src={entry.image} alt="Vision" className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000" />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent z-10 pointer-events-none no-print" />
-                          {/* Highlight Title if searched */}
                           <h3 className="absolute bottom-6 left-6 right-6 z-20 font-bold text-2xl text-white drop-shadow-md leading-snug line-clamp-2 font-serif" dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
                         </div>
                       )}
@@ -1484,13 +1514,6 @@ const App = () => {
                       <div className="p-6 sm:p-8 flex-1 flex flex-col">
                         {!entry.image && <h3 className={`font-bold text-2xl leading-tight mb-4 line-clamp-2 font-serif`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />}
                         {entry.category === 'Weisheit' && <div className="mb-4 text-[10px] font-bold uppercase tracking-widest opacity-50 flex items-center gap-1 text-amber-500"><Icon name="book-open" size={12}/> Säule der Weisheit</div>}
-                        
-                        {/* NEU: Bei der Suche zeigen wir den Buch-Namen an, falls dies eine Unterseite ist */}
-                        {searchQuery && entry.parentId && (
-                          <div className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60 flex items-center gap-1 text-indigo-500 no-print">
-                             <Icon name="link" size={12}/> Gefunden auf Unterseite
-                          </div>
-                        )}
 
                         {entry.text && (
                           <div className={`text-sm leading-relaxed mb-6 font-medium line-clamp-4 legacy-content opacity-80`} dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
@@ -1503,7 +1526,6 @@ const App = () => {
                             </span>
                           </div>
                           <div className="flex gap-2 items-center opacity-60 no-print">
-                            {/* Seitenzahl anzeigen, falls es ein Buch ist (und wir nicht gerade suchen) */}
                             {pagesCount > 1 && !searchQuery && (
                               <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest bg-black/10 dark:bg-white/10 px-2 py-1 rounded-md mr-1">
                                 <Icon name="layers" size={12} /> {pagesCount}
@@ -1534,10 +1556,10 @@ const App = () => {
         </main>
 
         {showEditor && (
-          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-6 transition-all bg-slate-900/40 dark:bg-slate-950/80 backdrop-blur-md no-print">
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center transition-all bg-slate-900/40 dark:bg-slate-950/80 backdrop-blur-md no-print sm:p-6">
             <div className="absolute inset-0 bg-transparent" onClick={() => checkSaveEntry()} />
             <div
-              className="relative w-full max-w-3xl mx-auto flex flex-col shadow-2xl transition-all h-[100dvh] sm:rounded-none bg-white dark:bg-graphite-900 sm:h-[90dvh] max-h-[900px] rounded-t-[2rem] sm:rounded-[2.5rem] border border-slate-200 dark:border-white/10"
+              className="relative w-full max-w-3xl mx-auto flex flex-col shadow-2xl transition-all fixed inset-0 sm:relative sm:h-[90dvh] sm:w-[90vw] sm:rounded-[2.5rem] border border-slate-200 dark:border-white/10"
               style={{ backgroundColor: zenMode ? 'transparent' : (user.appBgColor || (user.isDark ? '#18181b' : '#ffffff')), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
             >
               <div className={`flex justify-between items-center px-6 py-5 border-b ${zenMode ? 'border-transparent' : 'border-black/5 dark:border-white/5'}`}>
@@ -1566,7 +1588,6 @@ const App = () => {
                 )}
                 {zenMode && <button onClick={() => setZenMode(false)} className="text-current opacity-50 hover:opacity-100"><Icon name="minimize-2" size={24}/></button>}
                 
-                {/* Geänderter Sichern-Button: Auf Handys als Check-Icon sichtbar */}
                 {!zenMode && (
                   <button onClick={checkSaveEntry} className={`flex items-center gap-1 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full font-bold shadow-md hover:scale-105 transition-transform text-sm ${isDarkColor(selectedColor) ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}`}>
                     <Icon name="check" size={16} className="sm:hidden" />
@@ -1577,7 +1598,7 @@ const App = () => {
 
               <div className={`flex-1 overflow-y-auto p-6 sm:p-10 flex flex-col gap-6 custom-scrollbar w-full overscroll-contain ${zenMode ? '' : isDarkColor(selectedColor) ? 'text-white' : 'text-slate-900'}`}>
               
-              {/* Cover-Bild jetzt ganz oben im Editor (professioneller Look) */}
+              {/* FEATURE 1: Bild als Cover majestätisch über dem Titel */}
               {!zenMode && selectedImage && (
                 <div className="relative rounded-[2rem] overflow-hidden shadow-md bg-black/5 dark:bg-black/20 flex justify-center shrink-0">
                   <img src={selectedImage} alt="Preview" className="w-full h-auto max-h-[40vh] object-cover" />
@@ -1609,7 +1630,8 @@ const App = () => {
                 </div>
               )}
 
-              <input type="text" placeholder="Titel..." value={title || ''} onChange={(e) => setTitle(e.target.value)} className="w-full shrink-0 bg-transparent text-current text-4xl sm:text-5xl font-bold placeholder-current opacity-90 border-none focus:ring-0 p-0 focus:outline-none font-serif relative z-10" style={{ color: 'inherit', '::placeholder': { opacity: 0.3 } }} />
+              {/* FEATURE 2 Fix: color: inherit auf dem Titel */}
+              <input type="text" placeholder="Titel..." value={title || ''} onChange={(e) => setTitle(e.target.value)} className="w-full shrink-0 bg-transparent text-4xl sm:text-5xl font-bold placeholder-current opacity-90 border-none focus:ring-0 p-0 focus:outline-none font-serif relative z-10" style={{ color: 'inherit', '::placeholder': { opacity: 0.3 } }} />
 
               {!zenMode && (
                 <div className="flex gap-2 py-3 border-y border-current border-opacity-10 opacity-70 shrink-0">
@@ -1620,14 +1642,17 @@ const App = () => {
                 </div>
               )}
 
+              {/* FEATURE 2 Fix: pb-[60vh] und handleEditorInteraction für Cursor-Scroll */}
               <div
                 ref={editorRef}
                 contentEditable={true}
                 suppressContentEditableWarning={true}
                 data-placeholder="Schreibe deine Gedanken auf diese leere Seite..."
                 onInput={(e) => setText(e.currentTarget.innerHTML)}
+                onClick={handleEditorInteraction}
+                onFocus={handleEditorInteraction}
                 className="w-full flex-1 min-h-[300px] bg-transparent text-lg sm:text-xl leading-relaxed focus:outline-none font-medium empty:before:content-[attr(data-placeholder)] empty:before:cursor-text legacy-editor-content pb-[60vh]"
-                style={{ color: 'inherit' }}
+                style={{ color: 'inherit', '::before': { opacity: 0.3 } }}
               />
 
               {!zenMode && audioUrl && (
