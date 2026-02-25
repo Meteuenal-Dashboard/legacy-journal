@@ -623,7 +623,7 @@ const App = () => {
     });
   };
 
-  // --- NEU: Samsung Keyboard Scroll-Fix ---
+  // --- FEATURE 2 FIX: Normales Padding für bündigen Text & Cursor-Scroll "nearest" ---
   const handleEditorInteraction = () => {
     setTimeout(() => {
       const selection = window.getSelection();
@@ -633,9 +633,10 @@ const App = () => {
       const marker = document.createElement('span');
       marker.appendChild(document.createTextNode('\u200B'));
       range.insertNode(marker);
-      marker.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // 'nearest' sorgt dafür, dass nur exakt bis zur Tastaturkante gescrollt wird
+      marker.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       marker.parentNode.removeChild(marker);
-    }, 400); // Verzögerung, bis die Tastatur vollständig ausgefahren ist
+    }, 400); 
   };
 
   useEffect(() => {
@@ -1185,18 +1186,19 @@ const App = () => {
                     {view === 'archive' ? 'Archiv' : user.name}
                   </h1>
                   {view === 'vault' && <p className="text-xs mt-0.5 font-medium flex items-center gap-1 text-rose-500"><Icon name="shield-check" size={14} /> Sicherer Tresor</p>}
-                  {/* FEATURE 3: Lebensmotto bricht jetzt um und schneidet nicht mehr ab */}
                   {view === 'dashboard' && user.motto && <p className="text-[10px] sm:text-xs mt-1 italic font-medium whitespace-normal leading-snug opacity-70 w-full pr-4">"{user.motto}"</p>}
                 </div>
               </>
             )}
           </div>
-          <div className="flex gap-1 items-center z-10 relative">
+          <div className="flex gap-1 items-center z-10">
             {view === 'dashboard' && (
               <>
-                <div className="flex items-center relative">
-                  <input type="text" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Tagebuch durchsuchen..." className={`transition-all duration-300 border-none focus:ring-0 text-sm rounded-full bg-black/5 dark:bg-white/10 text-slate-900 dark:text-white ${isSearchOpen ? 'w-48 px-4 py-2 mr-1 opacity-100' : 'w-0 p-0 opacity-0 pointer-events-none'}`} />
-                  <button onClick={() => setIsSearchOpen(!isSearchOpen)} className={`p-2.5 rounded-full transition-colors bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 ${isSearchOpen || searchQuery ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400' : ''}`}><Icon name="search" size={18}/></button>
+                {/* FIX 2: Absolut positionierte Suchleiste, um das Verschieben des Layouts zu verhindern */}
+                <div className="relative flex items-center">
+                  <input type="text" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Tagebuch durchsuchen..." 
+                         className={`absolute right-full mr-2 transition-all duration-300 border border-slate-200 dark:border-white/10 focus:ring-0 text-sm rounded-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md text-slate-900 dark:text-white shadow-xl ${isSearchOpen ? 'w-[60vw] sm:w-64 px-4 py-2 opacity-100 pointer-events-auto' : 'w-0 p-0 border-transparent opacity-0 pointer-events-none'}`} />
+                  <button onClick={() => setIsSearchOpen(!isSearchOpen)} className={`relative z-10 p-2.5 rounded-full transition-colors bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 ${isSearchOpen || searchQuery ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400' : ''}`}><Icon name="search" size={18}/></button>
                 </div>
                 <button onClick={() => setView('menu')} className="p-2.5 rounded-full transition-colors bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"><Icon name="menu" size={18}/></button>
               </>
@@ -1204,7 +1206,7 @@ const App = () => {
             {(view === 'settings' || view === 'menu' || view === 'archive' || view === 'wisdom' || view === 'burn') && <button onClick={() => setView('dashboard')} className="p-2.5 rounded-full border border-transparent bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"><Icon name="x" size={18} /></button>}
           </div>
 
-          {/* FEATURE 2: WhatsApp-Style Live-Dropdown für die Suche */}
+          {/* FIX 2 Fortsetzung: WhatsApp-Style Live-Dropdown für die Suche */}
           {isSearchOpen && searchQuery && (
             <div className="absolute top-full left-4 right-4 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-h-[60vh] overflow-y-auto custom-scrollbar z-[100]">
               {renderEntries.length === 0 ? (
@@ -1598,7 +1600,7 @@ const App = () => {
 
               <div className={`flex-1 overflow-y-auto p-6 sm:p-10 flex flex-col gap-6 custom-scrollbar w-full overscroll-contain ${zenMode ? '' : isDarkColor(selectedColor) ? 'text-white' : 'text-slate-900'}`}>
               
-              {/* FEATURE 1: Bild als Cover majestätisch über dem Titel */}
+              {/* FIX 1: Bild als Cover majestätisch über dem Titel */}
               {!zenMode && selectedImage && (
                 <div className="relative rounded-[2rem] overflow-hidden shadow-md bg-black/5 dark:bg-black/20 flex justify-center shrink-0">
                   <img src={selectedImage} alt="Preview" className="w-full h-auto max-h-[40vh] object-cover" />
@@ -1630,7 +1632,6 @@ const App = () => {
                 </div>
               )}
 
-              {/* FEATURE 2 Fix: color: inherit auf dem Titel */}
               <input type="text" placeholder="Titel..." value={title || ''} onChange={(e) => setTitle(e.target.value)} className="w-full shrink-0 bg-transparent text-4xl sm:text-5xl font-bold placeholder-current opacity-90 border-none focus:ring-0 p-0 focus:outline-none font-serif relative z-10" style={{ color: 'inherit', '::placeholder': { opacity: 0.3 } }} />
 
               {!zenMode && (
@@ -1642,7 +1643,7 @@ const App = () => {
                 </div>
               )}
 
-              {/* FEATURE 2 Fix: pb-[60vh] und handleEditorInteraction für Cursor-Scroll */}
+              {/* FIX 2: Normales Padding für bündigen Text & Cursor-Scroll "nearest" */}
               <div
                 ref={editorRef}
                 contentEditable={true}
@@ -1651,7 +1652,7 @@ const App = () => {
                 onInput={(e) => setText(e.currentTarget.innerHTML)}
                 onClick={handleEditorInteraction}
                 onFocus={handleEditorInteraction}
-                className="w-full flex-1 min-h-[300px] bg-transparent text-lg sm:text-xl leading-relaxed focus:outline-none font-medium empty:before:content-[attr(data-placeholder)] empty:before:cursor-text legacy-editor-content pb-[60vh]"
+                className="w-full flex-1 min-h-[300px] bg-transparent text-lg sm:text-xl leading-relaxed focus:outline-none font-medium empty:before:content-[attr(data-placeholder)] empty:before:cursor-text legacy-editor-content pb-24"
                 style={{ color: 'inherit', '::before': { opacity: 0.3 } }}
               />
 
