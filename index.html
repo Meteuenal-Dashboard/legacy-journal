@@ -351,7 +351,7 @@ const App = () => {
   // Editor State
   const [editingId, setEditingId] = useState(null);
   const [title, setTitle] = useState('');
-  const [text, setText] = useState('');
+  const [initialEditorText, setInitialEditorText] = useState(''); // ARCHITEKTUR-UPDATE: Ersetzt das wackelige 'text' State für den Editor
   const [selectedColor, setSelectedColor] = useState(COLORS[8]);
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
@@ -379,15 +379,15 @@ const App = () => {
   const editorRef = useRef(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState('');
   
-  // ARCHITEKTUR-UPDATE: Der perfekte Hash-Vergleich für Auto-Save (ohne dirty flags)
+  // ARCHITEKTUR-UPDATE: Der perfekte Hash-Vergleich für Auto-Save
   const savedDataRef = useRef("");
   
   const getCurrentDataString = () => {
     return JSON.stringify({
       title, 
-      text: editorRef.current ? editorRef.current.innerHTML : text, 
+      text: editorRef.current ? editorRef.current.innerHTML : initialEditorText, 
       c: selectedColor, 
-      i: selectedImage ? selectedImage.substring(0, 50) : null, // Extrem schneller Vergleich
+      i: selectedImage ? selectedImage.substring(0, 50) : null, 
       v: selectedVideo ? selectedVideo.substring(0, 50) : null,
       a: audioUrl ? audioUrl.substring(0, 50) : null,
       l: isLocked, 
@@ -432,10 +432,16 @@ const App = () => {
   const viewRef = useRef(view);
   const editorRefState = useRef(showEditor);
   const viewingEntryRef = useRef(viewingEntry);
+  
+  // Wächter-Refs für den Zurück-Button des Handys
+  const editingIdRef = useRef(editingId);
+  const entriesRef = useRef(entries);
 
   useEffect(() => { viewRef.current = view; }, [view]);
   useEffect(() => { editorRefState.current = showEditor; }, [showEditor]);
   useEffect(() => { viewingEntryRef.current = viewingEntry; }, [viewingEntry]);
+  useEffect(() => { editingIdRef.current = editingId; }, [editingId]);
+  useEffect(() => { entriesRef.current = entries; }, [entries]);
 
   // PeerJS P2P Empfänger Logik
   useEffect(() => {
@@ -488,13 +494,19 @@ const App = () => {
 
   const showDialog = (options) => { setDialog({ type: 'alert', confirmLabel: 'Verstanden', ...options }); };
 
-  // ARCHITEKTUR-UPDATE: Zentrale Schließ-Funktion, die in den korrekten Modus (Lesen) zurückspringt
-  const closeEditor = (entryToView = null) => {
+  // ARCHITEKTUR-UPDATE: Zentrale Schließ-Funktion, die IMMER zurück in den Lese-Modus springt
+  const closeEditor = (savedEntry = null) => {
     setShowEditor(false);
     if (isRecording) stopRecording();
-    if (entryToView) {
-      setViewingEntry(entryToView);
+    
+    if (savedEntry) {
+      setViewingEntry(savedEntry);
+    } else if (editingIdRef.current) {
+      // Falls der User (oder die Hardware-Zurück-Taste) ohne Save abbricht, gehe zum originalen Eintrag zurück
+      const existing = entriesRef.current.find(e => e.id === editingIdRef.current);
+      setViewingEntry(existing || null);
     } else {
+      // Nur wenn es eine komplett neue, leere Seite war, landen wir im Dashboard
       setViewingEntry(null);
     }
   };
@@ -517,7 +529,7 @@ const App = () => {
       if (viewingEntryRef.current) {
         setViewingEntry(null);
       } else if (editorRefState.current) {
-        closeEditor();
+        closeEditor(); // Nutzt jetzt die sichere Fallback-Logik
       } else if (viewRef.current !== 'dashboard' && viewRef.current !== 'loading' && viewRef.current !== 'onboarding') {
         setView('dashboard');
       } else if (viewRef.current === 'dashboard') {
@@ -607,7 +619,9 @@ const App = () => {
             if (storedShowEditor && storedEditingId) {
               const eEntry = sortedEntries.find(e => e.id === storedEditingId);
               if (eEntry) {
-                setEditingId(eEntry.id); setTitle(eEntry.title || ''); setText(eEntry.text || '');
+                setEditingId(eEntry.id); 
+                setTitle(eEntry.title || ''); 
+                setInitialEditorText(eEntry.text || '');
                 setSelectedColor(eEntry.color || (currentUser.isDark ? COLORS[8] : COLORS[0]));
                 setSelectedImage(eEntry.image || null); setSelectedVideo(eEntry.video || null);
                 setIsLocked(eEntry.locked || false); setAudioUrl(eEntry.audio || null);
@@ -744,17 +758,16 @@ const App = () => {
     saveToDB(updatedEntry);
   };
 
-  // ARCHITEKTUR-UPDATE: Speichert korrekt und springt in den Betrachtungsmodus ("Lesen") zurück!
   const checkSaveEntry = (closeAndRead = false) => {
     const entryId = editingId || generateId();
     const foundEntry = entries.find(e => e.id === entryId);
-    const currentText = editorRef.current ? editorRef.current.innerHTML : text;
+    const currentText = editorRef.current ? editorRef.current.innerHTML : initialEditorText;
     
     const isEmpty = !title.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && !selectedImage && !selectedVideo && !audioUrl;
     
     // Wenn die Seite komplett leer geblieben ist, schließen und nichts speichern.
     if (isEmpty && !editingId && closeAndRead) {
-      closeEditor(null); // Ab ins Dashboard, weil nichts geschrieben wurde
+      closeEditor(null); 
       return;
     }
 
@@ -771,7 +784,7 @@ const App = () => {
     saveToDB(newEntry);
     
     if (closeAndRead) {
-      closeEditor(newEntry); // Fix: Bringt den User nach Bearbeitung sofort zurück auf die Ansicht seines Eintrags!
+      closeEditor(newEntry); 
     } else {
       setEditingId(entryId);
       setAutoSaveStatus('Manuell gespeichert ✔');
@@ -797,15 +810,9 @@ const App = () => {
   };
 
   const handleEditorInput = (e) => {
-    // Nur Wächter-Status, löst keinen hängenden Rerender aus
+    // Wächter-Status wird aktualisiert, ohne React Re-Render!
+    isDirtyRef.current = true;
   };
-
-  // ARCHITEKTUR-UPDATE: Löst das "Leeres Editor-Feld"-Problem, indem `text` ordnungsgemäß überwacht wird.
-  useEffect(() => {
-    if (showEditor && editorRef.current) {
-      editorRef.current.innerHTML = text || '';
-    }
-  }, [showEditor, editingId, text]);
 
   // ARCHITEKTUR-UPDATE: Der perfekte Auto-Save Mechanismus ohne Endlosschleifen
   useEffect(() => {
@@ -813,10 +820,10 @@ const App = () => {
     
     const timer = setInterval(() => {
       const currentDataStr = getCurrentDataString();
-      if (currentDataStr === savedDataRef.current) return; // Nichts hat sich verändert -> Abbruch!
+      if (currentDataStr === savedDataRef.current) return; 
       
       setAutoSaveStatus('Speichert...');
-      const currentText = editorRef.current ? editorRef.current.innerHTML : text;
+      const currentText = editorRef.current ? editorRef.current.innerHTML : initialEditorText;
       const foundEntry = entries.find(e => e.id === editingId);
       
       const currentEntry = {
@@ -835,7 +842,7 @@ const App = () => {
         const tx = db.transaction('entries', 'readwrite');
         tx.objectStore('entries').put(currentEntry);
         tx.oncomplete = () => {
-          savedDataRef.current = currentDataStr; // Setze den neuen Zustand als "gespeichert"
+          savedDataRef.current = currentDataStr;
           setEntries(prev => {
             const exists = prev.find(e => e.id === currentEntry.id);
             if (exists) return prev.map(e => e.id === currentEntry.id ? currentEntry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
@@ -848,7 +855,7 @@ const App = () => {
     }, 3000);
     
     return () => clearInterval(timer);
-  }, [showEditor, editingId, title, selectedColor, selectedImage, selectedVideo, audioUrl, isLocked, isManifested, unlockDate, unlockLocation, category, mood, location, entries, db, view, text]);
+  }, [showEditor, editingId, title, selectedColor, selectedImage, selectedVideo, audioUrl, isLocked, isManifested, unlockDate, unlockLocation, category, mood, location, entries, db, view, initialEditorText]);
 
   const startDrawing = (e) => {
     if (!canvasRef.current) return;
@@ -907,6 +914,7 @@ const App = () => {
       reader.onloadend = () => {
         setSelectedVideo(reader.result);
         setSelectedImage(null);
+        isDirtyRef.current = true;
       };
       reader.readAsDataURL(file);
       return;
@@ -935,6 +943,7 @@ const App = () => {
           
           setSelectedImage(canvas.toDataURL('image/jpeg', 0.8)); 
           setSelectedVideo(null); 
+          isDirtyRef.current = true;
         };
         img.src = event.target.result;
       };
@@ -947,7 +956,7 @@ const App = () => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => { setAudioUrl(reader.result); };
+      reader.onloadend = () => { setAudioUrl(reader.result); isDirtyRef.current = true; };
       reader.readAsDataURL(file);
     }
   };
@@ -1103,6 +1112,7 @@ const App = () => {
   };
 
   const openEditor = (entry = null, pillar = null) => {
+    isDirtyRef.current = false;
     if (entry && entry.id) {
       setEditingId(entry.id); 
       setTitle(entry.title || '');
@@ -1110,7 +1120,7 @@ const App = () => {
       if (initialText && !initialText.includes('<') && (initialText.includes('**') || initialText.includes('*'))) {
         initialText = initialText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>').replace(/\n/g, '<br>');
       }
-      setText(initialText); 
+      setInitialEditorText(initialText); 
       setSelectedColor(entry.color); 
       setSelectedImage(entry.image); 
       setSelectedVideo(entry.video);
@@ -1129,7 +1139,7 @@ const App = () => {
     } else {
       setEditingId(null); 
       setTitle(pillar ? pillar.title : ''); 
-      setText('');
+      setInitialEditorText('');
       setSelectedColor(user.isDark ? COLORS[8] : COLORS[1]); 
       setSelectedImage(null); 
       setSelectedVideo(null); 
@@ -1152,10 +1162,11 @@ const App = () => {
   };
 
   const startNewChapter = (parent) => {
+    isDirtyRef.current = false;
     setViewingEntry(null);
     setEditingId(null); 
     setTitle(parent.title || ''); 
-    setText('');
+    setInitialEditorText('');
     setSelectedColor(user.isDark ? COLORS[8] : COLORS[1]);
     setSelectedImage(null); setSelectedVideo(null); setIsLocked(parent.locked || false);
     setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setUnlockLocation(null);
@@ -1315,7 +1326,7 @@ const App = () => {
         <h1 className="text-3xl font-bold font-serif mb-4">Geräte-Kopplung</h1>
         <p className="opacity-80 text-lg mb-8 max-w-sm">{syncStatus || "Initialisiere..."}</p>
         {(syncStatus.includes('Fehler') || syncStatus.includes('erfolgreich')) && (
-          <button onClick={() => window.location.href = window.location.origin + window.location.pathname} className="px-8 py-4 bg-white text-slate-900 font-bold rounded-xl mt-4 shadow-lg hover:scale-105 transition-transform">Zurück zum Start</button>
+          <button type="button" onClick={() => window.location.href = window.location.origin + window.location.pathname} className="px-8 py-4 bg-white text-slate-900 font-bold rounded-xl mt-4 shadow-lg hover:scale-105 transition-transform">Zurück zum Start</button>
         )}
       </div>
     );
@@ -1338,7 +1349,7 @@ const App = () => {
                 <label className="block text-xs font-bold opacity-70 mb-3 uppercase tracking-widest">Wie lautet dein Name?</label>
                 <input type="text" value={user.name} onChange={(e) => setUser({...user, name: e.target.value})} className="w-full p-4 rounded-xl border focus:ring-2 focus:ring-amber-500 outline-none text-lg bg-slate-50 border-slate-200 dark:bg-black/20 dark:border-transparent text-slate-900 dark:text-white" placeholder="Schreibe hier..." />
               </div>
-              <button onClick={() => user.name.trim() ? setView('dashboard') : showDialog({ title: 'Name fehlt', message: 'Bitte gib deinen Namen ein.', icon: 'user', iconColor: 'text-amber-500'})} className="w-full py-4 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold text-lg hover:scale-[1.02] transition-transform shadow-md">
+              <button type="button" onClick={() => user.name.trim() ? setView('dashboard') : showDialog({ title: 'Name fehlt', message: 'Bitte gib deinen Namen ein.', icon: 'user', iconColor: 'text-amber-500'})} className="w-full py-4 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold text-lg hover:scale-[1.02] transition-transform shadow-md">
                 Journal beginnen
               </button>
             </div>
@@ -1377,16 +1388,16 @@ const App = () => {
               style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff'), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
             >
               <div className="sticky top-0 z-50 flex justify-between items-center py-4 px-6 sm:px-12 bg-inherit shrink-0 no-print" style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff') }}>
-                <button onClick={() => { setViewingEntry(null); if (isSpeaking) handleReadAloud({}); }} className="p-3 bg-slate-100 dark:bg-white/10 rounded-full shadow-sm border border-slate-200 dark:border-transparent hover:scale-105 transition-transform"><Icon name="x" size={20}/></button>
+                <button type="button" onClick={() => { setViewingEntry(null); if (isSpeaking) handleReadAloud({}); }} className="p-3 bg-slate-100 dark:bg-white/10 rounded-full shadow-sm border border-slate-200 dark:border-transparent hover:scale-105 transition-transform"><Icon name="x" size={20}/></button>
                 <div className="flex gap-2">
-                  <button 
+                  <button type="button"
                     onClick={() => handleReadAloud(viewingEntry)} 
                     className={`px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 transition-all ${isSpeaking ? 'audio-active bg-amber-500/10' : 'bg-slate-200 dark:bg-white/10 hover:scale-105 transition-transform'}`}
                   >
                     <Icon name={isSpeaking ? "volume-2" : "volume-1"} size={18}/>
                     {isSpeaking ? "Stopp" : "Vorlesen"}
                   </button>
-                  <button onClick={() => { const e = viewingEntry; setViewingEntry(null); openEditor(e); }} className="px-5 py-2.5 bg-slate-200 dark:bg-white/10 rounded-full font-bold text-sm hover:scale-105 transition-transform">Bearbeiten</button>
+                  <button type="button" onClick={() => { const e = viewingEntry; setViewingEntry(null); openEditor(e); }} className="px-5 py-2.5 bg-slate-200 dark:bg-white/10 rounded-full font-bold text-sm hover:scale-105 transition-transform">Bearbeiten</button>
                 </div>
               </div>
 
@@ -1414,14 +1425,14 @@ const App = () => {
                 <div className="flex flex-col gap-6 mt-12 pt-8 border-t border-slate-300 dark:border-white/10 pb-20 shrink-0 no-print">
                   
                   {!nextPage && (
-                    <button onClick={() => startNewChapter(viewingEntry)} className="w-full py-4 rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold text-base hover:scale-[1.02] transition-transform shadow-md flex items-center justify-center gap-2">
+                    <button type="button" onClick={() => startNewChapter(viewingEntry)} className="w-full py-4 rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold text-base hover:scale-[1.02] transition-transform shadow-md flex items-center justify-center gap-2">
                       <Icon name="plus" size={20}/> Neue Seite anfügen
                     </button>
                   )}
 
                   <div className="flex justify-between items-center w-full">
                     {swipePrev ? (
-                      <button onClick={() => setViewingEntry(swipePrev)} className="flex items-center gap-3 text-left group flex-1">
+                      <button type="button" onClick={() => setViewingEntry(swipePrev)} className="flex items-center gap-3 text-left group flex-1">
                         <div className="p-3 bg-white dark:bg-white/5 rounded-full shadow-sm border border-slate-200 dark:border-transparent group-hover:scale-105 transition-transform"><Icon name="chevron-left" size={20} /></div>
                         <div className="overflow-hidden">
                           <p className="text-[10px] uppercase tracking-widest font-bold opacity-50">{prevLabel}</p>
@@ -1431,7 +1442,7 @@ const App = () => {
                     ) : <div className="flex-1" />}
                     
                     {swipeNext ? (
-                      <button onClick={() => setViewingEntry(swipeNext)} className="flex items-center justify-end gap-3 text-right group flex-1">
+                      <button type="button" onClick={() => setViewingEntry(swipeNext)} className="flex items-center justify-end gap-3 text-right group flex-1">
                         <div className="overflow-hidden">
                           <p className="text-[10px] uppercase tracking-widest font-bold opacity-50">{nextLabel}</p>
                           <p className="text-sm font-medium truncate w-full">{swipeNext.title}</p>
@@ -1457,12 +1468,12 @@ const App = () => {
               <h3 className="text-2xl font-bold leading-tight mb-4 font-serif">{dialog.title}</h3>
               <p className="text-base opacity-70 mb-8 leading-relaxed px-2 whitespace-pre-wrap">{dialog.message}</p>
               <div className="flex flex-col gap-3 w-full">
-                <button
+                <button type="button"
                   className={`w-full py-4 text-white rounded-2xl font-bold shadow-md text-base transition-transform active:scale-95 ${dialog.confirmColor || 'bg-slate-900 dark:bg-white dark:text-slate-900'}`}
                   onClick={() => { if(dialog.onConfirm) dialog.onConfirm(); else setDialog(null); }}
                 >{dialog.confirmLabel || 'Verstanden'}</button>
                 {dialog.type !== 'alert' && (
-                  <button
+                  <button type="button"
                     className="w-full py-4 rounded-2xl font-bold text-base bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors active:scale-95"
                     onClick={() => { if(dialog.onCancel) dialog.onCancel(); else setDialog(null); }}
                   >{dialog.cancelLabel || 'Abbrechen'}</button>
@@ -1477,11 +1488,11 @@ const App = () => {
             <div className="w-full max-w-sm rounded-[2.5rem] shadow-2xl border overflow-hidden animate-slide-up flex flex-col max-h-[80vh] bg-white border-slate-200 dark:bg-graphite-900 dark:border-white/10" onClick={e => e.stopPropagation()}>
               <div className="p-6 border-b border-slate-100 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5 shrink-0">
                 <h3 className="font-bold text-xl font-serif">{picker.title}</h3>
-                <button onClick={() => setPicker(null)} className="p-2 bg-slate-200 dark:bg-white/10 rounded-full hover:scale-110 transition-transform"><Icon name="x" size={20}/></button>
+                <button type="button" onClick={() => setPicker(null)} className="p-2 bg-slate-200 dark:bg-white/10 rounded-full hover:scale-110 transition-transform"><Icon name="x" size={20}/></button>
               </div>
               <div className="overflow-y-auto custom-scrollbar p-3 space-y-1 overscroll-contain">
                 {picker.options.map(opt => (
-                  <button
+                  <button type="button"
                     key={opt.value}
                     onClick={() => { picker.onSelect(opt.value); setPicker(null); }}
                     className={`w-full text-left p-4 rounded-2xl transition-all font-bold text-base flex justify-between items-center ${picker.currentValue === opt.value ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-md' : 'hover:bg-slate-100 dark:hover:bg-white/10'}`}
@@ -1505,8 +1516,8 @@ const App = () => {
                 <p className="text-sm opacity-60 mb-6 truncate w-full text-white">"{unlockTarget.title}"</p>
                 <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitPin()} className={`w-full p-4 text-center text-2xl tracking-[1em] rounded-xl border-2 outline-none text-white ${pinError ? 'border-rose-500 bg-rose-50/10 animate-shake' : 'bg-black/50 border-transparent focus:border-indigo-500'}`} placeholder="••••" />
                 <div className="flex gap-3 w-full mt-6">
-                  <button onClick={() => setUnlockTarget(null)} className="flex-1 py-3 font-medium opacity-60 bg-white/5 rounded-xl hover:bg-white/10 text-white">Abbrechen</button>
-                  <button onClick={submitPin} className="flex-1 py-3 rounded-xl font-bold text-white bg-rose-600 shadow-md">Öffnen</button>
+                  <button type="button" onClick={() => setUnlockTarget(null)} className="flex-1 py-3 font-medium opacity-60 bg-white/5 rounded-xl hover:bg-white/10 text-white">Abbrechen</button>
+                  <button type="button" onClick={submitPin} className="flex-1 py-3 rounded-xl font-bold text-white bg-rose-600 shadow-md">Öffnen</button>
                 </div>
               </div>
             </div>
@@ -1539,12 +1550,12 @@ const App = () => {
                 <div className="relative flex items-center">
                   <input type="text" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Tagebuch durchsuchen..." 
                          className={`absolute right-full mr-2 transition-all duration-300 border border-slate-200 dark:border-white/10 focus:ring-0 text-sm rounded-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md text-slate-900 dark:text-white shadow-xl ${isSearchOpen ? 'w-[60vw] sm:w-64 px-4 py-2 opacity-100 pointer-events-auto' : 'w-0 p-0 border-transparent opacity-0 pointer-events-none'}`} />
-                  <button onClick={() => setIsSearchOpen(!isSearchOpen)} className={`relative z-10 p-2.5 rounded-full transition-colors bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 ${isSearchOpen || searchQuery ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400' : ''}`}><Icon name="search" size={18}/></button>
+                  <button type="button" onClick={() => setIsSearchOpen(!isSearchOpen)} className={`relative z-10 p-2.5 rounded-full transition-colors bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 ${isSearchOpen || searchQuery ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400' : ''}`}><Icon name="search" size={18}/></button>
                 </div>
-                <button onClick={() => setView('menu')} className="p-2.5 rounded-full transition-colors bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"><Icon name="menu" size={18}/></button>
+                <button type="button" onClick={() => setView('menu')} className="p-2.5 rounded-full transition-colors bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"><Icon name="menu" size={18}/></button>
               </>
             )}
-            {(view === 'settings' || view === 'menu' || view === 'archive' || view === 'wisdom' || view === 'burn' || view === 'oracle') && <button onClick={() => setView('dashboard')} className="p-2.5 rounded-full border border-transparent bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"><Icon name="x" size={18} /></button>}
+            {(view === 'settings' || view === 'menu' || view === 'archive' || view === 'wisdom' || view === 'burn' || view === 'oracle') && <button type="button" onClick={() => setView('dashboard')} className="p-2.5 rounded-full border border-transparent bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"><Icon name="x" size={18} /></button>}
           </div>
 
           {isSearchOpen && searchQuery && (
@@ -1553,7 +1564,7 @@ const App = () => {
                 <div className="p-4 text-center opacity-50 text-sm font-medium text-slate-900 dark:text-white">Keine Einträge gefunden.</div>
               ) : (
                 renderEntries.map(entry => (
-                  <button 
+                  <button type="button"
                     key={entry.id} 
                     onClick={() => { handleBookClick(entry); setIsSearchOpen(false); setSearchQuery(''); }} 
                     className="w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700/50 last:border-0 transition-colors flex flex-col gap-1"
@@ -1589,7 +1600,7 @@ const App = () => {
               {!oracleInsight && !isOracleLoading ? (
                 <>
                   <p className="opacity-70 mb-10 max-w-md text-lg text-slate-900 dark:text-white">Lass das System deine jüngsten Pfade analysieren und dir eine Frage stellen, die dich heute leiten wird.</p>
-                  <button onClick={generateOracleInsight} className="px-8 py-4 rounded-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold tracking-widest uppercase text-sm shadow-[0_0_40px_rgba(99,102,241,0.4)] transition-all hover:scale-105">Pfade lesen</button>
+                  <button type="button" onClick={generateOracleInsight} className="px-8 py-4 rounded-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold tracking-widest uppercase text-sm shadow-[0_0_40px_rgba(99,102,241,0.4)] transition-all hover:scale-105">Pfade lesen</button>
                 </>
               ) : (
                 <div className="rounded-3xl max-w-2xl w-full text-left p-8 relative z-10 shadow-2xl border border-slate-200 dark:border-white/10" style={{ backgroundColor: 'rgba(150,150,150,0.1)', backdropFilter: 'blur(10px)' }}>
@@ -1602,23 +1613,23 @@ const App = () => {
 
           {view === 'menu' && (
             <div className="grid grid-cols-2 gap-4 sm:gap-6 animate-slide-up no-print">
-              <button onClick={() => setView('wisdom')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50">
+              <button type="button" onClick={() => setView('wisdom')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50">
                 <Icon name="book-open" size={32} className="text-amber-500" />
                 <span className="font-bold text-xs uppercase tracking-widest">Buch der Weisheit</span>
               </button>
-              <button onClick={() => setView('burn')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/50">
+              <button type="button" onClick={() => setView('burn')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/50">
                 <Icon name="flame" size={32} className="text-rose-500" />
                 <span className="font-bold text-xs uppercase tracking-widest">Katharsis</span>
               </button>
-              <button onClick={() => setView('oracle')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/50">
+              <button type="button" onClick={() => setView('oracle')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/50">
                 <Icon name="brain-circuit" size={32} className="text-indigo-500" />
                 <span className="font-bold text-xs uppercase tracking-widest">Orakel KI</span>
               </button>
-              <button onClick={() => setView('archive')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-white/10">
+              <button type="button" onClick={() => setView('archive')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-white/10">
                 <Icon name="archive" size={32} className="opacity-50" />
                 <span className="font-bold text-xs uppercase tracking-widest">Archiv</span>
               </button>
-              <button onClick={() => setView('settings')} className="col-span-2 p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-white dark:bg-slate-900/50 border-slate-200 dark:border-white/10">
+              <button type="button" onClick={() => setView('settings')} className="col-span-2 p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-white dark:bg-slate-900/50 border-slate-200 dark:border-white/10">
                 <Icon name="settings" size={32} className="opacity-50" />
                 <span className="font-bold text-xs uppercase tracking-widest">Einstellungen</span>
               </button>
@@ -1652,7 +1663,7 @@ const App = () => {
                     {PILLARS.filter(p => p.phase === phaseTitle).map(pillar => {
                       const isCompleted = entries.some(e => e.title === pillar.title);
                       return (
-                        <button key={pillar.id} onClick={() => openEditor(null, pillar)} className={`p-4 text-left rounded-[1.5rem] border transition-all hover:scale-[1.02] flex items-start gap-3 ${isCompleted ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-500/30' : 'bg-white dark:bg-graphite-900 border-slate-200 dark:border-white/10'}`}>
+                        <button type="button" key={pillar.id} onClick={() => openEditor(null, pillar)} className={`p-4 text-left rounded-[1.5rem] border transition-all hover:scale-[1.02] flex items-start gap-3 ${isCompleted ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-500/30' : 'bg-white dark:bg-graphite-900 border-slate-200 dark:border-white/10'}`}>
                           <div className={`p-2 rounded-full shrink-0 ${isCompleted ? 'bg-amber-500 text-white' : 'bg-slate-100 dark:bg-white/5 opacity-50'}`}>
                             {isCompleted ? <Icon name="check" size={16} /> : <Icon name="pen-tool" size={16} />}
                           </div>
@@ -1682,7 +1693,7 @@ const App = () => {
                 className="w-full max-w-lg p-6 rounded-[2rem] bg-white dark:bg-black/30 border-2 border-rose-500/20 focus:border-rose-500 h-48 outline-none resize-none z-10 transition-all shadow-inner text-slate-900 dark:text-white" 
                 placeholder="Lass es hier los..." 
               />
-              <button 
+              <button type="button"
                 onClick={triggerBurn} 
                 disabled={!burnText || isBurning} 
                 className="mt-6 px-8 py-4 bg-rose-600 text-white rounded-full font-bold shadow-lg shadow-rose-600/30 hover:bg-rose-700 transition-colors z-10 disabled:opacity-50 flex items-center gap-2"
@@ -1707,7 +1718,7 @@ const App = () => {
                     <input type="text" value={user.name} onChange={(e) => setUser({...user, name: e.target.value})} className="w-full p-3 rounded-xl border-none focus:ring-2 focus:ring-amber-500 text-base font-bold bg-slate-100 dark:bg-black/30 outline-none text-slate-900 dark:text-white" placeholder="Dein Name" />
                     <div className="flex gap-2 flex-wrap">
                       {['#f59e0b', '#ef4444', '#3b82f6', '#10b981', '#8b5cf6', '#1e293b'].map(color => (
-                        <button key={color} onClick={() => setUser({...user, nameColor: color})} className={`w-6 h-6 rounded-full border-2 transition-transform ${user.nameColor === color ? 'border-slate-400 scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
+                        <button type="button" key={color} onClick={() => setUser({...user, nameColor: color})} className={`w-6 h-6 rounded-full border-2 transition-transform ${user.nameColor === color ? 'border-slate-400 scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
                       ))}
                     </div>
                   </div>
@@ -1721,15 +1732,15 @@ const App = () => {
                 <div className="mb-6">
                   <span className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-2 block text-slate-900 dark:text-white">Modus</span>
                   <div className="flex justify-between items-center p-2 bg-slate-100 dark:bg-black/30 rounded-2xl">
-                    <button onClick={() => setUser({...user, isDark: false})} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all ${!user.isDark ? 'bg-white shadow-sm text-slate-900' : 'opacity-50 hover:opacity-100 text-slate-900 dark:text-white'}`}><Icon name="sun" size={18}/> Hell</button>
-                    <button onClick={() => setUser({...user, isDark: true})} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all ${user.isDark ? 'bg-slate-800 shadow-sm text-white' : 'opacity-50 hover:opacity-100 text-slate-900 dark:text-white'}`}><Icon name="moon" size={18}/> Dunkel</button>
+                    <button type="button" onClick={() => setUser({...user, isDark: false})} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all ${!user.isDark ? 'bg-white shadow-sm text-slate-900' : 'opacity-50 hover:opacity-100 text-slate-900 dark:text-white'}`}><Icon name="sun" size={18}/> Hell</button>
+                    <button type="button" onClick={() => setUser({...user, isDark: true})} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all ${user.isDark ? 'bg-slate-800 shadow-sm text-white' : 'opacity-50 hover:opacity-100 text-slate-900 dark:text-white'}`}><Icon name="moon" size={18}/> Dunkel</button>
                   </div>
                 </div>
 
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-2 block text-slate-900 dark:text-white">Hintergrundfarbe</span>
                   <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-2">
-                    <button 
+                    <button type="button"
                       onClick={() => setUser({...user, appBgColor: null})} 
                       className={`w-10 h-10 rounded-full border-2 shrink-0 flex items-center justify-center transition-transform ${!user.appBgColor ? 'scale-110 border-indigo-500' : 'border-slate-300 dark:border-slate-600 opacity-50 hover:opacity-100'}`}
                       style={{ background: user.isDark ? '#09090b' : '#ffffff' }}
@@ -1737,7 +1748,7 @@ const App = () => {
                       {!user.appBgColor && <Icon name="check" size={16} className={user.isDark ? 'text-white' : 'text-slate-900'} />}
                     </button>
                     {COLORS.map((c) => (
-                      <button 
+                      <button type="button"
                         key={c} 
                         onClick={() => setUser({...user, appBgColor: c})} 
                         className={`w-10 h-10 rounded-full border-2 shrink-0 flex items-center justify-center transition-transform ${user.appBgColor === c ? 'scale-110 border-current z-10' : 'border-transparent shadow-sm opacity-50 hover:opacity-100'}`} 
@@ -1755,21 +1766,21 @@ const App = () => {
                 {!user.pin ? (
                   <div>
                     <input type="password" inputMode="numeric" pattern="[0-9]*" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN (z.B. 4 Zahlen)" className="w-full p-4 rounded-xl border-none focus:ring-2 focus:ring-rose-500 tracking-[0.5em] text-center text-xl mb-4 bg-white dark:bg-black/30 outline-none text-slate-900 dark:text-white" />
-                    <button onClick={() => { if(newPinInput.length >= 4) { setUser({...user, pin: newPinInput}); setNewPinInput(''); } else showDialog({ title: 'PIN zu kurz', message: 'Die PIN muss mindestens 4 Zeichen lang sein.', icon: 'x' }); }} className="w-full py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-sm transition-colors shadow-sm">PIN speichern</button>
+                    <button type="button" onClick={() => { if(newPinInput.length >= 4) { setUser({...user, pin: newPinInput}); setNewPinInput(''); } else showDialog({ title: 'PIN zu kurz', message: 'Die PIN muss mindestens 4 Zeichen lang sein.', icon: 'x' }); }} className="w-full py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-sm transition-colors shadow-sm">PIN speichern</button>
                   </div>
                 ) : isChangingPin ? (
                   <div className="space-y-3">
                     <input type="password" inputMode="numeric" pattern="[0-9]*" value={oldPinInput} onChange={(e) => setOldPinInput(e.target.value)} placeholder="Alte PIN" className="w-full p-3 rounded-xl text-center tracking-[0.5em] text-lg bg-white dark:bg-black/30 outline-none text-slate-900 dark:text-white" />
                     <input type="password" inputMode="numeric" pattern="[0-9]*" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN" className="w-full p-3 rounded-xl text-center tracking-[0.5em] text-lg bg-white dark:bg-black/30 outline-none text-slate-900 dark:text-white" />
                     <div className="flex gap-3">
-                      <button onClick={() => setIsChangingPin(false)} className="flex-1 py-3 bg-slate-200 dark:bg-slate-800 rounded-xl text-sm font-bold text-slate-900 dark:text-white">Abbrechen</button>
-                      <button onClick={() => { if (oldPinInput === user.pin) { setUser({...user, pin: newPinInput}); setIsChangingPin(false); showDialog({ title: 'Erfolg', message: 'PIN erfolgreich geändert.', icon: 'check', iconColor: 'text-emerald-500' }); } else showDialog({ title: 'Fehler', message: 'Die alte PIN ist falsch.', icon: 'x', iconColor: 'text-rose-500' }); }} className="flex-1 py-3 bg-rose-600 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-rose-700">Speichern</button>
+                      <button type="button" onClick={() => setIsChangingPin(false)} className="flex-1 py-3 bg-slate-200 dark:bg-slate-800 rounded-xl text-sm font-bold text-slate-900 dark:text-white">Abbrechen</button>
+                      <button type="button" onClick={() => { if (oldPinInput === user.pin) { setUser({...user, pin: newPinInput}); setIsChangingPin(false); showDialog({ title: 'Erfolg', message: 'PIN erfolgreich geändert.', icon: 'check', iconColor: 'text-emerald-500' }); } else showDialog({ title: 'Fehler', message: 'Die alte PIN ist falsch.', icon: 'x', iconColor: 'text-rose-500' }); }} className="flex-1 py-3 bg-rose-600 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-rose-700">Speichern</button>
                     </div>
                   </div>
                 ) : (
                   <div className="flex justify-between items-center bg-black/5 p-3 rounded-xl border border-transparent">
                     <span className="font-bold text-sm text-slate-900 dark:text-white">PIN Aktiv</span>
-                    <button onClick={() => setIsChangingPin(true)} className="px-4 py-2 bg-white dark:bg-rose-500/20 shadow-sm transition-colors text-rose-500 rounded-lg font-bold text-xs">Ändern</button>
+                    <button type="button" onClick={() => setIsChangingPin(true)} className="px-4 py-2 bg-white dark:bg-rose-500/20 shadow-sm transition-colors text-rose-500 rounded-lg font-bold text-xs">Ändern</button>
                   </div>
                 )}
               </div>
@@ -1781,7 +1792,7 @@ const App = () => {
                 </p>
 
                 {!peerId ? (
-                  <button onClick={() => {
+                  <button type="button" onClick={() => {
                     const peer = new window.Peer();
                     setSyncStatus('Sichere WebRTC Verbindung wird vorbereitet...');
                     peer.on('open', (id) => {
@@ -1807,7 +1818,7 @@ const App = () => {
                     <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(window.location.origin + window.location.pathname + '?import=' + peerId)}`} alt="Sync QR" className="w-48 h-48 mb-4 rounded-lg shadow-sm" />
                     <p className="text-[10px] font-bold text-center text-emerald-600 uppercase tracking-widest mb-1">Status</p>
                     <p className="text-xs font-bold text-center text-slate-800 dark:text-slate-200 animate-pulse">{syncStatus}</p>
-                    <button onClick={() => { peerInstance?.destroy(); setPeerId(null); setPeerInstance(null); setSyncStatus(''); }} className="mt-4 px-4 py-2 bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white rounded-lg text-xs font-bold hover:bg-slate-200 dark:hover:bg-white/20">Abbrechen</button>
+                    <button type="button" onClick={() => { peerInstance?.destroy(); setPeerId(null); setPeerInstance(null); setSyncStatus(''); }} className="mt-4 px-4 py-2 bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white rounded-lg text-xs font-bold hover:bg-slate-200 dark:hover:bg-white/20">Abbrechen</button>
                   </div>
                 )}
               </div>
@@ -1819,7 +1830,7 @@ const App = () => {
                   Lade dein komplettes Journal (inklusive Bilder) als Datei herunter, um ein Backup lokal aufzubewahren oder per WhatsApp/E-Mail zu teilen.
                 </p>
 
-                <button onClick={downloadFullApp} className="w-full flex items-center justify-center gap-2 p-4 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 transition-transform hover:scale-[1.02] mb-3">
+                <button type="button" onClick={downloadFullApp} className="w-full flex items-center justify-center gap-2 p-4 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 transition-transform hover:scale-[1.02] mb-3">
                   <Icon name="download" size={18}/> Komplettes Backup laden
                 </button>
 
@@ -1867,7 +1878,7 @@ const App = () => {
               {view === 'dashboard' && (
                 <div className="flex overflow-x-auto gap-3 pb-4 mb-6 custom-scrollbar snap-x no-print">
                   {['Alle', ...CATEGORIES].map(cat => (
-                    <button
+                    <button type="button"
                       key={cat} onClick={() => setActiveCategory(cat)}
                       className={`px-5 py-2.5 rounded-full whitespace-nowrap snap-start text-sm font-bold transition-all ${activeCategory === cat ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-md' : 'bg-slate-100 border border-slate-200 dark:bg-white/5 dark:border-white/10 opacity-70 hover:opacity-100 text-slate-900 dark:text-white'}`}
                     >
@@ -1964,7 +1975,7 @@ const App = () => {
                           </div>
                           <div className="flex gap-2 items-center opacity-60 no-print">
                             {view === 'dashboard' && !entry.parentId && (
-                              <button onClick={(e) => { e.stopPropagation(); moveToTop(entry); }} className="p-2 rounded-full bg-black/5 dark:bg-white/10 hover:bg-amber-500/20 hover:text-amber-500 transition-colors" title="Nach oben schieben">
+                              <button type="button" onClick={(e) => { e.stopPropagation(); moveToTop(entry); }} className="p-2 rounded-full bg-black/5 dark:bg-white/10 hover:bg-amber-500/20 hover:text-amber-500 transition-colors" title="Nach oben schieben">
                                 <Icon name="arrow-up-circle" size={16} />
                               </button>
                             )}
@@ -1983,8 +1994,8 @@ const App = () => {
                             {(entry.audio || entry.video) && <Icon name="mic" size={16} />}
                             {view === 'archive' && (
                               <div className="flex gap-2 ml-2">
-                                <button onClick={(e) => { e.stopPropagation(); setEntries(prev => prev.map(ex => ex.id === entry.id ? { ...ex, archived: false } : ex)); }} className={`p-2 rounded-full bg-black/5 dark:bg-white/10`}><Icon name="rotate-ccw" size={16} /></button>
-                                <button onClick={(e) => { e.stopPropagation(); confirmArchiveDelete(entry.id); }} className="p-2 rounded-full bg-rose-500/10 text-rose-500"><Icon name="trash-2" size={16} /></button>
+                                <button type="button" onClick={(e) => { e.stopPropagation(); setEntries(prev => prev.map(ex => ex.id === entry.id ? { ...ex, archived: false } : ex)); }} className={`p-2 rounded-full bg-black/5 dark:bg-white/10`}><Icon name="rotate-ccw" size={16} /></button>
+                                <button type="button" onClick={(e) => { e.stopPropagation(); confirmArchiveDelete(entry.id); }} className="p-2 rounded-full bg-rose-500/10 text-rose-500"><Icon name="trash-2" size={16} /></button>
                               </div>
                             )}
                           </div>
@@ -2002,13 +2013,13 @@ const App = () => {
           <div className="fixed inset-0 z-[100] flex flex-col sm:items-center sm:justify-center bg-transparent sm:bg-slate-900/40 sm:dark:bg-slate-950/80 sm:backdrop-blur-md no-print sm:p-6">
             <div className="hidden sm:block absolute inset-0 bg-transparent" onClick={() => checkSaveEntry(true)} />
             <div 
-              className="relative w-full h-full sm:h-[90dvh] sm:max-w-3xl mx-auto flex flex-col shadow-2xl transition-all sm:rounded-[2.5rem] border-0 sm:border sm:border-slate-200 sm:dark:border-white/10 overflow-hidden"
+              className="relative w-full h-full sm:h-[90dvh] sm:max-w-3xl mx-auto flex flex-col shadow-2xl transition-colors sm:rounded-[2.5rem] border-0 sm:border sm:border-slate-200 sm:dark:border-white/10 overflow-hidden"
               style={{ backgroundColor: zenMode ? 'transparent' : (user.appBgColor || (user.isDark ? '#18181b' : '#ffffff')), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
             >
               <div className={`flex justify-between items-center px-4 py-3 sm:px-6 sm:py-5 border-b shrink-0 ${zenMode ? 'border-transparent' : 'border-black/5 dark:border-white/5'}`}>
                 
                 {/* ZURUECK BUTTON (Jetzt als klarer Pfeil nach Links) */}
-                <button onClick={() => checkSaveEntry(true)} className={`p-2 rounded-full transition-colors ${isDarkColor(selectedColor) ? 'text-white hover:bg-white/10' : 'text-slate-900 hover:bg-black/5'}`}>
+                <button type="button" onClick={() => checkSaveEntry(true)} className={`p-2 rounded-full transition-colors ${isDarkColor(selectedColor) ? 'text-white hover:bg-white/10' : 'text-slate-900 hover:bg-black/5'}`}>
                   <Icon name="arrow-left" size={28}/>
                 </button>
 
@@ -2016,11 +2027,11 @@ const App = () => {
                   <div className="flex gap-1 sm:gap-2 overflow-x-auto hide-scrollbar items-center min-w-[100px] justify-end">
                     <span className={`flex items-center text-[10px] sm:text-xs font-bold text-emerald-500 transition-opacity duration-300 ${autoSaveStatus ? 'opacity-100' : 'opacity-0'} mr-1 sm:mr-2`}><Icon name="check" size={14} className="mr-1"/> {autoSaveStatus || 'Gespeichert'}</span>
                     
-                    {editingId && <button onClick={() => confirmDelete(editingId)} className="p-2 sm:p-2.5 rounded-full hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 transition-colors" title="Seite herausreißen"><Icon name="trash-2" size={20}/></button>}
-                    {editingId && <button onClick={() => {
+                    {editingId && <button type="button" onClick={() => confirmDelete(editingId)} className="p-2 sm:p-2.5 rounded-full hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 transition-colors" title="Seite herausreißen"><Icon name="trash-2" size={20}/></button>}
+                    {editingId && <button type="button" onClick={() => {
                       const entryToArchive = {
                         id: editingId || generateId(),
-                        title: title || 'Neue Seite', text: editorRef.current ? editorRef.current.innerHTML : text, color: selectedColor,
+                        title: title || 'Neue Seite', text: editorRef.current ? editorRef.current.innerHTML : initialEditorText, color: selectedColor,
                         image: selectedImage, video: selectedVideo, audio: audioUrl,
                         locked: isLocked, archived: true, manifested: isManifested,
                         unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
@@ -2030,15 +2041,15 @@ const App = () => {
                       saveToDB(entryToArchive);
                       closeEditor(null);
                     }} className="p-2 sm:p-2.5 rounded-full transition-colors text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10" title="Ins Archiv"><Icon name="archive" size={20}/></button>}
-                    <button onClick={() => setZenMode(true)} className={`p-2 sm:p-2.5 rounded-full transition-colors text-slate-400 ${isDarkColor(selectedColor) ? 'hover:text-white hover:bg-white/10' : 'hover:text-slate-900 hover:bg-black/5'}`} title="Fokus Modus"><Icon name="maximize-2" size={20}/></button>
-                    <button onClick={() => { setIsManifested(!isManifested); savedDataRef.current = ""; }} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isManifested ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-500/10'}`} title="Manifestieren (Stern)"><Icon name="sparkles" size={20}/></button>
-                    <button onClick={() => { setIsLocked(!isLocked); savedDataRef.current = ""; }} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isLocked ? 'bg-rose-500/20 text-rose-500' : 'text-slate-400 hover:text-rose-500 hover:bg-rose-500/10'}`} title="PIN-Schutz (Tresor)"><Icon name="lock" size={20}/></button>
+                    <button type="button" onClick={() => setZenMode(true)} className={`p-2 sm:p-2.5 rounded-full transition-colors text-slate-400 ${isDarkColor(selectedColor) ? 'hover:text-white hover:bg-white/10' : 'hover:text-slate-900 hover:bg-black/5'}`} title="Fokus Modus"><Icon name="maximize-2" size={20}/></button>
+                    <button type="button" onClick={() => { setIsManifested(!isManifested); savedDataRef.current = ""; }} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isManifested ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-500/10'}`} title="Manifestieren (Stern)"><Icon name="sparkles" size={20}/></button>
+                    <button type="button" onClick={() => { setIsLocked(!isLocked); savedDataRef.current = ""; }} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isLocked ? 'bg-rose-500/20 text-rose-500' : 'text-slate-400 hover:text-rose-500 hover:bg-rose-500/10'}`} title="PIN-Schutz (Tresor)"><Icon name="lock" size={20}/></button>
                   </div>
                 )}
-                {zenMode && <button onClick={() => setZenMode(false)} className="text-current opacity-50 hover:opacity-100"><Icon name="minimize-2" size={24}/></button>}
+                {zenMode && <button type="button" onClick={() => setZenMode(false)} className="text-current opacity-50 hover:opacity-100"><Icon name="minimize-2" size={24}/></button>}
                 
                 {!zenMode && (
-                  <button onClick={() => checkSaveEntry(false)} className={`flex items-center gap-1 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full font-bold shadow-md hover:scale-105 transition-transform text-sm ${isDarkColor(selectedColor) ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}`} title="Speichern & bleiben">
+                  <button type="button" onClick={() => checkSaveEntry(false)} className={`flex items-center gap-1 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full font-bold shadow-md hover:scale-105 transition-transform text-sm ${isDarkColor(selectedColor) ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}`} title="Speichern & bleiben">
                     <Icon name="check" size={16} className="sm:hidden" />
                     <span className="hidden sm:inline">Sichern</span>
                   </button>
@@ -2047,10 +2058,11 @@ const App = () => {
 
               <div id="editor-scroll-container" className="flex-1 overflow-y-auto p-4 sm:p-10 flex flex-col gap-4 w-full overscroll-contain relative">
               
+                {/* ARCHITEKTUR-UPDATE: Stabiles Bild, das beim Öffnen der Tastatur auf dem Handy NICHT wackelt */}
                 {!zenMode && selectedImage && (
-                  <div className="relative w-full rounded-[2rem] overflow-hidden shadow-md bg-black/5 dark:bg-white/5 shrink-0 border border-slate-200 dark:border-white/10 flex items-center justify-center p-2">
-                    <img src={selectedImage} alt="Preview" className="w-full max-h-[40vh] object-contain rounded-2xl" />
-                    <button onClick={() => { setSelectedImage(null); savedDataRef.current = ""; }} className="absolute top-4 right-4 bg-white/90 dark:bg-black/80 backdrop-blur-md p-3 rounded-full hover:scale-110 transition-transform z-10 shadow-lg text-slate-900 dark:text-white border border-slate-200 dark:border-white/10">
+                  <div className="relative w-full h-48 rounded-[2rem] overflow-hidden shadow-md bg-black/5 dark:bg-white/5 shrink-0 border border-slate-200 dark:border-white/10 flex items-center justify-center p-2">
+                    <img src={selectedImage} alt="Preview" className="w-full h-full object-cover rounded-2xl" />
+                    <button type="button" onClick={() => { setSelectedImage(null); savedDataRef.current = ""; }} className="absolute top-4 right-4 bg-white/90 dark:bg-black/80 backdrop-blur-md p-3 rounded-full hover:scale-110 transition-transform z-10 shadow-lg text-slate-900 dark:text-white border border-slate-200 dark:border-white/10">
                       <Icon name="x" size={18}/>
                     </button>
                   </div>
@@ -2065,12 +2077,12 @@ const App = () => {
 
                 {!zenMode && (
                   <div className="flex flex-wrap gap-3 text-xs font-bold uppercase tracking-widest opacity-60 shrink-0">
-                    <button onClick={() => setPicker({
+                    <button type="button" onClick={() => setPicker({
                       title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c => ({label: c, value: c})), onSelect: (val) => { setCategory(val); savedDataRef.current = ""; }
                     })} className="bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2">
                       {category} <Icon name="chevron-down" size={14} className="shrink-0"/>
                     </button>
-                    <button onClick={() => setPicker({
+                    <button type="button" onClick={() => setPicker({
                       title: 'Art des Eintrags', currentValue: entryType, options: [{label: 'Vision', value: 'vision'}, {label: 'Brief an die Zukunft', value: 'letter'}], onSelect: (val) => { setEntryType(val); savedDataRef.current = ""; }
                     })} className="bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2">
                       {entryType === 'vision' ? 'Vision' : 'Brief'} <Icon name="chevron-down" size={14} className="shrink-0"/>
@@ -2082,19 +2094,21 @@ const App = () => {
 
                 {!zenMode && (
                   <div className="flex gap-2 py-2 border-y border-current border-opacity-10 opacity-70 shrink-0">
-                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); }} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Fett"><Icon name="bold" size={18}/></button>
-                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); }} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Kursiv"><Icon name="italic" size={18}/></button>
-                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); }} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors"><Icon name="list-todo" size={18}/></button>
-                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); }} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Zitat / Weisheit"><Icon name="quote" size={18}/></button>
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); isDirtyRef.current = true; }} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Fett"><Icon name="bold" size={18}/></button>
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); isDirtyRef.current = true; }} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Kursiv"><Icon name="italic" size={18}/></button>
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); isDirtyRef.current = true; }} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors"><Icon name="list-todo" size={18}/></button>
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current = true; }} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Zitat / Weisheit"><Icon name="quote" size={18}/></button>
                   </div>
                 )}
 
+                {/* ARCHITEKTUR-UPDATE: dangerouslySetInnerHTML löst das Leeres-Fenster-Problem. Der Text ist IMMER da. */}
                 <div
                   ref={editorRef}
                   contentEditable={true}
                   suppressContentEditableWarning={true}
                   data-placeholder="Schreibe deine Gedanken auf diese leere Seite..."
                   onInput={handleEditorInput}
+                  dangerouslySetInnerHTML={{ __html: initialEditorText }}
                   className="w-full flex-1 bg-transparent text-lg sm:text-xl leading-relaxed focus:outline-none font-medium empty:before:content-[attr(data-placeholder)] empty:before:cursor-text legacy-editor-content pb-64"
                   style={{ color: 'inherit', '::before': { opacity: 0.3 } }}
                 />
@@ -2104,7 +2118,7 @@ const App = () => {
                     <div className="relative p-4 rounded-2xl shadow-sm border border-current border-opacity-20 flex flex-col">
                       <span className="text-xs font-bold uppercase tracking-widest mb-2 opacity-60">Sprachnachricht</span>
                       <audio src={audioUrl} controls className="w-full" />
-                      <button onClick={() => { setAudioUrl(null); savedDataRef.current = ""; }} className="absolute top-4 right-4 text-current opacity-50 hover:opacity-100"><Icon name="x" size={16}/></button>
+                      <button type="button" onClick={() => { setAudioUrl(null); savedDataRef.current = ""; }} className="absolute top-4 right-4 text-current opacity-50 hover:opacity-100"><Icon name="x" size={16}/></button>
                     </div>
                   </div>
                 )}
@@ -2115,8 +2129,8 @@ const App = () => {
                     <div className="flex justify-between items-center overflow-x-auto hide-scrollbar gap-4">
                       <div className="flex gap-2 shrink-0">
                         <label className={`p-3.5 rounded-full shadow-sm cursor-pointer transition-colors ${isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`} title="Bild hinzufügen"><Icon name="image" size={20}/><input type="file" accept="image/*" onChange={(e)=>handleFileUpload(e,'image')} className="hidden" /></label>
-                        <button onClick={() => setIsDrawing(true)} className={`p-3.5 rounded-full shadow-sm transition-colors ${isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`} title="Zeichnen"><Icon name="pen-tool" size={20}/></button>
-                        <button onClick={isRecording ? stopRecording : startRecording} className={`p-3.5 rounded-full shadow-sm transition-colors ${isRecording ? 'bg-rose-500 text-white animate-pulse' : isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`} title="Sprache aufnehmen">
+                        <button type="button" onClick={() => setIsDrawing(true)} className={`p-3.5 rounded-full shadow-sm transition-colors ${isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`} title="Zeichnen"><Icon name="pen-tool" size={20}/></button>
+                        <button type="button" onClick={isRecording ? stopRecording : startRecording} className={`p-3.5 rounded-full shadow-sm transition-colors ${isRecording ? 'bg-rose-500 text-white animate-pulse' : isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`} title="Sprache aufnehmen">
                           {isRecording ? <Icon name="square" size={20}/> : <Icon name="mic" size={20}/>}
                         </button>
                       </div>
@@ -2131,14 +2145,14 @@ const App = () => {
                     <div className={`flex justify-between items-center overflow-x-auto hide-scrollbar gap-6 border-t pt-3 ${isDarkColor(selectedColor) ? 'border-white/5' : 'border-black/5'}`}>
                       <div className="flex gap-2 shrink-0">
                         {MOODS.map(m => (
-                          <button key={m.id} onClick={()=> { setMood(m.label===mood ? null : m.label); savedDataRef.current = ""; }} className={`p-2.5 rounded-full transition-all ${mood===m.label ? 'bg-slate-800 dark:bg-white shadow-lg scale-110 ' + m.color : 'opacity-40 hover:opacity-100 text-current'}`}>
+                          <button type="button" key={m.id} onClick={()=> { setMood(m.label===mood ? null : m.label); savedDataRef.current = ""; }} className={`p-2.5 rounded-full transition-all ${mood===m.label ? 'bg-slate-800 dark:bg-white shadow-lg scale-110 ' + m.color : 'opacity-40 hover:opacity-100 text-current'}`}>
                             <Icon name={m.iconName} size={20} />
                           </button>
                         ))}
                       </div>
                       <div className="flex gap-2 shrink-0">
                         {COLORS.slice(0, 18).map((c) => (
-                          <button key={c} onClick={() => { setSelectedColor(c); savedDataRef.current = ""; }} className={`w-8 h-8 rounded-full shadow-sm border-2 transition-transform ${selectedColor === c ? 'scale-110 border-current z-10' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`} style={{ backgroundColor: c }} />
+                          <button type="button" key={c} onClick={() => { setSelectedColor(c); savedDataRef.current = ""; }} className={`w-8 h-8 rounded-full shadow-sm border-2 transition-transform ${selectedColor === c ? 'scale-110 border-current z-10' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`} style={{ backgroundColor: c }} />
                         ))}
                       </div>
                     </div>
@@ -2151,9 +2165,9 @@ const App = () => {
         {isDrawing && (
           <div className="fixed inset-0 z-[120] flex flex-col bg-slate-900 text-white no-print">
             <div className="flex justify-between items-center p-6 border-b border-white/10 bg-slate-950">
-              <button onClick={() => setIsDrawing(false)} className="p-3 text-white/70 hover:text-white bg-white/5 rounded-full"><Icon name="x" size={24} /></button>
+              <button type="button" onClick={() => setIsDrawing(false)} className="p-3 text-white/70 hover:text-white bg-white/5 rounded-full"><Icon name="x" size={24} /></button>
               <span className="font-bold text-xl font-serif">Skizze</span>
-              <button
+              <button type="button"
                 onClick={() => { if(canvasRef.current) { setSelectedImage(canvasRef.current.toDataURL()); setIsDrawing(false); savedDataRef.current = ""; } }}
                 className="bg-amber-500 text-slate-900 px-6 py-3 rounded-full font-bold flex gap-2 items-center shadow-lg"
               ><Icon name="check" size={18}/> Fertig</button>
@@ -2167,7 +2181,7 @@ const App = () => {
               />
             </div>
             <div className="p-4 bg-slate-950 flex justify-center">
-              <button onClick={() => {
+              <button type="button" onClick={() => {
                 if (!canvasRef.current) return;
                 const canvas = canvasRef.current;
                 const ctx = canvas.getContext('2d');
@@ -2179,11 +2193,11 @@ const App = () => {
 
         <nav className="fixed bottom-0 left-0 right-0 backdrop-blur-3xl border-t z-40 transition-colors duration-500 bg-white/90 border-slate-200 dark:bg-graphite-950/90 dark:border-white/10 pb-[env(safe-area-inset-bottom,0px)] no-print">
           <div className="flex justify-between items-center h-20 max-w-md mx-auto px-8">
-            <button onClick={() => setView('dashboard')} className={`flex flex-col items-center justify-center h-full space-y-1 transition-all ${view === 'dashboard' ? 'text-amber-500 scale-105' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}><Icon name="layout-grid" size={24} /><span className="text-[10px] font-bold uppercase tracking-widest">Buch</span></button>
+            <button type="button" onClick={() => setView('dashboard')} className={`flex flex-col items-center justify-center h-full space-y-1 transition-all ${view === 'dashboard' ? 'text-amber-500 scale-105' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}><Icon name="layout-grid" size={24} /><span className="text-[10px] font-bold uppercase tracking-widest">Buch</span></button>
             <div className="relative -top-6">
-              <button onClick={() => openEditor()} className="w-16 h-16 rounded-full shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 text-white border-[4px] border-slate-50 dark:border-graphite-950 transition-transform duration-300 bg-slate-900 dark:bg-white dark:text-slate-900"><Icon name="plus" size={32} /></button>
+              <button type="button" onClick={() => openEditor()} className="w-16 h-16 rounded-full shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 text-white border-[4px] border-slate-50 dark:border-graphite-950 transition-transform duration-300 bg-slate-900 dark:bg-white dark:text-slate-900"><Icon name="plus" size={32} /></button>
             </div>
-            <button onClick={() => setView('vault')} className={`flex flex-col items-center justify-center h-full space-y-1 transition-all ${view === 'vault' ? 'text-indigo-500 scale-105' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}><Icon name="lock" size={24} /><span className="text-[10px] font-bold uppercase tracking-widest">Tresor</span></button>
+            <button type="button" onClick={() => setView('vault')} className={`flex flex-col items-center justify-center h-full space-y-1 transition-all ${view === 'vault' ? 'text-indigo-500 scale-105' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}><Icon name="lock" size={24} /><span className="text-[10px] font-bold uppercase tracking-widest">Tresor</span></button>
           </div>
         </nav>
 
