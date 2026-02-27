@@ -404,7 +404,7 @@ const App = () => {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone || document.referrer.includes('android-app://');
     if (!isStandalone) {
       if (window.location.protocol.includes('file') || window.location.protocol.includes('content')) {
-        setInstallHint("Tipp: Du hast die Datei lokal geöffnet. Um sie als echte App zu nutzen, rufe sie über deinen Browser auf und wähle 'Zum Startbildschirm hinzufügen'!");
+        setInstallHint("Tipp: Du hast diese Datei direkt aus dem Speicher deines Handys geöffnet. Handys blockieren hierbei das 'Zum Startbildschirm hinzufügen'. Lade die App über den originalen Web-Link auf deinen Startbildschirm und nutze danach die 'Importieren'-Funktion in den Einstellungen!");
       }
     }
   }, []);
@@ -842,52 +842,52 @@ const App = () => {
     e.target.value = null;
   };
 
-  const exportText = () => {
-    window.print();
-  };
-
-  // --- HILFSFUNKTION FÜR ROBUSTE DOWNLOADS AUF DEM HANDY ---
-  const triggerDownload = (content, fileName, mimeType) => {
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 250);
-  };
-
-  // --- FIX 2: Absolut robuster und Handy-kompatibler Share (als .txt getarnt für WhatsApp) ---
-  const shareBackupTxt = async () => {
-    const data = { user, entries };
-    const jsonString = JSON.stringify(data);
-    const fileName = `Legacy_Journal_Backup_${new Date().toISOString().split('T')[0]}.txt`;
+  // --- OPTION 1: App Klonen & Weiterleiten (.html) ---
+  const shareApp = async () => {
+    const cloneDocument = document.cloneNode(true);
+    const rootDiv = cloneDocument.getElementById('root');
+    if (rootDiv) rootDiv.innerHTML = ''; 
     
-    // Wir erzeugen eine text/plain Datei. Diese wird von Android und iOS System-Share IMMER akzeptiert.
-    const file = new File([jsonString], fileName, { type: 'text/plain' });
+    const existingInjected = cloneDocument.getElementById('legacy-injected-data');
+    if (existingInjected) existingInjected.remove();
+    
+    const data = { user, entries };
+    const scriptEl = cloneDocument.createElement('script');
+    scriptEl.id = 'legacy-injected-data';
+    scriptEl.type = 'application/json';
+    scriptEl.textContent = JSON.stringify(data);
+    cloneDocument.head.appendChild(scriptEl);
+    
+    const htmlContent = "<!DOCTYPE html>\n" + cloneDocument.documentElement.outerHTML;
+    const fileName = `Meine_Legacy_Vision_${new Date().toISOString().split('T')[0]}.html`;
+    
+    const file = new File([htmlContent], fileName, { type: 'text/html' });
 
+    // Versuche Native Share
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({
-          title: 'Mein Legacy Journal',
-          text: 'Hier ist das komplette Backup meines Journals. Du kannst diese Datei in der App importieren.',
+          title: 'Meine Legacy Vision App',
+          text: 'Öffne diese Datei im Browser, um mein komplettes Journal zu laden.',
           files: [file]
         });
         return; 
       } catch (err) {
-        if (err.name === 'AbortError') return; 
+        console.log('Teilen abgebrochen oder fehlerhaft', err);
+        if (err.name === 'AbortError') return;
       }
     }
     
-    triggerDownload(jsonString, fileName, 'text/plain');
+    // Fallback: Speichere die fertige HTML App auf dem Gerät ab
+    const url = URL.createObjectURL(file);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
     showDialog({ 
-      title: 'In Downloads gespeichert!', 
-      message: 'Teilen wurde blockiert. Das Backup wurde als Textdatei in deine Downloads gespeichert. Du kannst es von dort aus per Mail oder Messenger versenden.', 
+      title: 'App geklont!', 
+      message: 'WICHTIG für dein neues Handy: Lade dort erst das leere Journal aus dem Internet und füge es zum Startbildschirm hinzu. Danach importierst du diese Datei einfach in den Einstellungen.', 
       icon: 'download', 
       iconColor: 'text-emerald-500' 
     });
@@ -914,7 +914,7 @@ const App = () => {
     triggerDownload(htmlContent, fileName, 'text/html;charset=utf-8');
     showDialog({ 
       title: 'App heruntergeladen!', 
-      message: 'Die App liegt nun als .html-Datei in deinen Downloads. Schicke sie per Mail an dein neues Handy.', 
+      message: 'WICHTIG für dein neues Handy: Lade dort erst das leere Journal aus dem Internet und füge es zum Startbildschirm hinzu. Danach importierst du diese Datei einfach in den Einstellungen.', 
       icon: 'download', 
       iconColor: 'text-emerald-500' 
     });
@@ -1398,6 +1398,14 @@ const App = () => {
         </header>
 
         <main className="p-4 sm:p-6 max-w-4xl mx-auto min-h-[60vh] relative z-10 pb-24">
+
+          {/* Anzeige des Installations-Hinweises, wenn die Datei lokal geöffnet wurde */}
+          {installHint && view !== 'onboarding' && view !== 'loading' && (
+            <div className="mb-6 p-4 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 rounded-2xl text-xs font-bold leading-relaxed border border-amber-200 dark:border-amber-800/50 flex items-start gap-3 shadow-sm no-print">
+               <Icon name="info" size={20} className="shrink-0 mt-0.5" />
+               <p>{installHint}</p>
+            </div>
+          )}
 
           {view === 'menu' && (
             <div className="grid grid-cols-2 gap-4 sm:gap-6 animate-slide-up no-print">
