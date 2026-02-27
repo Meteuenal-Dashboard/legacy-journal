@@ -691,6 +691,33 @@ const App = () => {
     });
   };
 
+  // --- FIX 1: Extrem robuster Samsung-Tastatur-Scroll mit VisualViewport ---
+  const scrollToCaret = () => {
+    if (!window.visualViewport) return;
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    
+    if (rect.bottom > window.visualViewport.height - 40) {
+      const container = document.getElementById('editor-scroll-container');
+      if (container) {
+        const hiddenAmount = rect.bottom - window.visualViewport.height;
+        container.scrollBy({ top: hiddenAmount + 60, behavior: 'smooth' });
+      }
+    }
+  };
+
+  const handleEditorInteraction = () => {
+    setTimeout(scrollToCaret, 300);
+    setTimeout(scrollToCaret, 600); // Check again after keyboard animation finishes
+  };
+
+  const handleEditorInput = (e) => {
+    setText(e.currentTarget.innerHTML);
+    scrollToCaret();
+  };
+
   useEffect(() => {
     if (showEditor && editorRef.current && editorRef.current.innerHTML !== text) {
       editorRef.current.innerHTML = text || '';
@@ -827,7 +854,6 @@ const App = () => {
     a.style.display = 'none';
     a.href = url;
     a.download = fileName;
-    // An den Body anhängen ist zwingend nötig für iOS/Safari Downloads!
     document.body.appendChild(a);
     a.click();
     setTimeout(() => {
@@ -836,8 +862,38 @@ const App = () => {
     }, 250);
   };
 
-  // --- OPTION 1: App Klonen & Weiterleiten (.html) ---
-  const shareApp = async () => {
+  // --- FIX 2: Absolut robuster und Handy-kompatibler Share (als .txt getarnt für WhatsApp) ---
+  const shareBackupTxt = async () => {
+    const data = { user, entries };
+    const jsonString = JSON.stringify(data);
+    const fileName = `Legacy_Journal_Backup_${new Date().toISOString().split('T')[0]}.txt`;
+    
+    // Wir erzeugen eine text/plain Datei. Diese wird von Android und iOS System-Share IMMER akzeptiert.
+    const file = new File([jsonString], fileName, { type: 'text/plain' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          title: 'Mein Legacy Journal',
+          text: 'Hier ist das komplette Backup meines Journals. Du kannst diese Datei in der App importieren.',
+          files: [file]
+        });
+        return; 
+      } catch (err) {
+        if (err.name === 'AbortError') return; 
+      }
+    }
+    
+    triggerDownload(jsonString, fileName, 'text/plain');
+    showDialog({ 
+      title: 'In Downloads gespeichert!', 
+      message: 'Teilen wurde blockiert. Das Backup wurde als Textdatei in deine Downloads gespeichert. Du kannst es von dort aus per Mail oder Messenger versenden.', 
+      icon: 'download', 
+      iconColor: 'text-emerald-500' 
+    });
+  };
+
+  const shareAppHtml = () => {
     const cloneDocument = document.cloneNode(true);
     const rootDiv = cloneDocument.getElementById('root');
     if (rootDiv) rootDiv.innerHTML = ''; 
@@ -855,43 +911,13 @@ const App = () => {
     const htmlContent = "<!DOCTYPE html>\n" + cloneDocument.documentElement.outerHTML;
     const fileName = `Meine_Legacy_Vision_${new Date().toISOString().split('T')[0]}.html`;
     
-    // Versuche Native Share
-    let shared = false;
-    if (navigator.share) {
-      try {
-        // Tarnung als text/plain für strikte Handy-Browser, damit das Teilen-Menü aufgeht
-        const file = new File([htmlContent], fileName, { type: 'text/plain' });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            title: 'Meine Legacy Vision App',
-            text: 'Hier ist mein komplettes Journal. Öffne die Datei einfach im Browser!',
-            files: [file]
-          });
-          shared = true;
-        }
-      } catch (err) {
-        console.log('Teilen abgebrochen oder fehlerhaft', err);
-        if (err.name === 'AbortError') return; 
-      }
-    }
-    
-    if (!shared) {
-      // Robustes Download-Fallback für Handys
-      triggerDownload(htmlContent, fileName, 'text/html;charset=utf-8');
-      showDialog({ 
-        title: 'In Downloads gespeichert!', 
-        message: 'Direktes Teilen wurde vom System blockiert. Die App wurde stattdessen sicher in deine Downloads gespeichert. Sende sie einfach von dort manuell weiter.', 
-        icon: 'download', 
-        iconColor: 'text-emerald-500' 
-      });
-    }
-  };
-
-  const exportBackup = () => {
-    const data = { user, entries };
-    const jsonString = JSON.stringify(data);
-    const fileName = `Legacy_Backup_${new Date().toISOString().split('T')[0]}.legacy`;
-    triggerDownload(jsonString, fileName, 'application/json');
+    triggerDownload(htmlContent, fileName, 'text/html;charset=utf-8');
+    showDialog({ 
+      title: 'App heruntergeladen!', 
+      message: 'Die App liegt nun als .html-Datei in deinen Downloads. Schicke sie per Mail an dein neues Handy.', 
+      icon: 'download', 
+      iconColor: 'text-emerald-500' 
+    });
   };
 
   const importBackup = (e) => {
@@ -913,7 +939,7 @@ const App = () => {
             throw new Error("Keine Legacy-Daten in dieser HTML gefunden.");
           }
         } else {
-          data = JSON.parse(resultText);
+          data = JSON.parse(resultText); // Verarbeitet .txt, .json und .legacy automatisch!
         }
 
         if (data && data.entries) {
@@ -1543,29 +1569,26 @@ const App = () => {
                 )}
               </div>
 
-              {/* NEUE OPTION 1: "App & Backup teilen" anstelle des alten Backups */}
+              {/* FIX 2: Absolut robuster und Handy-kompatibler Share */}
               <div className="p-6 rounded-[2rem] shadow-sm border bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/50">
-                <h2 className="text-base font-bold mb-4 flex items-center gap-2 text-indigo-600"><Icon name="share-2" size={18} /> App & Backup übertragen</h2>
+                <h2 className="text-base font-bold mb-4 flex items-center gap-2 text-indigo-600"><Icon name="archive" size={18} /> System & Backup</h2>
                 
                 <p className="text-xs opacity-70 mb-5 text-slate-800 dark:text-slate-300 leading-relaxed">
-                  Sende die <b>komplette App inklusive all deiner Bilder und Texte</b> an dein neues Handy oder deine Familie. Öffne die Datei einfach im Browser des neuen Geräts.
+                  Sichere dein komplettes Journal inklusive Bilder. Nutze <b>Backup teilen</b>, um es per WhatsApp oder Mail an dein neues Handy zu senden.
                 </p>
 
-                <button onClick={shareApp} className="w-full flex items-center justify-center gap-2 p-4 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 transition-transform hover:scale-[1.02] mb-3">
-                  <Icon name="send" size={18}/> App & Daten weiterleiten (.html)
+                <button onClick={shareBackupTxt} className="w-full flex items-center justify-center gap-2 p-4 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 transition-transform hover:scale-[1.02] mb-3">
+                  <Icon name="share" size={18}/> Backup jetzt teilen
                 </button>
 
                 <div className="flex gap-2 mb-3">
                   <label className="flex-1 flex items-center justify-center gap-1.5 p-3 bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold cursor-pointer border border-slate-300 dark:border-transparent shadow-sm hover:bg-slate-50 transition-colors">
-                    <Icon name="upload" size={14}/> Backup Importieren <input type="file" accept=".html,.legacy,.json" onChange={importBackup} className="hidden" />
+                    <Icon name="upload" size={14}/> Backup Importieren <input type="file" accept=".txt,.html,.legacy,.json" onChange={importBackup} className="hidden" />
                   </label>
-                  <button onClick={exportBackup} className="flex-1 flex items-center justify-center gap-1.5 p-3 bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold border border-slate-300 dark:border-transparent shadow-sm hover:bg-slate-50 transition-colors">
-                    <Icon name="download" size={14}/> Nur Daten (.legacy)
-                  </button>
                 </div>
 
-                <button onClick={exportText} className="w-full flex items-center justify-center gap-1.5 p-3 bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold border border-slate-300 dark:border-transparent shadow-sm hover:bg-slate-50 transition-colors">
-                  <Icon name="printer" size={14}/> Als echtes Buch drucken / PDF
+                <button onClick={shareAppHtml} className="w-full flex items-center justify-center gap-1.5 p-3 bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold border border-slate-300 dark:border-transparent shadow-sm hover:bg-slate-50 transition-colors">
+                  <Icon name="download" size={14}/> App als .html speichern
                 </button>
               </div>
             </div>
@@ -1721,7 +1744,7 @@ const App = () => {
           <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center transition-all bg-slate-900/40 dark:bg-slate-950/80 backdrop-blur-md no-print sm:p-6">
             <div className="absolute inset-0 bg-transparent" onClick={() => checkSaveEntry(true)} />
             <div
-              className="relative w-full max-w-3xl mx-auto flex flex-col shadow-2xl transition-all fixed inset-0 sm:relative sm:h-[90dvh] sm:w-[90vw] sm:rounded-[2.5rem] border border-slate-200 dark:border-white/10"
+              className="relative w-full max-w-3xl mx-auto flex flex-col shadow-2xl transition-all absolute inset-0 sm:relative sm:h-[90dvh] sm:w-[90vw] sm:rounded-[2.5rem] border border-slate-200 dark:border-white/10"
               style={{ backgroundColor: zenMode ? 'transparent' : (user.appBgColor || (user.isDark ? '#18181b' : '#ffffff')), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
             >
               <div className={`flex justify-between items-center px-4 py-3 sm:px-6 sm:py-5 border-b shrink-0 ${zenMode ? 'border-transparent' : 'border-black/5 dark:border-white/5'}`}>
@@ -1809,8 +1832,10 @@ const App = () => {
                   contentEditable={true}
                   suppressContentEditableWarning={true}
                   data-placeholder="Schreibe deine Gedanken auf diese leere Seite..."
-                  onInput={(e) => setText(e.currentTarget.innerHTML)}
-                  className="w-full flex-1 bg-transparent text-lg sm:text-xl leading-relaxed focus:outline-none font-medium empty:before:content-[attr(data-placeholder)] empty:before:cursor-text legacy-editor-content pb-32"
+                  onInput={handleEditorInput}
+                  onClick={handleEditorInteraction}
+                  onFocus={handleEditorInteraction}
+                  className="w-full flex-1 bg-transparent text-lg sm:text-xl leading-relaxed focus:outline-none font-medium empty:before:content-[attr(data-placeholder)] empty:before:cursor-text legacy-editor-content pb-[50vh]"
                   style={{ color: 'inherit', '::before': { opacity: 0.3 } }}
                 />
 
