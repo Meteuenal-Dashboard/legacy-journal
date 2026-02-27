@@ -861,8 +861,38 @@ const App = () => {
     }, 250);
   };
 
-  // --- KOMPLETT VEREINFACHTER EXPORT-BEREICH ---
-  const downloadFullApp = () => {
+  // --- FIX 2: Absolut robuster und Handy-kompatibler Share (als .txt getarnt für WhatsApp) ---
+  const shareBackupTxt = async () => {
+    const data = { user, entries };
+    const jsonString = JSON.stringify(data);
+    const fileName = `Legacy_Journal_Backup_${new Date().toISOString().split('T')[0]}.txt`;
+    
+    // Wir erzeugen eine text/plain Datei. Diese wird von Android und iOS System-Share IMMER akzeptiert.
+    const file = new File([jsonString], fileName, { type: 'text/plain' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          title: 'Mein Legacy Journal',
+          text: 'Hier ist das komplette Backup meines Journals. Du kannst diese Datei in der App importieren.',
+          files: [file]
+        });
+        return; 
+      } catch (err) {
+        if (err.name === 'AbortError') return; 
+      }
+    }
+    
+    triggerDownload(jsonString, fileName, 'text/plain');
+    showDialog({ 
+      title: 'In Downloads gespeichert!', 
+      message: 'Teilen wurde blockiert. Das Backup wurde als Textdatei in deine Downloads gespeichert. Du kannst es von dort aus per Mail oder Messenger versenden.', 
+      icon: 'download', 
+      iconColor: 'text-emerald-500' 
+    });
+  };
+
+  const shareAppHtml = async () => {
     const cloneDocument = document.cloneNode(true);
     const rootDiv = cloneDocument.getElementById('root');
     if (rootDiv) rootDiv.innerHTML = ''; 
@@ -878,14 +908,28 @@ const App = () => {
     cloneDocument.head.appendChild(scriptEl);
     
     const htmlContent = "<!DOCTYPE html>\n" + cloneDocument.documentElement.outerHTML;
-    const fileName = `Mein_Legacy_Journal_${new Date().toISOString().split('T')[0]}.html`;
+    const fileName = `Meine_Legacy_Vision_${new Date().toISOString().split('T')[0]}.html`;
     
+    // Versuch: Natives HTML Teilen
+    const file = new File([htmlContent], fileName, { type: 'text/html' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          title: 'Meine Legacy Vision App',
+          text: 'Öffne diese Datei im Browser, um mein komplettes Journal zu laden.',
+          files: [file]
+        });
+        return; 
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+
     triggerDownload(htmlContent, fileName, 'text/html;charset=utf-8');
-    
     showDialog({ 
-      title: 'Schritt 1 erledigt!', 
-      message: 'Die App wurde in deinen "Downloads"-Ordner auf dem Handy heruntergeladen.\n\nSchritt 2: Öffne nun deine "Eigene Dateien"-App, halte die heruntergeladene Datei gedrückt und teile sie per WhatsApp.', 
-      icon: 'check', 
+      title: 'App heruntergeladen!', 
+      message: 'Die App liegt nun als .html-Datei in deinen Downloads. Schicke sie per Mail an dein neues Handy.', 
+      icon: 'download', 
       iconColor: 'text-emerald-500' 
     });
   };
@@ -1253,7 +1297,7 @@ const App = () => {
                 </div>
               )}
               <h3 className="text-2xl font-bold leading-tight mb-4 font-serif">{dialog.title}</h3>
-              <p className="text-base opacity-70 mb-8 leading-relaxed px-2 whitespace-pre-wrap">{dialog.message}</p>
+              <p className="text-base opacity-70 mb-8 leading-relaxed px-2">{dialog.message}</p>
               <div className="flex flex-col gap-3 w-full">
                 <button
                   className={`w-full py-4 text-white rounded-2xl font-bold shadow-md text-base transition-transform active:scale-95 ${dialog.confirmColor || 'bg-slate-900 dark:bg-white dark:text-slate-900'}`}
@@ -1547,23 +1591,29 @@ const App = () => {
                 )}
               </div>
 
-              {/* NEUE OPTION 1: "App & Backup teilen" vereinfacht als ehrlicher Download */}
               <div className="p-6 rounded-[2rem] shadow-sm border bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/50">
-                <h2 className="text-base font-bold mb-4 flex items-center gap-2 text-indigo-600"><Icon name="archive" size={18} /> App & Daten übertragen</h2>
+                <h2 className="text-base font-bold mb-4 flex items-center gap-2 text-indigo-600"><Icon name="archive" size={18} /> System & Backup</h2>
                 
                 <p className="text-xs opacity-70 mb-5 text-slate-800 dark:text-slate-300 leading-relaxed">
-                  Lade dein komplettes Journal (inklusive Bilder) als Datei herunter. Sende diese Datei dann manuell über deine Dateien-App per WhatsApp an dein neues Handy.
+                  Sichere dein komplettes Journal inklusive Bilder. Nutze <b>Backup teilen</b>, um es per WhatsApp oder Mail an dein neues Handy zu senden.
                 </p>
 
-                <button onClick={downloadFullApp} className="w-full flex items-center justify-center gap-2 p-4 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 transition-transform hover:scale-[1.02] mb-3">
-                  <Icon name="download" size={18}/> 1. Komplettes Journal herunterladen
+                <button onClick={shareBackupTxt} className="w-full flex items-center justify-center gap-2 p-4 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 transition-transform hover:scale-[1.02] mb-3">
+                  <Icon name="share" size={18}/> Backup jetzt teilen
                 </button>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 mb-3">
                   <label className="flex-1 flex items-center justify-center gap-1.5 p-3 bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold cursor-pointer border border-slate-300 dark:border-transparent shadow-sm hover:bg-slate-50 transition-colors">
-                    <Icon name="upload" size={14}/> 2. Journal Importieren <input type="file" accept=".html,.legacy,.json" onChange={importBackup} className="hidden" />
+                    <Icon name="upload" size={14}/> Backup Importieren <input type="file" accept=".txt,.html,.legacy,.json" onChange={importBackup} className="hidden" />
                   </label>
                 </div>
+
+                <button onClick={shareAppHtml} className="w-full flex items-center justify-center gap-1.5 p-3 bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold border border-slate-300 dark:border-transparent shadow-sm hover:bg-slate-50 transition-colors">
+                  <Icon name="download" size={14}/> App als .html speichern
+                </button>
+                <button onClick={exportText} className="w-full flex items-center justify-center gap-1.5 p-3 mt-3 bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold border border-slate-300 dark:border-transparent shadow-sm hover:bg-slate-50 transition-colors">
+                  <Icon name="printer" size={14}/> Als echtes Buch drucken / PDF
+                </button>
               </div>
             </div>
           )}
