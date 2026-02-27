@@ -9,10 +9,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" id="meta-theme-color" content="#ffffff">
-<!-- Zwingt den Browser, unsere hell/dunkel Logik zu respektieren (gegen Samsung Force Dark Mode) -->
 <meta name="color-scheme" content="light dark">
 
-<!-- Dynamisches PWA Manifest für Android/Samsung "Zum Startbildschirm hinzufügen" -->
+<!-- Dynamisches PWA Manifest für Android/Samsung -->
 <link rel="manifest" id="dynamic-manifest" href="">
 <script>
   const manifest = {
@@ -32,6 +31,9 @@
   document.getElementById('dynamic-manifest').setAttribute('href', manifestUrl);
 </script>
 
+<!-- QR Code Generator Bibliothek eingefügt -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
 <!-- Moderne Premium-Schriftarten -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -49,7 +51,7 @@ tailwind.config = {
           950: '#09090b',
         },
         paper: {
-          100: '#ffffff', /* Angepasst auf Reinweiß für Samsung */
+          100: '#ffffff', 
           50: '#ffffff',
         }
       }
@@ -64,21 +66,19 @@ tailwind.config = {
 <script src="https://unpkg.com/lucide@latest"></script>
 
 <style>
-/* Modernes Typografie & Farb-System */
 body {
   margin: 0;
   padding: 0;
   font-family: 'Inter', -apple-system, sans-serif;
   -webkit-tap-highlight-color: transparent;
   transition: background-color 0.4s ease, color 0.4s ease;
-  overscroll-behavior-y: none; /* Verhindert Android Pull-to-Refresh für Native App Feeling */
+  overscroll-behavior-y: none; 
 }
 
 h1, h2, h3, .font-serif {
   font-family: 'Playfair Display', serif !important;
 }
 
-/* Angepasst für Reinweiß im hellen Modus */
 html:not(.dark) body { background-color: #ffffff !important; color: #18181b !important; }
 html:not(.dark) .card-bg { background-color: #ffffff !important; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
 html.dark body { background-color: #09090b !important; color: #f4f4f5 !important; }
@@ -109,7 +109,6 @@ html.dark .card-bg { background-color: #18181b !important; border: 1px solid rgb
 
 html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
 
-/* HIGHLIGHT FÜR SUCHERGEBNISSE */
 .search-highlight {
   background-color: rgba(245, 158, 11, 0.3);
   padding: 0 2px;
@@ -117,7 +116,6 @@ html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
   border-bottom: 1px solid #f59e0b;
 }
 
-/* Audio Pulse für Vorlese-Knopf */
 @keyframes audio-pulse {
   0% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.05); opacity: 0.8; }
@@ -125,7 +123,6 @@ html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
 }
 .audio-active { animation: audio-pulse 1.5s infinite ease-in-out; color: #f59e0b !important; }
 
-/* NEU: DRUCK-OPTIMIERUNG (ECHTES BUCH) */
 @media print {
   body, html, #root, .min-h-screen { 
     background: #ffffff !important; 
@@ -157,30 +154,29 @@ html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
 <script type="text/babel">
 const { useState, useEffect, useRef } = React;
 
-const apiKey = ""; // API Key für Gemini TTS
+const apiKey = ""; 
 
 const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
 const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
 
-// Hilfsfunktion: PCM zu WAV konvertieren für Audio-Wiedergabe
 const pcmToWav = (pcmBase64, sampleRate = 24000) => {
   const pcmData = Uint8Array.from(atob(pcmBase64), c => c.charCodeAt(0)).buffer;
   const wavHeader = new ArrayBuffer(44);
   const view = new DataView(wavHeader);
   
-  view.setUint32(0, 0x52494646, false); // "RIFF"
-  view.setUint32(4, 36 + pcmData.byteLength, true); // Size
-  view.setUint32(8, 0x57415645, false); // "WAVE"
-  view.setUint32(12, 0x666d7420, false); // "fmt "
-  view.setUint32(16, 16, true); // Subchunk1Size
-  view.setUint16(20, 1, true); // AudioFormat (PCM)
-  view.setUint16(22, 1, true); // NumChannels (Mono)
-  view.setUint32(24, sampleRate, true); // SampleRate
-  view.setUint32(28, sampleRate * 2, true); // ByteRate
-  view.setUint16(32, 2, true); // BlockAlign
-  view.setUint16(34, 16, true); // BitsPerSample
-  view.setUint32(36, 0x64617461, false); // "data"
-  view.setUint32(40, pcmData.byteLength, true); // DataSize
+  view.setUint32(0, 0x52494646, false); 
+  view.setUint32(4, 36 + pcmData.byteLength, true); 
+  view.setUint32(8, 0x57415645, false); 
+  view.setUint32(12, 0x666d7420, false); 
+  view.setUint32(16, 16, true); 
+  view.setUint16(20, 1, true); 
+  view.setUint16(22, 1, true); 
+  view.setUint32(24, sampleRate, true); 
+  view.setUint32(28, sampleRate * 2, true); 
+  view.setUint16(32, 2, true); 
+  view.setUint16(34, 16, true); 
+  view.setUint32(36, 0x64617461, false); 
+  view.setUint32(40, pcmData.byteLength, true); 
   
   const blob = new Blob([wavHeader, pcmData], { type: 'audio/wav' });
   return URL.createObjectURL(blob);
@@ -357,7 +353,14 @@ const App = () => {
   const [zenMode, setZenMode] = useState(false);
   const [inheritedFrom, setInheritedFrom] = useState(null);
   
-  // Pillar Guidance State
+  // Swipe State für Lesemodus
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
+
+  // QR Modal State
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrWarning, setQrWarning] = useState(false);
+  
   const [pillarGuidance, setPillarGuidance] = useState(null);
 
   const [isDrawing, setIsDrawing] = useState(false);
@@ -365,7 +368,6 @@ const App = () => {
   const editorRef = useRef(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState('');
   
-  // Burn Tool State
   const [burnText, setBurnText] = useState('');
   const [isBurning, setIsBurning] = useState(false);
 
@@ -382,7 +384,6 @@ const App = () => {
   useEffect(() => { editorRefState.current = showEditor; }, [showEditor]);
   useEffect(() => { viewingEntryRef.current = viewingEntry; }, [viewingEntry]);
 
-  // Stand merken für Neuladen (State Persistence)
   useEffect(() => {
     if (isLoaded) {
       safeStorageSet('legacy_view', view);
@@ -553,6 +554,30 @@ const App = () => {
     }
   }, [user, isLoaded]);
 
+  // QR Code Generierung
+  useEffect(() => {
+    if (showQRModal && window.QRCode) {
+      const container = document.getElementById('qrcode-container');
+      if (container) container.innerHTML = '';
+      
+      const safeEntries = entries.map(e => ({ id: e.id, t: e.title, c: e.text, d: e.date, p: e.parentId }));
+      const exportData = { u: user.name, e: safeEntries };
+      const jsonStr = JSON.stringify(exportData);
+      
+      if (jsonStr.length > 2500) setQrWarning(true);
+      else setQrWarning(false);
+      
+      new window.QRCode(container, {
+        text: jsonStr.substring(0, 2900),
+        width: 200,
+        height: 200,
+        colorDark : "#000000",
+        colorLight : "#ffffff",
+        correctLevel : window.QRCode.CorrectLevel.L
+      });
+    }
+  }, [showQRModal, entries, user]);
+
   const handleReadAloud = async (entry) => {
     if (isSpeaking) {
       audioPlayerRef.current.pause();
@@ -626,36 +651,37 @@ const App = () => {
     saveToDB(updatedEntry);
   };
 
-  const checkSaveEntry = () => {
-    const executeSave = () => {
-      const foundEntry = entries.find(e => e.id === editingId);
-      const newEntry = {
-        id: editingId || generateId(),
-        title: title || 'Neue Seite', text, color: selectedColor,
-        image: selectedImage, video: selectedVideo, audio: audioUrl,
-        locked: isLocked, archived: false, manifested: isManifested,
-        unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
-        date: editingId ? (foundEntry ? foundEntry.date : new Date().toISOString()) : new Date().toISOString(),
-        orderTimestamp: editingId ? (foundEntry ? foundEntry.orderTimestamp : new Date().toISOString()) : new Date().toISOString(),
-      };
-      saveToDB(newEntry);
-      closeEditor();
-    };
-
+  // FIX 1: Manuelles Speichern (behält Editor offen) oder Zurückgehen (öffnet Lesemodus)
+  const checkSaveEntry = (closeAndRead = false) => {
+    const entryId = editingId || generateId();
+    const foundEntry = entries.find(e => e.id === entryId);
+    
     const isEmpty = !title.trim() && !text.replace(/<[^>]*>?/gm, '').trim() && !selectedImage && !selectedVideo && !audioUrl;
-    if (isEmpty && unlockDate) {
-      showDialog({
-        type: 'confirm', title: 'Leeres Datums-Siegel?', message: 'Möchtest du diese leere Kapsel wirklich versiegeln?',
-        icon: 'calendar-clock', iconColor: 'text-indigo-500', confirmLabel: 'Trotzdem speichern', confirmColor: 'bg-indigo-600',
-        cancelLabel: 'Abbrechen', onConfirm: () => { executeSave(); setDialog(null); }
-      });
-    } else if (isEmpty && !editingId) {
-      showDialog({
-        type: 'confirm', title: 'Leere Seite', message: 'Diese Seite ist komplett leer. Willst du sie verwerfen?',
-        icon: 'file-question', iconColor: 'text-slate-400', confirmLabel: 'Ablegen', confirmColor: 'bg-slate-700',
-        cancelLabel: 'Verwerfen', onCancel: () => { closeEditor(); setDialog(null); }, onConfirm: () => { executeSave(); setDialog(null); }
-      });
-    } else { executeSave(); }
+    
+    if (isEmpty && !editingId && closeAndRead) {
+      closeEditor();
+      return;
+    }
+
+    const newEntry = {
+      id: entryId,
+      title: title || 'Neue Seite', text, color: selectedColor,
+      image: selectedImage, video: selectedVideo, audio: audioUrl,
+      locked: isLocked, archived: false, manifested: isManifested,
+      unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
+      date: editingId ? (foundEntry ? foundEntry.date : new Date().toISOString()) : new Date().toISOString(),
+      orderTimestamp: editingId ? (foundEntry ? foundEntry.orderTimestamp : new Date().toISOString()) : new Date().toISOString(),
+    };
+    saveToDB(newEntry);
+    
+    if (closeAndRead) {
+      closeEditor();
+      setViewingEntry(newEntry);
+    } else {
+      setEditingId(entryId);
+      setAutoSaveStatus('Manuell gespeichert ✔');
+      setTimeout(() => setAutoSaveStatus(''), 2000);
+    }
   };
 
   const confirmDelete = (id) => {
@@ -1072,9 +1098,21 @@ const App = () => {
           const nextPage = children.length > 0 ? children[0] : null;
 
           return (
-            <div className="fixed inset-0 z-[80] overflow-y-auto animate-fade-in custom-scrollbar flex flex-col overscroll-contain" style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff'), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}>
+            <div 
+              className="fixed inset-0 z-[80] overflow-y-auto animate-fade-in custom-scrollbar flex flex-col overscroll-contain" 
+              style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff'), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
+              // FIX 2: Wischen für nächste/vorherige Seite
+              onTouchStart={e => setTouchStart(e.targetTouches[0].clientX)}
+              onTouchMove={e => setTouchEnd(e.targetTouches[0].clientX)}
+              onTouchEnd={() => {
+                if (!touchStart || !touchEnd) return;
+                const dist = touchStart - touchEnd;
+                if (dist > 50 && nextPage) setViewingEntry(nextPage);
+                if (dist < -50 && prevPage) setViewingEntry(prevPage);
+                setTouchStart(null); setTouchEnd(null);
+              }}
+            >
               
-              {/* FIX 1: Sticky Navbar im Lesemodus */}
               <div className="sticky top-0 z-50 flex justify-between items-center py-4 px-6 sm:px-12 bg-inherit shrink-0 no-print" style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff') }}>
                 <button onClick={() => { setViewingEntry(null); if (isSpeaking) handleReadAloud({}); }} className="p-3 bg-slate-100 dark:bg-white/10 rounded-full shadow-sm border border-slate-200 dark:border-transparent hover:scale-105 transition-transform"><Icon name="x" size={20}/></button>
                 <div className="flex gap-2">
@@ -1207,6 +1245,26 @@ const App = () => {
           </div>
         )}
 
+        {/* FIX 3: QR Modal Overlay */}
+        {showQRModal && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-md no-print" onClick={() => setShowQRModal(false)}>
+            <div className="w-full max-w-sm p-8 text-center bg-white dark:bg-graphite-900 rounded-[2rem] shadow-2xl" onClick={e => e.stopPropagation()}>
+              <h3 className="text-2xl font-bold font-serif mb-2 text-slate-900 dark:text-white">QR-Transfer</h3>
+              <p className="text-xs opacity-70 mb-6 text-slate-900 dark:text-white">Scanne diesen Code mit der Kamera deines neuen Handys.</p>
+              
+              <div id="qrcode-container" className="flex justify-center bg-white p-4 rounded-xl mb-4"></div>
+              
+              {qrWarning && (
+                <div className="text-[10px] text-rose-500 bg-rose-50 dark:bg-rose-500/10 p-3 rounded-lg mb-6 text-left leading-relaxed">
+                  <b>Achtung:</b> Dein Journal ist sehr groß. QR-Codes können nur reinen Text übertragen. Bilder und Sprachnachrichten wurden aus Platzgründen weggelassen. Nutze für das volle Backup die ".legacy" Datei!
+                </div>
+              )}
+              
+              <button onClick={() => setShowQRModal(false)} className="w-full py-4 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-xl font-bold">Schließen</button>
+            </div>
+          </div>
+        )}
+
         <header className="sticky top-0 z-30 backdrop-blur-xl border-b px-4 py-3 sm:px-6 sm:py-4 transition-all duration-500 flex justify-between items-center bg-white/90 border-slate-200 dark:bg-graphite-950/80 dark:border-white/10 relative no-print">
           <div className="flex items-center gap-3 flex-1 overflow-hidden z-10">
             {view === 'settings' ? <h1 className="text-xl font-bold tracking-tight font-serif">Einstellungen</h1> :
@@ -1229,7 +1287,7 @@ const App = () => {
           <div className="flex gap-1 items-center z-10 relative">
             {view === 'dashboard' && (
               <>
-                <div className="flex items-center relative">
+                <div className="relative flex items-center">
                   <input type="text" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Tagebuch durchsuchen..." 
                          className={`absolute right-full mr-2 transition-all duration-300 border border-slate-200 dark:border-white/10 focus:ring-0 text-sm rounded-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md text-slate-900 dark:text-white shadow-xl ${isSearchOpen ? 'w-[60vw] sm:w-64 px-4 py-2 opacity-100 pointer-events-auto' : 'w-0 p-0 border-transparent opacity-0 pointer-events-none'}`} />
                   <button onClick={() => setIsSearchOpen(!isSearchOpen)} className={`relative z-10 p-2.5 rounded-full transition-colors bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 ${isSearchOpen || searchQuery ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400' : ''}`}><Icon name="search" size={18}/></button>
@@ -1446,6 +1504,11 @@ const App = () => {
                 <button onClick={exportText} className="w-full flex items-center justify-center gap-1.5 p-3 bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold border border-slate-300 dark:border-transparent shadow-sm hover:bg-slate-50">
                   <Icon name="printer" size={14}/> Als echtes Buch drucken / PDF
                 </button>
+                
+                {/* FIX 3: Neuer QR Code Button */}
+                <button onClick={() => setShowQRModal(true)} className="w-full flex items-center justify-center gap-1.5 p-3 bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold border border-slate-300 dark:border-transparent shadow-sm hover:bg-slate-50 mt-2">
+                  <Icon name="qr-code" size={14}/> Per QR-Code auf neues Handy
+                </button>
               </div>
             </div>
           )}
@@ -1596,11 +1659,12 @@ const App = () => {
           )}
         </main>
 
-        {/* EDITOR (Komplett repariert, Scrolling-Fix) */}
         {showEditor && (
           <div className="fixed inset-0 z-[100] flex flex-col transition-all no-print bg-white dark:bg-graphite-900" style={{ backgroundColor: zenMode ? 'transparent' : (user.appBgColor || (user.isDark ? '#18181b' : '#ffffff')), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}>
             <div className={`flex justify-between items-center px-4 py-3 sm:px-6 sm:py-5 border-b shrink-0 ${zenMode ? 'border-transparent' : 'border-black/5 dark:border-white/5'}`}>
-              <button onClick={() => checkSaveEntry()} className={`p-2 rounded-full transition-colors ${isDarkColor(selectedColor) ? 'text-white hover:bg-white/10' : 'text-slate-900 hover:bg-black/5'}`}><Icon name="chevron-down" size={28}/></button>
+              
+              {/* FIX 1: Zurück Pfeil speichert und öffnet den Lesemodus (closeAndRead = true) */}
+              <button onClick={() => checkSaveEntry(true)} className={`p-2 rounded-full transition-colors ${isDarkColor(selectedColor) ? 'text-white hover:bg-white/10' : 'text-slate-900 hover:bg-black/5'}`}><Icon name="chevron-down" size={28}/></button>
 
               {!zenMode && (
                 <div className="flex gap-1 sm:gap-2 overflow-x-auto hide-scrollbar items-center">
@@ -1626,8 +1690,9 @@ const App = () => {
               )}
               {zenMode && <button onClick={() => setZenMode(false)} className="text-current opacity-50 hover:opacity-100"><Icon name="minimize-2" size={24}/></button>}
               
+              {/* FIX 1: "Sichern" Button speichert manuell, aber BEHÄLT den Editor offen (closeAndRead = false) */}
               {!zenMode && (
-                <button onClick={checkSaveEntry} className={`flex items-center gap-1 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full font-bold shadow-md hover:scale-105 transition-transform text-sm ${isDarkColor(selectedColor) ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}`}>
+                <button onClick={() => checkSaveEntry(false)} className={`flex items-center gap-1 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full font-bold shadow-md hover:scale-105 transition-transform text-sm ${isDarkColor(selectedColor) ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}`}>
                   <Icon name="check" size={16} className="sm:hidden" />
                   <span className="hidden sm:inline">Sichern</span>
                 </button>
@@ -1636,7 +1701,6 @@ const App = () => {
 
             <div id="editor-scroll-container" className="flex-1 overflow-y-auto p-4 sm:p-10 flex flex-col gap-4 w-full overscroll-contain relative">
             
-              {/* FIX 1: Bild als Cover majestätisch über dem Titel */}
               {!zenMode && selectedImage && (
                 <div className="relative rounded-[2rem] overflow-hidden shadow-md bg-black/5 dark:bg-black/20 flex justify-center shrink-0">
                   <img src={selectedImage} alt="Preview" className="w-full h-auto max-h-[40vh] object-cover" />
@@ -1679,14 +1743,13 @@ const App = () => {
                 </div>
               )}
 
-              {/* FIX 2: Absolut frei scrollbar mit sanftem, natürlichen Padding pb-[50vh] */}
               <div
                 ref={editorRef}
                 contentEditable={true}
                 suppressContentEditableWarning={true}
                 data-placeholder="Schreibe deine Gedanken auf diese leere Seite..."
                 onInput={(e) => setText(e.currentTarget.innerHTML)}
-                className="w-full flex-1 bg-transparent text-lg sm:text-xl leading-relaxed focus:outline-none font-medium empty:before:content-[attr(data-placeholder)] empty:before:cursor-text legacy-editor-content pb-[50vh]"
+                className="w-full flex-1 bg-transparent text-lg sm:text-xl leading-relaxed focus:outline-none font-medium empty:before:content-[attr(data-placeholder)] empty:before:cursor-text legacy-editor-content pb-32"
                 style={{ color: 'inherit', '::before': { opacity: 0.3 } }}
               />
 
