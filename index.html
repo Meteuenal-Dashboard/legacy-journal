@@ -21,7 +21,7 @@
   const manifest = {
     "name": "Legacy Vision",
     "short_name": "Legacy",
-    "start_url": window.location.href.split('?')[0],
+    "start_url": window.location.href,
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#f59e0b",
@@ -65,8 +65,6 @@ tailwind.config = {
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
-<!-- PeerJS für P2P Übertragung -->
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
 <style>
 body {
@@ -295,8 +293,6 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
 };
 
-// ACHTUNG: Die Datenbank heißt exakt LegacyVisionDB und bleibt bei Version 3, 
-// damit deine alten Daten 1:1 wiedererkannt werden!
 const initDB = () => {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('LegacyVisionDB', 3);
@@ -315,15 +311,6 @@ const App = () => {
   const [user, setUser] = useState({ name: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', testamentId: null, isDark: true, appBgColor: null });
   const [view, setView] = useState('loading');
   const [isLoaded, setIsLoaded] = useState(false);
-
-  // P2P State
-  const [peerId, setPeerId] = useState(null);
-  const [peerInstance, setPeerInstance] = useState(null);
-  const [syncStatus, setSyncStatus] = useState('');
-  const [importId, setImportId] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('import');
-  });
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('Alle');
@@ -368,9 +355,9 @@ const App = () => {
   const [zenMode, setZenMode] = useState(false);
   const [inheritedFrom, setInheritedFrom] = useState(null);
   
-  // Touch Swipe State
-  const [touchStartPos, setTouchStartPos] = useState({x: null, y: null});
-  const [touchEndPos, setTouchEndPos] = useState({x: null, y: null});
+  // Swipe State für Lesemodus
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
   
   const [pillarGuidance, setPillarGuidance] = useState(null);
 
@@ -394,46 +381,6 @@ const App = () => {
   useEffect(() => { viewRef.current = view; }, [view]);
   useEffect(() => { editorRefState.current = showEditor; }, [showEditor]);
   useEffect(() => { viewingEntryRef.current = viewingEntry; }, [viewingEntry]);
-
-  // PeerJS P2P Empfänger Logik
-  useEffect(() => {
-    if (importId && isLoaded) {
-      setSyncStatus('Bereite Datenübertragung vor...');
-      const peer = new window.Peer();
-      peer.on('open', () => {
-        setSyncStatus(`Verbinde mit altem Gerät...`);
-        const conn = peer.connect(importId);
-        conn.on('open', () => {
-          setSyncStatus('Verbunden! Empfange Daten...');
-          conn.send('request_data');
-        });
-        conn.on('data', async (data) => {
-          try {
-            const parsed = JSON.parse(data);
-            if (parsed.entries) {
-               setSyncStatus('Daten werden sicher verarbeitet...');
-               if (db) {
-                 const tx = db.transaction('entries', 'readwrite');
-                 const store = tx.objectStore('entries');
-                 parsed.entries.forEach(e => store.put(e));
-                 tx.oncomplete = () => {
-                   if (parsed.user) safeStorageSet('legacy_user', JSON.stringify(parsed.user));
-                   setSyncStatus('Erfolgreich übertragen! Tagebuch wird geöffnet...');
-                   setTimeout(() => {
-                     window.location.href = window.location.origin + window.location.pathname;
-                   }, 2000);
-                 };
-               }
-            }
-          } catch(e) {
-            setSyncStatus('Fehler beim Lesen der Daten.');
-          }
-        });
-        conn.on('error', (err) => setSyncStatus('Verbindungsfehler: ' + err));
-      });
-      peer.on('error', (err) => setSyncStatus('Verbindungsfehler: Das alte Gerät ist nicht bereit.'));
-    }
-  }, [importId, isLoaded, db]);
 
   useEffect(() => {
     if (isLoaded) {
@@ -720,6 +667,7 @@ const App = () => {
     
     if (closeAndRead) {
       closeEditor();
+      setViewingEntry(newEntry);
     } else {
       setEditingId(entryId);
       setAutoSaveStatus('Manuell gespeichert ✔');
@@ -897,6 +845,7 @@ const App = () => {
     window.print();
   };
 
+  // --- HILFSFUNKTION FÜR ROBUSTE DOWNLOADS AUF DEM HANDY ---
   const triggerDownload = (content, fileName, mimeType) => {
     const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
@@ -912,6 +861,7 @@ const App = () => {
     }, 250);
   };
 
+  // --- KOMPLETT VEREINFACHTER EXPORT-BEREICH ---
   const downloadFullApp = () => {
     const cloneDocument = document.cloneNode(true);
     const rootDiv = cloneDocument.getElementById('root');
@@ -959,7 +909,7 @@ const App = () => {
             throw new Error("Keine Legacy-Daten in dieser HTML gefunden.");
           }
         } else {
-          data = JSON.parse(resultText);
+          data = JSON.parse(resultText); // Verarbeitet .txt, .json und .legacy automatisch!
         }
 
         if (data && data.entries) {
@@ -1108,6 +1058,12 @@ const App = () => {
     else { setPinError(true); setTimeout(() => setPinError(false), 800); setPinInput(''); }
   };
 
+  const findResonance = () => {
+    if (entries.length < 2) return;
+    const withMood = entries.filter(e => e.mood && !e.locked && !e.parentId);
+    if (withMood.length > 0) setViewingEntry(withMood[Math.floor(Math.random() * withMood.length)]);
+  };
+
   const getBookLength = (rootId) => {
     let count = 1;
     let currentId = rootId;
@@ -1171,45 +1127,6 @@ const App = () => {
   const totalPillars = PILLARS.length;
   const progressPercent = Math.round((completedPillars / totalPillars) * 100);
 
-  const onTouchStart = (e) => {
-    setTouchEndPos({x: null, y: null});
-    setTouchStartPos({x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY});
-  };
-
-  const onTouchMove = (e) => {
-    setTouchEndPos({x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY});
-  };
-
-  const onTouchEnd = (swipeNext, swipePrev) => {
-    if (!touchStartPos.x || !touchEndPos.x) return;
-    const xDistance = touchStartPos.x - touchEndPos.x;
-    const yDistance = Math.abs(touchStartPos.y - touchEndPos.y);
-    
-    if (yDistance < 60 && Math.abs(xDistance) > 50) {
-      if (xDistance > 0 && swipeNext) {
-        setViewingEntry(swipeNext); 
-      } else if (xDistance < 0 && swipePrev) {
-        setViewingEntry(swipePrev);
-      }
-    }
-  };
-
-  if (importId && !isLoaded) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>;
-  }
-  if (importId && isLoaded) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-slate-900 text-white text-center">
-        <Icon name="smartphone" size={64} className="text-emerald-500 mb-6 animate-pulse" />
-        <h1 className="text-3xl font-bold font-serif mb-4">Geräte-Kopplung</h1>
-        <p className="opacity-80 text-lg mb-8 max-w-sm">{syncStatus || "Initialisiere..."}</p>
-        {(syncStatus.includes('Fehler') || syncStatus.includes('erfolgreich')) && (
-          <button onClick={() => window.location.href = window.location.origin + window.location.pathname} className="px-8 py-4 bg-white text-slate-900 font-bold rounded-xl mt-4 shadow-lg hover:scale-105 transition-transform">Zurück zum Start</button>
-        )}
-      </div>
-    );
-  }
-
   if (view === 'loading') return <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff') }}><div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>;
 
   if (view === 'onboarding') {
@@ -1241,30 +1158,27 @@ const App = () => {
     <ErrorBoundary>
       <div className="min-h-screen">
 
+        {/* LESE-MODUS */}
         {viewingEntry && !showEditor && (() => {
           const prevPage = viewingEntry.parentId ? entries.find(e => e.id === viewingEntry.parentId) : null;
           const children = entries.filter(e => e.parentId === viewingEntry.id).sort((a,b) => new Date(a.date) - new Date(b.date));
           const nextPage = children.length > 0 ? children[0] : null;
 
-          let swipeNext = nextPage;
-          let swipePrev = prevPage;
-          let isHierarchical = viewingEntry.parentId || children.length > 0;
-          
-          if (!isHierarchical) {
-              const visibleChronological = visibleEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
-              const currentIndex = visibleChronological.findIndex(e => e.id === viewingEntry.id);
-              if (currentIndex > 0) swipeNext = visibleChronological[currentIndex - 1];
-              if (currentIndex < visibleChronological.length - 1) swipePrev = visibleChronological[currentIndex + 1];
-          }
-
-          const prevLabel = isHierarchical ? "Vorherige Seite" : "Neuerer Eintrag";
-          const nextLabel = isHierarchical ? "Nächste Seite" : "Älterer Eintrag";
-
           return (
             <div 
               className="fixed inset-0 z-[80] overflow-y-auto animate-fade-in custom-scrollbar flex flex-col overscroll-contain" 
               style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff'), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
+              onTouchStart={e => setTouchStart(e.targetTouches[0].clientX)}
+              onTouchMove={e => setTouchEnd(e.targetTouches[0].clientX)}
+              onTouchEnd={() => {
+                if (!touchStart || !touchEnd) return;
+                const dist = touchStart - touchEnd;
+                if (dist > 50 && nextPage) setViewingEntry(nextPage);
+                if (dist < -50 && prevPage) setViewingEntry(prevPage);
+                setTouchStart(null); setTouchEnd(null);
+              }}
             >
+              
               <div className="sticky top-0 z-50 flex justify-between items-center py-4 px-6 sm:px-12 bg-inherit shrink-0 no-print" style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff') }}>
                 <button onClick={() => { setViewingEntry(null); if (isSpeaking) handleReadAloud({}); }} className="p-3 bg-slate-100 dark:bg-white/10 rounded-full shadow-sm border border-slate-200 dark:border-transparent hover:scale-105 transition-transform"><Icon name="x" size={20}/></button>
                 <div className="flex gap-2">
@@ -1279,12 +1193,7 @@ const App = () => {
                 </div>
               </div>
 
-              <div 
-                className="max-w-2xl w-full mx-auto min-h-screen flex flex-col px-6 sm:px-12 pb-12"
-                onTouchStart={onTouchStart}
-                onTouchMove={onTouchMove}
-                onTouchEnd={() => onTouchEnd(swipeNext, swipePrev)}
-              >
+              <div className="max-w-2xl w-full mx-auto min-h-screen flex flex-col px-6 sm:px-12 pb-12">
                 <div className="flex-1 mt-4">
                   {viewingEntry.image && <img src={viewingEntry.image} className="w-full rounded-[2rem] mb-10 object-cover shadow-lg border border-slate-200 dark:border-white/5" alt="Vision" />}
                   <h1 className="text-4xl sm:text-5xl font-bold mb-6 leading-tight font-serif">{viewingEntry.title}</h1>
@@ -1309,21 +1218,21 @@ const App = () => {
                   )}
 
                   <div className="flex justify-between items-center w-full">
-                    {swipePrev ? (
-                      <button onClick={() => setViewingEntry(swipePrev)} className="flex items-center gap-3 text-left group flex-1">
+                    {prevPage ? (
+                      <button onClick={() => setViewingEntry(prevPage)} className="flex items-center gap-3 text-left group flex-1">
                         <div className="p-3 bg-white dark:bg-white/5 rounded-full shadow-sm border border-slate-200 dark:border-transparent group-hover:scale-105 transition-transform"><Icon name="chevron-left" size={20} /></div>
                         <div className="overflow-hidden">
-                          <p className="text-[10px] uppercase tracking-widest font-bold opacity-50">{prevLabel}</p>
-                          <p className="text-sm font-medium truncate w-full">{swipePrev.title}</p>
+                          <p className="text-[10px] uppercase tracking-widest font-bold opacity-50">Vorherige Seite</p>
+                          <p className="text-sm font-medium truncate w-full">{prevPage.title}</p>
                         </div>
                       </button>
                     ) : <div className="flex-1" />}
                     
-                    {swipeNext ? (
-                      <button onClick={() => setViewingEntry(swipeNext)} className="flex items-center justify-end gap-3 text-right group flex-1">
+                    {nextPage ? (
+                      <button onClick={() => setViewingEntry(nextPage)} className="flex items-center justify-end gap-3 text-right group flex-1">
                         <div className="overflow-hidden">
-                          <p className="text-[10px] uppercase tracking-widest font-bold opacity-50">{nextLabel}</p>
-                          <p className="text-sm font-medium truncate w-full">{swipeNext.title}</p>
+                          <p className="text-[10px] uppercase tracking-widest font-bold opacity-50">Nächste Seite</p>
+                          <p className="text-sm font-medium truncate w-full">{nextPage.title}</p>
                         </div>
                         <div className="p-3 bg-white dark:bg-white/5 rounded-full shadow-sm border border-slate-200 dark:border-transparent group-hover:scale-105 transition-transform"><Icon name="chevron-right" size={20} /></div>
                       </button>
@@ -1460,6 +1369,7 @@ const App = () => {
 
         <main className="p-4 sm:p-6 max-w-4xl mx-auto min-h-[60vh] relative z-10 pb-24">
 
+          {/* Anzeige des Installations-Hinweises, wenn die Datei lokal geöffnet wurde */}
           {installHint && view !== 'onboarding' && view !== 'loading' && (
             <div className="mb-6 p-4 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 rounded-2xl text-xs font-bold leading-relaxed border border-amber-200 dark:border-amber-800/50 flex items-start gap-3 shadow-sm no-print">
                <Icon name="info" size={20} className="shrink-0 mt-0.5" />
@@ -1637,58 +1547,21 @@ const App = () => {
                 )}
               </div>
 
-              <div className="p-6 rounded-[2rem] shadow-sm border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50">
-                <h2 className="text-base font-bold mb-4 flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><Icon name="smartphone" size={18} /> Auf neues Handy übertragen</h2>
-                <p className="text-xs opacity-70 mb-6 text-slate-800 dark:text-slate-300 leading-relaxed">
-                  Generiere einen sicheren QR-Code. Scanne ihn mit der normalen Handykamera deines <b>neuen</b> Smartphones, um alle Tagebucheinträge drahtlos über eine Peer-to-Peer Verbindung zu importieren.
-                </p>
-
-                {!peerId ? (
-                  <button onClick={() => {
-                    const peer = new window.Peer();
-                    setSyncStatus('Sichere WebRTC Verbindung wird vorbereitet...');
-                    peer.on('open', (id) => {
-                      setPeerId(id);
-                      setSyncStatus('Bereit! Scanne diesen Code mit dem neuen Handy.');
-                    });
-                    peer.on('connection', (conn) => {
-                      setSyncStatus('Neues Handy verbunden. Sende Daten...');
-                      conn.on('data', (data) => {
-                        if (data === 'request_data') {
-                          conn.send(JSON.stringify({ user, entries }));
-                          setSyncStatus('Übertragung erfolgreich abgeschlossen!');
-                          setTimeout(() => { setPeerId(null); setPeerInstance(null); }, 5000);
-                        }
-                      });
-                    });
-                    setPeerInstance(peer);
-                  }} className="w-full flex items-center justify-center gap-2 p-4 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-emerald-700 transition-transform hover:scale-[1.02]">
-                    <Icon name="qr-code" size={18}/> QR-Code generieren
-                  </button>
-                ) : (
-                  <div className="flex flex-col items-center bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-inner border border-slate-200 dark:border-white/10">
-                    <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(window.location.origin + window.location.pathname + '?import=' + peerId)}`} alt="Sync QR" className="w-48 h-48 mb-4 rounded-lg shadow-sm" />
-                    <p className="text-[10px] font-bold text-center text-emerald-600 uppercase tracking-widest mb-1">Status</p>
-                    <p className="text-xs font-bold text-center text-slate-800 dark:text-slate-200 animate-pulse">{syncStatus}</p>
-                    <button onClick={() => { peerInstance?.destroy(); setPeerId(null); setPeerInstance(null); setSyncStatus(''); }} className="mt-4 px-4 py-2 bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white rounded-lg text-xs font-bold hover:bg-slate-200 dark:hover:bg-white/20">Abbrechen</button>
-                  </div>
-                )}
-              </div>
-
+              {/* NEUE OPTION 1: "App & Backup teilen" vereinfacht als ehrlicher Download */}
               <div className="p-6 rounded-[2rem] shadow-sm border bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/50">
-                <h2 className="text-base font-bold mb-4 flex items-center gap-2 text-indigo-600"><Icon name="archive" size={18} /> System Backup & Datei</h2>
+                <h2 className="text-base font-bold mb-4 flex items-center gap-2 text-indigo-600"><Icon name="archive" size={18} /> App & Daten übertragen</h2>
                 
                 <p className="text-xs opacity-70 mb-5 text-slate-800 dark:text-slate-300 leading-relaxed">
-                  Lade dein komplettes Journal (inklusive Bilder) als Datei herunter, um ein Backup lokal aufzubewahren oder per WhatsApp/E-Mail zu teilen.
+                  Lade dein komplettes Journal (inklusive Bilder) als Datei herunter. Sende diese Datei dann manuell über deine Dateien-App per WhatsApp an dein neues Handy.
                 </p>
 
                 <button onClick={downloadFullApp} className="w-full flex items-center justify-center gap-2 p-4 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 transition-transform hover:scale-[1.02] mb-3">
-                  <Icon name="download" size={18}/> Komplettes Backup laden
+                  <Icon name="download" size={18}/> 1. Komplettes Journal herunterladen
                 </button>
 
                 <div className="flex gap-2">
                   <label className="flex-1 flex items-center justify-center gap-1.5 p-3 bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold cursor-pointer border border-slate-300 dark:border-transparent shadow-sm hover:bg-slate-50 transition-colors">
-                    <Icon name="upload" size={14}/> Backup Importieren <input type="file" accept=".html,.legacy,.json" onChange={importBackup} className="hidden" />
+                    <Icon name="upload" size={14}/> 2. Journal Importieren <input type="file" accept=".html,.legacy,.json" onChange={importBackup} className="hidden" />
                   </label>
                 </div>
               </div>
@@ -1791,7 +1664,7 @@ const App = () => {
                         </div>
                       )}
 
-                      <div className="p-6 sm:p-8 flex-1 flex flex-col relative z-20">
+                      <div className="p-6 sm:p-8 flex-1 flex flex-col">
                         {!entry.image && <h3 className={`font-bold text-2xl leading-tight mb-4 line-clamp-2 font-serif`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />}
                         {entry.category === 'Weisheit' && <div className="mb-4 text-[10px] font-bold uppercase tracking-widest opacity-50 flex items-center gap-1 text-amber-500"><Icon name="book-open" size={12}/> Säule der Weisheit</div>}
 
@@ -1844,13 +1717,12 @@ const App = () => {
         {showEditor && (
           <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center transition-all bg-slate-900/40 dark:bg-slate-950/80 backdrop-blur-md no-print sm:p-6">
             <div className="absolute inset-0 bg-transparent" onClick={() => checkSaveEntry(true)} />
-            <div 
+            <div
               className="relative w-full max-w-3xl mx-auto flex flex-col shadow-2xl transition-all absolute inset-0 sm:relative sm:h-[90dvh] sm:w-[90vw] sm:rounded-[2.5rem] border border-slate-200 dark:border-white/10"
               style={{ backgroundColor: zenMode ? 'transparent' : (user.appBgColor || (user.isDark ? '#18181b' : '#ffffff')), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
             >
               <div className={`flex justify-between items-center px-4 py-3 sm:px-6 sm:py-5 border-b shrink-0 ${zenMode ? 'border-transparent' : 'border-black/5 dark:border-white/5'}`}>
                 
-                {/* ZURUECK BUTTON */}
                 <button onClick={() => checkSaveEntry(true)} className={`p-2 rounded-full transition-colors ${isDarkColor(selectedColor) ? 'text-white hover:bg-white/10' : 'text-slate-900 hover:bg-black/5'}`}><Icon name="chevron-down" size={28}/></button>
 
                 {!zenMode && (
@@ -1878,7 +1750,7 @@ const App = () => {
                 {zenMode && <button onClick={() => setZenMode(false)} className="text-current opacity-50 hover:opacity-100"><Icon name="minimize-2" size={24}/></button>}
                 
                 {!zenMode && (
-                  <button onClick={() => checkSaveEntry(false)} className={`flex items-center gap-1 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full font-bold shadow-md hover:scale-105 transition-transform text-sm ${isDarkColor(selectedColor) ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}`} title="Speichern & bleiben">
+                  <button onClick={() => checkSaveEntry(false)} className={`flex items-center gap-1 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full font-bold shadow-md hover:scale-105 transition-transform text-sm ${isDarkColor(selectedColor) ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}`}>
                     <Icon name="check" size={16} className="sm:hidden" />
                     <span className="hidden sm:inline">Sichern</span>
                   </button>
@@ -1984,8 +1856,8 @@ const App = () => {
                         ))}
                       </div>
                     </div>
-                </div>
-              )}
+                  </div>
+                )}
             </div>
           </div>
         )}
