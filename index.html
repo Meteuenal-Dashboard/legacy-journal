@@ -379,8 +379,24 @@ const App = () => {
   const editorRef = useRef(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState('');
   
-  // DIRTY FLAG für das automatische Speichern
-  const isDirtyRef = useRef(false);
+  // ARCHITEKTUR-UPDATE: Der perfekte Hash-Vergleich für Auto-Save (ohne dirty flags)
+  const savedDataRef = useRef("");
+  
+  const getCurrentDataString = () => {
+    return JSON.stringify({
+      title, 
+      text: editorRef.current ? editorRef.current.innerHTML : text, 
+      c: selectedColor, 
+      i: selectedImage ? selectedImage.substring(0, 50) : null, // Extrem schneller Vergleich
+      v: selectedVideo ? selectedVideo.substring(0, 50) : null,
+      a: audioUrl ? audioUrl.substring(0, 50) : null,
+      l: isLocked, 
+      m: isManifested, 
+      d: unlockDate, 
+      cat: category, 
+      mo: mood
+    });
+  };
   
   const [burnText, setBurnText] = useState('');
   const [isBurning, setIsBurning] = useState(false);
@@ -598,9 +614,11 @@ const App = () => {
                 setLocation(eEntry.location || null); setParentId(eEntry.parentId || '');
                 setInheritedFrom(eEntry.inheritedFrom || null); setPillarGuidance(null);
                 setShowEditor(true);
+                setTimeout(() => { savedDataRef.current = getCurrentDataString(); }, 100);
               }
             } else if (storedShowEditor && !storedEditingId) {
                setShowEditor(true); 
+               setTimeout(() => { savedDataRef.current = getCurrentDataString(); }, 100);
             }
 
             checkDailyAffirmation(sortedEntries); 
@@ -752,7 +770,7 @@ const App = () => {
       setEditingId(entryId);
       setAutoSaveStatus('Manuell gespeichert ✔');
       setTimeout(() => setAutoSaveStatus(''), 2000);
-      isDirtyRef.current = false;
+      savedDataRef.current = getCurrentDataString();
     }
   };
 
@@ -772,21 +790,19 @@ const App = () => {
     });
   };
 
-  const handleEditorInput = (e) => {
-    isDirtyRef.current = true;
-  };
-
   useEffect(() => {
     if (showEditor && editorRef.current) {
       editorRef.current.innerHTML = text || '';
     }
   }, [showEditor, editingId]);
 
+  // ARCHITEKTUR-UPDATE: Der perfekte Auto-Save Mechanismus ohne Endlosschleifen
   useEffect(() => {
     if (!showEditor || view === 'burn') return;
     
     const timer = setInterval(() => {
-      if (!isDirtyRef.current) return;
+      const currentDataStr = getCurrentDataString();
+      if (currentDataStr === savedDataRef.current) return; // Nichts hat sich verändert -> Abbruch!
       
       setAutoSaveStatus('Speichert...');
       const currentText = editorRef.current ? editorRef.current.innerHTML : text;
@@ -808,7 +824,7 @@ const App = () => {
         const tx = db.transaction('entries', 'readwrite');
         tx.objectStore('entries').put(currentEntry);
         tx.oncomplete = () => {
-          isDirtyRef.current = false;
+          savedDataRef.current = currentDataStr; // Setze den neuen Zustand als "gespeichert"
           setEntries(prev => {
             const exists = prev.find(e => e.id === currentEntry.id);
             if (exists) return prev.map(e => e.id === currentEntry.id ? currentEntry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
@@ -866,23 +882,63 @@ const App = () => {
     };
   }, [isDrawing, user.isDark]);
 
+  // ARCHITEKTUR-UPDATE: Extrem starke Bild-Kompression auf max 1200px.
+  // Stoppt Abstürze und Ruckler (Augenkrebs) auf dem Handy sofort!
   const handleFileUpload = (e, type) => {
     const file = e.target.files[0];
-    if (file) {
+    if (!file) return;
+
+    if (type === 'video') {
+      if (file.size > 15 * 1024 * 1024) { // 15MB Grenze
+        showDialog({ title: 'Video zu groß', message: 'Das Video darf maximal 15MB groß sein, um die App nicht zu verlangsamen.', icon: 'x', iconColor: 'text-rose-500' });
+        e.target.value = null;
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
-        if (type === 'image') { setSelectedImage(reader.result); setSelectedVideo(null); isDirtyRef.current = true; }
-        if (type === 'video') { setSelectedVideo(reader.result); setSelectedImage(null); isDirtyRef.current = true; }
+        setSelectedVideo(reader.result);
+        setSelectedImage(null);
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    if (type === 'image') {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_SIZE = 1200; // Optimal für Performance!
+          let width = img.width; 
+          let height = img.height;
+          
+          if (width > height) { 
+            if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } 
+          } else { 
+            if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } 
+          }
+          
+          canvas.width = width; 
+          canvas.height = height;
+          const ctx = canvas.getContext('2d'); 
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          setSelectedImage(canvas.toDataURL('image/jpeg', 0.8)); // 80% JPEG komprimiert Base64 auf einen Bruchteil
+          setSelectedVideo(null); 
+        };
+        img.src = event.target.result;
       };
       reader.readAsDataURL(file);
     }
+    e.target.value = null;
   };
 
   const handleAudioUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => { setAudioUrl(reader.result); isDirtyRef.current = true; };
+      reader.onloadend = () => { setAudioUrl(reader.result); };
       reader.readAsDataURL(file);
     }
   };
@@ -1038,7 +1094,6 @@ const App = () => {
   };
 
   const openEditor = (entry = null, pillar = null) => {
-    isDirtyRef.current = false;
     if (entry && entry.id) {
       setEditingId(entry.id); setTitle(entry.title || '');
       let initialText = entry.text || '';
@@ -1065,10 +1120,11 @@ const App = () => {
       setPillarGuidance(pillar ? pillar.desc : null);
     }
     setZenMode(false); setShowEditor(true);
+    // Timeout damit React Zeit hat, den Editor zu rendern, bevor wir den sauberen Basis-Status setzen
+    setTimeout(() => { savedDataRef.current = getCurrentDataString(); }, 100);
   };
 
   const startNewChapter = (parent) => {
-    isDirtyRef.current = false;
     setViewingEntry(null);
     setEditingId(null); 
     setTitle(parent.title || ''); 
@@ -1081,6 +1137,7 @@ const App = () => {
     setParentId(parent.id); 
     setInheritedFrom(null);
     setZenMode(false); setShowEditor(true);
+    setTimeout(() => { savedDataRef.current = getCurrentDataString(); }, 100);
   };
 
   const getLastPageOfBook = (rootEntry) => {
@@ -1945,8 +2002,8 @@ const App = () => {
                       closeEditor();
                     }} className="p-2 sm:p-2.5 rounded-full transition-colors text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10" title="Ins Archiv"><Icon name="archive" size={20}/></button>}
                     <button onClick={() => setZenMode(true)} className={`p-2 sm:p-2.5 rounded-full transition-colors text-slate-400 ${isDarkColor(selectedColor) ? 'hover:text-white hover:bg-white/10' : 'hover:text-slate-900 hover:bg-black/5'}`} title="Fokus Modus"><Icon name="maximize-2" size={20}/></button>
-                    <button onClick={() => { setIsManifested(!isManifested); isDirtyRef.current = true; }} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isManifested ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-500/10'}`} title="Manifestieren (Stern)"><Icon name="sparkles" size={20}/></button>
-                    <button onClick={() => { setIsLocked(!isLocked); isDirtyRef.current = true; }} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isLocked ? 'bg-rose-500/20 text-rose-500' : 'text-slate-400 hover:text-rose-500 hover:bg-rose-500/10'}`} title="PIN-Schutz (Tresor)"><Icon name="lock" size={20}/></button>
+                    <button onClick={() => { setIsManifested(!isManifested); savedDataRef.current = ""; }} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isManifested ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-500/10'}`} title="Manifestieren (Stern)"><Icon name="sparkles" size={20}/></button>
+                    <button onClick={() => { setIsLocked(!isLocked); savedDataRef.current = ""; }} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isLocked ? 'bg-rose-500/20 text-rose-500' : 'text-slate-400 hover:text-rose-500 hover:bg-rose-500/10'}`} title="PIN-Schutz (Tresor)"><Icon name="lock" size={20}/></button>
                   </div>
                 )}
                 {zenMode && <button onClick={() => setZenMode(false)} className="text-current opacity-50 hover:opacity-100"><Icon name="minimize-2" size={24}/></button>}
@@ -1962,9 +2019,9 @@ const App = () => {
               <div id="editor-scroll-container" className="flex-1 overflow-y-auto p-4 sm:p-10 flex flex-col gap-4 w-full overscroll-contain relative">
               
                 {!zenMode && selectedImage && (
-                  <div className="relative w-full aspect-video rounded-[2rem] overflow-hidden shadow-md bg-black/5 dark:bg-black/20 shrink-0 border border-slate-200 dark:border-white/10">
-                    <img src={selectedImage} alt="Preview" className="w-full h-full object-cover" />
-                    <button onClick={() => { setSelectedImage(null); isDirtyRef.current = true; }} className="absolute top-4 right-4 bg-white/80 dark:bg-black/60 backdrop-blur-md p-3 rounded-full hover:scale-110 transition-transform z-10 shadow-lg">
+                  <div className="relative w-full rounded-[2rem] overflow-hidden shadow-md bg-black/5 dark:bg-white/5 shrink-0 border border-slate-200 dark:border-white/10 flex items-center justify-center p-2">
+                    <img src={selectedImage} alt="Preview" className="w-full max-h-[40vh] object-contain rounded-2xl" />
+                    <button onClick={() => { setSelectedImage(null); savedDataRef.current = ""; }} className="absolute top-4 right-4 bg-white/90 dark:bg-black/80 backdrop-blur-md p-3 rounded-full hover:scale-110 transition-transform z-10 shadow-lg text-slate-900 dark:text-white border border-slate-200 dark:border-white/10">
                       <Icon name="x" size={18}/>
                     </button>
                   </div>
@@ -1980,19 +2037,19 @@ const App = () => {
                 {!zenMode && (
                   <div className="flex flex-wrap gap-3 text-xs font-bold uppercase tracking-widest opacity-60 shrink-0">
                     <button onClick={() => setPicker({
-                      title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c => ({label: c, value: c})), onSelect: (val) => { setCategory(val); isDirtyRef.current = true; }
+                      title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c => ({label: c, value: c})), onSelect: (val) => { setCategory(val); savedDataRef.current = ""; }
                     })} className="bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2">
                       {category} <Icon name="chevron-down" size={14} className="shrink-0"/>
                     </button>
                     <button onClick={() => setPicker({
-                      title: 'Art des Eintrags', currentValue: entryType, options: [{label: 'Vision', value: 'vision'}, {label: 'Brief an die Zukunft', value: 'letter'}], onSelect: (val) => { setEntryType(val); isDirtyRef.current = true; }
+                      title: 'Art des Eintrags', currentValue: entryType, options: [{label: 'Vision', value: 'vision'}, {label: 'Brief an die Zukunft', value: 'letter'}], onSelect: (val) => { setEntryType(val); savedDataRef.current = ""; }
                     })} className="bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2">
                       {entryType === 'vision' ? 'Vision' : 'Brief'} <Icon name="chevron-down" size={14} className="shrink-0"/>
                     </button>
                   </div>
                 )}
 
-                <input type="text" placeholder="Titel..." value={title || ''} onChange={(e) => { setTitle(e.target.value); isDirtyRef.current = true; }} className="w-full shrink-0 bg-transparent text-current text-3xl sm:text-5xl font-bold placeholder-current opacity-90 border-none focus:ring-0 p-0 focus:outline-none font-serif relative z-10" style={{ color: 'inherit', '::placeholder': { opacity: 0.3 } }} />
+                <input type="text" placeholder="Titel..." value={title || ''} onChange={(e) => { setTitle(e.target.value); }} className="w-full shrink-0 bg-transparent text-current text-3xl sm:text-5xl font-bold placeholder-current opacity-90 border-none focus:ring-0 p-0 focus:outline-none font-serif relative z-10" style={{ color: 'inherit', '::placeholder': { opacity: 0.3 } }} />
 
                 {!zenMode && (
                   <div className="flex gap-2 py-2 border-y border-current border-opacity-10 opacity-70 shrink-0">
@@ -2009,7 +2066,7 @@ const App = () => {
                   suppressContentEditableWarning={true}
                   data-placeholder="Schreibe deine Gedanken auf diese leere Seite..."
                   onInput={handleEditorInput}
-                  className="w-full flex-1 bg-transparent text-lg sm:text-xl leading-relaxed focus:outline-none font-medium empty:before:content-[attr(data-placeholder)] empty:before:cursor-text legacy-editor-content pb-[50vh]"
+                  className="w-full flex-1 bg-transparent text-lg sm:text-xl leading-relaxed focus:outline-none font-medium empty:before:content-[attr(data-placeholder)] empty:before:cursor-text legacy-editor-content pb-64"
                   style={{ color: 'inherit', '::before': { opacity: 0.3 } }}
                 />
 
@@ -2018,7 +2075,7 @@ const App = () => {
                     <div className="relative p-4 rounded-2xl shadow-sm border border-current border-opacity-20 flex flex-col">
                       <span className="text-xs font-bold uppercase tracking-widest mb-2 opacity-60">Sprachnachricht</span>
                       <audio src={audioUrl} controls className="w-full" />
-                      <button onClick={() => { setAudioUrl(null); isDirtyRef.current = true; }} className="absolute top-4 right-4 text-current opacity-50 hover:opacity-100"><Icon name="x" size={16}/></button>
+                      <button onClick={() => { setAudioUrl(null); savedDataRef.current = ""; }} className="absolute top-4 right-4 text-current opacity-50 hover:opacity-100"><Icon name="x" size={16}/></button>
                     </div>
                   </div>
                 )}
@@ -2037,7 +2094,7 @@ const App = () => {
                       <div className={`flex gap-2 shrink-0 border-l pl-4 ${isDarkColor(selectedColor) ? 'border-white/10' : 'border-black/10'}`}>
                         <label className={`relative p-3.5 rounded-full shadow-sm flex items-center justify-center cursor-pointer overflow-hidden transition-colors ${unlockDate ? 'bg-indigo-500 text-white' : isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`} title="Datums-Siegel (Zeitkapsel)">
                           <Icon name="calendar-clock" size={20}/>
-                          <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); isDirtyRef.current = true;}} className="absolute opacity-0 w-[200%] h-[200%] -top-1/2 -left-1/2 cursor-pointer" />
+                          <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); savedDataRef.current = "";}} className="absolute opacity-0 w-[200%] h-[200%] -top-1/2 -left-1/2 cursor-pointer" />
                         </label>
                       </div>
                     </div>
@@ -2045,14 +2102,14 @@ const App = () => {
                     <div className={`flex justify-between items-center overflow-x-auto hide-scrollbar gap-6 border-t pt-3 ${isDarkColor(selectedColor) ? 'border-white/5' : 'border-black/5'}`}>
                       <div className="flex gap-2 shrink-0">
                         {MOODS.map(m => (
-                          <button key={m.id} onClick={()=> { setMood(m.label===mood ? null : m.label); isDirtyRef.current = true; }} className={`p-2.5 rounded-full transition-all ${mood===m.label ? 'bg-slate-800 dark:bg-white shadow-lg scale-110 ' + m.color : 'opacity-40 hover:opacity-100 text-current'}`}>
+                          <button key={m.id} onClick={()=> { setMood(m.label===mood ? null : m.label); savedDataRef.current = ""; }} className={`p-2.5 rounded-full transition-all ${mood===m.label ? 'bg-slate-800 dark:bg-white shadow-lg scale-110 ' + m.color : 'opacity-40 hover:opacity-100 text-current'}`}>
                             <Icon name={m.iconName} size={20} />
                           </button>
                         ))}
                       </div>
                       <div className="flex gap-2 shrink-0">
                         {COLORS.slice(0, 18).map((c) => (
-                          <button key={c} onClick={() => { setSelectedColor(c); isDirtyRef.current = true; }} className={`w-8 h-8 rounded-full shadow-sm border-2 transition-transform ${selectedColor === c ? 'scale-110 border-current z-10' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`} style={{ backgroundColor: c }} />
+                          <button key={c} onClick={() => { setSelectedColor(c); savedDataRef.current = ""; }} className={`w-8 h-8 rounded-full shadow-sm border-2 transition-transform ${selectedColor === c ? 'scale-110 border-current z-10' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`} style={{ backgroundColor: c }} />
                         ))}
                       </div>
                     </div>
@@ -2068,7 +2125,7 @@ const App = () => {
               <button onClick={() => setIsDrawing(false)} className="p-3 text-white/70 hover:text-white bg-white/5 rounded-full"><Icon name="x" size={24} /></button>
               <span className="font-bold text-xl font-serif">Skizze</span>
               <button
-                onClick={() => { if(canvasRef.current) { setSelectedImage(canvasRef.current.toDataURL()); setIsDrawing(false); isDirtyRef.current = true; } }}
+                onClick={() => { if(canvasRef.current) { setSelectedImage(canvasRef.current.toDataURL()); setIsDrawing(false); savedDataRef.current = ""; } }}
                 className="bg-amber-500 text-slate-900 px-6 py-3 rounded-full font-bold flex gap-2 items-center shadow-lg"
               ><Icon name="check" size={18}/> Fertig</button>
             </div>
