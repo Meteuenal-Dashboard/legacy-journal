@@ -378,9 +378,9 @@ const App = () => {
   const canvasRef = useRef(null);
   const editorRef = useRef(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState('');
-  const lastSavedDataRef = useRef("");
-
-  const getCurrentDataString = () => JSON.stringify({title, text, selectedColor, selectedImage, selectedVideo, audioUrl, isLocked, isManifested, unlockDate, unlockLocation, category, mood, location, parentId, inheritedFrom});
+  
+  // DIRTY FLAG für das automatische Speichern
+  const isDirtyRef = useRef(false);
   
   const [burnText, setBurnText] = useState('');
   const [isBurning, setIsBurning] = useState(false);
@@ -751,7 +751,7 @@ const App = () => {
       setEditingId(entryId);
       setAutoSaveStatus('Manuell gespeichert ✔');
       setTimeout(() => setAutoSaveStatus(''), 2000);
-      lastSavedDataRef.current = getCurrentDataString();
+      isDirtyRef.current = false;
     }
   };
 
@@ -771,30 +771,9 @@ const App = () => {
     });
   };
 
-  const scrollToCaret = () => {
-    if (!window.visualViewport) return;
-    const selection = window.getSelection();
-    if (!selection || !selection.rangeCount) return;
-    const range = selection.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-    
-    if (rect.bottom > window.visualViewport.height - 40) {
-      const container = document.getElementById('editor-scroll-container');
-      if (container) {
-        const hiddenAmount = rect.bottom - window.visualViewport.height;
-        container.scrollBy({ top: hiddenAmount + 60, behavior: 'smooth' });
-      }
-    }
-  };
-
-  const handleEditorInteraction = () => {
-    setTimeout(scrollToCaret, 300);
-    setTimeout(scrollToCaret, 600); 
-  };
-
   const handleEditorInput = (e) => {
     setText(e.currentTarget.innerHTML);
-    scrollToCaret();
+    isDirtyRef.current = true;
   };
 
   useEffect(() => {
@@ -805,9 +784,7 @@ const App = () => {
 
   useEffect(() => {
     if (!showEditor || (!title && !text) || view === 'burn') return;
-    
-    const currentDataString = getCurrentDataString();
-    if (lastSavedDataRef.current === currentDataString) return;
+    if (!isDirtyRef.current) return; // SPEICHERT NUR WENN WIRKLICH WAS GEÄNDERT WURDE
 
     const timer = setTimeout(() => {
       setAutoSaveStatus('Speichert...');
@@ -826,7 +803,7 @@ const App = () => {
         const tx = db.transaction('entries', 'readwrite');
         tx.objectStore('entries').put(currentEntry);
         tx.oncomplete = () => {
-          lastSavedDataRef.current = currentDataString;
+          isDirtyRef.current = false; // RESET NACH DEM SPEICHERN
           setEntries(prev => {
             const exists = prev.find(e => e.id === currentEntry.id);
             if (exists) return prev.map(e => e.id === currentEntry.id ? currentEntry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
@@ -838,7 +815,7 @@ const App = () => {
       }
     }, 2000);
     return () => clearTimeout(timer);
-  }, [title, text, selectedColor, selectedImage, selectedVideo, audioUrl, isLocked, isManifested, unlockDate, unlockLocation, category, mood, location, parentId, inheritedFrom, db, showEditor, editingId, entries, view]);
+  }, [title, text, selectedColor, selectedImage, selectedVideo, audioUrl, isLocked, isManifested, unlockDate, unlockLocation, category, mood, location]);
 
   const startDrawing = (e) => {
     if (!canvasRef.current) return;
@@ -888,8 +865,8 @@ const App = () => {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        if (type === 'image') { setSelectedImage(reader.result); setSelectedVideo(null); }
-        if (type === 'video') { setSelectedVideo(reader.result); setSelectedImage(null); }
+        if (type === 'image') { setSelectedImage(reader.result); setSelectedVideo(null); isDirtyRef.current = true; }
+        if (type === 'video') { setSelectedVideo(reader.result); setSelectedImage(null); isDirtyRef.current = true; }
       };
       reader.readAsDataURL(file);
     }
@@ -899,7 +876,7 @@ const App = () => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => setAudioUrl(reader.result);
+      reader.onloadend = () => { setAudioUrl(reader.result); isDirtyRef.current = true; };
       reader.readAsDataURL(file);
     }
   };
@@ -1055,7 +1032,7 @@ const App = () => {
   };
 
   const openEditor = (entry = null, pillar = null) => {
-    lastSavedDataRef.current = "";
+    isDirtyRef.current = false;
     if (entry && entry.id) {
       setEditingId(entry.id); setTitle(entry.title || '');
       let initialText = entry.text || '';
@@ -1085,7 +1062,7 @@ const App = () => {
   };
 
   const startNewChapter = (parent) => {
-    lastSavedDataRef.current = "";
+    isDirtyRef.current = false;
     setViewingEntry(null);
     setEditingId(null); 
     setTitle(parent.title || ''); 
@@ -1961,8 +1938,8 @@ const App = () => {
                       closeEditor();
                     }} className="p-2 sm:p-2.5 rounded-full transition-colors text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10" title="Ins Archiv"><Icon name="archive" size={20}/></button>}
                     <button onClick={() => setZenMode(true)} className={`p-2 sm:p-2.5 rounded-full transition-colors text-slate-400 ${isDarkColor(selectedColor) ? 'hover:text-white hover:bg-white/10' : 'hover:text-slate-900 hover:bg-black/5'}`} title="Fokus Modus"><Icon name="maximize-2" size={20}/></button>
-                    <button onClick={() => setIsManifested(!isManifested)} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isManifested ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-500/10'}`} title="Manifestieren (Stern)"><Icon name="sparkles" size={20}/></button>
-                    <button onClick={() => setIsLocked(!isLocked)} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isLocked ? 'bg-rose-500/20 text-rose-500' : 'text-slate-400 hover:text-rose-500 hover:bg-rose-500/10'}`} title="PIN-Schutz (Tresor)"><Icon name="lock" size={20}/></button>
+                    <button onClick={() => { setIsManifested(!isManifested); isDirtyRef.current = true; }} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isManifested ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-500/10'}`} title="Manifestieren (Stern)"><Icon name="sparkles" size={20}/></button>
+                    <button onClick={() => { setIsLocked(!isLocked); isDirtyRef.current = true; }} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isLocked ? 'bg-rose-500/20 text-rose-500' : 'text-slate-400 hover:text-rose-500 hover:bg-rose-500/10'}`} title="PIN-Schutz (Tresor)"><Icon name="lock" size={20}/></button>
                   </div>
                 )}
                 {zenMode && <button onClick={() => setZenMode(false)} className="text-current opacity-50 hover:opacity-100"><Icon name="minimize-2" size={24}/></button>}
@@ -1978,9 +1955,9 @@ const App = () => {
               <div id="editor-scroll-container" className="flex-1 overflow-y-auto p-4 sm:p-10 flex flex-col gap-4 w-full overscroll-contain relative">
               
                 {!zenMode && selectedImage && (
-                  <div className="relative w-full h-[30vh] sm:h-[40vh] rounded-[2rem] overflow-hidden shadow-md bg-black/5 dark:bg-black/20 shrink-0">
+                  <div className="relative w-full h-56 sm:h-64 rounded-[2rem] overflow-hidden shadow-md bg-black/5 dark:bg-black/20 shrink-0">
                     <img src={selectedImage} alt="Preview" className="w-full h-full object-cover" />
-                    <button onClick={() => setSelectedImage(null)} className="absolute top-4 right-4 bg-white/80 dark:bg-black/60 backdrop-blur-md p-3 rounded-full hover:scale-110 transition-transform z-10 shadow-lg">
+                    <button onClick={() => { setSelectedImage(null); isDirtyRef.current = true; }} className="absolute top-4 right-4 bg-white/80 dark:bg-black/60 backdrop-blur-md p-3 rounded-full hover:scale-110 transition-transform z-10 shadow-lg">
                       <Icon name="x" size={18}/>
                     </button>
                   </div>
@@ -1996,19 +1973,19 @@ const App = () => {
                 {!zenMode && (
                   <div className="flex flex-wrap gap-3 text-xs font-bold uppercase tracking-widest opacity-60 shrink-0">
                     <button onClick={() => setPicker({
-                      title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c => ({label: c, value: c})), onSelect: setCategory
+                      title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c => ({label: c, value: c})), onSelect: (val) => { setCategory(val); isDirtyRef.current = true; }
                     })} className="bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2">
                       {category} <Icon name="chevron-down" size={14} className="shrink-0"/>
                     </button>
                     <button onClick={() => setPicker({
-                      title: 'Art des Eintrags', currentValue: entryType, options: [{label: 'Vision', value: 'vision'}, {label: 'Brief an die Zukunft', value: 'letter'}], onSelect: setEntryType
+                      title: 'Art des Eintrags', currentValue: entryType, options: [{label: 'Vision', value: 'vision'}, {label: 'Brief an die Zukunft', value: 'letter'}], onSelect: (val) => { setEntryType(val); isDirtyRef.current = true; }
                     })} className="bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2">
                       {entryType === 'vision' ? 'Vision' : 'Brief'} <Icon name="chevron-down" size={14} className="shrink-0"/>
                     </button>
                   </div>
                 )}
 
-                <input type="text" placeholder="Titel..." value={title || ''} onChange={(e) => setTitle(e.target.value)} className="w-full shrink-0 bg-transparent text-current text-3xl sm:text-5xl font-bold placeholder-current opacity-90 border-none focus:ring-0 p-0 focus:outline-none font-serif relative z-10" style={{ color: 'inherit', '::placeholder': { opacity: 0.3 } }} />
+                <input type="text" placeholder="Titel..." value={title || ''} onChange={(e) => { setTitle(e.target.value); isDirtyRef.current = true; }} className="w-full shrink-0 bg-transparent text-current text-3xl sm:text-5xl font-bold placeholder-current opacity-90 border-none focus:ring-0 p-0 focus:outline-none font-serif relative z-10" style={{ color: 'inherit', '::placeholder': { opacity: 0.3 } }} />
 
                 {!zenMode && (
                   <div className="flex gap-2 py-2 border-y border-current border-opacity-10 opacity-70 shrink-0">
@@ -2025,8 +2002,6 @@ const App = () => {
                   suppressContentEditableWarning={true}
                   data-placeholder="Schreibe deine Gedanken auf diese leere Seite..."
                   onInput={handleEditorInput}
-                  onClick={handleEditorInteraction}
-                  onFocus={handleEditorInteraction}
                   className="w-full flex-1 bg-transparent text-lg sm:text-xl leading-relaxed focus:outline-none font-medium empty:before:content-[attr(data-placeholder)] empty:before:cursor-text legacy-editor-content pb-[50vh]"
                   style={{ color: 'inherit', '::before': { opacity: 0.3 } }}
                 />
@@ -2036,7 +2011,7 @@ const App = () => {
                     <div className="relative p-4 rounded-2xl shadow-sm border border-current border-opacity-20 flex flex-col">
                       <span className="text-xs font-bold uppercase tracking-widest mb-2 opacity-60">Sprachnachricht</span>
                       <audio src={audioUrl} controls className="w-full" />
-                      <button onClick={() => setAudioUrl(null)} className="absolute top-4 right-4 text-current opacity-50 hover:opacity-100"><Icon name="x" size={16}/></button>
+                      <button onClick={() => { setAudioUrl(null); isDirtyRef.current = true; }} className="absolute top-4 right-4 text-current opacity-50 hover:opacity-100"><Icon name="x" size={16}/></button>
                     </div>
                   </div>
                 )}
@@ -2055,7 +2030,7 @@ const App = () => {
                       <div className={`flex gap-2 shrink-0 border-l pl-4 ${isDarkColor(selectedColor) ? 'border-white/10' : 'border-black/10'}`}>
                         <label className={`relative p-3.5 rounded-full shadow-sm flex items-center justify-center cursor-pointer overflow-hidden transition-colors ${unlockDate ? 'bg-indigo-500 text-white' : isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`} title="Datums-Siegel (Zeitkapsel)">
                           <Icon name="calendar-clock" size={20}/>
-                          <input type="date" value={unlockDate} onChange={e=>setUnlockDate(e.target.value)} className="absolute opacity-0 w-[200%] h-[200%] -top-1/2 -left-1/2 cursor-pointer" />
+                          <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); isDirtyRef.current = true;}} className="absolute opacity-0 w-[200%] h-[200%] -top-1/2 -left-1/2 cursor-pointer" />
                         </label>
                       </div>
                     </div>
@@ -2063,14 +2038,14 @@ const App = () => {
                     <div className={`flex justify-between items-center overflow-x-auto hide-scrollbar gap-6 border-t pt-3 ${isDarkColor(selectedColor) ? 'border-white/5' : 'border-black/5'}`}>
                       <div className="flex gap-2 shrink-0">
                         {MOODS.map(m => (
-                          <button key={m.id} onClick={()=>setMood(m.label===mood ? null : m.label)} className={`p-2.5 rounded-full transition-all ${mood===m.label ? 'bg-slate-800 dark:bg-white shadow-lg scale-110 ' + m.color : 'opacity-40 hover:opacity-100 text-current'}`}>
+                          <button key={m.id} onClick={()=> { setMood(m.label===mood ? null : m.label); isDirtyRef.current = true; }} className={`p-2.5 rounded-full transition-all ${mood===m.label ? 'bg-slate-800 dark:bg-white shadow-lg scale-110 ' + m.color : 'opacity-40 hover:opacity-100 text-current'}`}>
                             <Icon name={m.iconName} size={20} />
                           </button>
                         ))}
                       </div>
                       <div className="flex gap-2 shrink-0">
                         {COLORS.slice(0, 18).map((c) => (
-                          <button key={c} onClick={() => setSelectedColor(c)} className={`w-8 h-8 rounded-full shadow-sm border-2 transition-transform ${selectedColor === c ? 'scale-110 border-current z-10' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`} style={{ backgroundColor: c }} />
+                          <button key={c} onClick={() => { setSelectedColor(c); isDirtyRef.current = true; }} className={`w-8 h-8 rounded-full shadow-sm border-2 transition-transform ${selectedColor === c ? 'scale-110 border-current z-10' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`} style={{ backgroundColor: c }} />
                         ))}
                       </div>
                     </div>
@@ -2086,7 +2061,7 @@ const App = () => {
               <button onClick={() => setIsDrawing(false)} className="p-3 text-white/70 hover:text-white bg-white/5 rounded-full"><Icon name="x" size={24} /></button>
               <span className="font-bold text-xl font-serif">Skizze</span>
               <button
-                onClick={() => { if(canvasRef.current) { setSelectedImage(canvasRef.current.toDataURL()); setIsDrawing(false); } }}
+                onClick={() => { if(canvasRef.current) { setSelectedImage(canvasRef.current.toDataURL()); setIsDrawing(false); isDirtyRef.current = true; } }}
                 className="bg-amber-500 text-slate-900 px-6 py-3 rounded-full font-bold flex gap-2 items-center shadow-lg"
               ><Icon name="check" size={18}/> Fertig</button>
             </div>
