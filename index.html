@@ -691,7 +691,6 @@ const App = () => {
     });
   };
 
-  // --- FIX 1: Extrem robuster Samsung-Tastatur-Scroll mit VisualViewport ---
   const scrollToCaret = () => {
     if (!window.visualViewport) return;
     const selection = window.getSelection();
@@ -710,7 +709,7 @@ const App = () => {
 
   const handleEditorInteraction = () => {
     setTimeout(scrollToCaret, 300);
-    setTimeout(scrollToCaret, 600); // Check again after keyboard animation finishes
+    setTimeout(scrollToCaret, 600); 
   };
 
   const handleEditorInput = (e) => {
@@ -842,8 +841,58 @@ const App = () => {
     e.target.value = null;
   };
 
-  // --- OPTION 1: App Klonen & Weiterleiten (.html) ---
-  const shareApp = async () => {
+  const exportText = () => {
+    window.print();
+  };
+
+  // --- HILFSFUNKTION FÜR ROBUSTE DOWNLOADS AUF DEM HANDY ---
+  const triggerDownload = (content, fileName, mimeType) => {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 250);
+  };
+
+  // --- FIX 2: Absolut robuster und Handy-kompatibler Share (als .txt getarnt für WhatsApp) ---
+  const shareBackupTxt = async () => {
+    const data = { user, entries };
+    const jsonString = JSON.stringify(data);
+    const fileName = `Legacy_Journal_Backup_${new Date().toISOString().split('T')[0]}.txt`;
+    
+    // Wir erzeugen eine text/plain Datei. Diese wird von Android und iOS System-Share IMMER akzeptiert.
+    const file = new File([jsonString], fileName, { type: 'text/plain' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          title: 'Mein Legacy Journal',
+          text: 'Hier ist das komplette Backup meines Journals. Du kannst diese Datei in der App importieren.',
+          files: [file]
+        });
+        return; 
+      } catch (err) {
+        if (err.name === 'AbortError') return; 
+      }
+    }
+    
+    triggerDownload(jsonString, fileName, 'text/plain');
+    showDialog({ 
+      title: 'In Downloads gespeichert!', 
+      message: 'Teilen wurde blockiert. Das Backup wurde als Textdatei in deine Downloads gespeichert. Du kannst es von dort aus per Mail oder Messenger versenden.', 
+      icon: 'download', 
+      iconColor: 'text-emerald-500' 
+    });
+  };
+
+  const shareAppHtml = async () => {
     const cloneDocument = document.cloneNode(true);
     const rootDiv = cloneDocument.getElementById('root');
     if (rootDiv) rootDiv.innerHTML = ''; 
@@ -861,9 +910,8 @@ const App = () => {
     const htmlContent = "<!DOCTYPE html>\n" + cloneDocument.documentElement.outerHTML;
     const fileName = `Meine_Legacy_Vision_${new Date().toISOString().split('T')[0]}.html`;
     
+    // Versuch: Natives HTML Teilen
     const file = new File([htmlContent], fileName, { type: 'text/html' });
-
-    // Versuche Native Share
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({
@@ -873,48 +921,14 @@ const App = () => {
         });
         return; 
       } catch (err) {
-        console.log('Teilen abgebrochen oder fehlerhaft', err);
         if (err.name === 'AbortError') return;
       }
     }
-    
-    // Fallback: Speichere die fertige HTML App auf dem Gerät ab
-    const url = URL.createObjectURL(file);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    a.click();
-    URL.revokeObjectURL(url);
-    showDialog({ 
-      title: 'App geklont!', 
-      message: 'WICHTIG für dein neues Handy: Lade dort erst das leere Journal aus dem Internet und füge es zum Startbildschirm hinzu. Danach importierst du diese Datei einfach in den Einstellungen.', 
-      icon: 'download', 
-      iconColor: 'text-emerald-500' 
-    });
-  };
 
-  const shareAppHtml = () => {
-    const cloneDocument = document.cloneNode(true);
-    const rootDiv = cloneDocument.getElementById('root');
-    if (rootDiv) rootDiv.innerHTML = ''; 
-    
-    const existingInjected = cloneDocument.getElementById('legacy-injected-data');
-    if (existingInjected) existingInjected.remove();
-    
-    const data = { user, entries };
-    const scriptEl = cloneDocument.createElement('script');
-    scriptEl.id = 'legacy-injected-data';
-    scriptEl.type = 'application/json';
-    scriptEl.textContent = JSON.stringify(data);
-    cloneDocument.head.appendChild(scriptEl);
-    
-    const htmlContent = "<!DOCTYPE html>\n" + cloneDocument.documentElement.outerHTML;
-    const fileName = `Meine_Legacy_Vision_${new Date().toISOString().split('T')[0]}.html`;
-    
     triggerDownload(htmlContent, fileName, 'text/html;charset=utf-8');
     showDialog({ 
       title: 'App heruntergeladen!', 
-      message: 'WICHTIG für dein neues Handy: Lade dort erst das leere Journal aus dem Internet und füge es zum Startbildschirm hinzu. Danach importierst du diese Datei einfach in den Einstellungen.', 
+      message: 'Die App liegt nun als .html-Datei in deinen Downloads. Schicke sie per Mail an dein neues Handy.', 
       icon: 'download', 
       iconColor: 'text-emerald-500' 
     });
@@ -1577,7 +1591,6 @@ const App = () => {
                 )}
               </div>
 
-              {/* FIX 2: Absolut robuster und Handy-kompatibler Share */}
               <div className="p-6 rounded-[2rem] shadow-sm border bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/50">
                 <h2 className="text-base font-bold mb-4 flex items-center gap-2 text-indigo-600"><Icon name="archive" size={18} /> System & Backup</h2>
                 
@@ -1597,6 +1610,9 @@ const App = () => {
 
                 <button onClick={shareAppHtml} className="w-full flex items-center justify-center gap-1.5 p-3 bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold border border-slate-300 dark:border-transparent shadow-sm hover:bg-slate-50 transition-colors">
                   <Icon name="download" size={14}/> App als .html speichern
+                </button>
+                <button onClick={exportText} className="w-full flex items-center justify-center gap-1.5 p-3 mt-3 bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold border border-slate-300 dark:border-transparent shadow-sm hover:bg-slate-50 transition-colors">
+                  <Icon name="printer" size={14}/> Als echtes Buch drucken / PDF
                 </button>
               </div>
             </div>
