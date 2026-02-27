@@ -452,13 +452,11 @@ const App = () => {
               safeStorageSet('legacy_user', JSON.stringify(currentUser));
               injectedEntries = injectedData.entries;
               
-              // In DB speichern
               const tx = database.transaction('entries', 'readwrite');
               const store = tx.objectStore('entries');
               injectedEntries.forEach(entry => store.put(entry));
               await new Promise(resolve => { tx.oncomplete = resolve; });
               
-              // Verhindere Neuladen der Daten beim nächsten Refresh
               injectedScript.textContent = 'null';
               showDialog({ title: 'App wiederhergestellt', message: 'Das Journal wurde erfolgreich mit all seinen Daten aus der HTML-Datei geladen!', icon: 'check', iconColor: 'text-emerald-500' });
             }
@@ -467,7 +465,6 @@ const App = () => {
           }
         }
         
-        // --- NORMALES LADEN ---
         const savedUser = safeStorageGet('legacy_user');
         if (savedUser && !injectedEntries) {
           const parsed = JSON.parse(savedUser);
@@ -822,21 +819,28 @@ const App = () => {
     window.print();
   };
 
-  const exportBackup = () => {
-    const data = { user, entries };
-    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  // --- HILFSFUNKTION FÜR ROBUSTE DOWNLOADS AUF DEM HANDY ---
+  const triggerDownload = (content, fileName, mimeType) => {
+    const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
+    a.style.display = 'none';
     a.href = url;
-    a.download = `Legacy_Backup_${new Date().toISOString().split('T')[0]}.legacy`;
+    a.download = fileName;
+    // An den Body anhängen ist zwingend nötig für iOS/Safari Downloads!
+    document.body.appendChild(a);
     a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 250);
   };
 
-  // --- NEU: App Klonen & Weiterleiten (.html) ---
+  // --- OPTION 1: App Klonen & Weiterleiten (.html) ---
   const shareApp = async () => {
     const cloneDocument = document.cloneNode(true);
     const rootDiv = cloneDocument.getElementById('root');
-    if (rootDiv) rootDiv.innerHTML = ''; // Leert die dynamisch generierten React-Elemente
+    if (rootDiv) rootDiv.innerHTML = ''; 
     
     const existingInjected = cloneDocument.getElementById('legacy-injected-data');
     if (existingInjected) existingInjected.remove();
@@ -850,36 +854,44 @@ const App = () => {
     
     const htmlContent = "<!DOCTYPE html>\n" + cloneDocument.documentElement.outerHTML;
     const fileName = `Meine_Legacy_Vision_${new Date().toISOString().split('T')[0]}.html`;
-    const file = new File([htmlContent], fileName, { type: 'text/html' });
     
     // Versuche Native Share
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    let shared = false;
+    if (navigator.share) {
       try {
-        await navigator.share({
-          title: 'Meine Legacy Vision App',
-          text: 'Öffne diese Datei im Browser, um mein komplettes Journal zu laden.',
-          files: [file]
-        });
-        return; 
+        // Tarnung als text/plain für strikte Handy-Browser, damit das Teilen-Menü aufgeht
+        const file = new File([htmlContent], fileName, { type: 'text/plain' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: 'Meine Legacy Vision App',
+            text: 'Hier ist mein komplettes Journal. Öffne die Datei einfach im Browser!',
+            files: [file]
+          });
+          shared = true;
+        }
       } catch (err) {
         console.log('Teilen abgebrochen oder fehlerhaft', err);
-        if (err.name === 'AbortError') return;
+        if (err.name === 'AbortError') return; 
       }
     }
     
-    // Fallback: Speichere die fertige HTML App auf dem Gerät ab
-    const url = URL.createObjectURL(file);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    a.click();
-    URL.revokeObjectURL(url);
-    showDialog({ 
-      title: 'App geklont!', 
-      message: 'Die App wurde als .html-Datei heruntergeladen. Du kannst diese Datei nun per E-Mail, WhatsApp oder USB-Stick übertragen. Wer sie öffnet, hat deine komplette App inklusive aller Bilder.', 
-      icon: 'download', 
-      iconColor: 'text-emerald-500' 
-    });
+    if (!shared) {
+      // Robustes Download-Fallback für Handys
+      triggerDownload(htmlContent, fileName, 'text/html;charset=utf-8');
+      showDialog({ 
+        title: 'In Downloads gespeichert!', 
+        message: 'Direktes Teilen wurde vom System blockiert. Die App wurde stattdessen sicher in deine Downloads gespeichert. Sende sie einfach von dort manuell weiter.', 
+        icon: 'download', 
+        iconColor: 'text-emerald-500' 
+      });
+    }
+  };
+
+  const exportBackup = () => {
+    const data = { user, entries };
+    const jsonString = JSON.stringify(data);
+    const fileName = `Legacy_Backup_${new Date().toISOString().split('T')[0]}.legacy`;
+    triggerDownload(jsonString, fileName, 'application/json');
   };
 
   const importBackup = (e) => {
@@ -891,7 +903,6 @@ const App = () => {
         const resultText = e.target.result;
         let data = null;
 
-        // Erkenne, ob jemand versucht, die generierte HTML-Datei statt der .legacy als Backup einzulesen
         if (file.name.toLowerCase().endsWith('.html')) {
           const parser = new DOMParser();
           const doc = parser.parseFromString(resultText, 'text/html');
