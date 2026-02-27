@@ -3,19 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Legacy Vision Journal - The Ultimate Blueprint</title>
+<title>Legacy Vision Journal - Timeless Edition</title>
 
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" id="meta-theme-color" content="#ffffff">
-<!-- Zwingt den Browser, unsere hell/dunkel Logik zu respektieren (gegen Samsung Force Dark Mode) -->
 <meta name="color-scheme" content="light dark">
 
-<!-- Container für den App-Klon (Sicherung der Daten für Weiterleitung) -->
+<!-- Container für den App-Klon -->
 <script id="legacy-injected-data" type="application/json">null</script>
 
-<!-- Dynamisches PWA Manifest für Android/Samsung -->
+<!-- Dynamisches PWA Manifest -->
 <link rel="manifest" id="dynamic-manifest" href="">
 <script>
   const manifest = {
@@ -35,7 +34,6 @@
   document.getElementById('dynamic-manifest').setAttribute('href', manifestUrl);
 </script>
 
-<!-- Moderne Premium-Schriftarten -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
@@ -47,14 +45,8 @@ tailwind.config = {
   theme: {
     extend: {
       colors: {
-        graphite: {
-          900: '#18181b',
-          950: '#09090b',
-        },
-        paper: {
-          100: '#ffffff', 
-          50: '#ffffff',
-        }
+        graphite: { 900: '#18181b', 950: '#09090b' },
+        paper: { 100: '#ffffff', 50: '#ffffff' }
       }
     }
   }
@@ -65,23 +57,13 @@ tailwind.config = {
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
-<!-- PeerJS für P2P Übertragung -->
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<!-- DOMPurify für militante XSS-Prävention -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 
 <style>
-body {
-  margin: 0;
-  padding: 0;
-  font-family: 'Inter', -apple-system, sans-serif;
-  -webkit-tap-highlight-color: transparent;
-  transition: background-color 0.4s ease, color 0.4s ease;
-  overscroll-behavior-y: none; 
-}
-
-h1, h2, h3, .font-serif {
-  font-family: 'Playfair Display', serif !important;
-}
-
+body { margin: 0; padding: 0; font-family: 'Inter', -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; transition: background-color 0.4s ease, color 0.4s ease; overscroll-behavior-y: none; }
+h1, h2, h3, .font-serif { font-family: 'Playfair Display', serif !important; }
 html:not(.dark) body { background-color: #ffffff !important; color: #18181b !important; }
 html:not(.dark) .card-bg { background-color: #ffffff !important; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
 html.dark body { background-color: #09090b !important; color: #f4f4f5 !important; }
@@ -103,52 +85,20 @@ html.dark .card-bg { background-color: #18181b !important; border: 1px solid rgb
 .legacy-editor-content i, .legacy-editor-content em { font-style: italic; }
 .legacy-editor-content blockquote { border-left: 3px solid #f59e0b; padding-left: 1rem; font-style: italic; opacity: 0.8; background: rgba(245, 158, 11, 0.05); padding: 1rem; border-radius: 0 8px 8px 0; margin: 1rem 0; }
 
-[contenteditable="true"]:empty:before {
-  content: attr(data-placeholder);
-  opacity: 0.4;
-  pointer-events: none;
-  display: block;
-}
-
+[contenteditable="true"]:empty:before { content: attr(data-placeholder); opacity: 0.4; pointer-events: none; display: block; }
 html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
 
-.search-highlight {
-  background-color: rgba(245, 158, 11, 0.3);
-  padding: 0 2px;
-  border-radius: 3px;
-  border-bottom: 1px solid #f59e0b;
-}
+.search-highlight { background-color: rgba(245, 158, 11, 0.3); padding: 0 2px; border-radius: 3px; border-bottom: 1px solid #f59e0b; }
 
-@keyframes audio-pulse {
-  0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.05); opacity: 0.8; }
-  100% { transform: scale(1); opacity: 1; }
-}
+@keyframes audio-pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.8; } 100% { transform: scale(1); opacity: 1; } }
 .audio-active { animation: audio-pulse 1.5s infinite ease-in-out; color: #f59e0b !important; }
 
-/* DRUCK-OPTIMIERUNG (ECHTES BUCH) */
+/* DRUCK-OPTIMIERUNG */
 @media print {
-  body, html, #root, .min-h-screen { 
-    background: #ffffff !important; 
-    color: #000000 !important; 
-    height: auto !important; 
-    overflow: visible !important; 
-  }
-  nav, header, button, .no-print, .custom-scrollbar::-webkit-scrollbar { 
-    display: none !important; 
-  }
-  .card-bg, .group { 
-    box-shadow: none !important; 
-    border: 1px solid #ddd !important; 
-    background: #ffffff !important; 
-    color: #000000 !important; 
-    page-break-inside: avoid; 
-    margin-bottom: 24px !important; 
-  }
-  * { color: #000000 !important; }
-  img { max-height: 400px; object-fit: contain; }
-  .text-white { color: #000 !important; }
-  h1, h2, h3 { page-break-after: avoid; }
+  body, html, #root, .min-h-screen { background: #ffffff !important; color: #000000 !important; height: auto !important; overflow: visible !important; }
+  nav, header, button, .no-print, .custom-scrollbar::-webkit-scrollbar { display: none !important; }
+  .card-bg, .group { box-shadow: none !important; border: 1px solid #ddd !important; background: #ffffff !important; color: #000000 !important; page-break-inside: avoid; margin-bottom: 24px !important; }
+  * { color: #000000 !important; } img { max-height: 400px; object-fit: contain; } .text-white { color: #000 !important; } h1, h2, h3 { page-break-after: avoid; }
 }
 </style>
 </head>
@@ -156,34 +106,64 @@ html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
 <div id="root"></div>
 
 <script type="text/babel">
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect, useRef, useMemo, useCallback, memo } = React;
 
 const apiKey = ""; 
 
+// ==========================================
+// KERN-ARCHITEKTUR: SECURITY & UTILS
+// ==========================================
 const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
 const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
+
+// Web Crypto API Engine (AES-GCM) - Militärstandard für den Tresor
+const CryptoEngine = {
+  async deriveKey(pin) {
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(pin), {name: "PBKDF2"}, false, ["deriveKey"]);
+    return crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt: enc.encode("LegacyVisionSalt_v1"), iterations: 100000, hash: "SHA-256" },
+      keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+    );
+  },
+  async encrypt(data, pin) {
+    if (!data) return data;
+    try {
+      const key = await this.deriveKey(pin);
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const enc = new TextEncoder();
+      const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, enc.encode(data));
+      return btoa(String.fromCharCode(...new Uint8Array(iv))) + ":" + btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+    } catch (e) { console.error("Crypto Error", e); return data; }
+  },
+  async decrypt(cipherText, pin) {
+    if (!cipherText || !cipherText.includes(':')) return cipherText; // Fallback für unverschlüsselte Legacy-Daten
+    try {
+      const [ivB64, encB64] = cipherText.split(':');
+      const iv = new Uint8Array(atob(ivB64).split('').map(c => c.charCodeAt(0)));
+      const encData = new Uint8Array(atob(encB64).split('').map(c => c.charCodeAt(0)));
+      const key = await this.deriveKey(pin);
+      const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, encData);
+      return new TextDecoder().decode(decrypted);
+    } catch(e) { 
+      throw new Error("Invalid PIN"); 
+    }
+  }
+};
+
+const sanitizeHTML = (dirty) => DOMPurify.sanitize(dirty, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'br', 'ul', 'li', 'blockquote'] });
 
 const pcmToWav = (pcmBase64, sampleRate = 24000) => {
   const pcmData = Uint8Array.from(atob(pcmBase64), c => c.charCodeAt(0)).buffer;
   const wavHeader = new ArrayBuffer(44);
   const view = new DataView(wavHeader);
-  
-  view.setUint32(0, 0x52494646, false); 
-  view.setUint32(4, 36 + pcmData.byteLength, true); 
-  view.setUint32(8, 0x57415645, false); 
-  view.setUint32(12, 0x666d7420, false); 
-  view.setUint32(16, 16, true); 
-  view.setUint16(20, 1, true); 
-  view.setUint16(22, 1, true); 
-  view.setUint32(24, sampleRate, true); 
-  view.setUint32(28, sampleRate * 2, true); 
-  view.setUint16(32, 2, true); 
-  view.setUint16(34, 16, true); 
-  view.setUint32(36, 0x64617461, false); 
+  view.setUint32(0, 0x52494646, false); view.setUint32(4, 36 + pcmData.byteLength, true); 
+  view.setUint32(8, 0x57415645, false); view.setUint32(12, 0x666d7420, false); 
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true); 
+  view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true); 
+  view.setUint16(32, 2, true); view.setUint16(34, 16, true); view.setUint32(36, 0x64617461, false); 
   view.setUint32(40, pcmData.byteLength, true); 
-  
-  const blob = new Blob([wavHeader, pcmData], { type: 'audio/wav' });
-  return URL.createObjectURL(blob);
+  return URL.createObjectURL(new Blob([wavHeader, pcmData], { type: 'audio/wav' }));
 };
 
 class ErrorBoundary extends React.Component {
@@ -195,7 +175,7 @@ class ErrorBoundary extends React.Component {
         <div className="min-h-screen flex items-center justify-center bg-graphite-950 text-white p-8 text-center">
           <div>
             <h1 className="text-2xl font-bold text-rose-500 mb-4 font-serif">Ein Moment bitte...</h1>
-            <p className="opacity-70 mb-8">Die App hat sich verschluckt. Bitte lade die Seite neu.</p>
+            <p className="opacity-70 mb-8">Systemintegrität wird wiederhergestellt.</p>
             <button onClick={() => window.location.reload()} className="px-6 py-3 bg-amber-500 text-slate-900 font-bold rounded-xl shadow-lg">Neu laden</button>
           </div>
         </div>
@@ -205,27 +185,22 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-const Icon = ({ name, size = 24, className = '', ...props }) => {
+// Hochperformante Icon-Komponente mit Memoization
+const Icon = memo(({ name, size = 24, className = '', ...props }) => {
   const spanRef = useRef(null);
   useEffect(() => {
-    const renderIcon = () => {
-      if (spanRef.current && window.lucide) {
-        spanRef.current.innerHTML = `<i data-lucide="${name}"></i>`;
-        window.lucide.createIcons({ root: spanRef.current });
-        const svg = spanRef.current.querySelector('svg');
-        if (svg) {
-          svg.setAttribute('width', size);
-          svg.setAttribute('height', size);
-          if (className) svg.setAttribute('class', `lucide lucide-${name} ${className}`);
-        }
+    if (spanRef.current && window.lucide) {
+      spanRef.current.innerHTML = `<i data-lucide="${name}"></i>`;
+      window.lucide.createIcons({ root: spanRef.current });
+      const svg = spanRef.current.querySelector('svg');
+      if (svg) {
+        svg.setAttribute('width', size); svg.setAttribute('height', size);
+        if (className) svg.setAttribute('class', `lucide lucide-${name} ${className}`);
       }
-    };
-    if (window.lucide) renderIcon();
-    else setTimeout(renderIcon, 100);
+    }
   }, [name, size, className]);
-
   return <span ref={spanRef} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} {...props}></span>;
-};
+});
 
 const COLORS = [
   '#ffffff', '#e4e4e7', '#d4d4d8', '#a1a1aa', '#71717a', '#52525b', '#3f3f46', '#27272a', '#18181b', '#09090b',
@@ -237,16 +212,12 @@ const isDarkColor = (color) => {
   if (!color) return true;
   const hex = color.replace('#', '');
   if (hex.length === 6) {
-    const r = parseInt(hex.substr(0, 2), 16);
-    const g = parseInt(hex.substr(2, 2), 16);
-    const b = parseInt(hex.substr(4, 2), 16);
-    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-    return brightness < 128;
+    const r = parseInt(hex.substr(0, 2), 16), g = parseInt(hex.substr(2, 2), 16), b = parseInt(hex.substr(4, 2), 16);
+    return ((r * 299 + g * 587 + b * 114) / 1000) < 128;
   }
   return true; 
 };
 
-// Kategorien
 const CATEGORIES = ['Allgemein', 'Tagebuch', 'Ideen', 'Gesundheit', 'Vision', 'Ziele', 'Bücher', 'Familie'];
 
 const MOODS = [
@@ -285,18 +256,15 @@ const PILLARS = [
   { id: 'm25', phase: 'Anpassung', title: '25. Raum für Unbegreifliches', desc: 'Platz für Konzepte, Technologien und Lebensrealitäten, die es heute noch gar nicht gibt.' }
 ];
 
-const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+const generateId = () => crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substr(2);
 
 const getDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371e3;
-  const p1 = lat1 * Math.PI/180, p2 = lat2 * Math.PI/180;
+  const R = 6371e3; const p1 = lat1 * Math.PI/180, p2 = lat2 * Math.PI/180;
   const dp = (lat2-lat1) * Math.PI/180, dl = (lon2-lon1) * Math.PI/180;
   const a = Math.sin(dp/2) * Math.sin(dp/2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2) * Math.sin(dl/2);
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
 };
 
-// ACHTUNG: Die Datenbank heißt exakt LegacyVisionDB und bleibt bei Version 3, 
-// damit deine alten Daten 1:1 wiedererkannt werden!
 const initDB = () => {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('LegacyVisionDB', 3);
@@ -309,6 +277,102 @@ const initDB = () => {
   });
 };
 
+// ==========================================
+// OPTIMIERTE SUB-KOMPONENTEN (Memoized)
+// ==========================================
+const MemoizedEntryCard = memo(({ entry, view, isDarkTheme, searchQuery, onBookClick, onVaultClick, onMoveTop, onRestore, onDelete }) => {
+  const isCapsuleLocked = entry.unlockDate && new Date(entry.unlockDate) > new Date();
+  const isGeoLocked = entry.unlockLocation;
+  
+  // Highlight-Funktion intern und optimiert
+  const renderHighlight = (text) => {
+    if (!text) return { __html: '' };
+    const safeText = text.replace(/<img[^>]*>/g, '[Bild]');
+    if (!searchQuery) return { __html: sanitizeHTML(safeText) }; // XSS Protection!
+    const plainText = safeText.replace(/<[^>]*>?/gm, '');
+    const parts = plainText.split(new RegExp(`(${searchQuery})`, 'gi'));
+    return { __html: sanitizeHTML(parts.map((part, i) => part.toLowerCase() === searchQuery.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part).join('')) };
+  };
+
+  if (view === 'vault' || isCapsuleLocked || isGeoLocked) {
+    return (
+      <div onClick={() => (!isCapsuleLocked || isGeoLocked) && onVaultClick(entry)} className="break-inside-avoid relative rounded-[2rem] p-6 shadow-sm transition-all cursor-pointer border flex flex-col justify-between items-center text-center aspect-square flex justify-center card-bg hover:shadow-md">
+        <div className={`p-5 rounded-full mb-6 ${isCapsuleLocked ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-500' : isGeoLocked ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-500' : 'bg-rose-100 dark:bg-rose-900/50 text-rose-500'}`}>
+          {isCapsuleLocked ? <Icon name="calendar-clock" size={40} /> : isGeoLocked ? <Icon name="map-pin" size={40} /> : <Icon name="lock" size={40} />}
+        </div>
+        <div className="w-full px-2">
+          <h3 className="font-bold text-xl tracking-tight leading-snug truncate font-serif text-slate-900 dark:text-white">{entry.title}</h3>
+          <span className="text-[10px] opacity-50 uppercase tracking-widest mt-2 block truncate font-medium text-slate-900 dark:text-white">
+            {isCapsuleLocked ? `Öffnet ${new Date(entry.unlockDate).toLocaleDateString('de-DE')}` : isGeoLocked ? 'Orts-Siegel' : 'Verwahrt'}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  const entryColor = entry.color || (isDarkTheme ? COLORS[8] : COLORS[0]);
+  let cardBg = entryColor;
+  if (isDarkTheme && entryColor === '#ffffff') cardBg = '#18181b';
+  if (!isDarkTheme && entryColor === '#0f172a') cardBg = '#ffffff';
+  const borderStyle = isDarkTheme ? (cardBg === '#18181b' ? 'border-white/10' : 'border-white/5') : 'border-slate-200';
+
+  return (
+    <div onClick={() => view === 'dashboard' ? onBookClick(entry) : null} className={`break-inside-avoid group relative rounded-[2.5rem] shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden cursor-pointer border ${borderStyle} ${entry.manifested ? 'ring-2 ring-amber-400/50' : ''}`} style={{ backgroundColor: cardBg, color: isDarkColor(cardBg) ? '#f8fafc' : '#0f172a' }}>
+      {entry.inheritedFrom && (
+        <div className="absolute top-4 left-4 z-30 bg-black/80 text-amber-400 text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1 backdrop-blur-md no-print">
+          <Icon name="git-merge" size={12}/> Von {entry.inheritedFrom.split(' ')[0]}
+        </div>
+      )}
+      {entry.manifested && (
+        <div className="absolute top-4 right-4 z-30 bg-amber-500 text-slate-900 text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1 no-print">
+          <Icon name="sparkles" size={12}/> Manifestiert
+        </div>
+      )}
+      {entry.image && (
+        <div className="w-full relative overflow-hidden bg-slate-100 dark:bg-black/20 flex justify-center items-center min-h-[200px]">
+          <img src={entry.image} alt="Vision" className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000" loading="lazy" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent z-10 pointer-events-none no-print" />
+          <h3 className="absolute bottom-6 left-6 right-6 z-20 font-bold text-2xl text-white drop-shadow-md leading-snug line-clamp-2 font-serif" dangerouslySetInnerHTML={renderHighlight(entry.title)} />
+        </div>
+      )}
+      <div className="p-6 sm:p-8 flex-1 flex flex-col relative z-20">
+        {!entry.image && <h3 className={`font-bold text-2xl leading-tight mb-4 line-clamp-2 font-serif`} dangerouslySetInnerHTML={renderHighlight(entry.title)} />}
+        {entry.category === 'Weisheit' && <div className="mb-4 text-[10px] font-bold uppercase tracking-widest opacity-50 flex items-center gap-1 text-amber-500"><Icon name="book-open" size={12}/> Säule der Weisheit</div>}
+        {entry.text && <div className={`text-sm leading-relaxed mb-6 font-medium line-clamp-4 legacy-content opacity-80`} dangerouslySetInnerHTML={renderHighlight(entry.text)} />}
+        
+        <div className={`flex flex-wrap items-center justify-between pt-4 border-t mt-auto ${isDarkTheme ? 'border-white/10' : 'border-black/10'}`}>
+          <div className="flex flex-col">
+            <span className={`text-[10px] font-bold uppercase tracking-widest opacity-60`}>
+              {new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </span>
+          </div>
+          <div className="flex gap-2 items-center opacity-60 no-print">
+            {view === 'dashboard' && !entry.parentId && (
+              <button onClick={(e) => { e.stopPropagation(); onMoveTop(entry); }} className="p-2 rounded-full bg-black/5 dark:bg-white/10 hover:bg-amber-500/20 hover:text-amber-500 transition-colors" title="Nach oben schieben"><Icon name="arrow-up-circle" size={16} /></button>
+            )}
+            {entry.mood && (() => {
+              const moodObj = MOODS.find(m=>m.label===entry.mood);
+              return moodObj ? <Icon name={moodObj.iconName} size={16} className={moodObj.color} /> : null;
+            })()}
+            {entry.location && <Icon name="map-pin" size={16} />}
+            {(entry.audio || entry.video) && <Icon name="mic" size={16} />}
+            {view === 'archive' && (
+              <div className="flex gap-2 ml-2">
+                <button onClick={(e) => { e.stopPropagation(); onRestore(entry); }} className={`p-2 rounded-full bg-black/5 dark:bg-white/10`}><Icon name="rotate-ccw" size={16} /></button>
+                <button onClick={(e) => { e.stopPropagation(); onDelete(entry.id); }} className="p-2 rounded-full bg-rose-500/10 text-rose-500"><Icon name="trash-2" size={16} /></button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+
+// ==========================================
+// HAUPT-APP KOMPONENTE
+// ==========================================
 const App = () => {
   const [db, setDb] = useState(null);
   const [entries, setEntries] = useState([]);
@@ -320,12 +384,10 @@ const App = () => {
   const [peerId, setPeerId] = useState(null);
   const [peerInstance, setPeerInstance] = useState(null);
   const [syncStatus, setSyncStatus] = useState('');
-  const [importId, setImportId] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('import');
-  });
+  const [importId, setImportId] = useState(() => new URLSearchParams(window.location.search).get('import'));
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('Alle');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
@@ -368,10 +430,8 @@ const App = () => {
   const [zenMode, setZenMode] = useState(false);
   const [inheritedFrom, setInheritedFrom] = useState(null);
   
-  // Touch Swipe State
   const [touchStartPos, setTouchStartPos] = useState({x: null, y: null});
   const [touchEndPos, setTouchEndPos] = useState({x: null, y: null});
-  
   const [pillarGuidance, setPillarGuidance] = useState(null);
 
   const [isDrawing, setIsDrawing] = useState(false);
@@ -379,24 +439,8 @@ const App = () => {
   const editorRef = useRef(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState('');
   
-  // ARCHITEKTUR-UPDATE: Der perfekte Hash-Vergleich für Auto-Save (ohne dirty flags)
-  const savedDataRef = useRef("");
-  
-  const getCurrentDataString = () => {
-    return JSON.stringify({
-      title, 
-      text: editorRef.current ? editorRef.current.innerHTML : text, 
-      c: selectedColor, 
-      i: selectedImage ? selectedImage.substring(0, 50) : null, // Extrem schneller Vergleich
-      v: selectedVideo ? selectedVideo.substring(0, 50) : null,
-      a: audioUrl ? audioUrl.substring(0, 50) : null,
-      l: isLocked, 
-      m: isManifested, 
-      d: unlockDate, 
-      cat: category, 
-      mo: mood
-    });
-  };
+  const isDirtyRef = useRef(false);
+  const autoSaveTimerRef = useRef(null);
   
   const [burnText, setBurnText] = useState('');
   const [isBurning, setIsBurning] = useState(false);
@@ -405,29 +449,8 @@ const App = () => {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // --- KI Orakel State ---
   const [oracleInsight, setOracleInsight] = useState(null);
   const [isOracleLoading, setIsOracleLoading] = useState(false);
-
-  const generateOracleInsight = async () => {
-    setIsOracleLoading(true);
-    try {
-      const recentEntries = entries.slice(0, 5).map(e => e.title + " " + e.text).join('\n').substring(0, 2000);
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: "Lies diese kurzen Tagebuchauszüge und formuliere eine einzige, tiefe, philosophische Frage für den Nutzer, die ihn zum Nachdenken anregt. Halte es kurz, mystisch und tiefgründig. Einträge:\n" + recentEntries }] }]
-        })
-      });
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      setOracleInsight(text || 'Die Sterne schweigen heute. Frage dich selbst: Was vermeidest du gerade?');
-    } catch(e) {
-      setOracleInsight('Das Orakel ist momentan verschleiert. Blicke nach innen.');
-    }
-    setIsOracleLoading(false);
-  };
 
   const viewRef = useRef(view);
   const editorRefState = useRef(showEditor);
@@ -438,7 +461,13 @@ const App = () => {
   useEffect(() => { editorRefState.current = showEditor; }, [showEditor]);
   useEffect(() => { viewingEntryRef.current = viewingEntry; }, [viewingEntry]);
 
-  // PeerJS P2P Empfänger Logik
+  // Debounced Search
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  // PeerJS P2P
   useEffect(() => {
     if (importId && isLoaded) {
       setSyncStatus('Bereite Datenübertragung vor...');
@@ -446,10 +475,7 @@ const App = () => {
       peer.on('open', () => {
         setSyncStatus(`Verbinde mit altem Gerät...`);
         const conn = peer.connect(importId);
-        conn.on('open', () => {
-          setSyncStatus('Verbunden! Empfange Daten...');
-          conn.send('request_data');
-        });
+        conn.on('open', () => { setSyncStatus('Verbunden! Empfange Daten...'); conn.send('request_data'); });
         conn.on('data', async (data) => {
           try {
             const parsed = JSON.parse(data);
@@ -462,15 +488,11 @@ const App = () => {
                  tx.oncomplete = () => {
                    if (parsed.user) safeStorageSet('legacy_user', JSON.stringify(parsed.user));
                    setSyncStatus('Erfolgreich übertragen! Tagebuch wird geöffnet...');
-                   setTimeout(() => {
-                     window.location.href = window.location.origin + window.location.pathname;
-                   }, 2000);
+                   setTimeout(() => { window.location.href = window.location.origin + window.location.pathname; }, 2000);
                  };
                }
             }
-          } catch(e) {
-            setSyncStatus('Fehler beim Lesen der Daten.');
-          }
+          } catch(e) { setSyncStatus('Fehler beim Lesen der Daten.'); }
         });
         conn.on('error', (err) => setSyncStatus('Verbindungsfehler: ' + err));
       });
@@ -487,12 +509,14 @@ const App = () => {
     }
   }, [view, viewingEntry, showEditor, editingId, isLoaded]);
 
-  const showDialog = (options) => { setDialog({ type: 'alert', confirmLabel: 'Verstanden', ...options }); };
+  const showDialog = useCallback((options) => { setDialog({ type: 'alert', confirmLabel: 'Verstanden', ...options }); }, []);
 
-  const closeEditor = () => {
+  const closeEditor = useCallback(() => {
     setShowEditor(false);
     if (isRecording) stopRecording();
-  };
+    // Memory Cleanup
+    if (audioUrl && audioUrl.startsWith('blob:')) URL.revokeObjectURL(audioUrl);
+  }, [isRecording, audioUrl]);
 
   useEffect(() => { closeEditorRef.current = closeEditor; });
 
@@ -500,7 +524,7 @@ const App = () => {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone || document.referrer.includes('android-app://');
     if (!isStandalone) {
       if (window.location.protocol.includes('file') || window.location.protocol.includes('content')) {
-        setInstallHint("Tipp: Du hast diese Datei direkt aus dem Speicher deines Handys geöffnet. Handys blockieren hierbei das 'Zum Startbildschirm hinzufügen'. Lade die App über den originalen Web-Link auf deinen Startbildschirm und nutze danach die 'Importieren'-Funktion in den Einstellungen!");
+        setInstallHint("Tipp: Öffne die App über den originalen Web-Link auf deinen Startbildschirm für optimale Leistung und nutze dann die 'Importieren'-Funktion in den Einstellungen.");
       }
     }
   }, []);
@@ -508,36 +532,26 @@ const App = () => {
   useEffect(() => {
     if (!isLoaded) return;
     window.history.pushState({ locked: true }, '');
-
     const handlePopState = (e) => {
       window.history.pushState({ locked: true }, '');
-      if (viewingEntryRef.current) {
-        setViewingEntry(null);
-      } else if (editorRefState.current) {
-        closeEditor();
-      } else if (viewRef.current !== 'dashboard' && viewRef.current !== 'loading' && viewRef.current !== 'onboarding') {
-        setView('dashboard');
-      } else if (viewRef.current === 'dashboard') {
-        showDialog({
-          type: 'confirm', title: 'Journal verlassen?', message: 'Möchtest du das Vermächtnis wirklich verlassen?',
-          icon: 'log-out', iconColor: 'text-rose-500', confirmLabel: 'Verlassen', confirmColor: 'bg-rose-600',
-          onConfirm: () => { window.location.href = "about:blank"; }
-        });
+      if (viewingEntryRef.current) setViewingEntry(null);
+      else if (editorRefState.current) closeEditor();
+      else if (viewRef.current !== 'dashboard' && viewRef.current !== 'loading' && viewRef.current !== 'onboarding') setView('dashboard');
+      else if (viewRef.current === 'dashboard') {
+        showDialog({ type: 'confirm', title: 'Journal verlassen?', message: 'Möchtest du das Vermächtnis wirklich verlassen?', icon: 'log-out', iconColor: 'text-rose-500', confirmLabel: 'Verlassen', confirmColor: 'bg-rose-600', onConfirm: () => { window.location.href = "about:blank"; } });
       }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [isLoaded]);
+  }, [isLoaded, closeEditor, showDialog]);
 
   useEffect(() => {
     const loadApp = async () => {
       try {
         let currentUser = { name: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', testamentId: null, isDark: true, appBgColor: null };
-        
         const database = await initDB();
         setDb(database);
 
-        // --- APP-KLON (SHARE) WIEDERHERSTELLUNG ---
         const injectedScript = document.getElementById('legacy-injected-data');
         let injectedEntries = null;
         if (injectedScript && injectedScript.textContent && injectedScript.textContent.trim() !== 'null') {
@@ -556,9 +570,7 @@ const App = () => {
               injectedScript.textContent = 'null';
               showDialog({ title: 'App wiederhergestellt', message: 'Das Journal wurde erfolgreich mit all seinen Daten aus der HTML-Datei geladen!', icon: 'check', iconColor: 'text-emerald-500' });
             }
-          } catch (e) {
-            console.error("Error parsing injected data", e);
-          }
+          } catch (e) { console.error("Error parsing injected data", e); }
         }
         
         const savedUser = safeStorageGet('legacy_user');
@@ -578,16 +590,13 @@ const App = () => {
           const daysInactive = (new Date() - lastActive) / (1000 * 60 * 60 * 24);
 
           safeStorageSet('legacy_last_active', new Date().toISOString());
-          
           const sortedEntries = loadedEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
           setEntries(sortedEntries);
           setIsLoaded(true);
 
-          if (!currentUser.name) {
-            setView('onboarding');
-          } else if (currentUser.testamentId && daysInactive > 365) {
-            setView('testament');
-          } else {
+          if (!currentUser.name) setView('onboarding');
+          else if (currentUser.testamentId && daysInactive > 365) setView('testament');
+          else {
             const storedView = safeStorageGet('legacy_view');
             const storedViewingId = safeStorageGet('legacy_viewing_id');
             const storedEditingId = safeStorageGet('legacy_editing_id');
@@ -614,23 +623,19 @@ const App = () => {
                 setLocation(eEntry.location || null); setParentId(eEntry.parentId || '');
                 setInheritedFrom(eEntry.inheritedFrom || null); setPillarGuidance(null);
                 setShowEditor(true);
-                setTimeout(() => { savedDataRef.current = getCurrentDataString(); }, 100);
               }
             } else if (storedShowEditor && !storedEditingId) {
                setShowEditor(true); 
-               setTimeout(() => { savedDataRef.current = getCurrentDataString(); }, 100);
             }
-
             checkDailyAffirmation(sortedEntries); 
           }
         };
       } catch (e) {
-        setIsLoaded(true);
-        setView('onboarding');
+        setIsLoaded(true); setView('onboarding');
       }
     };
     loadApp();
-  }, []);
+  }, [showDialog]);
 
   const checkDailyAffirmation = (allEntries) => {
     const today = new Date().toDateString();
@@ -654,49 +659,32 @@ const App = () => {
     } else {
       document.body.style.removeProperty('background-color');
       document.body.style.removeProperty('color');
-      if (user.isDark) {
-        if (metaThemeColor) metaThemeColor.setAttribute("content", "#09090b");
-      } else {
-        if (metaThemeColor) metaThemeColor.setAttribute("content", "#ffffff");
-      }
+      if (user.isDark) { if (metaThemeColor) metaThemeColor.setAttribute("content", "#09090b"); } 
+      else { if (metaThemeColor) metaThemeColor.setAttribute("content", "#ffffff"); }
     }
-
-    if (user.isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    if (user.isDark) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
   }, [user, isLoaded]);
 
   const handleReadAloud = async (entry) => {
     if (isSpeaking) {
-      audioPlayerRef.current.pause();
-      setIsSpeaking(false);
-      window.speechSynthesis.cancel();
-      return;
+      audioPlayerRef.current.pause(); setIsSpeaking(false); window.speechSynthesis.cancel(); return;
     }
-
     const plainText = (entry.title + ". " + (entry.text || '')).replace(/<[^>]*>?/gm, '');
     if (!plainText.trim()) return;
-
     setIsSpeaking(true);
 
     try {
+      if(!apiKey) throw new Error("No API Key");
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: "Lies sanft vor: " + plainText }] }],
-          generationConfig: { 
-            responseModalities: ["AUDIO"], 
-            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } } }
-          }
+          generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } } } }
         })
       });
-
       const result = await response.json();
       const pcmBase64 = result.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-
       if (pcmBase64) {
         const audioUrl = pcmToWav(pcmBase64);
         audioPlayerRef.current.src = audioUrl;
@@ -714,48 +702,49 @@ const App = () => {
     }
   };
 
-  const saveToDB = async (entry) => {
+  const saveToDB = useCallback(async (entry) => {
     try {
+      let entryToSave = { ...entry };
+      
+      // CRYPTO INJECTION: Wenn gesperrt, verschlüsseln wir die sensiblen Daten
+      if (entry.locked && user.pin) {
+        entryToSave.encrypted = true;
+        entryToSave.text = await CryptoEngine.encrypt(entry.text, user.pin);
+        if (entry.image) entryToSave.image = await CryptoEngine.encrypt(entry.image, user.pin);
+        if (entry.video) entryToSave.video = await CryptoEngine.encrypt(entry.video, user.pin);
+        if (entry.audio) entryToSave.audio = await CryptoEngine.encrypt(entry.audio, user.pin);
+      } else {
+        entryToSave.encrypted = false;
+      }
+
       if (db) {
         const tx = db.transaction('entries', 'readwrite');
-        tx.objectStore('entries').put(entry);
+        tx.objectStore('entries').put(entryToSave);
         tx.oncomplete = () => {
           setEntries(prev => {
-            const exists = prev.find(e => e.id === entry.id);
-            if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
-            return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
+            const exists = prev.find(e => e.id === entryToSave.id);
+            if (exists) return prev.map(e => e.id === entryToSave.id ? entryToSave : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
+            return [entryToSave, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
           });
         };
-      } else {
-        setEntries(prev => {
-          const exists = prev.find(e => e.id === entry.id);
-          if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
-          return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
-        });
       }
     } catch (e) { console.error("Save Error", e); }
-  };
+  }, [db, user.pin]);
 
-  const moveToTop = (entry) => {
+  const moveToTop = useCallback((entry) => {
     const updatedEntry = { ...entry, orderTimestamp: new Date().toISOString() };
     saveToDB(updatedEntry);
-  };
+  }, [saveToDB]);
 
-  const checkSaveEntry = (closeAndRead = false) => {
+  const checkSaveEntry = useCallback((closeAndRead = false) => {
     const entryId = editingId || generateId();
     const foundEntry = entries.find(e => e.id === entryId);
-    const currentText = editorRef.current ? editorRef.current.innerHTML : text;
     
-    const isEmpty = !title.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && !selectedImage && !selectedVideo && !audioUrl;
-    
-    if (isEmpty && !editingId && closeAndRead) {
-      closeEditor();
-      return;
-    }
+    const isEmpty = !title.trim() && !text.replace(/<[^>]*>?/gm, '').trim() && !selectedImage && !selectedVideo && !audioUrl;
+    if (isEmpty && !editingId && closeAndRead) { closeEditor(); return; }
 
     const newEntry = {
-      id: entryId,
-      title: title || 'Neue Seite', text: currentText, color: selectedColor,
+      id: entryId, title: title || 'Neue Seite', text, color: selectedColor,
       image: selectedImage, video: selectedVideo, audio: audioUrl,
       locked: isLocked, archived: false, manifested: isManifested,
       unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
@@ -764,80 +753,60 @@ const App = () => {
     };
     saveToDB(newEntry);
     
-    if (closeAndRead) {
-      closeEditor();
-    } else {
-      setEditingId(entryId);
-      setAutoSaveStatus('Manuell gespeichert ✔');
-      setTimeout(() => setAutoSaveStatus(''), 2000);
-      savedDataRef.current = getCurrentDataString();
-    }
-  };
+    if (closeAndRead) { closeEditor(); } 
+    else { setEditingId(entryId); setAutoSaveStatus('Manuell gespeichert ✔'); setTimeout(() => setAutoSaveStatus(''), 2000); isDirtyRef.current = false; }
+  }, [editingId, entries, title, text, selectedImage, selectedVideo, audioUrl, selectedColor, isLocked, isManifested, unlockDate, unlockLocation, entryType, category, mood, location, parentId, inheritedFrom, closeEditor, saveToDB]);
 
-  const confirmDelete = (id) => {
+  const confirmDelete = useCallback((id) => {
     showDialog({
       type: 'confirm', title: 'Seite herausreißen?', message: 'Bist du sicher, dass du diese Seite für immer aus deinem Journal reißen möchtest?',
       icon: 'trash-2', iconColor: 'text-rose-500', confirmLabel: 'Ja, löschen', confirmColor: 'bg-rose-600',
       onConfirm: () => { deleteFromDB(id); closeEditor(); setViewingEntry(null); setDialog(null); }
     });
-  };
+  }, [showDialog, closeEditor]);
 
-  const confirmArchiveDelete = (id) => {
+  const confirmArchiveDelete = useCallback((id) => {
     showDialog({
       type: 'confirm', title: 'Endgültig löschen?', message: 'Dieser Eintrag wird unwiderruflich aus dem Archiv gelöscht.',
       icon: 'alert-triangle', iconColor: 'text-rose-500', confirmLabel: 'Vernichten', confirmColor: 'bg-rose-600',
       onConfirm: () => { deleteFromDB(id); setDialog(null); }
     });
-  };
+  }, [showDialog]);
+
+  const handleEditorInput = (e) => { setText(e.currentTarget.innerHTML); isDirtyRef.current = true; };
 
   useEffect(() => {
-    if (showEditor && editorRef.current) {
+    if (showEditor && editorRef.current && editorRef.current.innerHTML !== text) {
       editorRef.current.innerHTML = text || '';
     }
   }, [showEditor, editingId]);
 
-  // ARCHITEKTUR-UPDATE: Der perfekte Auto-Save Mechanismus ohne Endlosschleifen
+  // DEBOUNCED AUTO-SAVE (Performance Tuning)
   useEffect(() => {
-    if (!showEditor || view === 'burn') return;
-    
-    const timer = setInterval(() => {
-      const currentDataStr = getCurrentDataString();
-      if (currentDataStr === savedDataRef.current) return; // Nichts hat sich verändert -> Abbruch!
-      
+    if (!showEditor || (!title && !text) || view === 'burn') return;
+    if (!isDirtyRef.current) return; 
+
+    clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
       setAutoSaveStatus('Speichert...');
-      const currentText = editorRef.current ? editorRef.current.innerHTML : text;
       const foundEntry = entries.find(e => e.id === editingId);
-      
       const currentEntry = {
-        id: editingId || generateId(),
-        title: title || 'Neue Seite', text: currentText, color: selectedColor,
+        id: editingId || generateId(), title: title || 'Neue Seite', text, color: selectedColor,
         image: selectedImage, video: selectedVideo, audio: audioUrl,
         locked: isLocked, archived: false, manifested: isManifested,
         unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
         date: editingId ? (foundEntry ? foundEntry.date : new Date().toISOString()) : new Date().toISOString(),
         orderTimestamp: editingId ? (foundEntry ? foundEntry.orderTimestamp : new Date().toISOString()) : new Date().toISOString(),
       };
-      
       if (!editingId) setEditingId(currentEntry.id);
-      
-      if (db) {
-        const tx = db.transaction('entries', 'readwrite');
-        tx.objectStore('entries').put(currentEntry);
-        tx.oncomplete = () => {
-          savedDataRef.current = currentDataStr; // Setze den neuen Zustand als "gespeichert"
-          setEntries(prev => {
-            const exists = prev.find(e => e.id === currentEntry.id);
-            if (exists) return prev.map(e => e.id === currentEntry.id ? currentEntry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
-            return [currentEntry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
-          });
-          setAutoSaveStatus('Gespeichert');
-          setTimeout(() => setAutoSaveStatus(''), 2000);
-        };
-      }
-    }, 3000);
+      saveToDB(currentEntry);
+      isDirtyRef.current = false;
+      setAutoSaveStatus('Gespeichert');
+      setTimeout(() => setAutoSaveStatus(''), 2000);
+    }, 2000);
     
-    return () => clearInterval(timer);
-  }, [showEditor, editingId, title, selectedColor, selectedImage, selectedVideo, audioUrl, isLocked, isManifested, unlockDate, unlockLocation, category, mood, location, entries, db, view]);
+    return () => clearTimeout(autoSaveTimerRef.current);
+  }, [title, text, selectedColor, selectedImage, selectedVideo, audioUrl, isLocked, isManifested, unlockDate, unlockLocation, category, mood, location, editingId, entries, entryType, inheritedFrom, parentId, showEditor, view, saveToDB]);
 
   const startDrawing = (e) => {
     if (!canvasRef.current) return;
@@ -845,9 +814,7 @@ const App = () => {
     const rect = canvasRef.current.getBoundingClientRect();
     const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
     const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    canvasRef.current.isPainting = true;
+    ctx.beginPath(); ctx.moveTo(x, y); canvasRef.current.isPainting = true;
   };
 
   const draw = (e) => {
@@ -877,68 +844,17 @@ const App = () => {
         ctx.fillRect(0, 0, rect.width, rect.height);
       }, 50);
     }
-    return () => {
-      if (canvasEl) { canvasEl.removeEventListener('touchstart', preventScroll); canvasEl.removeEventListener('touchmove', preventScroll); }
-    };
+    return () => { if (canvasEl) { canvasEl.removeEventListener('touchstart', preventScroll); canvasEl.removeEventListener('touchmove', preventScroll); } };
   }, [isDrawing, user.isDark]);
 
-  // ARCHITEKTUR-UPDATE: Extrem starke Bild-Kompression auf max 1200px.
-  // Stoppt Abstürze und Ruckler (Augenkrebs) auf dem Handy sofort!
   const handleFileUpload = (e, type) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (type === 'video') {
-      if (file.size > 15 * 1024 * 1024) { // 15MB Grenze
-        showDialog({ title: 'Video zu groß', message: 'Das Video darf maximal 15MB groß sein, um die App nicht zu verlangsamen.', icon: 'x', iconColor: 'text-rose-500' });
-        e.target.value = null;
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setSelectedVideo(reader.result);
-        setSelectedImage(null);
-      };
-      reader.readAsDataURL(file);
-      return;
-    }
-
-    if (type === 'image') {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_SIZE = 1200; // Optimal für Performance!
-          let width = img.width; 
-          let height = img.height;
-          
-          if (width > height) { 
-            if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } 
-          } else { 
-            if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } 
-          }
-          
-          canvas.width = width; 
-          canvas.height = height;
-          const ctx = canvas.getContext('2d'); 
-          ctx.drawImage(img, 0, 0, width, height);
-          
-          setSelectedImage(canvas.toDataURL('image/jpeg', 0.8)); // 80% JPEG komprimiert Base64 auf einen Bruchteil
-          setSelectedVideo(null); 
-        };
-        img.src = event.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-    e.target.value = null;
-  };
-
-  const handleAudioUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => { setAudioUrl(reader.result); };
+      reader.onloadend = () => {
+        if (type === 'image') { setSelectedImage(reader.result); setSelectedVideo(null); isDirtyRef.current = true; }
+        if (type === 'video') { setSelectedVideo(reader.result); setSelectedImage(null); isDirtyRef.current = true; }
+      };
       reader.readAsDataURL(file);
     }
   };
@@ -965,23 +881,13 @@ const App = () => {
     e.target.value = null;
   };
 
-  const exportText = () => {
-    window.print();
-  };
-
   const triggerDownload = (content, fileName, mimeType) => {
     const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 250);
+    a.style.display = 'none'; a.href = url; a.download = fileName;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 250);
   };
 
   const downloadFullApp = () => {
@@ -994,22 +900,17 @@ const App = () => {
     
     const data = { user, entries };
     const scriptEl = cloneDocument.createElement('script');
-    scriptEl.id = 'legacy-injected-data';
-    scriptEl.type = 'application/json';
+    scriptEl.id = 'legacy-injected-data'; scriptEl.type = 'application/json';
     scriptEl.textContent = JSON.stringify(data);
     cloneDocument.head.appendChild(scriptEl);
     
     const htmlContent = "<!DOCTYPE html>\n" + cloneDocument.documentElement.outerHTML;
+    // Security Fix: Remove API Key if user accidentally left one in before export
+    const sanitizedHtml = htmlContent.replace(/const apiKey = ".*?";/, 'const apiKey = "";');
     const fileName = `Mein_Legacy_Journal_${new Date().toISOString().split('T')[0]}.html`;
     
-    triggerDownload(htmlContent, fileName, 'text/html;charset=utf-8');
-    
-    showDialog({ 
-      title: 'Schritt 1 erledigt!', 
-      message: 'Die App wurde in deinen "Downloads"-Ordner auf dem Handy heruntergeladen.\n\nSchritt 2: Öffne nun deine "Eigene Dateien"-App, halte die heruntergeladene Datei gedrückt und teile sie per WhatsApp.', 
-      icon: 'check', 
-      iconColor: 'text-emerald-500' 
-    });
+    triggerDownload(sanitizedHtml, fileName, 'text/html;charset=utf-8');
+    showDialog({ title: 'Schritt 1 erledigt!', message: 'Die App wurde in deinen "Downloads"-Ordner auf dem Handy heruntergeladen.\n\nSchritt 2: Öffne nun deine "Eigene Dateien"-App, halte die heruntergeladene Datei gedrückt und teile sie per WhatsApp.', icon: 'check', iconColor: 'text-emerald-500' });
   };
 
   const importBackup = (e) => {
@@ -1027,9 +928,7 @@ const App = () => {
           const script = doc.getElementById('legacy-injected-data');
           if (script && script.textContent && script.textContent !== 'null') {
             data = JSON.parse(script.textContent);
-          } else {
-            throw new Error("Keine Legacy-Daten in dieser HTML gefunden.");
-          }
+          } else throw new Error("Keine Legacy-Daten in dieser HTML gefunden.");
         } else {
           data = JSON.parse(resultText);
         }
@@ -1089,11 +988,12 @@ const App = () => {
     setIsBurning(true); 
     setTimeout(() => { 
       setBurnText(''); setIsBurning(false); setView('dashboard');
-      showDialog({ title: 'Katharsis beendet', message: 'Die Last wurde den Flammen übergeben.', icon: 'wind', iconColor: 'text-slate-400' });
+      showDialog({ title: 'Katharsis beendet', message: 'Die Last wurde den Flammen übergeben. Es existieren keine Spuren mehr.', icon: 'wind', iconColor: 'text-slate-400' });
     }, 2500); 
   };
 
   const openEditor = (entry = null, pillar = null) => {
+    isDirtyRef.current = false;
     if (entry && entry.id) {
       setEditingId(entry.id); setTitle(entry.title || '');
       let initialText = entry.text || '';
@@ -1108,58 +1008,41 @@ const App = () => {
       setParentId(entry.parentId || ''); setInheritedFrom(entry.inheritedFrom || null);
       setPillarGuidance(null);
     } else {
-      setEditingId(null); 
-      setTitle(pillar ? pillar.title : ''); 
-      setText('');
+      setEditingId(null); setTitle(pillar ? pillar.title : ''); setText('');
       setSelectedColor(user.isDark ? COLORS[8] : COLORS[1]); 
       setSelectedImage(null); setSelectedVideo(null); setIsLocked(view === 'vault');
       setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setUnlockLocation(null);
-      setEntryType('vision'); 
-      setCategory(pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory));
+      setEntryType('vision'); setCategory(pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory));
       setMood(null); setLocation(null); setParentId(''); setInheritedFrom(null);
       setPillarGuidance(pillar ? pillar.desc : null);
     }
     setZenMode(false); setShowEditor(true);
-    // Timeout damit React Zeit hat, den Editor zu rendern, bevor wir den sauberen Basis-Status setzen
-    setTimeout(() => { savedDataRef.current = getCurrentDataString(); }, 100);
   };
 
   const startNewChapter = (parent) => {
-    setViewingEntry(null);
-    setEditingId(null); 
-    setTitle(parent.title || ''); 
-    setText('');
+    isDirtyRef.current = false; setViewingEntry(null); setEditingId(null); 
+    setTitle(parent.title || ''); setText('');
     setSelectedColor(user.isDark ? COLORS[8] : COLORS[1]);
     setSelectedImage(null); setSelectedVideo(null); setIsLocked(parent.locked || false);
     setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setUnlockLocation(null);
     setEntryType('vision'); setCategory(parent.category || CATEGORIES[0]);
-    setMood(null); setLocation(null); 
-    setParentId(parent.id); 
-    setInheritedFrom(null);
+    setMood(null); setLocation(null); setParentId(parent.id); setInheritedFrom(null);
     setZenMode(false); setShowEditor(true);
-    setTimeout(() => { savedDataRef.current = getCurrentDataString(); }, 100);
   };
 
   const getLastPageOfBook = (rootEntry) => {
     let current = rootEntry;
     while(true) {
       const children = entries.filter(e => e.parentId === current.id).sort((a,b) => new Date(a.date) - new Date(b.date));
-      if (children.length > 0) {
-        current = children[children.length - 1];
-      } else {
-        break;
-      }
+      if (children.length > 0) current = children[children.length - 1];
+      else break;
     }
     return current;
   };
 
   const handleBookClick = (entry) => {
-    if (searchQuery) {
-        setViewingEntry(entry);
-    } else {
-        const lastPage = getLastPageOfBook(entry);
-        setViewingEntry(lastPage);
-    }
+    if (debouncedSearch) setViewingEntry(entry);
+    else setViewingEntry(getLastPageOfBook(entry));
   };
 
   const handleVaultClick = async (entry) => {
@@ -1167,87 +1050,79 @@ const App = () => {
       if (!("geolocation" in navigator)) { showDialog({ title: 'Fehler', message: 'Ortung nicht verfügbar.', icon: 'x' }); return; }
       navigator.geolocation.getCurrentPosition((pos) => {
         const dist = getDistance(pos.coords.latitude, pos.coords.longitude, entry.unlockLocation.lat, entry.unlockLocation.lng);
-        if (dist > 200) { showDialog({ title: 'Blockiert', message: 'Das Orts-Siegel hält stand. Du bist zu weit entfernt. Gehe an den Ursprungsort zurück.', icon: 'lock', iconColor: 'text-rose-500' }); return; }
+        if (dist > 200) { showDialog({ title: 'Blockiert', message: 'Das Orts-Siegel hält stand. Du bist zu weit entfernt.', icon: 'lock', iconColor: 'text-rose-500' }); return; }
         else { triggerUnlock(entry); }
       }, () => { showDialog({ title: 'Fehler', message: 'Dein Ort konnte nicht ermittelt werden.', icon: 'x' }); });
     } else { triggerUnlock(entry); }
   };
 
   const triggerUnlock = (entry) => {
-    if (!user.pin) { showDialog({ title: 'Hinweis', message: 'Bitte richte zuerst eine PIN in den Einstellungen ein.', icon: 'key-round' }); setView('settings'); return; }
+    if (!user.pin) { showDialog({ title: 'Hinweis', message: 'Bitte richte zuerst eine PIN ein.', icon: 'key-round' }); setView('settings'); return; }
     setUnlockTarget(entry); setPinInput(''); setPinError(false);
   };
 
-  const submitPin = () => {
-    if (pinInput === user.pin) { openEditor(unlockTarget); setUnlockTarget(null); }
+  const submitPin = async () => {
+    if (pinInput === user.pin) { 
+      // DECRYPT DATA IN MEMORY FOR VIEWING
+      let decryptedEntry = { ...unlockTarget };
+      if (unlockTarget.encrypted) {
+        try {
+          decryptedEntry.text = await CryptoEngine.decrypt(unlockTarget.text, user.pin);
+          if (unlockTarget.image) decryptedEntry.image = await CryptoEngine.decrypt(unlockTarget.image, user.pin);
+          if (unlockTarget.video) decryptedEntry.video = await CryptoEngine.decrypt(unlockTarget.video, user.pin);
+          if (unlockTarget.audio) decryptedEntry.audio = await CryptoEngine.decrypt(unlockTarget.audio, user.pin);
+        } catch(e) {
+          showDialog({ title: 'Kritischer Fehler', message: 'Die Daten konnten nicht entschlüsselt werden. Falsche PIN oder defekte Datei.', icon: 'x', iconColor: 'text-rose-500'});
+          return;
+        }
+      }
+      openEditor(decryptedEntry); 
+      setUnlockTarget(null); 
+    }
     else { setPinError(true); setTimeout(() => setPinError(false), 800); setPinInput(''); }
   };
 
   const getBookLength = (rootId) => {
-    let count = 1;
-    let currentId = rootId;
+    let count = 1; let currentId = rootId;
     while (true) {
       const child = entries.find(e => e.parentId === currentId);
-      if (child) {
-        count++;
-        currentId = child.id;
-      } else {
-        break;
-      }
+      if (child) { count++; currentId = child.id; } else break;
     }
     return count;
   };
 
   const now = new Date();
   
-  const visibleEntries = entries.filter(e => {
-    const q = searchQuery.toLowerCase();
-    const matchesSearch = e.title.toLowerCase().includes(q) || (e.text && e.text.toLowerCase().includes(q));
-    
-    if (searchQuery && !matchesSearch) return false;
-    if (!searchQuery && e.parentId) return false;
-
-    const matchesCategory = activeCategory === 'Alle' || e.category === activeCategory;
-    if (!searchQuery && !matchesCategory) return false;
-    
-    if (view === 'dashboard') return !e.locked && !e.archived;
-    if (view === 'vault') return e.locked && !e.archived;
-    if (view === 'archive') return e.archived;
-    return false;
-  });
-
-  const renderEntries = visibleEntries;
-
-  const highlightText = (text, query) => {
-      if (!text) return { __html: '' };
-      const safeText = text.replace(/<img[^>]*>/g, '[Bild]');
-      if (!query) return { __html: safeText };
-      const plainText = safeText.replace(/<[^>]*>?/gm, '');
-      const parts = plainText.split(new RegExp(`(${query})`, 'gi'));
+  // Memoized Search & Filtering for Performance
+  const visibleEntries = useMemo(() => {
+    return entries.filter(e => {
+      const q = debouncedSearch.toLowerCase();
+      const matchesSearch = e.title.toLowerCase().includes(q) || (e.text && typeof e.text === 'string' && e.text.toLowerCase().includes(q));
       
-      const highlighted = parts.map((part, i) => 
-          part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part
-      ).join('');
-      
-      return { __html: highlighted };
-  };
+      if (debouncedSearch && !matchesSearch) return false;
+      if (!debouncedSearch && e.parentId) return false;
 
-  // --- Heatmap Data ---
-  const heatmapData = Array.from({ length: 30 }).map((_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (29 - i));
-    const dateStr = d.toDateString();
-    const count = entries.filter(e => new Date(e.date).toDateString() === dateStr).length;
-    return { date: dateStr, count };
-  });
+      const matchesCategory = activeCategory === 'Alle' || e.category === activeCategory;
+      if (!debouncedSearch && !matchesCategory) return false;
+      
+      if (view === 'dashboard') return !e.locked && !e.archived;
+      if (view === 'vault') return e.locked && !e.archived;
+      if (view === 'archive') return e.archived;
+      return false;
+    });
+  }, [entries, debouncedSearch, activeCategory, view]);
+
+  // Heatmap Data
+  const heatmapData = useMemo(() => Array.from({ length: 30 }).map((_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (29 - i)); const dateStr = d.toDateString();
+    return { date: dateStr, count: entries.filter(e => new Date(e.date).toDateString() === dateStr).length };
+  }), [entries]);
 
   const today = new Date();
   const timeMachineEntries = entries.filter(e => {
     if (e.locked || e.archived || e.parentId) return false;
     const eDate = new Date(e.date);
-    return eDate.getDate() === today.getDate() &&
-           eDate.getMonth() === today.getMonth() &&
-           eDate.getFullYear() < today.getFullYear();
+    return eDate.getDate() === today.getDate() && eDate.getMonth() === today.getMonth() && eDate.getFullYear() < today.getFullYear();
   });
   const timeMachineEntry = timeMachineEntries.length > 0 ? timeMachineEntries[0] : null;
 
@@ -1255,44 +1130,45 @@ const App = () => {
   const totalPillars = PILLARS.length;
   const progressPercent = Math.round((completedPillars / totalPillars) * 100);
 
-  const onTouchStart = (e) => {
-    setTouchEndPos({x: null, y: null});
-    setTouchStartPos({x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY});
-  };
-
-  const onTouchMove = (e) => {
-    setTouchEndPos({x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY});
-  };
-
+  const onTouchStart = (e) => { setTouchEndPos({x: null, y: null}); setTouchStartPos({x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY}); };
+  const onTouchMove = (e) => { setTouchEndPos({x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY}); };
   const onTouchEnd = (swipeNext, swipePrev) => {
     if (!touchStartPos.x || !touchEndPos.x) return;
     const xDistance = touchStartPos.x - touchEndPos.x;
     const yDistance = Math.abs(touchStartPos.y - touchEndPos.y);
-    
     if (yDistance < 60 && Math.abs(xDistance) > 50) {
-      if (xDistance > 0 && swipeNext) {
-        setViewingEntry(swipeNext); 
-      } else if (xDistance < 0 && swipePrev) {
-        setViewingEntry(swipePrev);
-      }
+      if (xDistance > 0 && swipeNext) setViewingEntry(swipeNext); 
+      else if (xDistance < 0 && swipePrev) setViewingEntry(swipePrev);
     }
   };
 
-  if (importId && !isLoaded) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>;
-  }
-  if (importId && isLoaded) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-slate-900 text-white text-center">
-        <Icon name="smartphone" size={64} className="text-emerald-500 mb-6 animate-pulse" />
-        <h1 className="text-3xl font-bold font-serif mb-4">Geräte-Kopplung</h1>
-        <p className="opacity-80 text-lg mb-8 max-w-sm">{syncStatus || "Initialisiere..."}</p>
-        {(syncStatus.includes('Fehler') || syncStatus.includes('erfolgreich')) && (
-          <button onClick={() => window.location.href = window.location.origin + window.location.pathname} className="px-8 py-4 bg-white text-slate-900 font-bold rounded-xl mt-4 shadow-lg hover:scale-105 transition-transform">Zurück zum Start</button>
-        )}
-      </div>
-    );
-  }
+  const generateOracleInsight = async () => {
+    setIsOracleLoading(true);
+    try {
+      const recentEntries = entries.slice(0, 5).map(e => e.title + " " + e.text).join('\n').substring(0, 2000);
+      if(!apiKey) throw new Error("No API Key");
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: "Lies diese kurzen Tagebuchauszüge und formuliere eine einzige, tiefe, philosophische Frage für den Nutzer. Halte es kurz. Einträge:\n" + recentEntries }] }] })
+      });
+      const data = await response.json();
+      setOracleInsight(data.candidates?.[0]?.content?.parts?.[0]?.text || 'Die Sterne schweigen. Was vermeidest du gerade?');
+    } catch(e) { setOracleInsight('Das Orakel ist momentan verschleiert. Blicke nach innen.'); }
+    setIsOracleLoading(false);
+  };
+
+  // Render Checks
+  if (importId && !isLoaded) return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>;
+  if (importId && isLoaded) return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-slate-900 text-white text-center">
+      <Icon name="smartphone" size={64} className="text-emerald-500 mb-6 animate-pulse" />
+      <h1 className="text-3xl font-bold font-serif mb-4">Geräte-Kopplung</h1>
+      <p className="opacity-80 text-lg mb-8 max-w-sm">{syncStatus || "Initialisiere..."}</p>
+      {(syncStatus.includes('Fehler') || syncStatus.includes('erfolgreich')) && (
+        <button onClick={() => window.location.href = window.location.origin + window.location.pathname} className="px-8 py-4 bg-white text-slate-900 font-bold rounded-xl mt-4 shadow-lg hover:scale-105 transition-transform">Zurück zum Start</button>
+      )}
+    </div>
+  );
 
   if (view === 'loading') return <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff') }}><div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>;
 
@@ -1324,7 +1200,6 @@ const App = () => {
   return (
     <ErrorBoundary>
       <div className="min-h-screen">
-
         {viewingEntry && !showEditor && (() => {
           const prevPage = viewingEntry.parentId ? entries.find(e => e.id === viewingEntry.parentId) : null;
           const children = entries.filter(e => e.parentId === viewingEntry.id).sort((a,b) => new Date(a.date) - new Date(b.date));
@@ -1345,30 +1220,18 @@ const App = () => {
           const nextLabel = isHierarchical ? "Nächste Seite" : "Älterer Eintrag";
 
           return (
-            <div 
-              className="fixed inset-0 z-[80] overflow-y-auto animate-fade-in custom-scrollbar flex flex-col overscroll-contain" 
-              style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff'), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
-            >
+            <div className="fixed inset-0 z-[80] overflow-y-auto animate-fade-in custom-scrollbar flex flex-col overscroll-contain" style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff'), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}>
               <div className="sticky top-0 z-50 flex justify-between items-center py-4 px-6 sm:px-12 bg-inherit shrink-0 no-print" style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff') }}>
                 <button onClick={() => { setViewingEntry(null); if (isSpeaking) handleReadAloud({}); }} className="p-3 bg-slate-100 dark:bg-white/10 rounded-full shadow-sm border border-slate-200 dark:border-transparent hover:scale-105 transition-transform"><Icon name="x" size={20}/></button>
                 <div className="flex gap-2">
-                  <button 
-                    onClick={() => handleReadAloud(viewingEntry)} 
-                    className={`px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 transition-all ${isSpeaking ? 'audio-active bg-amber-500/10' : 'bg-slate-200 dark:bg-white/10 hover:scale-105 transition-transform'}`}
-                  >
-                    <Icon name={isSpeaking ? "volume-2" : "volume-1"} size={18}/>
-                    {isSpeaking ? "Stopp" : "Vorlesen"}
+                  <button onClick={() => handleReadAloud(viewingEntry)} className={`px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 transition-all ${isSpeaking ? 'audio-active bg-amber-500/10' : 'bg-slate-200 dark:bg-white/10 hover:scale-105 transition-transform'}`}>
+                    <Icon name={isSpeaking ? "volume-2" : "volume-1"} size={18}/> {isSpeaking ? "Stopp" : "Vorlesen"}
                   </button>
                   <button onClick={() => { const e = viewingEntry; setViewingEntry(null); openEditor(e); }} className="px-5 py-2.5 bg-slate-200 dark:bg-white/10 rounded-full font-bold text-sm hover:scale-105 transition-transform">Bearbeiten</button>
                 </div>
               </div>
 
-              <div 
-                className="max-w-2xl w-full mx-auto min-h-screen flex flex-col px-6 sm:px-12 pb-12"
-                onTouchStart={onTouchStart}
-                onTouchMove={onTouchMove}
-                onTouchEnd={() => onTouchEnd(swipeNext, swipePrev)}
-              >
+              <div className="max-w-2xl w-full mx-auto min-h-screen flex flex-col px-6 sm:px-12 pb-12" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(swipeNext, swipePrev)}>
                 <div className="flex-1 mt-4">
                   {viewingEntry.image && <img src={viewingEntry.image} className="w-full rounded-[2rem] mb-10 object-cover shadow-lg border border-slate-200 dark:border-white/5" alt="Vision" />}
                   <h1 className="text-4xl sm:text-5xl font-bold mb-6 leading-tight font-serif">{viewingEntry.title}</h1>
@@ -1381,17 +1244,15 @@ const App = () => {
                       return <><span className="mx-2">•</span><span className={`flex items-center gap-1`}><Icon name={moodObj.iconName} size={14}/> {viewingEntry.mood}</span></>
                     })()}
                   </div>
-                  <div className="text-lg sm:text-xl leading-relaxed legacy-content pb-10" dangerouslySetInnerHTML={{__html: viewingEntry.text}} />
+                  <div className="text-lg sm:text-xl leading-relaxed legacy-content pb-10" dangerouslySetInnerHTML={{__html: sanitizeHTML(viewingEntry.text)}} />
                   {viewingEntry.audio && <div className="mt-8 mb-10 p-4 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 no-print"><audio src={viewingEntry.audio} controls className="w-full" /></div>}
                 </div>
                 <div className="flex flex-col gap-6 mt-12 pt-8 border-t border-slate-300 dark:border-white/10 pb-20 shrink-0 no-print">
-                  
                   {!nextPage && (
                     <button onClick={() => startNewChapter(viewingEntry)} className="w-full py-4 rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold text-base hover:scale-[1.02] transition-transform shadow-md flex items-center justify-center gap-2">
                       <Icon name="plus" size={20}/> Neue Seite anfügen
                     </button>
                   )}
-
                   <div className="flex justify-between items-center w-full">
                     {swipePrev ? (
                       <button onClick={() => setViewingEntry(swipePrev)} className="flex items-center gap-3 text-left group flex-1">
@@ -1402,7 +1263,6 @@ const App = () => {
                         </div>
                       </button>
                     ) : <div className="flex-1" />}
-                    
                     {swipeNext ? (
                       <button onClick={() => setViewingEntry(swipeNext)} className="flex items-center justify-end gap-3 text-right group flex-1">
                         <div className="overflow-hidden">
@@ -1430,16 +1290,8 @@ const App = () => {
               <h3 className="text-2xl font-bold leading-tight mb-4 font-serif">{dialog.title}</h3>
               <p className="text-base opacity-70 mb-8 leading-relaxed px-2 whitespace-pre-wrap">{dialog.message}</p>
               <div className="flex flex-col gap-3 w-full">
-                <button
-                  className={`w-full py-4 text-white rounded-2xl font-bold shadow-md text-base transition-transform active:scale-95 ${dialog.confirmColor || 'bg-slate-900 dark:bg-white dark:text-slate-900'}`}
-                  onClick={() => { if(dialog.onConfirm) dialog.onConfirm(); else setDialog(null); }}
-                >{dialog.confirmLabel || 'Verstanden'}</button>
-                {dialog.type !== 'alert' && (
-                  <button
-                    className="w-full py-4 rounded-2xl font-bold text-base bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors active:scale-95"
-                    onClick={() => { if(dialog.onCancel) dialog.onCancel(); else setDialog(null); }}
-                  >{dialog.cancelLabel || 'Abbrechen'}</button>
-                )}
+                <button className={`w-full py-4 text-white rounded-2xl font-bold shadow-md text-base transition-transform active:scale-95 ${dialog.confirmColor || 'bg-slate-900 dark:bg-white dark:text-slate-900'}`} onClick={() => { if(dialog.onConfirm) dialog.onConfirm(); else setDialog(null); }}>{dialog.confirmLabel || 'Verstanden'}</button>
+                {dialog.type !== 'alert' && <button className="w-full py-4 rounded-2xl font-bold text-base bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors active:scale-95" onClick={() => { if(dialog.onCancel) dialog.onCancel(); else setDialog(null); }}>{dialog.cancelLabel || 'Abbrechen'}</button>}
               </div>
             </div>
           </div>
@@ -1454,11 +1306,7 @@ const App = () => {
               </div>
               <div className="overflow-y-auto custom-scrollbar p-3 space-y-1 overscroll-contain">
                 {picker.options.map(opt => (
-                  <button
-                    key={opt.value}
-                    onClick={() => { picker.onSelect(opt.value); setPicker(null); }}
-                    className={`w-full text-left p-4 rounded-2xl transition-all font-bold text-base flex justify-between items-center ${picker.currentValue === opt.value ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-md' : 'hover:bg-slate-100 dark:hover:bg-white/10'}`}
-                  >
+                  <button key={opt.value} onClick={() => { picker.onSelect(opt.value); setPicker(null); }} className={`w-full text-left p-4 rounded-2xl transition-all font-bold text-base flex justify-between items-center ${picker.currentValue === opt.value ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-md' : 'hover:bg-slate-100 dark:hover:bg-white/10'}`}>
                     <span className="truncate">{opt.label}</span>
                     {picker.currentValue === opt.value && <Icon name="check" size={18} />}
                   </button>
@@ -1517,22 +1365,17 @@ const App = () => {
                 <button onClick={() => setView('menu')} className="p-2.5 rounded-full transition-colors bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"><Icon name="menu" size={18}/></button>
               </>
             )}
-            {(view === 'settings' || view === 'menu' || view === 'archive' || view === 'wisdom' || view === 'burn' || view === 'oracle') && <button onClick={() => setView('dashboard')} className="p-2.5 rounded-full border border-transparent bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"><Icon name="x" size={18} /></button>}
+            {(['settings', 'menu', 'archive', 'wisdom', 'burn', 'oracle'].includes(view)) && <button onClick={() => setView('dashboard')} className="p-2.5 rounded-full border border-transparent bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"><Icon name="x" size={18} /></button>}
           </div>
 
-          {isSearchOpen && searchQuery && (
+          {isSearchOpen && debouncedSearch && (
             <div className="absolute top-full left-4 right-4 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-h-[60vh] overflow-y-auto custom-scrollbar z-[100]">
-              {renderEntries.length === 0 ? (
+              {visibleEntries.length === 0 ? (
                 <div className="p-4 text-center opacity-50 text-sm font-medium text-slate-900 dark:text-white">Keine Einträge gefunden.</div>
               ) : (
-                renderEntries.map(entry => (
-                  <button 
-                    key={entry.id} 
-                    onClick={() => { handleBookClick(entry); setIsSearchOpen(false); setSearchQuery(''); }} 
-                    className="w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700/50 last:border-0 transition-colors flex flex-col gap-1"
-                  >
-                    <div className="font-bold text-sm text-slate-900 dark:text-white" dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)}></div>
-                    <div className="text-xs opacity-70 line-clamp-2 text-slate-800 dark:text-slate-300" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)}></div>
+                visibleEntries.map(entry => (
+                  <button key={entry.id} onClick={() => { handleBookClick(entry); setIsSearchOpen(false); setSearchQuery(''); }} className="w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700/50 last:border-0 transition-colors flex flex-col gap-1">
+                    <div className="font-bold text-sm text-slate-900 dark:text-white">{entry.title}</div>
                     <div className="text-[10px] text-amber-500 font-bold uppercase tracking-widest mt-1">
                       {new Date(entry.date).toLocaleDateString()} {entry.parentId && '• Gefunden auf Unterseite'}
                     </div>
@@ -1544,7 +1387,6 @@ const App = () => {
         </header>
 
         <main className="p-4 sm:p-6 max-w-4xl mx-auto min-h-[60vh] relative z-10 pb-24">
-
           {installHint && view !== 'onboarding' && view !== 'loading' && (
             <div className="mb-6 p-4 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 rounded-2xl text-xs font-bold leading-relaxed border border-amber-200 dark:border-amber-800/50 flex items-start gap-3 shadow-sm no-print">
                <Icon name="info" size={20} className="shrink-0 mt-0.5" />
@@ -1552,13 +1394,11 @@ const App = () => {
             </div>
           )}
 
-          {/* DAS ORAKEL */}
           {view === 'oracle' && (
             <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center animate-fade-in relative no-print">
               <div className="absolute rounded-full mix-blend-screen filter blur-[80px] opacity-20 animate-pulse-slow bg-indigo-500 w-[400px] h-[400px] -top-10 -left-10"></div>
               <Icon name="brain-circuit" size={80} className={`mb-8 text-indigo-400 ${isOracleLoading ? 'animate-pulse' : ''}`} />
               <h2 className="text-4xl font-serif font-bold mb-6 drop-shadow-md">Das Orakel</h2>
-              
               {!oracleInsight && !isOracleLoading ? (
                 <>
                   <p className="opacity-70 mb-10 max-w-md text-lg text-slate-900 dark:text-white">Lass das System deine jüngsten Pfade analysieren und dir eine Frage stellen, die dich heute leiten wird.</p>
@@ -1567,7 +1407,7 @@ const App = () => {
               ) : (
                 <div className="rounded-3xl max-w-2xl w-full text-left p-8 relative z-10 shadow-2xl border border-slate-200 dark:border-white/10" style={{ backgroundColor: 'rgba(150,150,150,0.1)', backdropFilter: 'blur(10px)' }}>
                   {isOracleLoading ? <div className="animate-pulse space-y-4"><div className="h-4 bg-slate-400/50 rounded w-3/4"></div><div className="h-4 bg-slate-400/50 rounded w-full"></div><div className="h-4 bg-slate-400/50 rounded w-5/6"></div></div> : 
-                  <div className="text-xl leading-relaxed font-serif italic text-slate-800 dark:text-slate-200" dangerouslySetInnerHTML={{__html: oracleInsight.replace(/\n/g, '<br/>')}} />}
+                  <div className="text-xl leading-relaxed font-serif italic text-slate-800 dark:text-slate-200" dangerouslySetInnerHTML={{__html: sanitizeHTML(oracleInsight.replace(/\n/g, '<br/>'))}} />}
                 </div>
               )}
             </div>
@@ -1602,9 +1442,8 @@ const App = () => {
             <div className="animate-slide-up space-y-8 no-print">
               <div className="text-center mb-8">
                 <h2 className="text-3xl font-serif font-bold mb-3">Die 25 Säulen deines Vermächtnisses</h2>
-                <p className="opacity-60 max-w-xl mx-auto">Dieser Blueprint ist dein Wegweiser. Wähle eine Säule aus, um sie zu füllen. Zusammen ergeben sie das zeitloseste Bild deines Lebens für die Generationen, die nach dir kommen.</p>
+                <p className="opacity-60 max-w-xl mx-auto">Dieser Blueprint ist dein Wegweiser. Wähle eine Säule aus, um sie zu füllen.</p>
               </div>
-
               <div className="mb-8 p-6 rounded-[2rem] bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-500/30">
                  <div className="flex justify-between items-end mb-3">
                    <div>
@@ -1617,7 +1456,6 @@ const App = () => {
                    <div className="bg-amber-500 h-full transition-all duration-1000" style={{width: `${progressPercent}%`}}></div>
                  </div>
               </div>
-              
               {['Fundament', 'Kommunikation', 'Struktur', 'Tiefe', 'Anpassung'].map((phaseTitle, index) => (
                 <div key={phaseTitle} className="mb-8">
                   <h3 className="text-sm font-bold uppercase tracking-widest text-amber-600 dark:text-amber-500 mb-4 pl-2 border-l-2 border-amber-500">Phase {index + 1}: {phaseTitle}</h3>
@@ -1648,18 +1486,8 @@ const App = () => {
               <Icon name="flame" size={64} className={`mb-6 ${isBurning ? 'text-rose-500 animate-flame' : 'text-slate-400'}`} />
               <h2 className="text-3xl font-serif font-bold mb-4 z-10">Katharsis</h2>
               <p className="opacity-70 mb-8 z-10 max-w-md">Schreibe auf, was dich belastet, wovor du Angst hast oder was dich wütend macht. Danach übergeben wir es gemeinsam den Flammen. Es wird <b>nirgendwo</b> gespeichert.</p>
-              <textarea 
-                value={burnText} 
-                onChange={e=>setBurnText(e.target.value)} 
-                disabled={isBurning} 
-                className="w-full max-w-lg p-6 rounded-[2rem] bg-white dark:bg-black/30 border-2 border-rose-500/20 focus:border-rose-500 h-48 outline-none resize-none z-10 transition-all shadow-inner text-slate-900 dark:text-white" 
-                placeholder="Lass es hier los..." 
-              />
-              <button 
-                onClick={triggerBurn} 
-                disabled={!burnText || isBurning} 
-                className="mt-6 px-8 py-4 bg-rose-600 text-white rounded-full font-bold shadow-lg shadow-rose-600/30 hover:bg-rose-700 transition-colors z-10 disabled:opacity-50 flex items-center gap-2"
-              >
+              <textarea value={burnText} onChange={e=>setBurnText(e.target.value)} disabled={isBurning} className="w-full max-w-lg p-6 rounded-[2rem] bg-white dark:bg-black/30 border-2 border-rose-500/20 focus:border-rose-500 h-48 outline-none resize-none z-10 transition-all shadow-inner text-slate-900 dark:text-white" placeholder="Lass es hier los..." />
+              <button onClick={triggerBurn} disabled={!burnText || isBurning} className="mt-6 px-8 py-4 bg-rose-600 text-white rounded-full font-bold shadow-lg shadow-rose-600/30 hover:bg-rose-700 transition-colors z-10 disabled:opacity-50 flex items-center gap-2">
                 {isBurning ? 'Verbrennt...' : <><Icon name="flame" size={20}/> Dem Feuer übergeben</>}
               </button>
             </div>
@@ -1690,7 +1518,6 @@ const App = () => {
 
               <div className="p-6 rounded-[2rem] shadow-sm border bg-white dark:bg-graphite-900 border-slate-200 dark:border-white/10">
                 <h2 className="text-lg font-bold mb-4 flex items-center gap-2 font-serif"><Icon name="sun" size={20} className="text-indigo-500" /> Erscheinungsbild</h2>
-                
                 <div className="mb-6">
                   <span className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-2 block text-slate-900 dark:text-white">Modus</span>
                   <div className="flex justify-between items-center p-2 bg-slate-100 dark:bg-black/30 rounded-2xl">
@@ -1698,24 +1525,14 @@ const App = () => {
                     <button onClick={() => setUser({...user, isDark: true})} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all ${user.isDark ? 'bg-slate-800 shadow-sm text-white' : 'opacity-50 hover:opacity-100 text-slate-900 dark:text-white'}`}><Icon name="moon" size={18}/> Dunkel</button>
                   </div>
                 </div>
-
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-2 block text-slate-900 dark:text-white">Hintergrundfarbe</span>
                   <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-2">
-                    <button 
-                      onClick={() => setUser({...user, appBgColor: null})} 
-                      className={`w-10 h-10 rounded-full border-2 shrink-0 flex items-center justify-center transition-transform ${!user.appBgColor ? 'scale-110 border-indigo-500' : 'border-slate-300 dark:border-slate-600 opacity-50 hover:opacity-100'}`}
-                      style={{ background: user.isDark ? '#09090b' : '#ffffff' }}
-                    >
+                    <button onClick={() => setUser({...user, appBgColor: null})} className={`w-10 h-10 rounded-full border-2 shrink-0 flex items-center justify-center transition-transform ${!user.appBgColor ? 'scale-110 border-indigo-500' : 'border-slate-300 dark:border-slate-600 opacity-50 hover:opacity-100'}`} style={{ background: user.isDark ? '#09090b' : '#ffffff' }}>
                       {!user.appBgColor && <Icon name="check" size={16} className={user.isDark ? 'text-white' : 'text-slate-900'} />}
                     </button>
                     {COLORS.map((c) => (
-                      <button 
-                        key={c} 
-                        onClick={() => setUser({...user, appBgColor: c})} 
-                        className={`w-10 h-10 rounded-full border-2 shrink-0 flex items-center justify-center transition-transform ${user.appBgColor === c ? 'scale-110 border-current z-10' : 'border-transparent shadow-sm opacity-50 hover:opacity-100'}`} 
-                        style={{ backgroundColor: c, color: isDarkColor(c) ? '#ffffff' : '#000000' }}
-                      >
+                      <button key={c} onClick={() => setUser({...user, appBgColor: c})} className={`w-10 h-10 rounded-full border-2 shrink-0 flex items-center justify-center transition-transform ${user.appBgColor === c ? 'scale-110 border-current z-10' : 'border-transparent shadow-sm opacity-50 hover:opacity-100'}`} style={{ backgroundColor: c, color: isDarkColor(c) ? '#ffffff' : '#000000' }}>
                         {user.appBgColor === c && <Icon name="check" size={16} />}
                       </button>
                     ))}
@@ -1728,7 +1545,7 @@ const App = () => {
                 {!user.pin ? (
                   <div>
                     <input type="password" inputMode="numeric" pattern="[0-9]*" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN (z.B. 4 Zahlen)" className="w-full p-4 rounded-xl border-none focus:ring-2 focus:ring-rose-500 tracking-[0.5em] text-center text-xl mb-4 bg-white dark:bg-black/30 outline-none text-slate-900 dark:text-white" />
-                    <button onClick={() => { if(newPinInput.length >= 4) { setUser({...user, pin: newPinInput}); setNewPinInput(''); } else showDialog({ title: 'PIN zu kurz', message: 'Die PIN muss mindestens 4 Zeichen lang sein.', icon: 'x' }); }} className="w-full py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-sm transition-colors shadow-sm">PIN speichern</button>
+                    <button onClick={() => { if(newPinInput.length >= 4) { setUser({...user, pin: newPinInput}); setNewPinInput(''); showDialog({title: 'AES-GCM Aktiviert', message: 'Dein Tresor ist nun kryptografisch abgesichert.', icon: 'shield'}); } else showDialog({ title: 'PIN zu kurz', message: 'Die PIN muss mindestens 4 Zeichen lang sein.', icon: 'x' }); }} className="w-full py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-sm transition-colors shadow-sm">PIN speichern</button>
                   </div>
                 ) : isChangingPin ? (
                   <div className="space-y-3">
@@ -1752,15 +1569,10 @@ const App = () => {
                 <p className="text-xs opacity-70 mb-6 text-slate-800 dark:text-slate-300 leading-relaxed">
                   Generiere einen sicheren QR-Code. Scanne ihn mit der normalen Handykamera deines <b>neuen</b> Smartphones, um alle Tagebucheinträge drahtlos über eine Peer-to-Peer Verbindung zu importieren.
                 </p>
-
                 {!peerId ? (
                   <button onClick={() => {
-                    const peer = new window.Peer();
-                    setSyncStatus('Sichere WebRTC Verbindung wird vorbereitet...');
-                    peer.on('open', (id) => {
-                      setPeerId(id);
-                      setSyncStatus('Bereit! Scanne diesen Code mit dem neuen Handy.');
-                    });
+                    const peer = new window.Peer(); setSyncStatus('Sichere WebRTC Verbindung wird vorbereitet...');
+                    peer.on('open', (id) => { setPeerId(id); setSyncStatus('Bereit! Scanne diesen Code mit dem neuen Handy.'); });
                     peer.on('connection', (conn) => {
                       setSyncStatus('Neues Handy verbunden. Sende Daten...');
                       conn.on('data', (data) => {
@@ -1787,15 +1599,12 @@ const App = () => {
 
               <div className="p-6 rounded-[2rem] shadow-sm border bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/50">
                 <h2 className="text-base font-bold mb-4 flex items-center gap-2 text-indigo-600"><Icon name="archive" size={18} /> System Backup & Datei</h2>
-                
                 <p className="text-xs opacity-70 mb-5 text-slate-800 dark:text-slate-300 leading-relaxed">
                   Lade dein komplettes Journal (inklusive Bilder) als Datei herunter, um ein Backup lokal aufzubewahren oder per WhatsApp/E-Mail zu teilen.
                 </p>
-
                 <button onClick={downloadFullApp} className="w-full flex items-center justify-center gap-2 p-4 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 transition-transform hover:scale-[1.02] mb-3">
                   <Icon name="download" size={18}/> Komplettes Backup laden
                 </button>
-
                 <div className="flex gap-2">
                   <label className="flex-1 flex items-center justify-center gap-1.5 p-3 bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold cursor-pointer border border-slate-300 dark:border-transparent shadow-sm hover:bg-slate-50 transition-colors">
                     <Icon name="upload" size={14}/> Backup Importieren <input type="file" accept=".html,.legacy,.json" onChange={importBackup} className="hidden" />
@@ -1807,8 +1616,7 @@ const App = () => {
 
           {['dashboard', 'vault', 'archive'].includes(view) && (
             <>
-              {/* Heatmap Neural Network */}
-              {view === 'dashboard' && !searchQuery && (
+              {view === 'dashboard' && !debouncedSearch && (
                 <div className="mb-6 p-6 rounded-[2rem] shadow-sm border border-slate-200 dark:border-white/10 flex flex-col justify-center animate-fade-in bg-white dark:bg-black/20 no-print">
                   <div className="flex justify-between items-center mb-4">
                     <span className="font-bold text-xs uppercase tracking-widest opacity-70 text-slate-900 dark:text-white">Aktivität (30 Tage)</span>
@@ -1816,18 +1624,13 @@ const App = () => {
                   </div>
                   <div className="flex gap-1.5 justify-between items-end h-16">
                     {heatmapData.map((d, i) => (
-                      <div key={i} className="heatmap-cell flex-1 rounded-sm transition-all hover:opacity-100" style={{ 
-                        height: d.count === 0 ? '20%' : `${Math.min(100, 20 + (d.count * 40))}%`, 
-                        backgroundColor: d.count === 0 ? 'rgba(150,150,150,0.1)' : '#f59e0b',
-                        opacity: d.count === 0 ? 0.5 : 0.6 + (d.count*0.2),
-                        boxShadow: d.count > 0 ? '0 0 10px rgba(245,158,11,0.5)' : 'none'
-                      }} title={`${d.count} Einträge am ${d.date}`} />
+                      <div key={i} className="heatmap-cell flex-1 rounded-sm transition-all hover:opacity-100" style={{ height: d.count === 0 ? '20%' : `${Math.min(100, 20 + (d.count * 40))}%`, backgroundColor: d.count === 0 ? 'rgba(150,150,150,0.1)' : '#f59e0b', opacity: d.count === 0 ? 0.5 : 0.6 + (d.count*0.2), boxShadow: d.count > 0 ? '0 0 10px rgba(245,158,11,0.5)' : 'none' }} title={`${d.count} Einträge am ${d.date}`} />
                     ))}
                   </div>
                 </div>
               )}
 
-              {view === 'dashboard' && timeMachineEntry && !searchQuery && (
+              {view === 'dashboard' && timeMachineEntry && !debouncedSearch && (
                 <div onClick={() => handleBookClick(timeMachineEntry)} className="mb-6 p-5 rounded-[2rem] bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-500/30 cursor-pointer flex items-center gap-4 hover:scale-[1.02] transition-transform shadow-sm">
                   <div className="p-3 bg-indigo-500 text-white rounded-full shrink-0 shadow-md"><Icon name="history" size={24}/></div>
                   <div className="overflow-hidden">
@@ -1840,132 +1643,24 @@ const App = () => {
               {view === 'dashboard' && (
                 <div className="flex overflow-x-auto gap-3 pb-4 mb-6 custom-scrollbar snap-x no-print">
                   {['Alle', ...CATEGORIES].map(cat => (
-                    <button
-                      key={cat} onClick={() => setActiveCategory(cat)}
-                      className={`px-5 py-2.5 rounded-full whitespace-nowrap snap-start text-sm font-bold transition-all ${activeCategory === cat ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-md' : 'bg-slate-100 border border-slate-200 dark:bg-white/5 dark:border-white/10 opacity-70 hover:opacity-100 text-slate-900 dark:text-white'}`}
-                    >
+                    <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-5 py-2.5 rounded-full whitespace-nowrap snap-start text-sm font-bold transition-all ${activeCategory === cat ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-md' : 'bg-slate-100 border border-slate-200 dark:bg-white/5 dark:border-white/10 opacity-70 hover:opacity-100 text-slate-900 dark:text-white'}`}>
                       {cat}
                     </button>
                   ))}
                 </div>
               )}
 
-              {visibleEntries.length === 0 && view !== 'menu' && view !== 'settings' && !searchQuery && (
+              {visibleEntries.length === 0 && view !== 'menu' && view !== 'settings' && !debouncedSearch && (
                 <div className="flex flex-col items-center justify-center py-32 text-center opacity-30 animate-fade-in text-slate-900 dark:text-white">
                   {view === 'vault' ? <Icon name="shield-check" size={64} className="mb-6"/> : view === 'archive' ? <Icon name="archive" size={64} className="mb-6"/> : <Icon name="book-open" size={64} className="mb-6"/>}
-                  <p className="text-xl font-bold font-serif">
-                    {view === 'vault' ? 'Tresor leer.' : view === 'archive' ? 'Archiv leer.' : 'Dein Buch ist noch leer.'}
-                  </p>
+                  <p className="text-xl font-bold font-serif">{view === 'vault' ? 'Tresor leer.' : view === 'archive' ? 'Archiv leer.' : 'Dein Buch ist noch leer.'}</p>
                 </div>
               )}
 
               <div className="columns-1 sm:columns-2 gap-6 space-y-6 pb-20">
-                {!searchQuery && renderEntries.map(entry => {
-                  const isCapsuleLocked = entry.unlockDate && new Date(entry.unlockDate) > now;
-                  const isGeoLocked = entry.unlockLocation;
-                  const pagesCount = getBookLength(entry.id);
-
-                  if (view === 'vault' || isCapsuleLocked || isGeoLocked) {
-                    return (
-                      <div
-                        key={entry.id} onClick={() => (!isCapsuleLocked || isGeoLocked) && handleVaultClick(entry)}
-                        className="break-inside-avoid relative rounded-[2rem] p-6 shadow-sm transition-all cursor-pointer border flex flex-col justify-between items-center text-center aspect-square flex justify-center card-bg hover:shadow-md"
-                      >
-                        <div className={`p-5 rounded-full mb-6 ${isCapsuleLocked ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-500' : isGeoLocked ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-500' : 'bg-rose-100 dark:bg-rose-900/50 text-rose-500'}`}>
-                          {isCapsuleLocked ? <Icon name="calendar-clock" size={40} /> : isGeoLocked ? <Icon name="map-pin" size={40} /> : <Icon name="lock" size={40} />}
-                        </div>
-                        <div className="w-full px-2">
-                          <h3 className="font-bold text-xl tracking-tight leading-snug truncate font-serif text-slate-900 dark:text-white">{entry.title}</h3>
-                          <span className="text-[10px] opacity-50 uppercase tracking-widest mt-2 block truncate font-medium text-slate-900 dark:text-white">
-                            {isCapsuleLocked ? `Öffnet ${new Date(entry.unlockDate).toLocaleDateString('de-DE')}` : isGeoLocked ? 'Orts-Siegel' : 'Verwahrt'}
-                          </span>
-                        </div>
-                        {pagesCount > 1 && !searchQuery && (
-                          <div className="absolute top-4 right-4 text-[9px] font-black uppercase tracking-widest opacity-50 flex items-center gap-1 text-slate-900 dark:text-white">
-                            <Icon name="layers" size={12}/> {pagesCount}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }
-
-                  const isDarkTheme = user.isDark;
-                  const entryColor = entry.color || (isDarkTheme ? COLORS[8] : COLORS[0]);
-                  let cardBg = entryColor;
-                  if (isDarkTheme && entryColor === '#ffffff') cardBg = '#18181b';
-                  if (!isDarkTheme && entryColor === '#0f172a') cardBg = '#ffffff';
-                  const borderStyle = isDarkTheme ? (cardBg === '#18181b' ? 'border-white/10' : 'border-white/5') : 'border-slate-200';
-
-                  return (
-                    <div
-                      key={entry.id} onClick={() => view === 'dashboard' ? handleBookClick(entry) : null}
-                      className={`break-inside-avoid group relative rounded-[2.5rem] shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden cursor-pointer border ${borderStyle} ${entry.manifested ? 'ring-2 ring-amber-400/50' : ''}`}
-                      style={{ backgroundColor: cardBg, color: isDarkColor(cardBg) ? '#f8fafc' : '#0f172a' }}
-                    >
-                      {entry.inheritedFrom && (
-                        <div className="absolute top-4 left-4 z-30 bg-black/80 text-amber-400 text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1 backdrop-blur-md no-print">
-                          <Icon name="git-merge" size={12}/> Von {entry.inheritedFrom.split(' ')[0]}
-                        </div>
-                      )}
-                      {entry.manifested && (
-                        <div className="absolute top-4 right-4 z-30 bg-amber-500 text-slate-900 text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1 no-print">
-                          <Icon name="sparkles" size={12}/> Manifestiert
-                        </div>
-                      )}
-
-                      {entry.image && (
-                        <div className="w-full relative overflow-hidden bg-slate-100 dark:bg-black/20 flex justify-center items-center min-h-[200px]">
-                          <img src={entry.image} alt="Vision" className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent z-10 pointer-events-none no-print" />
-                          <h3 className="absolute bottom-6 left-6 right-6 z-20 font-bold text-2xl text-white drop-shadow-md leading-snug line-clamp-2 font-serif" dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
-                        </div>
-                      )}
-
-                      <div className="p-6 sm:p-8 flex-1 flex flex-col relative z-20">
-                        {!entry.image && <h3 className={`font-bold text-2xl leading-tight mb-4 line-clamp-2 font-serif`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />}
-                        {entry.category === 'Weisheit' && <div className="mb-4 text-[10px] font-bold uppercase tracking-widest opacity-50 flex items-center gap-1 text-amber-500"><Icon name="book-open" size={12}/> Säule der Weisheit</div>}
-
-                        {entry.text && (
-                          <div className={`text-sm leading-relaxed mb-6 font-medium line-clamp-4 legacy-content opacity-80`} dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
-                        )}
-
-                        <div className={`flex flex-wrap items-center justify-between pt-4 border-t mt-auto ${isDarkTheme ? 'border-white/10' : 'border-black/10'}`}>
-                          <div className="flex flex-col">
-                            <span className={`text-[10px] font-bold uppercase tracking-widest opacity-60`}>
-                              {new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}
-                            </span>
-                          </div>
-                          <div className="flex gap-2 items-center opacity-60 no-print">
-                            {view === 'dashboard' && !entry.parentId && (
-                              <button onClick={(e) => { e.stopPropagation(); moveToTop(entry); }} className="p-2 rounded-full bg-black/5 dark:bg-white/10 hover:bg-amber-500/20 hover:text-amber-500 transition-colors" title="Nach oben schieben">
-                                <Icon name="arrow-up-circle" size={16} />
-                              </button>
-                            )}
-
-                            {pagesCount > 1 && !searchQuery && (
-                              <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest bg-black/10 dark:bg-white/10 px-2 py-1 rounded-md mr-1">
-                                <Icon name="layers" size={12} /> {pagesCount}
-                              </span>
-                            )}
-                            {entry.mood && (() => {
-                              const moodObj = MOODS.find(m=>m.label===entry.mood);
-                              if (!moodObj) return null;
-                              return <Icon name={moodObj.iconName} size={16} className={moodObj.color} />;
-                            })()}
-                            {entry.location && <Icon name="map-pin" size={16} />}
-                            {(entry.audio || entry.video) && <Icon name="mic" size={16} />}
-                            {view === 'archive' && (
-                              <div className="flex gap-2 ml-2">
-                                <button onClick={(e) => { e.stopPropagation(); setEntries(prev => prev.map(ex => ex.id === entry.id ? { ...ex, archived: false } : ex)); }} className={`p-2 rounded-full bg-black/5 dark:bg-white/10`}><Icon name="rotate-ccw" size={16} /></button>
-                                <button onClick={(e) => { e.stopPropagation(); confirmArchiveDelete(entry.id); }} className="p-2 rounded-full bg-rose-500/10 text-rose-500"><Icon name="trash-2" size={16} /></button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                {!debouncedSearch && visibleEntries.map(entry => (
+                  <MemoizedEntryCard key={entry.id} entry={entry} view={view} isDarkTheme={user.isDark} searchQuery={debouncedSearch} onBookClick={handleBookClick} onVaultClick={handleVaultClick} onMoveTop={moveToTop} onRestore={(entry) => saveToDB({...entry, archived: false})} onDelete={confirmArchiveDelete} />
+                ))}
               </div>
             </>
           )}
@@ -1974,36 +1669,28 @@ const App = () => {
         {showEditor && (
           <div className="fixed inset-0 z-[100] flex flex-col sm:items-center sm:justify-center bg-transparent sm:bg-slate-900/40 sm:dark:bg-slate-950/80 sm:backdrop-blur-md no-print sm:p-6">
             <div className="hidden sm:block absolute inset-0 bg-transparent" onClick={() => checkSaveEntry(true)} />
-            <div 
-              className="relative w-full h-full sm:h-[90dvh] sm:max-w-3xl mx-auto flex flex-col shadow-2xl transition-all sm:rounded-[2.5rem] border-0 sm:border sm:border-slate-200 sm:dark:border-white/10 overflow-hidden"
-              style={{ backgroundColor: zenMode ? 'transparent' : (user.appBgColor || (user.isDark ? '#18181b' : '#ffffff')), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
-            >
+            <div className="relative w-full h-full sm:h-[90dvh] sm:max-w-3xl mx-auto flex flex-col shadow-2xl transition-all sm:rounded-[2.5rem] border-0 sm:border sm:border-slate-200 sm:dark:border-white/10 overflow-hidden" style={{ backgroundColor: zenMode ? 'transparent' : (user.appBgColor || (user.isDark ? '#18181b' : '#ffffff')), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}>
               <div className={`flex justify-between items-center px-4 py-3 sm:px-6 sm:py-5 border-b shrink-0 ${zenMode ? 'border-transparent' : 'border-black/5 dark:border-white/5'}`}>
-                
-                {/* ZURUECK BUTTON */}
                 <button onClick={() => checkSaveEntry(true)} className={`p-2 rounded-full transition-colors ${isDarkColor(selectedColor) ? 'text-white hover:bg-white/10' : 'text-slate-900 hover:bg-black/5'}`}><Icon name="chevron-down" size={28}/></button>
 
                 {!zenMode && (
-                  <div className="flex gap-1 sm:gap-2 overflow-x-auto hide-scrollbar items-center min-w-[100px] justify-end">
-                    <span className={`flex items-center text-[10px] sm:text-xs font-bold text-emerald-500 transition-opacity duration-300 ${autoSaveStatus ? 'opacity-100' : 'opacity-0'} mr-1 sm:mr-2`}><Icon name="check" size={14} className="mr-1"/> {autoSaveStatus || 'Gespeichert'}</span>
-                    
+                  <div className="flex gap-1 sm:gap-2 overflow-x-auto hide-scrollbar items-center">
+                    {autoSaveStatus && <span className="flex items-center text-[10px] sm:text-xs font-bold text-emerald-500 animate-pulse mr-1 sm:mr-2"><Icon name="check" size={14} className="mr-1"/> {autoSaveStatus}</span>}
                     {editingId && <button onClick={() => confirmDelete(editingId)} className="p-2 sm:p-2.5 rounded-full hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 transition-colors" title="Seite herausreißen"><Icon name="trash-2" size={20}/></button>}
                     {editingId && <button onClick={() => {
                       const entryToArchive = {
-                        id: editingId || generateId(),
-                        title: title || 'Neue Seite', text: editorRef.current ? editorRef.current.innerHTML : text, color: selectedColor,
+                        id: editingId || generateId(), title: title || 'Neue Seite', text, color: selectedColor,
                         image: selectedImage, video: selectedVideo, audio: audioUrl,
                         locked: isLocked, archived: true, manifested: isManifested,
                         unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
                         date: editingId ? (entries.find(e => e.id === editingId)?.date || new Date().toISOString()) : new Date().toISOString(),
                         orderTimestamp: editingId ? (entries.find(e => e.id === editingId)?.orderTimestamp || new Date().toISOString()) : new Date().toISOString(),
                       };
-                      saveToDB(entryToArchive);
-                      closeEditor();
+                      saveToDB(entryToArchive); closeEditor();
                     }} className="p-2 sm:p-2.5 rounded-full transition-colors text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10" title="Ins Archiv"><Icon name="archive" size={20}/></button>}
                     <button onClick={() => setZenMode(true)} className={`p-2 sm:p-2.5 rounded-full transition-colors text-slate-400 ${isDarkColor(selectedColor) ? 'hover:text-white hover:bg-white/10' : 'hover:text-slate-900 hover:bg-black/5'}`} title="Fokus Modus"><Icon name="maximize-2" size={20}/></button>
-                    <button onClick={() => { setIsManifested(!isManifested); savedDataRef.current = ""; }} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isManifested ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-500/10'}`} title="Manifestieren (Stern)"><Icon name="sparkles" size={20}/></button>
-                    <button onClick={() => { setIsLocked(!isLocked); savedDataRef.current = ""; }} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isLocked ? 'bg-rose-500/20 text-rose-500' : 'text-slate-400 hover:text-rose-500 hover:bg-rose-500/10'}`} title="PIN-Schutz (Tresor)"><Icon name="lock" size={20}/></button>
+                    <button onClick={() => { setIsManifested(!isManifested); isDirtyRef.current = true; }} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isManifested ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-500/10'}`} title="Manifestieren (Stern)"><Icon name="sparkles" size={20}/></button>
+                    <button onClick={() => { setIsLocked(!isLocked); isDirtyRef.current = true; }} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isLocked ? 'bg-rose-500/20 text-rose-500' : 'text-slate-400 hover:text-rose-500 hover:bg-rose-500/10'}`} title="PIN-Schutz (Tresor)"><Icon name="lock" size={20}/></button>
                   </div>
                 )}
                 {zenMode && <button onClick={() => setZenMode(false)} className="text-current opacity-50 hover:opacity-100"><Icon name="minimize-2" size={24}/></button>}
@@ -2017,11 +1704,10 @@ const App = () => {
               </div>
 
               <div id="editor-scroll-container" className="flex-1 overflow-y-auto p-4 sm:p-10 flex flex-col gap-4 w-full overscroll-contain relative">
-              
                 {!zenMode && selectedImage && (
-                  <div className="relative w-full rounded-[2rem] overflow-hidden shadow-md bg-black/5 dark:bg-white/5 shrink-0 border border-slate-200 dark:border-white/10 flex items-center justify-center p-2">
-                    <img src={selectedImage} alt="Preview" className="w-full max-h-[40vh] object-contain rounded-2xl" />
-                    <button onClick={() => { setSelectedImage(null); savedDataRef.current = ""; }} className="absolute top-4 right-4 bg-white/90 dark:bg-black/80 backdrop-blur-md p-3 rounded-full hover:scale-110 transition-transform z-10 shadow-lg text-slate-900 dark:text-white border border-slate-200 dark:border-white/10">
+                  <div className="relative w-full h-56 sm:h-64 rounded-[2rem] overflow-hidden shadow-md bg-black/5 dark:bg-black/20 shrink-0">
+                    <img src={selectedImage} alt="Preview" className="w-full h-full object-cover" />
+                    <button onClick={() => { setSelectedImage(null); isDirtyRef.current = true; }} className="absolute top-4 right-4 bg-white/80 dark:bg-black/60 backdrop-blur-md p-3 rounded-full hover:scale-110 transition-transform z-10 shadow-lg">
                       <Icon name="x" size={18}/>
                     </button>
                   </div>
@@ -2036,20 +1722,16 @@ const App = () => {
 
                 {!zenMode && (
                   <div className="flex flex-wrap gap-3 text-xs font-bold uppercase tracking-widest opacity-60 shrink-0">
-                    <button onClick={() => setPicker({
-                      title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c => ({label: c, value: c})), onSelect: (val) => { setCategory(val); savedDataRef.current = ""; }
-                    })} className="bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2">
+                    <button onClick={() => setPicker({ title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c => ({label: c, value: c})), onSelect: (val) => { setCategory(val); isDirtyRef.current = true; } })} className="bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2">
                       {category} <Icon name="chevron-down" size={14} className="shrink-0"/>
                     </button>
-                    <button onClick={() => setPicker({
-                      title: 'Art des Eintrags', currentValue: entryType, options: [{label: 'Vision', value: 'vision'}, {label: 'Brief an die Zukunft', value: 'letter'}], onSelect: (val) => { setEntryType(val); savedDataRef.current = ""; }
-                    })} className="bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2">
+                    <button onClick={() => setPicker({ title: 'Art des Eintrags', currentValue: entryType, options: [{label: 'Vision', value: 'vision'}, {label: 'Brief an die Zukunft', value: 'letter'}], onSelect: (val) => { setEntryType(val); isDirtyRef.current = true; } })} className="bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2">
                       {entryType === 'vision' ? 'Vision' : 'Brief'} <Icon name="chevron-down" size={14} className="shrink-0"/>
                     </button>
                   </div>
                 )}
 
-                <input type="text" placeholder="Titel..." value={title || ''} onChange={(e) => { setTitle(e.target.value); }} className="w-full shrink-0 bg-transparent text-current text-3xl sm:text-5xl font-bold placeholder-current opacity-90 border-none focus:ring-0 p-0 focus:outline-none font-serif relative z-10" style={{ color: 'inherit', '::placeholder': { opacity: 0.3 } }} />
+                <input type="text" placeholder="Titel..." value={title || ''} onChange={(e) => { setTitle(e.target.value); isDirtyRef.current = true; }} className="w-full shrink-0 bg-transparent text-current text-3xl sm:text-5xl font-bold placeholder-current opacity-90 border-none focus:ring-0 p-0 focus:outline-none font-serif relative z-10" style={{ color: 'inherit', '::placeholder': { opacity: 0.3 } }} />
 
                 {!zenMode && (
                   <div className="flex gap-2 py-2 border-y border-current border-opacity-10 opacity-70 shrink-0">
@@ -2066,7 +1748,7 @@ const App = () => {
                   suppressContentEditableWarning={true}
                   data-placeholder="Schreibe deine Gedanken auf diese leere Seite..."
                   onInput={handleEditorInput}
-                  className="w-full flex-1 bg-transparent text-lg sm:text-xl leading-relaxed focus:outline-none font-medium empty:before:content-[attr(data-placeholder)] empty:before:cursor-text legacy-editor-content pb-64"
+                  className="w-full flex-1 bg-transparent text-lg sm:text-xl leading-relaxed focus:outline-none font-medium empty:before:content-[attr(data-placeholder)] empty:before:cursor-text legacy-editor-content pb-[50vh]"
                   style={{ color: 'inherit', '::before': { opacity: 0.3 } }}
                 />
 
@@ -2075,7 +1757,7 @@ const App = () => {
                     <div className="relative p-4 rounded-2xl shadow-sm border border-current border-opacity-20 flex flex-col">
                       <span className="text-xs font-bold uppercase tracking-widest mb-2 opacity-60">Sprachnachricht</span>
                       <audio src={audioUrl} controls className="w-full" />
-                      <button onClick={() => { setAudioUrl(null); savedDataRef.current = ""; }} className="absolute top-4 right-4 text-current opacity-50 hover:opacity-100"><Icon name="x" size={16}/></button>
+                      <button onClick={() => { setAudioUrl(null); isDirtyRef.current = true; }} className="absolute top-4 right-4 text-current opacity-50 hover:opacity-100"><Icon name="x" size={16}/></button>
                     </div>
                   </div>
                 )}
@@ -2094,7 +1776,7 @@ const App = () => {
                       <div className={`flex gap-2 shrink-0 border-l pl-4 ${isDarkColor(selectedColor) ? 'border-white/10' : 'border-black/10'}`}>
                         <label className={`relative p-3.5 rounded-full shadow-sm flex items-center justify-center cursor-pointer overflow-hidden transition-colors ${unlockDate ? 'bg-indigo-500 text-white' : isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`} title="Datums-Siegel (Zeitkapsel)">
                           <Icon name="calendar-clock" size={20}/>
-                          <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); savedDataRef.current = "";}} className="absolute opacity-0 w-[200%] h-[200%] -top-1/2 -left-1/2 cursor-pointer" />
+                          <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); isDirtyRef.current = true;}} className="absolute opacity-0 w-[200%] h-[200%] -top-1/2 -left-1/2 cursor-pointer" />
                         </label>
                       </div>
                     </div>
@@ -2102,14 +1784,14 @@ const App = () => {
                     <div className={`flex justify-between items-center overflow-x-auto hide-scrollbar gap-6 border-t pt-3 ${isDarkColor(selectedColor) ? 'border-white/5' : 'border-black/5'}`}>
                       <div className="flex gap-2 shrink-0">
                         {MOODS.map(m => (
-                          <button key={m.id} onClick={()=> { setMood(m.label===mood ? null : m.label); savedDataRef.current = ""; }} className={`p-2.5 rounded-full transition-all ${mood===m.label ? 'bg-slate-800 dark:bg-white shadow-lg scale-110 ' + m.color : 'opacity-40 hover:opacity-100 text-current'}`}>
+                          <button key={m.id} onClick={()=> { setMood(m.label===mood ? null : m.label); isDirtyRef.current = true; }} className={`p-2.5 rounded-full transition-all ${mood===m.label ? 'bg-slate-800 dark:bg-white shadow-lg scale-110 ' + m.color : 'opacity-40 hover:opacity-100 text-current'}`}>
                             <Icon name={m.iconName} size={20} />
                           </button>
                         ))}
                       </div>
                       <div className="flex gap-2 shrink-0">
                         {COLORS.slice(0, 18).map((c) => (
-                          <button key={c} onClick={() => { setSelectedColor(c); savedDataRef.current = ""; }} className={`w-8 h-8 rounded-full shadow-sm border-2 transition-transform ${selectedColor === c ? 'scale-110 border-current z-10' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`} style={{ backgroundColor: c }} />
+                          <button key={c} onClick={() => { setSelectedColor(c); isDirtyRef.current = true; }} className={`w-8 h-8 rounded-full shadow-sm border-2 transition-transform ${selectedColor === c ? 'scale-110 border-current z-10' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`} style={{ backgroundColor: c }} />
                         ))}
                       </div>
                     </div>
@@ -2124,24 +1806,15 @@ const App = () => {
             <div className="flex justify-between items-center p-6 border-b border-white/10 bg-slate-950">
               <button onClick={() => setIsDrawing(false)} className="p-3 text-white/70 hover:text-white bg-white/5 rounded-full"><Icon name="x" size={24} /></button>
               <span className="font-bold text-xl font-serif">Skizze</span>
-              <button
-                onClick={() => { if(canvasRef.current) { setSelectedImage(canvasRef.current.toDataURL()); setIsDrawing(false); savedDataRef.current = ""; } }}
-                className="bg-amber-500 text-slate-900 px-6 py-3 rounded-full font-bold flex gap-2 items-center shadow-lg"
-              ><Icon name="check" size={18}/> Fertig</button>
+              <button onClick={() => { if(canvasRef.current) { setSelectedImage(canvasRef.current.toDataURL()); setIsDrawing(false); isDirtyRef.current = true; } }} className="bg-amber-500 text-slate-900 px-6 py-3 rounded-full font-bold flex gap-2 items-center shadow-lg"><Icon name="check" size={18}/> Fertig</button>
             </div>
             <div className="flex-1 relative bg-white touch-none">
-              <canvas
-                ref={canvasRef}
-                className="absolute inset-0 w-full h-full cursor-crosshair touch-none"
-                onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing}
-                onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing}
-              />
+              <canvas ref={canvasRef} className="absolute inset-0 w-full h-full cursor-crosshair touch-none" onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing} onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
             </div>
             <div className="p-4 bg-slate-950 flex justify-center">
               <button onClick={() => {
                 if (!canvasRef.current) return;
-                const canvas = canvasRef.current;
-                const ctx = canvas.getContext('2d');
+                const canvas = canvasRef.current; const ctx = canvas.getContext('2d');
                 ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = user.isDark ? '#18181b' : '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.restore();
               }} className="p-3 bg-white/10 rounded-full hover:bg-white/20 text-white"><Icon name="eraser" size={24}/></button>
             </div>
@@ -2157,7 +1830,6 @@ const App = () => {
             <button onClick={() => setView('vault')} className={`flex flex-col items-center justify-center h-full space-y-1 transition-all ${view === 'vault' ? 'text-indigo-500 scale-105' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}><Icon name="lock" size={24} /><span className="text-[10px] font-bold uppercase tracking-widest">Tresor</span></button>
           </div>
         </nav>
-
       </div>
     </ErrorBoundary>
   );
