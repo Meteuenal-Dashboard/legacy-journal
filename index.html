@@ -801,44 +801,51 @@ const App = () => {
     saveToDB(updatedEntry);
   };
 
+  // ARCHITEKTUR-UPDATE: Zuverlässige Speichern- & Zurück-Logik mit absolut sicherem Fallback
   const checkSaveEntry = (closeAndRead = false) => {
-    const entryId = editingId || generateId();
-    const foundEntry = entries.find(e => e.id === entryId);
-    const currentText = editorRef.current ? editorRef.current.innerHTML : text;
-    
-    // Hat der Nutzer irgendwas eingegeben (inklusive Datum oder Stimmung)?
-    const isEmpty = !title.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && !selectedImage && !selectedVideo && !audioUrl && !unlockDate && !mood;
-    
-    if (isEmpty && closeAndRead) {
-      if (!editingId) {
-         // Komplett neue Seite, die leer gelassen wurde -> komplett verwerfen und ins Dashboard
-         closeEditor(null); 
-      } else {
-         // Bestehender Eintrag, der leer gemacht wurde -> in Leseansicht zurück
-         closeEditor(foundEntry);
-      }
-      return;
-    }
+    try {
+        const entryId = editingId || generateId();
+        const foundEntry = entries.find(e => e.id === entryId);
+        const currentText = editorRef.current ? editorRef.current.innerHTML : (text || '');
+        const titleSafe = title || '';
+        
+        // Hat der Nutzer irgendwas eingegeben (inklusive Datum oder Stimmung)?
+        const isEmpty = !titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && !selectedImage && !selectedVideo && !audioUrl && !unlockDate && !mood;
+        
+        if (isEmpty && closeAndRead) {
+          if (!editingId) {
+             // Komplett neue Seite, die leer gelassen wurde -> komplett verwerfen und ins Dashboard
+             closeEditor(null); 
+          } else {
+             // Bestehender Eintrag, der leer gemacht wurde -> in Leseansicht zurück
+             closeEditor(foundEntry);
+          }
+          return;
+        }
 
-    const newEntry = {
-      id: entryId,
-      title: title || 'Neue Seite', text: currentText, color: selectedColor,
-      image: selectedImage, video: selectedVideo, audio: audioUrl,
-      locked: isLocked, archived: false, manifested: isManifested,
-      unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
-      date: editingId ? (foundEntry ? foundEntry.date : new Date().toISOString()) : new Date().toISOString(),
-      orderTimestamp: editingId ? (foundEntry ? foundEntry.orderTimestamp : new Date().toISOString()) : new Date().toISOString(),
-    };
-    
-    saveToDB(newEntry);
-    
-    if (closeAndRead) {
-      closeEditor(newEntry); // Nutzer wird in die Ansicht des gespeicherten Eintrags zurückgebracht!
-    } else {
-      setEditingId(entryId);
-      setAutoSaveStatus('Manuell gespeichert ✔');
-      setTimeout(() => setAutoSaveStatus(''), 2000);
-      isDirtyRef.current = false;
+        const newEntry = {
+          id: entryId,
+          title: titleSafe || 'Neue Seite', text: currentText, color: selectedColor,
+          image: selectedImage, video: selectedVideo, audio: audioUrl,
+          locked: isLocked, archived: false, manifested: isManifested,
+          unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
+          date: editingId ? (foundEntry ? foundEntry.date : new Date().toISOString()) : new Date().toISOString(),
+          orderTimestamp: editingId ? (foundEntry ? foundEntry.orderTimestamp : new Date().toISOString()) : new Date().toISOString(),
+        };
+        
+        saveToDB(newEntry);
+        
+        if (closeAndRead) {
+          closeEditor(newEntry); // Nutzer wird in die Ansicht des gespeicherten Eintrags zurückgebracht!
+        } else {
+          setEditingId(entryId);
+          setAutoSaveStatus('Manuell gespeichert ✔');
+          setTimeout(() => setAutoSaveStatus(''), 2000);
+          isDirtyRef.current = false;
+        }
+    } catch (err) {
+        console.error("Save Error", err);
+        if (closeAndRead) closeEditor(entries.find(e => e.id === editingId) || null);
     }
   };
 
@@ -861,6 +868,22 @@ const App = () => {
   const handleEditorInput = (e) => {
     isDirtyRef.current = true;
     setText(e.currentTarget.innerHTML);
+  };
+  
+  // ARCHITEKTUR-UPDATE: Sichere Pfeil-Zurück Funktionen, die sofort und ohne Crash agieren
+  const handleEditorBack = (e) => {
+      if (e) e.stopPropagation();
+      checkSaveEntry(true);
+  };
+  
+  const handleViewerBack = (e) => {
+      if (e) e.stopPropagation();
+      if (isSpeaking) {
+          audioPlayerRef.current.pause();
+          setIsSpeaking(false);
+          window.speechSynthesis.cancel();
+      }
+      setViewingEntry(null);
   };
 
   useEffect(() => {
@@ -1484,7 +1507,7 @@ const App = () => {
             >
               <div className="sticky top-0 z-50 flex justify-between items-center py-4 px-6 sm:px-12 bg-inherit shrink-0 no-print border-b border-black/5 dark:border-white/5" style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff') }}>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => { setViewingEntry(null); if (isSpeaking) handleReadAloud({}); }} className="p-3 bg-slate-100 dark:bg-white/10 rounded-full shadow-sm border border-slate-200 dark:border-transparent hover:scale-105 transition-transform"><Icon name="arrow-left" size={20}/></button>
+                  <button type="button" onClick={handleViewerBack} className="p-3 bg-slate-100 dark:bg-white/10 rounded-full shadow-sm border border-slate-200 dark:border-transparent hover:scale-105 transition-transform"><Icon name="arrow-left" size={20}/></button>
                   
                   {/* ARCHITEKTUR-UPDATE: Zeitreise-Button (Inhaltsverzeichnis) wenn das Buch mehr als eine Seite hat */}
                   {allBookEntries.length > 1 && (
@@ -1755,7 +1778,8 @@ const App = () => {
           )}
         </header>
 
-        <main className="p-4 sm:p-6 max-w-4xl mx-auto min-h-[60vh] relative z-10 pb-24">
+        {/* ARCHITEKTUR-UPDATE: no-print auf <main> angewendet */}
+        <main className="p-4 sm:p-6 max-w-4xl mx-auto min-h-[60vh] relative z-10 pb-24 no-print">
 
           {installHint && view !== 'onboarding' && view !== 'loading' && (
             <div className="mb-6 p-4 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 rounded-2xl text-xs font-bold leading-relaxed border border-amber-200 dark:border-amber-800/50 flex items-start gap-3 shadow-sm no-print">
@@ -2189,7 +2213,7 @@ const App = () => {
               <div className={`flex justify-between items-center px-4 py-3 sm:px-6 sm:py-5 border-b shrink-0 ${zenMode ? 'border-transparent' : 'border-black/5 dark:border-white/5'}`}>
                 
                 {/* ZURUECK BUTTON (Jetzt als klarer Pfeil nach Links) */}
-                <button type="button" onClick={() => checkSaveEntry(true)} className={`p-2 rounded-full transition-colors ${isDarkColor(selectedColor) ? 'text-white hover:bg-white/10' : 'text-slate-900 hover:bg-black/5'}`}>
+                <button type="button" onClick={handleEditorBack} className={`p-2 rounded-full transition-colors ${isDarkColor(selectedColor) ? 'text-white hover:bg-white/10' : 'text-slate-900 hover:bg-black/5'}`}>
                   <Icon name="arrow-left" size={28}/>
                 </button>
 
