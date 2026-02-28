@@ -801,6 +801,47 @@ const App = () => {
     saveToDB(updatedEntry);
   };
 
+  const checkSaveEntry = (closeAndRead = false) => {
+    const entryId = editingId || generateId();
+    const foundEntry = entries.find(e => e.id === entryId);
+    const currentText = editorRef.current ? editorRef.current.innerHTML : text;
+    
+    // Hat der Nutzer irgendwas eingegeben (inklusive Datum oder Stimmung)?
+    const isEmpty = !title.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && !selectedImage && !selectedVideo && !audioUrl && !unlockDate && !mood;
+    
+    if (isEmpty && closeAndRead) {
+      if (!editingId) {
+         // Komplett neue Seite, die leer gelassen wurde -> komplett verwerfen und ins Dashboard
+         closeEditor(null); 
+      } else {
+         // Bestehender Eintrag, der leer gemacht wurde -> in Leseansicht zurück
+         closeEditor(foundEntry);
+      }
+      return;
+    }
+
+    const newEntry = {
+      id: entryId,
+      title: title || 'Neue Seite', text: currentText, color: selectedColor,
+      image: selectedImage, video: selectedVideo, audio: audioUrl,
+      locked: isLocked, archived: false, manifested: isManifested,
+      unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
+      date: editingId ? (foundEntry ? foundEntry.date : new Date().toISOString()) : new Date().toISOString(),
+      orderTimestamp: editingId ? (foundEntry ? foundEntry.orderTimestamp : new Date().toISOString()) : new Date().toISOString(),
+    };
+    
+    saveToDB(newEntry);
+    
+    if (closeAndRead) {
+      closeEditor(newEntry); // Nutzer wird in die Ansicht des gespeicherten Eintrags zurückgebracht!
+    } else {
+      setEditingId(entryId);
+      setAutoSaveStatus('Manuell gespeichert ✔');
+      setTimeout(() => setAutoSaveStatus(''), 2000);
+      isDirtyRef.current = false;
+    }
+  };
+
   const confirmDelete = (id) => {
     showDialog({
       type: 'confirm', title: 'Seite herausreißen?', message: 'Bist du sicher, dass du diese Seite für immer aus deinem Journal reißen möchtest?',
