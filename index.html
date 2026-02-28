@@ -126,7 +126,8 @@ html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
 }
 .audio-active { animation: audio-pulse 1.5s infinite ease-in-out; color: #f59e0b !important; }
 
-/* DRUCK-OPTIMIERUNG (ECHTES BUCH) */
+/* DRUCK-OPTIMIERUNG (ECHTES BUCH & VERSTECKTE UI) */
+.print-only { display: none; }
 @media print {
   body, html, #root, .min-h-screen { 
     background: #ffffff !important; 
@@ -134,8 +135,14 @@ html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
     height: auto !important; 
     overflow: visible !important; 
   }
-  nav, header, button, .no-print, .custom-scrollbar::-webkit-scrollbar { 
+  nav, header, button, .no-print, .screen-only, .custom-scrollbar::-webkit-scrollbar { 
     display: none !important; 
+  }
+  .print-only {
+    display: block !important;
+  }
+  .page-break-after {
+    page-break-after: always;
   }
   .card-bg, .group { 
     box-shadow: none !important; 
@@ -335,6 +342,7 @@ const App = () => {
 
   const [viewingEntry, setViewingEntry] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
+  const [showTimeline, setShowTimeline] = useState(false); // NEU: Timeline / Zeitreise Modus
   const [affirmation, setAffirmation] = useState(null);
 
   const [unlockTarget, setUnlockTarget] = useState(null);
@@ -351,7 +359,7 @@ const App = () => {
   // Editor State
   const [editingId, setEditingId] = useState(null);
   const [title, setTitle] = useState('');
-  const [text, setText] = useState(''); // Text Zustand wiederhergestellt für sauberes Laden!
+  const [text, setText] = useState(''); 
   const [selectedColor, setSelectedColor] = useState(COLORS[8]);
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
@@ -381,6 +389,23 @@ const App = () => {
   
   // Wächter für sauberes Speichern (verhindert Endlosschleifen)
   const isDirtyRef = useRef(false);
+  const savedDataRef = useRef("");
+  
+  const getCurrentDataString = () => {
+    return JSON.stringify({
+      title, 
+      text: editorRef.current ? editorRef.current.innerHTML : text, 
+      c: selectedColor, 
+      i: selectedImage ? selectedImage.substring(0, 50) : null, 
+      v: selectedVideo ? selectedVideo.substring(0, 50) : null,
+      a: audioUrl ? audioUrl.substring(0, 50) : null,
+      l: isLocked, 
+      m: isManifested, 
+      d: unlockDate, 
+      cat: category, 
+      mo: mood
+    });
+  };
   
   const [burnText, setBurnText] = useState('');
   const [isBurning, setIsBurning] = useState(false);
@@ -711,6 +736,44 @@ const App = () => {
     }
   };
 
+  // ARCHITEKTUR-UPDATE: Helfer für das Behandeln kompletter Bücher anstatt einzelner Seiten
+  const getBookRootId = (tempEntries, startId) => {
+      let current = tempEntries.find(e => e.id === startId);
+      let safeGuard = 0;
+      while (current && current.parentId && safeGuard < 1000) {
+          const p = tempEntries.find(e => e.id === current.parentId);
+          if (p) current = p; else break;
+          safeGuard++;
+      }
+      return current ? current.id : startId;
+  };
+
+  const getBookRoot = (entryId) => {
+     let current = entries.find(e => e.id === entryId);
+     let safeGuard = 0;
+     while (current && current.parentId && safeGuard < 1000) {
+         const p = entries.find(e => e.id === current.parentId);
+         if (p) current = p; else break;
+         safeGuard++;
+     }
+     return current;
+  };
+
+  const getAllBookEntries = (rootId) => {
+     const result = [];
+     const traverse = (id, depth=0) => {
+         if (depth > 1000) return;
+         const entry = entries.find(e => e.id === id);
+         if (entry && !result.find(r => r.id === entry.id)) {
+             result.push(entry);
+             const children = entries.filter(e => e.parentId === id).sort((a,b) => new Date(a.date) - new Date(b.date));
+             children.forEach(c => traverse(c.id, depth+1));
+         }
+     };
+     traverse(rootId);
+     return result;
+  };
+
   const saveToDB = async (entry) => {
     try {
       if (db) {
@@ -738,48 +801,6 @@ const App = () => {
     saveToDB(updatedEntry);
   };
 
-  // ARCHITEKTUR-UPDATE: Zuverlässige Speichern- & Zurück-Logik
-  const checkSaveEntry = (closeAndRead = false) => {
-    const entryId = editingId || generateId();
-    const foundEntry = entries.find(e => e.id === entryId);
-    const currentText = editorRef.current ? editorRef.current.innerHTML : text;
-    
-    // Hat der Nutzer irgendwas eingegeben (inklusive Datum oder Stimmung)?
-    const isEmpty = !title.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && !selectedImage && !selectedVideo && !audioUrl && !unlockDate && !mood;
-    
-    if (isEmpty && closeAndRead) {
-      if (!editingId) {
-         // Komplett neue Seite, die leer gelassen wurde -> komplett verwerfen und ins Dashboard
-         closeEditor(null); 
-      } else {
-         // Bestehender Eintrag, der leer gemacht wurde -> in Leseansicht zurück
-         closeEditor(foundEntry);
-      }
-      return;
-    }
-
-    const newEntry = {
-      id: entryId,
-      title: title || 'Neue Seite', text: currentText, color: selectedColor,
-      image: selectedImage, video: selectedVideo, audio: audioUrl,
-      locked: isLocked, archived: false, manifested: isManifested,
-      unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
-      date: editingId ? (foundEntry ? foundEntry.date : new Date().toISOString()) : new Date().toISOString(),
-      orderTimestamp: editingId ? (foundEntry ? foundEntry.orderTimestamp : new Date().toISOString()) : new Date().toISOString(),
-    };
-    
-    saveToDB(newEntry);
-    
-    if (closeAndRead) {
-      closeEditor(newEntry); // Nutzer wird in die Ansicht des gespeicherten Eintrags zurückgebracht!
-    } else {
-      setEditingId(entryId);
-      setAutoSaveStatus('Manuell gespeichert ✔');
-      setTimeout(() => setAutoSaveStatus(''), 2000);
-      isDirtyRef.current = false;
-    }
-  };
-
   const confirmDelete = (id) => {
     showDialog({
       type: 'confirm', title: 'Seite herausreißen?', message: 'Bist du sicher, dass du diese Seite für immer aus deinem Journal reißen möchtest?',
@@ -801,16 +822,15 @@ const App = () => {
     setText(e.currentTarget.innerHTML);
   };
 
-  // ARCHITEKTUR-UPDATE: Läd den Text exakt EINMAL sauber ins Textfeld, wenn sich der Editor öffnet.
   useEffect(() => {
     if (showEditor && editorRef.current) {
       if (editorRef.current.innerHTML !== text) {
          editorRef.current.innerHTML = text || '';
       }
     }
-  }, [showEditor, editingId]); // Nur beim Öffnen ausführen! (Verhindert Cursor-Flackern)
+  }, [showEditor, editingId]); 
 
-  // ARCHITEKTUR-UPDATE: Stabiles Auto-Save mit 2-Sekunden "Debounce" (Speichert nur wenn du Pause machst)
+  // ARCHITEKTUR-UPDATE: Stabiles Auto-Save, das das komplette Buch beim Tresor-Klick verschlüsselt!
   useEffect(() => {
     if (!showEditor || view === 'burn') return;
     
@@ -833,15 +853,45 @@ const App = () => {
       
       if (!editingId) setEditingId(currentEntry.id);
       
+      // Das Buch-Konzept: Wenn eine Seite gesperrt/entsperrt wird, wende es auf das GANZE Buch an.
+      const tempEntries = [...entries];
+      const existingIdx = tempEntries.findIndex(e => e.id === currentEntry.id);
+      if (existingIdx > -1) tempEntries[existingIdx] = currentEntry;
+      else tempEntries.push(currentEntry);
+
+      const rootId = getBookRootId(tempEntries, currentEntry.id);
+      const bookIds = [];
+      const collectIds = (id, depth=0) => {
+          if(depth > 1000) return;
+          if(!bookIds.includes(id)) {
+              bookIds.push(id);
+              tempEntries.filter(e => e.parentId === id).forEach(c => collectIds(c.id, depth+1));
+          }
+      };
+      collectIds(rootId);
+      
+      const bookEntriesToUpdate = bookIds.map(id => {
+          if(id === currentEntry.id) return currentEntry;
+          const existing = tempEntries.find(e => e.id === id);
+          return { ...existing, locked: isLocked }; // Vererbe den Tresor-Status auf das GANZE Buch
+      });
+
       if (db) {
         const tx = db.transaction('entries', 'readwrite');
-        tx.objectStore('entries').put(currentEntry);
+        const store = tx.objectStore('entries');
+        bookEntriesToUpdate.forEach(e => store.put(e));
+        
         tx.oncomplete = () => {
           isDirtyRef.current = false;
+          savedDataRef.current = getCurrentDataString();
           setEntries(prev => {
-            const exists = prev.find(e => e.id === currentEntry.id);
-            if (exists) return prev.map(e => e.id === currentEntry.id ? currentEntry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
-            return [currentEntry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
+            let nextEntries = [...prev];
+            bookEntriesToUpdate.forEach(upd => {
+               const idx = nextEntries.findIndex(ex => ex.id === upd.id);
+               if (idx > -1) nextEntries[idx] = upd;
+               else nextEntries.push(upd);
+            });
+            return nextEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
           });
           setAutoSaveStatus('Gespeichert');
           setTimeout(() => setAutoSaveStatus(''), 2000);
@@ -1157,12 +1207,15 @@ const App = () => {
 
   const startNewChapter = (parent) => {
     isDirtyRef.current = false;
+    // Neue Seite erbt automatisch den Tresor-Schutz vom Buch!
+    const isParentLocked = parent.locked || false; 
     setViewingEntry(null);
     setEditingId(null); 
     setTitle(parent.title || ''); 
     setText('');
     setSelectedColor(user.isDark ? COLORS[8] : COLORS[1]);
-    setSelectedImage(null); setSelectedVideo(null); setIsLocked(parent.locked || false);
+    setSelectedImage(null); setSelectedVideo(null); 
+    setIsLocked(isParentLocked); // <--- HIER: Neues Kapitel ist automatisch verschlüsselt, wenn das Buch verschlüsselt ist.
     setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setUnlockLocation(null);
     setEntryType('vision'); setCategory(parent.category || CATEGORIES[0]);
     setMood(null); setLocation(null); 
@@ -1379,20 +1432,38 @@ const App = () => {
           const prevLabel = isHierarchical ? "Vorherige Seite" : "Neuerer Eintrag";
           const nextLabel = isHierarchical ? "Nächste Seite" : "Älterer Eintrag";
 
+          // ARCHITEKTUR-UPDATE: Hole ALLE Seiten des aktuellen Buches für Drucken und Zeitreise
+          const bookRoot = getBookRoot(viewingEntry.id);
+          const allBookEntries = getAllBookEntries(bookRoot ? bookRoot.id : viewingEntry.id);
+
           return (
             <div 
-              className="fixed inset-0 z-[80] overflow-y-auto animate-fade-in custom-scrollbar flex flex-col overscroll-contain" 
+              className="fixed inset-0 z-[80] overflow-y-auto animate-fade-in custom-scrollbar flex flex-col overscroll-contain screen-only" 
               style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff'), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
             >
-              <div className="sticky top-0 z-50 flex justify-between items-center py-4 px-6 sm:px-12 bg-inherit shrink-0 no-print" style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff') }}>
-                <button type="button" onClick={() => { setViewingEntry(null); if (isSpeaking) handleReadAloud({}); }} className="p-3 bg-slate-100 dark:bg-white/10 rounded-full shadow-sm border border-slate-200 dark:border-transparent hover:scale-105 transition-transform"><Icon name="x" size={20}/></button>
+              <div className="sticky top-0 z-50 flex justify-between items-center py-4 px-6 sm:px-12 bg-inherit shrink-0 no-print border-b border-black/5 dark:border-white/5" style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff') }}>
                 <div className="flex gap-2">
+                  <button type="button" onClick={() => { setViewingEntry(null); if (isSpeaking) handleReadAloud({}); }} className="p-3 bg-slate-100 dark:bg-white/10 rounded-full shadow-sm border border-slate-200 dark:border-transparent hover:scale-105 transition-transform"><Icon name="arrow-left" size={20}/></button>
+                  
+                  {/* ARCHITEKTUR-UPDATE: Zeitreise-Button (Inhaltsverzeichnis) wenn das Buch mehr als eine Seite hat */}
+                  {allBookEntries.length > 1 && (
+                    <button type="button" onClick={() => setShowTimeline(true)} className="p-3 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full shadow-sm hover:scale-105 transition-transform" title="Inhaltsverzeichnis & Zeitreise">
+                      <Icon name="list" size={20}/>
+                    </button>
+                  )}
+                </div>
+                
+                <div className="flex gap-2">
+                  {/* ARCHITEKTUR-UPDATE: Der globale Drucken-Button für das komplette Buch */}
+                  <button type="button" onClick={exportText} className="p-3 bg-slate-100 dark:bg-white/10 rounded-full shadow-sm hover:scale-105 transition-transform" title="Gesamtes Buch drucken">
+                    <Icon name="printer" size={20}/>
+                  </button>
                   <button type="button"
                     onClick={() => handleReadAloud(viewingEntry)} 
                     className={`px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 transition-all ${isSpeaking ? 'audio-active bg-amber-500/10' : 'bg-slate-200 dark:bg-white/10 hover:scale-105 transition-transform'}`}
                   >
                     <Icon name={isSpeaking ? "volume-2" : "volume-1"} size={18}/>
-                    {isSpeaking ? "Stopp" : "Vorlesen"}
+                    <span className="hidden sm:inline">{isSpeaking ? "Stopp" : "Vorlesen"}</span>
                   </button>
                   <button type="button" onClick={() => { const e = viewingEntry; setViewingEntry(null); openEditor(e); }} className="px-5 py-2.5 bg-slate-200 dark:bg-white/10 rounded-full font-bold text-sm hover:scale-105 transition-transform">Bearbeiten</button>
                 </div>
@@ -1405,7 +1476,7 @@ const App = () => {
                 onTouchEnd={() => onTouchEnd(swipeNext, swipePrev)}
               >
                 <div className="flex-1 mt-4">
-                  {viewingEntry.image && <img src={viewingEntry.image} className="w-full rounded-[2rem] mb-10 object-cover shadow-lg border border-slate-200 dark:border-white/5" alt="Vision" />}
+                  {viewingEntry.image && <img src={viewingEntry.image} className="w-full rounded-[2rem] mb-10 object-contain shadow-lg border border-slate-200 dark:border-white/5" alt="Vision" />}
                   <h1 className="text-4xl sm:text-5xl font-bold mb-6 leading-tight font-serif">{viewingEntry.title}</h1>
                   <div className="flex flex-wrap gap-4 mb-10 text-xs font-bold uppercase tracking-widest opacity-60">
                     <span className="flex items-center gap-1"><Icon name="calendar" size={14}/> {new Date(viewingEntry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
@@ -1452,6 +1523,71 @@ const App = () => {
               </div>
             </div>
           );
+        })()}
+
+        {/* ARCHITEKTUR-UPDATE: Print-Only View für das gesamte Buch */}
+        {viewingEntry && !showEditor && (
+          <div className="print-only w-full max-w-4xl mx-auto p-8">
+            {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((entry) => (
+              <div key={entry.id} className="mb-16 page-break-after">
+                <div className="text-center mb-8 pb-4 border-b border-black/10">
+                  <h1 className="text-4xl font-serif font-bold mb-2">{entry.title}</h1>
+                  <p className="opacity-60 font-bold uppercase tracking-widest text-xs">
+                    {new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })} • {entry.category}
+                  </p>
+                </div>
+                {entry.image && <img src={entry.image} className="w-full max-h-[500px] object-contain mb-8 rounded-2xl" alt="Vision" />}
+                <div className="text-lg leading-relaxed legacy-content" dangerouslySetInnerHTML={{__html: entry.text}}></div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ARCHITEKTUR-UPDATE: Modal für die Zeitreise (Timeline nach Jahr und Monat) */}
+        {showTimeline && viewingEntry && !showEditor && (() => {
+           const bookRoot = getBookRoot(viewingEntry.id);
+           const bookEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
+           
+           const grouped = {};
+           bookEntries.forEach(entry => {
+              const d = new Date(entry.date);
+              const y = d.getFullYear();
+              const m = d.toLocaleDateString('de-DE', { month: 'long' });
+              if (!grouped[y]) grouped[y] = {};
+              if (!grouped[y][m]) grouped[y][m] = [];
+              grouped[y][m].push(entry);
+           });
+
+           return (
+             <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex justify-end animate-fade-in no-print" onClick={() => setShowTimeline(false)}>
+                <div className="w-full max-w-sm h-full bg-white dark:bg-slate-900 shadow-2xl animate-slide-up flex flex-col" onClick={e=>e.stopPropagation()}>
+                   <div className="p-6 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5">
+                      <h3 className="font-serif font-bold text-xl flex items-center gap-2"><Icon name="calendar-days" className="text-indigo-500" /> Zeitreise</h3>
+                      <button type="button" onClick={()=>setShowTimeline(false)} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-900 dark:text-white"><Icon name="x" size={20}/></button>
+                   </div>
+                   <div className="flex-1 overflow-y-auto p-6 custom-scrollbar text-slate-900 dark:text-white">
+                      {Object.keys(grouped).sort((a,b)=>b-a).map(year => (
+                         <div key={year} className="mb-8">
+                            <h4 className="font-black text-3xl mb-4 text-slate-800 dark:text-white opacity-80">{year}</h4>
+                            {Object.keys(grouped[year]).map(month => (
+                               <div key={month} className="mb-6 pl-4 border-l-2 border-indigo-500/30">
+                                  <h5 className="font-bold text-sm text-indigo-600 dark:text-indigo-400 mb-3 uppercase tracking-widest">{month}</h5>
+                                  <div className="space-y-2">
+                                     {grouped[year][month].map(e => (
+                                        <button type="button" key={e.id} onClick={() => { setViewingEntry(e); setShowTimeline(false); }} className={`w-full text-left p-4 rounded-xl transition-colors ${viewingEntry.id === e.id ? 'bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800' : 'hover:bg-slate-50 dark:hover:bg-white/5'}`}>
+                                           <div className="font-bold text-sm truncate">{e.title}</div>
+                                           <div className="text-[10px] opacity-60 mt-1">{new Date(e.date).toLocaleDateString('de-DE')}</div>
+                                        </button>
+                                     ))}
+                                  </div>
+                               </div>
+                            ))}
+                         </div>
+                      ))}
+                   </div>
+                </div>
+             </div>
+           );
         })()}
 
         {dialog && (
