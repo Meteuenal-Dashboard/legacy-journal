@@ -1209,8 +1209,12 @@ const App = () => {
     setUnlockTarget(entry); setPinInput(''); setPinError(false);
   };
 
+  // ARCHITEKTUR-UPDATE: Erlaubt das Öffnen und Bearbeiten des GESAMTEN Buches im Tresor!
   const submitPin = () => {
-    if (pinInput === user.pin) { openEditor(unlockTarget); setUnlockTarget(null); }
+    if (pinInput === user.pin) { 
+      handleBookClick(unlockTarget); 
+      setUnlockTarget(null); 
+    }
     else { setPinError(true); setTimeout(() => setPinError(false), 800); setPinInput(''); }
   };
 
@@ -1896,30 +1900,6 @@ const App = () => {
                   const isGeoLocked = entry.unlockLocation;
                   const pagesCount = getBookLength(entry.id);
 
-                  if (view === 'vault' || isCapsuleLocked || isGeoLocked) {
-                    return (
-                      <div
-                        key={entry.id} onClick={() => (!isCapsuleLocked || isGeoLocked) && handleVaultClick(entry)}
-                        className="break-inside-avoid relative rounded-[2rem] p-6 shadow-sm transition-all cursor-pointer border flex flex-col justify-between items-center text-center aspect-square flex justify-center card-bg hover:shadow-md"
-                      >
-                        <div className={`p-5 rounded-full mb-6 ${isCapsuleLocked ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-500' : isGeoLocked ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-500' : 'bg-rose-100 dark:bg-rose-900/50 text-rose-500'}`}>
-                          {isCapsuleLocked ? <Icon name="calendar-clock" size={40} /> : isGeoLocked ? <Icon name="map-pin" size={40} /> : <Icon name="lock" size={40} />}
-                        </div>
-                        <div className="w-full px-2">
-                          <h3 className="font-bold text-xl tracking-tight leading-snug truncate font-serif text-slate-900 dark:text-white">{entry.title}</h3>
-                          <span className="text-[10px] opacity-50 uppercase tracking-widest mt-2 block truncate font-medium text-slate-900 dark:text-white">
-                            {isCapsuleLocked ? `Öffnet ${new Date(entry.unlockDate).toLocaleDateString('de-DE')}` : isGeoLocked ? 'Orts-Siegel' : 'Verwahrt'}
-                          </span>
-                        </div>
-                        {pagesCount > 1 && !searchQuery && (
-                          <div className="absolute top-4 right-4 text-[9px] font-black uppercase tracking-widest opacity-50 flex items-center gap-1 text-slate-900 dark:text-white">
-                            <Icon name="layers" size={12}/> {pagesCount}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }
-
                   const isDarkTheme = user.isDark;
                   const entryColor = entry.color || (isDarkTheme ? COLORS[8] : COLORS[0]);
                   let cardBg = entryColor;
@@ -1929,7 +1909,18 @@ const App = () => {
 
                   return (
                     <div
-                      key={entry.id} onClick={() => view === 'dashboard' ? handleBookClick(entry) : null}
+                      key={entry.id} 
+                      onClick={() => {
+                        if (isCapsuleLocked) {
+                          showDialog({ title: 'Zeitkapsel versiegelt', message: `Dieses Dokument öffnet sich erst am ${new Date(entry.unlockDate).toLocaleDateString('de-DE')}.`, icon: 'calendar-clock', iconColor: 'text-indigo-500' });
+                          return;
+                        }
+                        if (entry.locked || isGeoLocked) {
+                          handleVaultClick(entry);
+                          return;
+                        }
+                        handleBookClick(entry);
+                      }}
                       className={`break-inside-avoid group relative rounded-[2.5rem] shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden cursor-pointer border ${borderStyle} ${entry.manifested ? 'ring-2 ring-amber-400/50' : ''}`}
                       style={{ backgroundColor: cardBg, color: isDarkColor(cardBg) ? '#f8fafc' : '#0f172a' }}
                     >
@@ -1938,6 +1929,15 @@ const App = () => {
                           <Icon name="git-merge" size={12}/> Von {entry.inheritedFrom.split(' ')[0]}
                         </div>
                       )}
+                      
+                      {/* NEU: Tresor/Siegel Badge auf dem normalen Cover */}
+                      {(entry.locked || isCapsuleLocked || isGeoLocked) && (
+                        <div className={`absolute left-4 z-30 bg-slate-900/90 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1 backdrop-blur-md no-print ${entry.inheritedFrom ? 'top-12' : 'top-4'}`}>
+                          {isCapsuleLocked ? <Icon name="calendar-clock" size={12}/> : isGeoLocked ? <Icon name="map-pin" size={12}/> : <Icon name="lock" size={12}/>}
+                          {isCapsuleLocked ? `Öffnet ${new Date(entry.unlockDate).toLocaleDateString('de-DE')}` : isGeoLocked ? 'Orts-Siegel' : 'Tresor'}
+                        </div>
+                      )}
+
                       {entry.manifested && (
                         <div className="absolute top-4 right-4 z-30 bg-amber-500 text-slate-900 text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1 no-print">
                           <Icon name="sparkles" size={12}/> Manifestiert
