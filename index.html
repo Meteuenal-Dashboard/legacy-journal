@@ -419,6 +419,7 @@ const App = () => {
   useEffect(() => {
     const manifestEl = document.getElementById('dynamic-manifest');
     if (manifestEl) {
+      // Nutze das User-Avatar, falls vorhanden. WICHTIG: Das Icon muss im Browser neu zum Homescreen hinzugefügt werden!
       const iconSrc = user.avatar || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20'/%3E%3C/svg%3E";
       const manifestObj = {
         "name": "Legacy Vision",
@@ -430,7 +431,7 @@ const App = () => {
         "icons": [{
           "src": iconSrc,
           "sizes": "512x512",
-          "type": user.avatar ? "image/jpeg" : "image/svg+xml"
+          "type": user.avatar ? "image/jpeg" : "image/svg+xml" // Korrekter Mime-Type für Base64 Avatar
         }]
       };
       const manifestUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifestObj));
