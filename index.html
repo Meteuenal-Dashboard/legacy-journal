@@ -745,10 +745,10 @@ function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: "Lies sanft vor: " + plainText }] }],
+          contents: [{ parts: [{ text: plainText }] }],
           generationConfig: { 
             responseModalities: ["AUDIO"], 
-            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } } }
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } } }
           }
         })
       });
@@ -766,8 +766,9 @@ function App() {
       const utterance = new SpeechSynthesisUtterance(plainText);
       utterance.lang = 'de-DE';
       const voices = window.speechSynthesis.getVoices();
-      const femaleVoice = voices.find(v => v.name.includes('Female') || v.name.includes('Google') || v.name.includes('Anna')) || voices[0];
-      if (femaleVoice) utterance.voice = femaleVoice;
+      const germanVoices = voices.filter(v => v.lang.startsWith('de'));
+      const bestVoice = germanVoices.find(v => v.name.includes('Premium') || v.name.includes('Male') || v.name.includes('Google')) || germanVoices[0] || voices[0];
+      if (bestVoice) utterance.voice = bestVoice;
       utterance.onend = () => setIsSpeaking(false);
       window.speechSynthesis.speak(utterance);
     }
