@@ -274,7 +274,7 @@ const MOODS = [
 const PILLARS = [
   { id: 'm1', phase: 'Fundament', title: '1. Das Nordstern-Manifest', desc: 'Definiere deine absoluten, unverhandelbaren Grundwerte. Welche Prinzipien leitenden dich, egal was auf der Welt passiert?' },
   { id: 'm2', phase: 'Fundament', title: '2. Der Zeitgeist-Stempel', desc: 'Historischer Kontext: Was passiert gerade auf der Welt? Schreibe über Politik, Technologien und Alltagspreise von heute.' },
-  { id: 'm3', phase: 'Fundament', title: '3. Das Geistige Testament', desc: 'Vererbe deinen Charakter. Welche Lebensweisheiten, Überzeugungen und moralischen Kompasse möchtest du weitergeben?' },
+  { id: 'm3', phase: 'Fundament', title: '3. Das Geistige Testament', desc: 'Vererbe deinen Charakter. Welche Lebensweisheiten, Überzeugungen und moralischen Kompasse möchtest0 weitergeben?' },
   { id: 'm4', phase: 'Fundament', title: '4. Die Anti-Vision', desc: 'Definiere glasklar, wer du *niemals* werden willst und welche toxischen Pfade du um jeden Preis vermeiden möchtest.' },
   { id: 'm5', phase: 'Fundament', title: '5. Das Narben-Register', desc: 'Eine ehrliche, ungeschönte Dokumentation deines größten Fehlschlags und wie du dich daraus zurückgekämpft hast.' },
   { id: 'm6', phase: 'Kommunikation', title: '6. Die Zeitkapsel', desc: 'Eine Botschaft an die Zukunft. Nutze die Datums-Siegelfunktion, um diesen Text für Jahrzehnte zu verschließen.' },
@@ -748,7 +748,7 @@ function App() {
           contents: [{ parts: [{ text: plainText }] }],
           generationConfig: { 
             responseModalities: ["AUDIO"], 
-            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } } }
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } } }
           }
         })
       });
@@ -766,9 +766,8 @@ function App() {
       const utterance = new SpeechSynthesisUtterance(plainText);
       utterance.lang = 'de-DE';
       const voices = window.speechSynthesis.getVoices();
-      const germanVoices = voices.filter(v => v.lang.startsWith('de'));
-      const bestVoice = germanVoices.find(v => v.name.includes('Premium') || v.name.includes('Male') || v.name.includes('Google')) || germanVoices[0] || voices[0];
-      if (bestVoice) utterance.voice = bestVoice;
+      const femaleVoice = voices.find(v => v.name.includes('Female') || v.name.includes('Google') || v.name.includes('Anna')) || voices[0];
+      if (femaleVoice) utterance.voice = femaleVoice;
       utterance.onend = () => setIsSpeaking(false);
       window.speechSynthesis.speak(utterance);
     }
@@ -2158,10 +2157,7 @@ function App() {
                 </div>
               </div>
 
-              <div 
-                 className="p-6 rounded-[2rem] shadow-sm border"
-                 style={{ backgroundColor: user.appBgColor || (user.isDark ? '#1e293b' : '#ffffff'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
-              >
+              <div className="p-6 rounded-[2rem] shadow-sm border bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10">
                 <h2 className="text-lg font-bold mb-4 flex items-center gap-2 font-serif" style={{ color: user.nameColor }}><Icon name="key-round" size={20} /> Tresor PIN</h2>
                 {!user.pin ? (
                   <div>
