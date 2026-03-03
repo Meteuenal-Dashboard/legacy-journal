@@ -1373,7 +1373,8 @@ const App = () => {
   // ARCHITEKTUR-UPDATE: Exakte Extraktion aller als Zitat/Spruch markierten Texte
   const getExtractedQuotes = () => {
      let allQuotes = [];
-     entries.filter(e => !e.locked && !e.archived).forEach(entry => {
+     // Hier wird jetzt über ALLE existierenden Einträge gefiltert, ohne Einschränkung auf "nicht gesperrt"
+     entries.filter(e => !e.archived).forEach(entry => {
          if(!entry.text) return;
          const blockquoteRegex = /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi;
          let match;
