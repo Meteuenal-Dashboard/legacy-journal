@@ -286,7 +286,7 @@ const PILLARS = [
   { id: 'm13', phase: 'Struktur', title: '13. Die Essenz-Filterung', desc: 'Fasse das vergangene Jahr in exakt drei Sätzen zusammen: Größter Triumph, größter Schmerz, wichtigste Lektion.' },
   { id: 'm14', phase: 'Struktur', title: '14. Offene Fragen', desc: 'Dinge im Leben, dem Universum oder in dir selbst, die du noch nicht verstehst. Zeige intellektuelle Demut.' },
   { id: 'm15', phase: 'Struktur', title: '15. Denkwerkzeuge', desc: 'Wie entscheidest du? Notiere die mentalen Modelle und Heuristiken, die dir in schweren Situationen helfen.' },
-  { id: 'm16', phase: 'Tiefe', title: '16. Emotionaler Farb-Code', desc: 'Vergib dieser Lebensphase eine Farbe und erkläre, warum. (z.B. "Die feuerroten Jahre des Umbruchs").' },
+  { id: 'm16', phase: 'Tiefe', title: '16. Emotionaler Farb-Code', desc: 'Vergib dieser Lebensphase eine Farbe and erkläre, warum. (z.B. "Die feuerroten Jahre des Umbruchs").' },
   { id: 'm17', phase: 'Tiefe', title: '17. Die Friedens-Akte', desc: 'Aufzeichnungen darüber, wie du einen schweren zwischenmenschlichen Konflikt gelöst (oder nicht gelöst) hast.' },
   { id: 'm18', phase: 'Tiefe', title: '18. Das Alltags-Fossil', desc: 'Dokumentiere einen extrem banalen, minutengenauen Ablauf eines völlig normalen Dienstags.' },
   { id: 'm19', phase: 'Tiefe', title: '19. Rhythmus-Tracker', desc: 'Beobachte deine eigenen Lebensenergie-Zyklen. Wann musstest du aufbauen, wann loslassen?' },
@@ -993,7 +993,7 @@ function App() {
     if (!canvasRef.current?.isPainting) return;
     const ctx = canvasRef.current.getContext('2d');
     const rect = canvasRef.current.getBoundingClientRect();
-    const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
+    const x = (e.clientX || (e.clientX && e.touches[0].clientX)) - rect.left;
     const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
     ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.strokeStyle = user.isDark ? '#ffffff' : '#000000';
     ctx.lineTo(x, y); ctx.stroke();
@@ -1375,7 +1375,7 @@ function App() {
     if (!searchQuery && !matchesCategory) return false;
     
     if (view === 'dashboard') return !e.locked && !e.archived;
-    if (view === 'vault') return e.locked && !e.archived;
+    if (view === 'vault') return e.oe.locked && !e.archived;
     if (view === 'archive') return e.archived;
     return false;
   });
@@ -2030,14 +2030,17 @@ function App() {
                 <h2 className="text-lg font-bold mb-6 flex items-center gap-2 font-serif"><Icon name="user" size={20} className="text-amber-500" /> Profil</h2>
                 <div className="flex items-center gap-5 mb-6">
                   <div className="relative shrink-0">
-                    <div className="w-20 h-20 rounded-full overflow-hidden border-[3px] shadow-sm flex items-center justify-center bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700" style={{ borderColor: user.avatar ? user.nameColor : undefined }}>
-                      {user.avatar ? <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" /> : <Icon name="user" size={32} className="opacity-30" />}
+                    {/* ARCHITEKTUR-UPDATE: Profilbild Skalierung repariert bleeding von Ecken */}
+                    <div className={`w-20 h-20 rounded-full overflow-hidden border-[3px] shadow-sm flex items-center justify-center border-slate-200 dark:border-slate-700 ${!user.avatar ? 'bg-slate-100 dark:bg-slate-800' : ''}`} style={{ borderColor: user.avatar ? user.nameColor : undefined }}>
+                      {user.avatar ? <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover scale-[1.02]" /> : <Icon name="user" size={32} className="opacity-30" />}
                     </div>
                     <label className="absolute -bottom-1 -right-1 p-2 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-full cursor-pointer shadow-lg hover:scale-110 transition-transform"><Icon name="camera" size={14} /><input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" /></label>
                   </div>
                   <div className="flex-1 space-y-3">
                     <input type="text" value={user.name} onChange={(e) => setUser({...user, name: e.target.value})} className="w-full p-3 rounded-xl border-none focus:ring-2 focus:ring-amber-500 text-base font-bold bg-slate-100 dark:bg-black/30 outline-none text-slate-900 dark:text-white" placeholder="Dein Name" />
-                    <div className="flex gap-2 flex-wrap">
+                    
+                    {/* ARCHITEKTUR-UPDATE: Padding und Margin hinzugefügt, um abgeschnittene vergrößerte runde Knöpfe zu reparieren */}
+                    <div className="flex gap-2 flex-wrap p-2 -m-2">
                       {['#f59e0b', '#ef4444', '#3b82f6', '#10b981', '#8b5cf6', '#1e293b'].map(color => (
                         <button type="button" key={color} onClick={() => setUser({...user, nameColor: color})} className={`w-6 h-6 rounded-full border-2 transition-transform ${user.nameColor === color ? 'border-slate-400 scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
                       ))}
@@ -2052,15 +2055,17 @@ function App() {
                 
                 <div className="mb-6">
                   <span className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-2 block text-slate-900 dark:text-white">Modus</span>
+                  {/* ARCHITEKTUR-UPDATE: Innere Border-Rundung perfekt an die äußere angepasst (16px außen, 8px innen mit p-2 Abstand) */}
                   <div className="flex justify-between items-center p-2 bg-slate-100 dark:bg-black/30 rounded-2xl">
-                    <button type="button" onClick={() => setUser({...user, isDark: false})} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all ${!user.isDark ? 'bg-white shadow-sm text-slate-900' : 'opacity-50 hover:opacity-100 text-slate-900 dark:text-white'}`}><Icon name="sun" size={18}/> Hell</button>
-                    <button type="button" onClick={() => setUser({...user, isDark: true})} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all ${user.isDark ? 'bg-slate-800 shadow-sm text-white' : 'opacity-50 hover:opacity-100 text-slate-900 dark:text-white'}`}><Icon name="moon" size={18}/> Dunkel</button>
+                    <button type="button" onClick={() => setUser({...user, isDark: false})} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-sm transition-all ${!user.isDark ? 'bg-white shadow-sm text-slate-900' : 'opacity-50 hover:opacity-100 text-slate-900 dark:text-white'}`}><Icon name="sun" size={18}/> Hell</button>
+                    <button type="button" onClick={() => setUser({...user, isDark: true})} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-sm transition-all ${user.isDark ? 'bg-slate-800 shadow-sm text-white' : 'opacity-50 hover:opacity-100 text-slate-900 dark:text-white'}`}><Icon name="moon" size={18}/> Dunkel</button>
                   </div>
                 </div>
 
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-2 block text-slate-900 dark:text-white">Hintergrundfarbe</span>
-                  <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-2">
+                  {/* ARCHITEKTUR-UPDATE: Padding und Margin hinzugefügt, um abgeschnittene vergrößerte runde Knöpfe zu reparieren */}
+                  <div className="flex gap-3 overflow-x-auto hide-scrollbar p-2 -m-2">
                     <button type="button"
                       onClick={() => setUser({...user, appBgColor: null})} 
                       className={`w-10 h-10 rounded-full border-2 shrink-0 flex items-center justify-center transition-transform ${!user.appBgColor ? 'scale-110 border-indigo-500' : 'border-slate-300 dark:border-slate-600 opacity-50 hover:opacity-100'}`}
@@ -2082,7 +2087,7 @@ function App() {
                 </div>
               </div>
 
-              {/* ARCHITEKTUR-UPDATE: PIN-Einstellungen im Systemdesign */}
+              {/* ARCHITEKTUR-UPDATE: PIN-Einstellungen im Systemdesign mit korrigierten, perfekt sitzenden Ecken (rounded-2xl und rounded-lg) */}
               <div className="p-6 rounded-[2rem] shadow-sm border bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10">
                 <h2 className="text-lg font-bold mb-4 flex items-center gap-2 font-serif" style={{ color: user.nameColor }}><Icon name="key-round" size={20} /> Tresor PIN</h2>
                 {!user.pin ? (
@@ -2100,8 +2105,8 @@ function App() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex justify-between items-center bg-slate-50 dark:bg-black/20 p-3 rounded-xl">
-                    <span className="font-bold text-sm text-slate-900 dark:text-white">PIN Aktiv</span>
+                  <div className="flex justify-between items-center bg-slate-50 dark:bg-black/20 p-2 rounded-2xl">
+                    <span className="font-bold text-sm text-slate-900 dark:text-white pl-2">PIN Aktiv</span>
                     <button type="button" onClick={() => setIsChangingPin(true)} className="px-4 py-2 bg-white dark:bg-slate-800 shadow-sm transition-colors rounded-lg font-bold text-xs" style={{ color: user.nameColor }}>Ändern</button>
                   </div>
                 )}
