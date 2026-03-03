@@ -1694,36 +1694,40 @@ function App() {
 
            return (
              <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex justify-end animate-fade-in no-print" onClick={() => setShowTimeline(false)}>
-                <div className="w-full max-w-md h-full bg-white dark:bg-slate-900 shadow-2xl animate-slide-up flex flex-col" onClick={e=>e.stopPropagation()}>
+                <div 
+                   className="w-full max-w-md h-full shadow-2xl animate-slide-up flex flex-col" 
+                   style={{ backgroundColor: user.appBgColor || (user.isDark ? '#18181b' : '#ffffff'), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
+                   onClick={e=>e.stopPropagation()}
+                >
                    
-                   <div className="p-6 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-4">
+                   <div className="p-6 border-b space-y-4" style={{ borderColor: 'rgba(150,150,150,0.1)', backgroundColor: 'rgba(150,150,150,0.05)' }}>
                       <div className="flex justify-between items-center">
                          <h3 className="font-serif font-bold text-xl flex items-center gap-2" style={{ color: user.nameColor }}><Icon name="calendar-days" /> Zeitreise</h3>
-                         <button type="button" onClick={()=>setShowTimeline(false)} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-900 dark:text-white"><Icon name="x" size={20}/></button>
+                         <button type="button" onClick={()=>setShowTimeline(false)} className="p-2 rounded-full" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}><Icon name="x" size={20}/></button>
                       </div>
                       
                       {/* Lupe / Suchleiste */}
                       <div className="relative">
-                         <Icon name="search" size={16} className="absolute left-4 top-1/2 -translate-y-1/2 opacity-50 text-slate-900 dark:text-white" />
+                         <Icon name="search" size={16} className="absolute left-4 top-1/2 -translate-y-1/2 opacity-50" style={{ color: 'inherit' }} />
                          <input 
                             type="text" 
                             placeholder="In diesem Buch suchen..." 
                             value={timelineSearchQuery}
                             onChange={(e) => setTimelineSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 outline-none focus:ring-2 text-sm text-slate-900 dark:text-white"
-                            style={{ '--tw-ring-color': user.nameColor }}
+                            className="w-full pl-10 pr-4 py-3 rounded-xl border outline-none focus:ring-2 text-sm"
+                            style={{ backgroundColor: 'rgba(150,150,150,0.1)', borderColor: 'transparent', '--tw-ring-color': user.nameColor, color: 'inherit' }}
                          />
                       </div>
                    </div>
 
-                   <div className="flex-1 overflow-y-auto custom-scrollbar text-slate-900 dark:text-white">
+                   <div className="flex-1 overflow-y-auto custom-scrollbar" style={{ color: 'inherit' }}>
                       
                       {/* Echter Kalender Container */}
-                      <div className="p-6 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-black/10">
+                      <div className="p-6 border-b" style={{ borderColor: 'rgba(150,150,150,0.1)', backgroundColor: 'rgba(150,150,150,0.02)' }}>
                           <div className="flex justify-between items-center mb-4">
-                             <button type="button" onClick={() => {const d = new Date(timelineMonth); d.setMonth(d.getMonth()-1); setTimelineMonth(d);}} className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full"><Icon name="chevron-left" size={18}/></button>
+                             <button type="button" onClick={() => {const d = new Date(timelineMonth); d.setMonth(d.getMonth()-1); setTimelineMonth(d);}} className="p-2 rounded-full" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}><Icon name="chevron-left" size={18}/></button>
                              <span className="font-bold text-sm uppercase tracking-widest">{timelineMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}</span>
-                             <button type="button" onClick={() => {const d = new Date(timelineMonth); d.setMonth(d.getMonth()+1); setTimelineMonth(d);}} className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full"><Icon name="chevron-right" size={18}/></button>
+                             <button type="button" onClick={() => {const d = new Date(timelineMonth); d.setMonth(d.getMonth()+1); setTimelineMonth(d);}} className="p-2 rounded-full" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}><Icon name="chevron-right" size={18}/></button>
                           </div>
                           
                           <div className="grid grid-cols-7 gap-1 text-center">
@@ -1739,8 +1743,8 @@ function App() {
                                      <button type="button"
                                          key={day} 
                                          onClick={() => setTimelineSelectedDate(isSelected ? null : dateStr)}
-                                         className={`relative p-2 text-sm rounded-full transition-all flex items-center justify-center aspect-square ${isSelected ? 'shadow-md font-bold' : 'hover:bg-black/5 dark:hover:bg-white/5'} ${hasEntry && !isSelected ? 'font-bold' : ''}`}
-                                         style={isSelected ? { backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000' } : {}}
+                                         className={`relative p-2 text-sm rounded-full transition-all flex items-center justify-center aspect-square ${isSelected ? 'shadow-md font-bold' : ''} ${hasEntry && !isSelected ? 'font-bold' : ''}`}
+                                         style={isSelected ? { backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000' } : { backgroundColor: 'transparent', color: 'inherit' }}
                                      >
                                          <span>{day}</span>
                                          {hasEntry && !isSelected && <div className="absolute bottom-1 w-1 h-1 rounded-full" style={{ backgroundColor: user.nameColor }}></div>}
@@ -1761,13 +1765,13 @@ function App() {
                            <p className="text-center opacity-50 text-sm mt-8">Keine Einträge für diesen Filter gefunden.</p>
                         ) : Object.keys(grouped).sort((a,b)=>b-a).map(year => (
                            <div key={year} className="mb-8">
-                              <h4 className="font-black text-3xl mb-4 text-slate-800 dark:text-white opacity-80">{year}</h4>
+                              <h4 className="font-black text-3xl mb-4 opacity-80" style={{ color: 'inherit' }}>{year}</h4>
                               {Object.keys(grouped[year]).map(month => (
                                  <div key={month} className="mb-6 pl-4 border-l-2" style={{ borderColor: `${user.nameColor}40` }}>
                                     <h5 className="font-bold text-sm mb-3 uppercase tracking-widest" style={{ color: user.nameColor }}>{month}</h5>
                                     <div className="space-y-2">
                                        {grouped[year][month].map(e => (
-                                          <button type="button" key={e.id} onClick={() => { setViewingEntry(e); setShowTimeline(false); }} className={`w-full text-left p-4 rounded-xl transition-colors ${viewingEntry.id === e.id ? 'shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-white/5'}`} style={viewingEntry.id === e.id ? { backgroundColor: `${user.nameColor}20`, border: `1px solid ${user.nameColor}50` } : {}}>
+                                          <button type="button" key={e.id} onClick={() => { setViewingEntry(e); setShowTimeline(false); }} className={`w-full text-left p-4 rounded-xl transition-colors ${viewingEntry.id === e.id ? 'shadow-sm' : ''}`} style={viewingEntry.id === e.id ? { backgroundColor: `${user.nameColor}20`, border: `1px solid ${user.nameColor}50`, color: 'inherit' } : { backgroundColor: 'transparent', color: 'inherit' }}>
                                              <div className="font-bold text-sm truncate">{e.title}</div>
                                              <div className="text-[10px] opacity-60 mt-1">{new Date(e.date).toLocaleDateString('de-DE')}</div>
                                           </button>
@@ -1786,22 +1790,28 @@ function App() {
 
         {dialog && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xl animate-fade-in no-print" onClick={() => { if(dialog.type === 'alert') setDialog(null); }}>
-            <div className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl border bg-white border-slate-200 dark:bg-graphite-900 dark:border-white/10 animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div 
+              className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl border animate-scale-in" 
+              style={{ backgroundColor: user.appBgColor || (user.isDark ? '#18181b' : '#ffffff'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
+              onClick={e => e.stopPropagation()}
+            >
               {dialog.icon && (
-                <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 shadow-inner bg-slate-50 dark:bg-slate-800">
-                  <Icon name={dialog.icon} size={36} className={dialog.iconColor || 'text-indigo-500'} />
+                <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 shadow-inner" style={{ backgroundColor: 'rgba(150,150,150,0.1)' }}>
+                  <Icon name={dialog.icon} size={36} className={dialog.iconColor || 'text-indigo-500'} style={!dialog.iconColor ? {color: user.nameColor} : {}} />
                 </div>
               )}
-              <h3 className="text-2xl font-bold leading-tight mb-4 font-serif">{dialog.title}</h3>
-              <p className="text-base opacity-70 mb-8 leading-relaxed px-2 whitespace-pre-wrap">{dialog.message}</p>
+              <h3 className="text-2xl font-bold leading-tight mb-4 font-serif" style={{ color: 'inherit' }}>{dialog.title}</h3>
+              <p className="text-base opacity-70 mb-8 leading-relaxed px-2 whitespace-pre-wrap" style={{ color: 'inherit' }}>{dialog.message}</p>
               <div className="flex flex-col gap-3 w-full">
                 <button type="button"
-                  className={`w-full py-4 text-white rounded-2xl font-bold shadow-md text-base transition-transform active:scale-95 ${dialog.confirmColor || 'bg-slate-900 dark:bg-white dark:text-slate-900'}`}
+                  className="w-full py-4 rounded-2xl font-bold shadow-md text-base transition-transform active:scale-95"
+                  style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#18181b'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#18181b')) ? '#ffffff' : '#000000' }}
                   onClick={() => { if(dialog.onConfirm) dialog.onConfirm(); else setDialog(null); }}
                 >{dialog.confirmLabel || 'Verstanden'}</button>
                 {dialog.type !== 'alert' && (
                   <button type="button"
-                    className="w-full py-4 rounded-2xl font-bold text-base bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors active:scale-95"
+                    className="w-full py-4 rounded-2xl font-bold text-base transition-colors active:scale-95"
+                    style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}
                     onClick={() => { if(dialog.onCancel) dialog.onCancel(); else setDialog(null); }}
                   >{dialog.cancelLabel || 'Abbrechen'}</button>
                 )}
@@ -1812,17 +1822,22 @@ function App() {
 
         {picker && (
           <div className="fixed inset-0 z-[250] flex items-end sm:items-center justify-center p-4 sm:p-6 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xl animate-fade-in no-print" onClick={() => setPicker(null)}>
-            <div className="w-full max-w-sm rounded-[2.5rem] shadow-2xl border overflow-hidden animate-slide-up flex flex-col max-h-[80vh] bg-white border-slate-200 dark:bg-graphite-900 dark:border-white/10" onClick={e => e.stopPropagation()}>
-              <div className="p-6 border-b border-slate-100 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5 shrink-0">
-                <h3 className="font-bold text-xl font-serif">{picker.title}</h3>
-                <button type="button" onClick={() => setPicker(null)} className="p-2 bg-slate-200 dark:bg-white/10 rounded-full hover:scale-110 transition-transform"><Icon name="x" size={20}/></button>
+            <div 
+              className="w-full max-w-sm rounded-[2.5rem] shadow-2xl border overflow-hidden animate-slide-up flex flex-col max-h-[80vh]" 
+              style={{ backgroundColor: user.appBgColor || (user.isDark ? '#18181b' : '#ffffff'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-6 border-b flex justify-between items-center shrink-0" style={{ borderColor: 'rgba(150,150,150,0.1)', backgroundColor: 'rgba(150,150,150,0.05)' }}>
+                <h3 className="font-bold text-xl font-serif" style={{ color: 'inherit' }}>{picker.title}</h3>
+                <button type="button" onClick={() => setPicker(null)} className="p-2 rounded-full hover:scale-110 transition-transform" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}><Icon name="x" size={20}/></button>
               </div>
               <div className="overflow-y-auto custom-scrollbar p-3 space-y-1 overscroll-contain">
                 {picker.options.map(opt => (
                   <button type="button"
                     key={opt.value}
                     onClick={() => { picker.onSelect(opt.value); setPicker(null); }}
-                    className={`w-full text-left p-4 rounded-2xl transition-all font-bold text-base flex justify-between items-center ${picker.currentValue === opt.value ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-md' : 'hover:bg-slate-100 dark:hover:bg-white/10'}`}
+                    className="w-full text-left p-4 rounded-2xl transition-all font-bold text-base flex justify-between items-center"
+                    style={picker.currentValue === opt.value ? { backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' } : { color: 'inherit', backgroundColor: 'transparent' }}
                   >
                     <span className="truncate">{opt.label}</span>
                     {picker.currentValue === opt.value && <Icon name="check" size={18} />}
@@ -1836,19 +1851,22 @@ function App() {
         {unlockTarget && (
           <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 no-print">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => { setUnlockTarget(null); }} />
-            <div className="relative w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl animate-scale-in border bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 z-10">
+            <div 
+              className="relative w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl animate-scale-in border z-10"
+              style={{ backgroundColor: user.appBgColor || (user.isDark ? '#18181b' : '#ffffff'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
+            >
               <div className="flex flex-col items-center w-full animate-fade-in">
-                <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-inner bg-slate-50 dark:bg-slate-800">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-inner" style={{ backgroundColor: 'rgba(150,150,150,0.1)' }}>
                   <Icon name="lock" size={28} style={{ color: user.nameColor || '#f59e0b' }} />
                 </div>
-                <h3 className="text-2xl font-bold mb-2 font-serif text-slate-900 dark:text-white">Tresor Entsperren</h3>
-                <p className="text-sm opacity-60 mb-6 truncate w-full text-slate-900 dark:text-white">"{unlockTarget.title}"</p>
+                <h3 className="text-2xl font-bold mb-2 font-serif" style={{ color: 'inherit' }}>Tresor Entsperren</h3>
+                <p className="text-sm opacity-60 mb-6 truncate w-full" style={{ color: 'inherit' }}>"{unlockTarget.title}"</p>
                 <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitPin()} 
-                       className={`w-full p-4 text-center text-2xl tracking-[1em] rounded-xl border-2 outline-none text-slate-900 dark:text-white bg-slate-50 dark:bg-black/20 focus:ring-2`}
-                       style={{ borderColor: pinError ? '#ef4444' : 'transparent', '--tw-ring-color': user.nameColor || '#f59e0b' }}
+                       className="w-full p-4 text-center text-2xl tracking-[1em] rounded-xl border-2 outline-none focus:ring-2"
+                       style={{ backgroundColor: 'rgba(150,150,150,0.1)', borderColor: pinError ? '#ef4444' : 'transparent', '--tw-ring-color': user.nameColor || '#f59e0b', color: 'inherit' }}
                        placeholder="••••" />
                 <div className="flex gap-3 w-full mt-6">
-                  <button type="button" onClick={() => setUnlockTarget(null)} className="flex-1 py-3 font-medium opacity-60 bg-black/5 dark:bg-white/5 rounded-xl hover:bg-black/10 dark:hover:bg-white/10 text-slate-900 dark:text-white">Abbrechen</button>
+                  <button type="button" onClick={() => setUnlockTarget(null)} className="flex-1 py-3 font-medium opacity-60 rounded-xl transition-colors hover:opacity-100" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}>Abbrechen</button>
                   <button type="button" onClick={submitPin} className="flex-1 py-3 rounded-xl font-bold shadow-md hover:opacity-90" style={{ backgroundColor: user.nameColor || '#f59e0b', color: isDarkColor(user.nameColor || '#f59e0b') ? '#ffffff' : '#000000' }}>Öffnen</button>
                 </div>
               </div>
