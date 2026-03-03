@@ -1,2536 +1,5075 @@
 <!DOCTYPE html>
+
 <html lang="de">
+
 <head>
+
 <meta charset="UTF-8">
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
 <title>Legacy Vision Journal - The Ultimate Blueprint</title>
 
+
+
 <meta name="mobile-web-app-capable" content="yes">
+
 <meta name="apple-mobile-web-app-capable" content="yes">
+
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
 <meta name="theme-color" id="meta-theme-color" content="#ffffff">
+
 <!-- Zwingt den Browser, unsere hell/dunkel Logik zu respektieren (gegen Samsung Force Dark Mode) -->
+
 <meta name="color-scheme" content="light dark">
 
+
+
 <!-- Container für den App-Klon (Sicherung der Daten für Weiterleitung) -->
+
 <script id="legacy-injected-data" type="application/json">null</script>
 
+
+
 <!-- Dynamisches PWA Manifest für Android/Samsung -->
+
 <link rel="manifest" id="dynamic-manifest" href="">
+
 <script>
+
   // ==========================================
+
   // HIER DEINEN BASE64-BILD-TEXT EINFÜGEN:
+
   // Ersetze den gesamten Text zwischen den Anführungszeichen mit deinem eigenen Base64 Code.
+
   // ==========================================
+
   window.MY_CUSTOM_APP_ICON = "data:image/jpeg;base64,/9j/4QAYRXhpZgAASUkqAAgAAAAAAAAAAAAAAP/sABFEdWNreQABAAQAAABGAAD/4QMtaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wLwA8P3hwYWNrZXQgYmVnaW49Iu+7vyIgaWQ9Ilc1TTBNcENlaGlIenJlU3pOVGN6a2M5ZCI/PiA8eDp4bXBtZXRhIHhtbG5zOng9ImFkb2JlOm5zOm1ldGEvIiB4OnhtcHRrPSJBZG9iZSBYTVAgQ29yZSA1LjMtYzAxMSA2Ni4xNDU2NjEsIDIwMTIvMDIvMDYtMTQ6NTY6MjcgICAgICAgICI+IDxyZGY6UkRGIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+IDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PSIiIHhtbG5zOnhtcD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wLyIgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iIHhtbG5zOnN0UmVmPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvc1R5cGUvUmVzb3VyY2VSZWYjIiB4bXA6Q3JlYXRvclRvb2w9IkFkb2JlIFBob3Rvc2hvcCBDUzYgKE1hY2ludG9zaCkiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6MzE0QUIwQTMwRDI2MTFFMkI4NDE5NTNFQTgxOTFEODYiIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6MzE0QUIwQTQwRDI2MTFFMkI4NDE5NTNFQTgxOTFEODYiPiA8eG1wTU06RGVyaXZlZEZyb20gc3RSZWY6aW5zdGFuY2VJRD0ieG1wLmlpZDozMTRBQjBBMTBEMjYxMUUyQjg0MTk1M0VBODE5MUQ4NiIgc3RSZWY6ZG9jdW1lbnRJRD0ieG1wLmRpZDozMTRBQjBBMjBEMjYxMUUyQjg0MTk1M0VBODE5MUQ4NiIvPiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/Pv/iESxJQ0NfUFJPRklMRQABAQAAERxhcHBsAgAAAG1udHJSR0Ig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AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBQAAAAAQFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEUEFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAFFQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA84AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE+YGBAGQBQAAAAAAAADHADHEAAAAAAAAAAADDDGJ7QAZ7gYAAAAAAWAgAARGPYICgAACggAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGoGgaBoCgAAAgKAAAAAAAAAAAAAAAAAAAAAAAAAAAAzAMAIM8Brg4BwwMigAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICgAAAAAAAAAAAAAAAAAAAAAAAAAAAAMIjKqAAAAAACAoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICgAAAAAAAAgKAAAAACAAoAICgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAoAAAAAAABAyCgoAAAAAAAAeICgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC0EAABYCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJgKAAAAAAAAQMgoKAAAAAAAAHiAoAAAAAgKAAACAAAAAoAAAAAAIAAACgAAAAAAAAAAAAAAAABw8nEQFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIGQUFAAAAAAAADxAUAAAAAQFAAABAAUAAAAAAAAAEAAABQAAAAAAAAAAAAAAAEBQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQFAAAAAAIEBQAAAAAAAAAQFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAO4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACBkFBQAAAGBAGRQAAAAAAAAgFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQFAIjH0d4MxTTPbXEe39QGeSn7OPan6ghMR2U1c3kjiKxhThjzRHt4iM4U4e+jH2QIpon6+I9v6grFVNMe9qir0Y/TgGIjGQco5cPfRj7P1AOWj7OPo/UA5afs49qfqA4gAA5YUzHvojzcfqAxV2++5vPx+mUYxn2AZwiZnGrD20Q5afs49qfqKpy0/Zx7U/UBnlp+zj2p+oIctGPv4w9E/UQOWn7OPan6iqxNNMdlUVT5IiQYAABnh3Th7YGFP2UfR+oBhH2UfR+oBhEd8T6Mf6wMd3b7AAAAAAAM0z2xjw78QY78McI9kRmYiI7Yn+rzisAAAAAAzThjxq5Y9sGZiOznjDy4T9QCKaMeNcYeifqATy9sTGMcIjAGMI+yifbEZ5afs49qfqCnLT9nHtT9QGOWn7OPan6gjPLT9nHtT9QGOWmOMVxj7P1AOEdmE49/8AuisAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2x4ZMlktS697DyGo5a1nMhmNTot5jK5iim7ZuUTRXwroqiYqjzTCIt2p6a9OaqKo/wBDdC99MYTpmUw4Th/7I1GKumfTqmmav9DdBxiP82ZX8UajWXiF2FsXTuh/UHP6ftXRspn8tomZu5fM5bIZe1dtXIpqwqorotxNNUYcJg1cRm+bv21trcNG/Z3Domn6vVl6tM+LVahlbWaqtfCTfivk+Fpq5ebCMcO3CDUsic0dNOnNURP+hehTj2f4tyn4pnauRyjpp037J2ZoUcez9GZT8UfqmRCv5wza219v7e2Fd0DQ9P0m5mM9qFGYryGUs5aqumi3ammmqbVFMzEYzOEt/NWRAeJwjmpmaaownGOE44tVrxd1t/pv07q0PTK52doU1V5LLV11Tp2Vxmqq3GOONqcfZZc7H6MdMunMzhOy9Bw7/wDFuU/FMbWsjNHTPptzREbM0KO3jGmZTu/5pZTIpM3lRbt7u1+i1RTatUannaaLdERTRTTF+qIpiI4RER2Q1VnT1HR/orvrrZuKNB2bk4qtWeWvUtUv40ZTKWqpw5rlffP2NFPrVAsM6Y+BXo7s21azO67V3emuU04X687ja06m538limYxiJ+zqqYtK3lkekPSzS8tRltO2Lt6xYpj1bcadlZ+jNrGU1Hxaz0H6Mbgs/B6v0/0K7PH1reRsWa4xjurtUUVR7aylR96g/N89MtetX8xsPUs7tbVaqa6rOWv/wAdyNVcccJiqYrpp9Fc+hUd3ga2fs/XehOWzuu7d0zVc/8ApjP2fjWcyVjM3eSiKKqaee5RVOEd0Y4LqZElf5sem38i9C/ZeU/FM/qmRn+bLpz/IvQv2ZlPxR+qmf4fzZdOf5F6F+zMp+KP1TD+bLpz/IvQv2ZlPxR+qY4z0y6c8f/ACZoP7Myk/8AwllWSNAeNPZGy9D8PG49Q0fbWk6fqFvNadTazeTyOXsXqIqztmKuWu3RTVGMTMThPZOCmRVjPvpFgqgLPPAzsrZmt9B8rqGs7c0vU9Qr1XP2q83nclYzF6aKZp5aZruUVVTEd0dibUyJJfzY9Ov5GaBHm/RuU/FG0yH82XTnsnZegz/9syn4pNMj5c70h6WajZmzndi6Bes1RhNM6blYn24tcE0a23b4NfD/ALstVRVtWNBzNUctOY0W7VlZpnjx5I5qJ9mhYIndWvm/95bXyuY1jpjqcbs021TNdzSr9FNjU6aaYxnkwnkuz5o5Z8y0Q8zmTzWQzV7JZ2xcy2cy9U27+Xv0zbu266eE01U1RExMecHQqgM4cMe7sn09y+CT/QrwVb56p5fL7k3Xeq2nsq/EV2b92iK8/m6P+JszhyxPdVc9iJRm1N/ZPg/6BbJy9uina1Gv56OWqc7rk/HK5qpjCZ5Koi3TE9uHIzavjZFvpX00ytuLNjY+gUW44RTGl5SacPP96TR5vcXhy6GbpsXbWq7C0im7ejlm9kLFGTvU9+NFViLfKaait1d+b0os5a9rHRrVLl6/RE1ztzV66eaumO6zmMKePkiuP3zRqCmsaLqu39TzWi61k72Q1fI11Ws7ksxRNu7auUTxiYlrDXwIoAACRvge0XR9e6+6dp+u6dltUyFWnahXOVztmjMWeei1jTVyXIqpmY7sYQWgR006czRE1bM0H9mZT8UamMx0z6cRP+pmg8P/AKZlPxRqZEffGnsnZWi+HvcWo6PtnStO1C1m9OptZvJZHL2L1EV5uzFXLct0U1RjEzTPmNMja3S3p50+v9NNm5i9tHRLuYvaDpt69euafla667leVtzVVXVVbmZmqZxmZ4zJo9Z/Nn04nj/oXoU+f9G5T8Um1MP5sunH8i9C/ZmU/FJ+qYfzZdOP5F6F+zcp+KP1TD+bPpx/IvQv2blPxR+qYfzZ9OMOGy9BmfJ+jcp+KWXauRBT5xLbW29v3tgToOi5HSK8zb1KczOn5a1lvhOScvyxX8FTTzcuM4Y9mMtNIOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2/4WPlDdPf1rR+DrRFy9Ee++2qn6MsozV2SsGq/El/QN1I/UGa+5rBFf5tb3vUP7bSfuswt6VPynshzHOOxRBX5yeMdsdPvy/UvwdlqCu/hh6Y+m0q+XbvDQNJ/Icr+Chis+v047mVLc4Th6ePsysEL/AAHalk68/wBXdIpuUxnqdw285Nv674Gq7eoifRjTMOlRM7lw72KM4dnm+mnz0IqeNTw+bi6u7e0nc+yqas3una9F+3OkxOFWbyV+aaqotY/8LRNPCPromY7cGhV/nspntMzt/T8/l7uUz2WmbGZyt+iaLtuaZwmmqmqImJj0NQbb8OniB3B0I3dZ1CzXdzmz8/X8HuDQub73etTGEXrUTjFN2ieMVR2xHLPCRppy78HFdU26pqpmqeXGOPLjwmfYB9miV8mr6fMRxjN5eqOPkrhKL37FXNbt+ai39Ghio+iIwiI8iqREfCUz3xjx9hRQbmcfjF6ccfXq4+zLUR1RPl4xPbAGPCYFAI7QWr+Ab5PWV8+s6h7tDIlDMRjIMcYjCnh2TPtgq4+cImqevFmMIwp0HIzHDj/DX+3yiPWfN99YM7p25850d1bNVVaPrFu5qG36btcYWNQsU8963Rj2U3rcVVTTHfT+6kFjNuqmqmmqnGIqxmI8nlj22BynHCeX32HD0rOxpjxT7Mtb16B7203k+EzeSyU63k8Pfxf0uYzEzTj9lbomj0VOidIm/NxbQoz27t373zFmao0rI2dNyV+frL2ermu5yz5YotRHoqBYyxRnhhjPlhBHnxo9QM3sDoVrP6Lv/F9X3Jdt6BlrkVYXIs5nmqzE0YccZs010Y92OLXysVIYVThTE8YnCIaxtPX5uHe2a+N7z6eZi5z5ObVnX8hRNXvLsVRl8xyx+6ibWOH2KWcM28p/8J4MIYQgil84BtfL6x0Ro3DyfxzbOrZa/ariMfvWd+8XYnyRNVdE/vXVVW1cRTVMROMRPCY7xGBQEm/AR8onTP1ZqP4FEWt04zbp9KMmExx8gRHPxzfJy3H+Wab+c2laVN11VU11+tOHZERwjimHiQHgkwnxJ7R5sfeajhhOHZkL+GPmFW4x3+mfdGWWK1GkfF7Ez4cN/YTh/FMrj5/47Y4NxKp4nGmZpnj6W1+XGJ8s+hBgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAG4PCv8obp7+taPwdaIuWp+u+2q91EZq7JINWeJP+gbqRh/mDNfc1git82t73qH9tpP3WYVU/KeyHMcomMFEFvnJ/9Wen2H+H6n+DstRVeGE4N+C+TbsxOgaTh/gOVn/ooc6nr9NkYo4VR5/66wVW+Gjq1k+lXiM1uxrt6MttjdWezmjahfqmIoy96rN1VZe9Mz2U03PVqq7qapnudEWoRXMU/fP4SnhXERjMz5Yjz9rOJrlE48YZ6Wcs8OHlj+rtXVaV64eGTpz1uyNy/qmUp0jd9NGGT3Hk6Kab8VxjMU34jCLtPHsq4+SYWUVadX+ju9uie6qts7wy/LTXjd0zU7HHK5zLxOEXLVXdMfXUT61M9vdM3TWvJ48eKj7dH/ytkPymx93BVXw5b+Do+0tfcOdZ3l9StaU+/p9lUUF5j++L329XutQdYAoAC1fwC4T4e8p+udQ92hBKGe2WQw4Y92H0yUVb/OD/ANPFv9QZH8NfVK0l0I12vbXWTYet0VTTGX1vJUVzTxnkvXqbVcYR5aa5gouzp5qZriZxpiqeEfusKvps0cscOPZgTsfna5kbGq6LqWmZimKrGfyeZytyJjtou2poqj2Yl0ws1D/5uLI/A9Mt3Z6Y9bNa7TYiY74y+UtVf28mLiaPHv4T3w51GJie3u4RHtggz85Jn5t7Y6faZjPLez2oZmuO7GxatUR+EludJvKvDHCY9HZ5/KNJReAPNVWPEDlbMVTFOb0bULVVMdlXLyXMJ/sMRFqUTjLmOWErg074qMjRn/D51EsXIprot6V8Ypxjsqy12m7j6fUb3VU0qgiiiTfgI+UTpn6s1H8CiLXKP4On2UZJ7JIRHLxzTH+znuT8t02P+82mm1TN739fpVPEgfBH8pLaP2mo/mF9nFq3KO/0z7rLLLFrUaS8XnycN/8A5Hlfz2w6RKp4ucKpx78MPabI60UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABt/wr/KG6e/rWj8HWiLl6frvtqvdlEZnhEyg1X4k+PQbqRh2foDNT/va1EV/m1ve9Q/ttJ+6zCqn7TE4Q5gCC/wA5L/qx09/WGp/g7LUFeH1v9XmdPBfHtv8A1f0j8gyv4KHOp6/T7mVKPfx7P01gon3rEf6Y7ipmcZ/Sue4xx/6xV2NL89JveFHxnZSzlNP6Z9Xs5NmqxTRldE3VfqqqiqiOFFjOVVTM4xjhRdnh3VeUXhPaxds3LNq5auU12bsRNi5RVFdFdNUY0zTVHCYmO9mpjtiYmMY4wgYRPbOGHGMRGuutfSDbvWnYmd2drlFuzma6Zu6LqfLzXcjqFMfe7tE8J5Z97cpxjmpxj0aiKXNd0XUtta1qW3tay85XWNKzN3I57L1dtu/lq5t3KfYqjtbVx0f/ACtkPymx93CUXwZb+Dt/aWvuGKze31KrMe/o9n6SigrM/wB8Xft6vdVXWqgAALV/AL8nvKfrnUP7QEoZ7Zc6OMzPrx5owSCrn5wj+nez/wDr+R4/8/fdYiO3TmxczW/9qZazEzeu61p1FuI7earM24g+uhehOMV1/u54R6KY4udQjDHj2A4XqqYszcuerRTRXVM1cIiIjjM+w20h783Vm6b/AEt3Vb4RFG5LteMd1N3JWMJ83GAtTGnt8nmc0ZxjCPNKiBnzlGWuTpnTrN/8FTf1WzV9tNOWn6Uunz0xe1fdMRPCfJOHpMbSb8BdvHxEaXMTjyaXqVVXm+9cv00FrVMYYce7FhHKqY5ZWdjU3iZu00dAuo9UzhH6Ev0f2WNMfRkjSl9uoIoCTfgJ+UTpn6s1L8CItcpjCin2UZZ7SCN/jn+TluT8u0385tNNqm738JX6QSB8EnDxI7Q89OpfmF8Ktyjv9M+6xWRz/rcaS8Xs4eHDf2HflMrH/fbDpGap5uzjOMd0RH0HTxXWgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA3B4V+HiH6e8P8AxWj8HWiLlqeyft6/dlEZq7JBqvxJzE9BupGH+YM19zWCK/za3GnqHH7rSZ9qrMAn5T72GFc47FEFvnJo/wDLPT6cP/ENS+jbsrFV4T7z0fVdPBfHtzhoOlY/4BlPwcOdT1+nHbDIxTh8Jw7pn6awUe7q2zr+bz+8N05bT7t7b+ma1mMtqOfo9a1Yu5jMV/BU3O+OeYwifK6J83h4vjGGPCJ9kXUjfD94u99dG72W0LVqq9x9PuemL2l36przGVt441VZS5VPq4RM+pV6s+btZqrUtqbp0Peu29K3ZtvMRmtD1jL0ZzJX8OWZt3I7Ko7Yqpn1aonsngzR+wiViqcKZnGY88drciYqT8bui5bRPEXueclR8Hb1KxkdRuUxhhN29lqKbk/vqqZqnztxqNA6P/lbIflNj7uEqL4ct/B0faWvuHOpnL6lUj39Ps/SVFBmZ/vi79vV7qrHUKKAALV/AN8nrLfrjUf7QqJQy50Yme2I4Thx9tJDFXHzhP8ATxZ/UGR/D33SQa98JOzM5vXr3s/K2LM3MppOa/TOo14Ty28vkI+Fiap7uauKKI89RRcRTPNE1dk1zOEebux9iGFxyjGJxDHjeq+4qNrdNN5bhuVfB/ovRM/mKf8AlPi9XwUR6aowaZQ5+bZ3FZjLb92nVMxeirI6rb7vUwrs3PankBPjHHjPDFlTD3s+cEP/AJw3bV7U+kOkbgy9M1f6O63R8Y4TOFnPWq6Jq9HP8HHst/NFZOGGM90cP9xrTE0Pm59rXc/1H3Pu+7an4to2kxlLd3634xqF6mqIx+0tVpaYsljjET5vd4sYE9krOxHjxt7g/QHh13LZiqmL+sX8npdvGeNUXcxRdriP3luoNVIVcKsPJwbowyoCTXgJ+UTpn6s1L8CItd+sp9lEIp4+gEcfHNH/AKc9zfl2m/nNpppU1e/hK/SCQPgk+UjtH7TUfzC+pVuUd/pn3XOswlzaaR8X3ycN/fkmV/PbDrGVPNcTHo/rOl6acGQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABuPwz9Mtv8AV/qbRsPcM3bWW1DS9Rqy2asVYV2M3asVVWb2HDmiiqMeSeFXeiV+7vzwa9d9k6nXlMpty7uXTuaYy+p6LHxiiunumq3/AAlEzHdNPsoN++DPwsb42tva31S6kaXVo1Gk2b1GhaTm5iM3Xmr9E2pu10ceSmiiqrl5uM1T2cCifXJyxRFOPLTHf28WRiuMaKoiMcYngQaj8TuasZHoB1Gv3vVor0W5Y4/Z36/gqP8AfVw2lQ/+bg1mzld8by2/eriK9S0rL52xbxiJqnI5iaZiI75wvYirHaY5YiMMMI7PIxRyiIqwx+tnEEePGH0W13rH0zsZbalqnM7o27nY1PI5GuqKIzVqq3VResUzOEc8xMVU4zGPLhjxWCCHTbwj9a907y0vTNb2lndC0KnN2qtW1TUafgLVrK27kTd5ZmfXr5ceWmmOM+TtVVuVu3Fqj4OinlooimiinuiiiMIByA54iePqxTxqqnhExFOOIICeBDIaPvWnrBp+t5K1qOha5mcn8cyGYjns3bN+7masJjzROMSMPM9aPAFurRs7mtZ6PXKdc0GrG5ToOauxRqWXx4xRRXVhTdjupxqiry49o1GjNN8LniAz+pWtNtdP9TsX5riJv5q38Dl6ce+u5VMUxHon21pFo/h+6aZ3pF0l27sPU81Gb1TIW717ULlE81qnM5y9Xfrt25wjGiia+WJ78MUVs3vZ+gntj6HpJIlVIeNvWsrrXiM3TGTri5Rp1nI6fXVHZ8LYytuq5H72qZp9h0I0Jo/+Vsh+U2fu4Sqvhy38HR9pa+4YqPqUZj31PsqigrMf3xd+3q91YsdYooAR2gtX8AuH+z3lPPrOoe7QMpQudHGqYxmmYx7KuzySfPSxX/4wOhXVbqv13sZnZO2ruf0uNGyeXr1SqYtZOm5TdvTVTXdqmIiY5o4RxwaVILwveGzI9BNAzWY1DM06lv7W6bdOsZ21jOWs2bc81GVsc0RM0xPGuuYxqnyREJUb/mOHq8IjhMIa49vCezv9CxLyib4/OpFjbPSG3sjLXo/S28s3bs/BxVEXKdOyFdF+9XMduFVym3RHdMVS0Yh14OuouV6e9c9Du6nmfi+ibgouaDqVyuqKLdMZzD4CquqqYiKYvU28Z7oDFu/GZnm99E4Th/V5GFjlHYg811C2VpXUXZWu7J1uJ/Ruu5SvKXbkdtqr39u7TH2VuuKa488Q1BVHuTwg9e9B3Rc2zl9p5rV7Pw028prGRiK8jftY+rc+EmfUjDjMV4TCqsc8M/RKnoZ03y+3c7Vbv7p1O7Oo7izVmcbXxqumKabNEzhjRaoiKYnDjVjV3g3MiAK8fnFuoljNa1tnpbp92K/0Tbr1rWLdM4RTmM1HweWoqiPrqbfPXh5K4bp8xBVYpK1CPpSyqTfgK+UTpX6s1L8DKItcpnGKPZ9xEZx4z55CI4+Ob5Oe5fy3Tfzm0rSpm9/CV+lRILwSfKR2j9pqX5heUq3GO/0z7rnWSXL1ppHxffJw39+SZX89sO0ZU9V4zjEeWZdL0JI+GLwpap1wuVbl3FmLmj9O8nemxVm7UfxnPX6J9a1l+aJjlp7K7nd2RjPZkT00bwj+HnRshayNnYmWzvJGFzM5+7ezGYrny1VVXJ7fJERHmQ1rjqv4C+l268hms304or2juaimqvLW6bty/pl653UXKLk11W4ny25jDySNK1917V17ZO4tR2puXKV5DXNIvVZfOZauOMV0zwmmfrqaowqpqjhMTjCI/FUFUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABJfwG/KM0b9X6l+b1IVa/72miKfVjCeEcECIxmcePp4pRy9LKMd3ZM+aOEqIi/OA7/AMtoHSTLbIs34/S+7s9ZiuxTVHwn6N06qL9dcxHHCb0WqY8uM+SWjEDOgnUyrpF1X25vmqav0Zk8x8BrFqiOaqrTs1E2sxhT3zTTVz0x9lEBV0OnalkNX0/KappWYpzmmZ6zRm8rmrM89u9Yu081FVFUduMTEs0fbMYcOz6gOM9uPf5e9YMTjMYVTMx5JVWY7QcsMeH9YGlvFD1ayfR/pNrWq036aNyarYr0jbdia8LleazNHLVdppxx5bFE/CTV5YiJ7YBG35tiMLPUHy8+l8fZvDHqe/ZPDh6BqOUY4RjM+2UnRERERERhER2R6BSYmcaY4c3DFmjyHVDqNoXSjY2r773DVFWR0mxz5exFcUXM1mq8abOXtzPbXcr4dnCPWnhErBSbuLcGp7r13VNya3dnMavq+av5/PX+zmvZmublc4ccIxnhHc2kfPo/+Vsh+U2fu4Sqvhy38HR9pa+4YqPqUIj16fZVFBmZjDM3o/4yr3VWOoUUAI7QWreAb5PmT/XWof2hWUopwxc6MdvoPnpqMT2Yd3fHdxaCmIjs4YRhGHDh5EpWYw48MeGGHf7CMvzde1zSdsaNn9xa/nbenaJp9mvMZ7N36opt2bVuMapmcccZ7KYjjjwhYKb/ABCdYs71t6l6huyuK7GhWYjI7e0+qZwsafYmYoxjsiu5ON2v91Vh2RDeNNWxXNOP0MOGExPCYMFuPhP6+5XrVsS1ktWv0x1D2/aoyuvZaa4+FzNuiIot56mJw4XP+Ew7K8e6aWLESE+j52RiWopEYcKeEY9kcI7VGIiIwwBy9nDz+QR4rqv1P230h2TqO9ty3Y+K5KiqMnlKaopu5zOVRPwWXtdvrVTHGcMKY4zwiQUu733jrO/92azvLcN34bWdazVebzVfdTzcKLdPkot0xFFMeSIaq/MefWFYlagyqTngJ+URpf6s1L8EiLWqJjlpx8s8URymYw/q7cARv8c+P+znuT8u0385tNNKm7vv6/Y9wEgvBJMf7SG0Me+jUv8A8feBbjHfh5Z91isne5ztfGkfF98nDf35Jlfz2w6wxTzc4VVYdnZEti7ro5t/TNsdK9maFpVEW8lltEyddFNPZVXmLVN27XPlmquqqrHzoj3EThOMds9qUjlMRxpwwpnu7uJWp0rc+ca2/p+U6g7R3JlLUUahrOmZjL56qOHwk6deiLdc+flu8uPkiERCyqnlqmnHGY4TgowqgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJMeA2cPEXo3GIx07Uu3v8A4vV2ILXapn1YmmumOPdzT9DEDntxOGM0z28YmOHswWBMzHq0xVM1dk4cMPT2M4Y1v1b66dP+i+jXNT3jqVEahNFU5HQstVTcz+auYerFNET6tMz211YUx5VwVJdYurm5esu+c7vTcVXwVdyIsabp9E42clk7ePJZt4+THmqq7ZqmZVGv5nHAVKzww+MLU+kGXtbH3xRe1fp7NX8UuW55s3pvwk41/BxPv7UzOPwePqz73yIiyLZHUTZXUTSrWsbH1rK63p9dEVVU5a7TN+1j3XLVWFVExPbFcQZGcv8AXp6quTCLmMeWrDGPckyNfM3smumeNGExw7PLj38EyLYc/NM000V1T244cseiJnBZIzf8ae6xeJbpn0XyN/8ATmp29S3PEY5Tben103c1VVPZ8JMcLVPDjNfsYtLNVY9ZOsm8Ot27rm6d13oooopqs6XpdmZ+L5LLTOMW7cT3z9fX21T2i4ld83BqenZa5vvI389l7OezFemVZfK3rlNu7copquxVNET24YxHDvmEZWBYzERVVbrjHtjhOHn9XEacZrpommmqvDy8J4+TuLJUk4cq5nmppimZxicZiJ9jzJ+YPDdSOrnT/pPpFzWN86zZ0+imn7zkKaou56/XPGKbdmieaZnD0eWT8wVYeIzxG7k69bgtXbtuvStmabVP6E0KK+aKauMTfvYcKrsxOGP1scI78bitJRMxjETwnhKj7tHiP0rkPyrL/dwC+DL1W4s2uPH4O13T9iYl6d/PT5foSmE6ZorpmuIx48cOEwYKDL881+7PfNdU+3IrrAUAI7QWreAjGnw85We3/HOoYTHbTxo9IiT/AMJa+z9nCUxcZiujumJ9uEvC44VXYirljjOHCIiZmURnmqmMKbdc1eXDD7rCFkSte9S+t/TTpNkq85vTcOXyeYppmbWk5eqMxqF6qPrabNGNUemqIjzrkFaniR8Ve6OueY/QmQt16F09y9yLmX0eK8buauUzjTdzVVOEVTE8aaPe09vGeJgjxjwwVTEHpdi753P053Lkd27P1GvTNdyNUzReon1K7dXvrd2nsrt1xwqpnhJwys76FeMrp91Vy+X0jcl+ztXfMxFNeQzdyKMlmrk9+XvVcMZ+wq4+lMicpKU1TXRFztpqjGiqj16aonsmJhL/AITSK6ceWa5iqOMzh2/QZ1ZpzTNURRE1RPZOE4e3OENRfrfGturHXjpz0a02vPbx1e3TqE0VfFNBy0xez1+v62IopxmmJ+yrwp868MzVV/Xrr/u3rxuaNT1mZyG3cjzU6JoFuuarGWoq4TXV2c92vD1q8PNHAVqTGY7PQN6KgaAJNeAmf/UTpcYx/k3UojH/AJHuQWtxNFMYY4YTPbj393YhjMV0TMRzdouI5eOKYr8OW5picYjO6dPH8ptNIqZue/r9MAkF4JcI8SW0OOHq6j+YXwW4zVEThHHjx7e+UwcZrjvmI8xJGPveMaS8XddP+zjv6IqjjlMrHk/67Z8yrJVPdUxNURj6s4Yz6YjFdVah4L+vOj9RNgaZsPVc7Ra37tfL/ErmWvV4V5zT7WFNm/amffTRTy0V092GPZLIlDFcRPrxMccOMTC5Fm/10Z/UMppmTzGp6jmrWU07K25u5nNZmqLVm3RTxmuqqrCIiIGJqo/xb9a8j1n6n15zQa5ubS2/YnStFv8AGn4xEVzXdzOExExFyqfVjCPVinvRpoIBVAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAd+Tzuc0/M285kMxdyuaszjav2K6rVyiZ4Y01UzEx29wNp7b8TPXba1u1Y0rfepzlbPC3ls5d+OW8PJ9+iuRGwbPjy8Q1q3RR+lNMuzTEU89en25qnDvnjEYg8vubxe+ILc9Ndu/vG/p2XuU8ly1pVNGTxifJVRHNHsVGDS2oalqGq5uvP6nm7+dz1ycbmazN2q9dqnyzXXMzPtmK+aa6pjCfRj34AwDMVRTOMdqD7tJ1zWdAztGpaDqGZ0zULfGjNZK7Xl7sfvrcxKo3Nt3xheIXb1NNFveN7ULVFMU029Tt283wj91VTzT7NQseor8e3iGmiaI1LS4mYw5qdPo5o9ucEGvt1+J/rvvG1fy2r731C3kcxGF3KZGuMlamPJ94iicPZErU92/dvXa712uq5euzNV25XVNVdU1cZmqZ4zjPapHCKu3GMce+e0HOzfuWLlN2zVVbu0zjRcoqmmumfNMCNm7Z8RfW7aNm3l9D33qtvK28OXLZi9ObtxEd3Lf8AhOHoBsjLePDxDZezFqdV02/hER8JeyFua5w75mJgWPP7l8ZHiF3Jbmzc3bXptqqJprjSrVvKTMVfuqYmqPYkVpTU9Z1XW87d1PWs7f1LUr3G5m85drv3ZnHHjVXMzIPhAB3ZXNXMpmbOatxTNyxcou0xVxpmq3OMRPGOAJMR4+fELEREZ3SuERHHT6JxwjDGcau2e9EJ8fPiGn/r2lfs+j+6UZo8ffiFpnGc5pNXfhVp9Pkw7q49KKjFXXVdrquVzjXXM1VT2capxlRxAAABu3pj4rOrXSPadOzNm38hZ0ajMXs3T8ZykX73wmYw5vXmqOHDhwB7L/b68Qv+GaV+z6f7sGJ8fPiFnj8d0r9n0f3QOm/48vEPftVWo1PTrPN9fbyFuKo9EzMmDwO5fE3143XauZfVd86lRlLvCvL5K78Tow/5iKJ+iI1VfzOYzV6vM5q7XfzN2ea5fu1TXcqnyzVVMzMiuoAAGcYw4Rx78QImMOWqMfP3g2Rsvr71i6f2qMttXeWo5TI25iacjcuzmMtw7ot3uemI9GCMyNo5fx5eIazbpt1appt3ljDnu5C3NU+eZiYFkeW3V4ufEBuu3cs5reV/IZe5GFdjSaaclExP7q3EVx/ZDVaWzeezmfzNzO5/MXc3nb0813NX66rl2uqe+qqqZmZ9MriOjGcMO7HH2TEYFAAAey6YdTt09It1W95bOrsUa3asXsrRVmrUX7cW8xTy1erMxx8gN2U+PfxDY/3/AKX5OOn0f3Rg5T49/ENhj8e0n9n0f3Rg8l1G8W3WHqntHObJ3bmchd0PPV2bl+Mvk6bN3HL1xcpiK4qnCOamMeANG1Vc0zOGGIPV9OOou5Olm79P3vtOqzRrumxepy9WZt/DWppzFqqzXFVOMYxy1T3g3lHj38Qsx/f+lezkKP7oHKPHt4hf84aTHp0+mf7YSvPb78YfWfqJtLVNlbnzenXtD1i3TazdOWydNm7y0XKbkctWM4caYFaCmucMI7OM8vdGIPp0zVNR0jP5bU9Kzd3I6llK4uZXOZeuq1etVx2VU10zEwI39oHjb8QugZCjIU7isalTbjlpv6llaMzfwjumvhM+meIPCdSfEH1b6r0VZXeW5Mxf0qqrm/RWWwy2SxjsmbVvCKv32IrWWOEcsdneDAgKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcAOBEF0DVEABAVDgKej6IAAgAKcAOHkAA7jwAAAAAAAAAAAAAFlQxXVMUtBAAAAAAAxE0IDWgaoyAAACwF1BNBFAYEZAFAAAOAhj3dwoAICgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC4CAAAAAAAB3HgAAAAAAICgAAAAAAAgKAAAAAAgARQSgoAAAAAAAAAAAAAAAAAAICgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAElAAAAAAABQNA0EAAAAAADuAAAAAAAQAFAAAAAABAUAAAAABAUIAUAAAntAAEAABQAQAFAAAAAABAUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAFAAAAAABAUAAAAABAUAAAAAAAAAAAAAAAAAAAAAEBQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABcAwEAAAAAAAAAAAAAAAAAAAAAAAABAUAAAAAYEZFAAAAAAZw4Y+2DAAAAAAAAAAAAAAAgKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAoAAAYAAAAAAAAAAAAAAAAAAAACAoAAAAAwIyKCAoAAAAAAAAAAAAAAICgAAAgKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAALECgigABAUEAAAAAAAAAAAAAAAAAAABAUAAAAABAUEBQAAAQFAAAAAAAAAAAAAABAUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEYUZQBQBEInAUUFwEAAAAAAAABAUAAAAAAAEBQAAAAAAAAAQFAAQFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYEZUDARWBGRQQXVEoAAAAAAAAAAAAAAAAAAAAAAAAACAoAAAAJAUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKAAAAAAAAgugaAoIIoiHYKKC4CAAAAAYBgYCaCgAAAAAAGCLgqAAAAAAgiigIACgAAAAABgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwIyKCC6oUEAAAAAAAAAAAAAAAAAAAAAADFF0VAAAAAAAAAGBGRQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQFEABQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANA1A0DQxk0wFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKkBQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMQMQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYRAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//2Q==";
 
+
+
   const manifest = {
+
     "name": "Legacy Vision",
+
     "short_name": "Legacy",
+
     "start_url": window.location.href.split('?')[0],
+
     "display": "standalone",
+
     "background_color": "#ffffff",
+
     "theme_color": "#f59e0b",
+
     "icons": [{
+
       "src": window.MY_CUSTOM_APP_ICON,
+
       "sizes": "512x512",
+
       "type": window.MY_CUSTOM_APP_ICON.startsWith('data:image/jpeg') ? 'image/jpeg' : (window.MY_CUSTOM_APP_ICON.startsWith('data:image/png') ? 'image/png' : 'image/svg+xml')
+
     }]
+
   };
+
   const manifestUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
+
   document.getElementById('dynamic-manifest').setAttribute('href', manifestUrl);
+
 </script>
+
+
 
 <!-- Moderne Premium-Schriftarten -->
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
+
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
 
+
+
 <script src="https://cdn.tailwindcss.com"></script>
+
 <script>
+
 tailwind.config = {
+
   darkMode: 'class',
+
   theme: {
+
     extend: {
+
       colors: {
+
         graphite: {
+
           900: '#18181b',
+
           950: '#09090b',
+
         },
+
         paper: {
+
           100: '#ffffff', 
+
           50: '#ffffff',
+
         }
+
       }
+
     }
+
   }
+
 }
+
 </script>
 
+
+
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
 <script src="https://unpkg.com/lucide@latest"></script>
+
 <!-- PeerJS für P2P Übertragung -->
+
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
+
+
 <style>
+
 body {
+
   margin: 0;
+
   padding: 0;
+
   font-family: 'Inter', -apple-system, sans-serif;
+
   -webkit-tap-highlight-color: transparent;
+
   transition: background-color 0.4s ease, color 0.4s ease;
+
   overscroll-behavior-y: none; 
+
 }
+
+
 
 h1, h2, h3, .font-serif {
+
   font-family: 'Playfair Display', serif !important;
+
 }
+
+
 
 html:not(.dark) body { background-color: #ffffff !important; color: #18181b !important; }
+
 html:not(.dark) .card-bg { background-color: #ffffff !important; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+
 html.dark body { background-color: #09090b !important; color: #f4f4f5 !important; }
+
 html.dark .card-bg { background-color: #18181b !important; border: 1px solid rgba(255,255,255,0.05); }
 
+
+
 .pb-safe { padding-bottom: env(safe-area-inset-bottom, 32px); }
+
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } } .animate-fade-in { animation: fade-in 0.4s ease-out forwards; }
+
 @keyframes slide-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } .animate-slide-up { animation: slide-up 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+
 @keyframes pulse-flame { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.05); } } .animate-flame { animation: pulse-flame 2s infinite ease-in-out; }
 
+
+
 .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+
 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(150, 150, 150, 0.3); border-radius: 10px; }
+
 .hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+
+
 .legacy-editor-content ul { list-style-type: disc; padding-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.5rem; }
+
 .legacy-editor-content li { margin-bottom: 0.25rem; }
+
 .legacy-editor-content b, .legacy-editor-content strong { font-weight: 600; }
+
 .legacy-editor-content i, .legacy-editor-content em { font-style: italic; }
+
 .legacy-editor-content blockquote { border-left: 3px solid #f59e0b; padding-left: 1rem; font-style: italic; opacity: 0.8; background: rgba(245, 158, 11, 0.05); padding: 1rem; border-radius: 0 8px 8px 0; margin: 1rem 0; }
 
+
+
 [contenteditable="true"]:empty:before {
+
   content: attr(data-placeholder);
+
   opacity: 0.4;
+
   pointer-events: none;
+
   display: block;
+
 }
+
+
 
 html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
 
+
+
 .search-highlight {
+
   background-color: rgba(245, 158, 11, 0.3);
+
   padding: 0 2px;
+
   border-radius: 3px;
+
   border-bottom: 1px solid #f59e0b;
+
 }
+
+
 
 @keyframes audio-pulse {
+
   0% { transform: scale(1); opacity: 1; }
+
   50% { transform: scale(1.05); opacity: 0.8; }
+
   100% { transform: scale(1); opacity: 1; }
+
 }
+
 .audio-active { animation: audio-pulse 1.5s infinite ease-in-out; color: #f59e0b !important; }
 
+
+
 /* DRUCK-OPTIMIERUNG (ECHTES BUCH & VERSTECKTE UI) */
+
 .print-only { display: none; }
+
 @media print {
+
   body, html, #root, .min-h-screen { 
+
     background: #ffffff !important; 
+
     color: #000000 !important; 
+
     height: auto !important; 
+
     overflow: visible !important; 
+
   }
+
   nav, header, button, .no-print, .screen-only, .custom-scrollbar::-webkit-scrollbar { 
+
     display: none !important; 
+
   }
+
   .print-only {
+
     display: block !important;
+
   }
+
   .page-break-after {
+
     page-break-after: always;
+
   }
+
   .card-bg, .group { 
+
     box-shadow: none !important; 
+
     border: 1px solid #ddd !important; 
+
     background: #ffffff !important; 
+
     color: #000000 !important; 
+
     page-break-inside: avoid; 
+
     margin-bottom: 24px !important; 
+
   }
+
   * { color: #000000 !important; }
+
   img { max-height: 400px; object-fit: contain; }
+
   .text-white { color: #000 !important; }
+
   h1, h2, h3 { page-break-after: avoid; }
+
 }
+
 </style>
+
 </head>
+
 <body>
+
 <div id="root"></div>
 
+
+
 <script type="text/babel">
+
 const { useState, useEffect, useRef } = React;
+
+
 
 const apiKey = ""; 
 
+
+
 const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
+
 const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
 
+
+
 const pcmToWav = (pcmBase64, sampleRate = 24000) => {
+
   const pcmData = Uint8Array.from(atob(pcmBase64), c => c.charCodeAt(0)).buffer;
+
   const wavHeader = new ArrayBuffer(44);
+
   const view = new DataView(wavHeader);
+
   
+
   view.setUint32(0, 0x52494646, false); 
+
   view.setUint32(4, 36 + pcmData.byteLength, true); 
+
   view.setUint32(8, 0x57415645, false); 
+
   view.setUint32(12, 0x666d7420, false); 
+
   view.setUint32(16, 16, true); 
+
   view.setUint16(20, 1, true); 
+
   view.setUint16(22, 1, true); 
+
   view.setUint32(24, sampleRate, true); 
+
   view.setUint32(28, sampleRate * 2, true); 
+
   view.setUint16(32, 2, true); 
+
   view.setUint16(34, 16, true); 
+
   view.setUint32(36, 0x64617461, false); 
+
   view.setUint32(40, pcmData.byteLength, true); 
+
   
+
   const blob = new Blob([wavHeader, pcmData], { type: 'audio/wav' });
+
   return URL.createObjectURL(blob);
+
 };
+
+
 
 class ErrorBoundary extends React.Component {
+
   constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+
   static getDerivedStateFromError(error) { return { hasError: true, error }; }
+
   render() {
+
     if (this.state.hasError) {
+
       return (
+
         <div className="min-h-screen flex items-center justify-center bg-graphite-950 text-white p-8 text-center">
+
           <div>
+
             <h1 className="text-2xl font-bold text-rose-500 mb-4 font-serif">Ein Moment bitte...</h1>
+
             <p className="opacity-70 mb-8">Die App hat sich verschluckt. Bitte lade die Seite neu.</p>
+
             <button type="button" onClick={() => window.location.reload()} className="px-6 py-3 bg-amber-500 text-slate-900 font-bold rounded-xl shadow-lg">Neu laden</button>
+
           </div>
+
         </div>
+
       );
+
     }
+
     return this.props.children;
+
   }
+
 }
 
+
+
 const Icon = ({ name, size = 24, className = '', ...props }) => {
+
   const spanRef = useRef(null);
+
   useEffect(() => {
+
     const renderIcon = () => {
+
       if (spanRef.current && window.lucide) {
+
         spanRef.current.innerHTML = `<i data-lucide="${name}"></i>`;
+
         window.lucide.createIcons({ root: spanRef.current });
+
         const svg = spanRef.current.querySelector('svg');
+
         if (svg) {
+
           svg.setAttribute('width', size);
+
           svg.setAttribute('height', size);
+
           if (className) svg.setAttribute('class', `lucide lucide-${name} ${className}`);
+
         }
+
       }
+
     };
+
     if (window.lucide) renderIcon();
+
     else setTimeout(renderIcon, 100);
+
   }, [name, size, className]);
 
+
+
   return <span ref={spanRef} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} {...props}></span>;
+
 };
+
+
 
 const COLORS = [
+
   '#ffffff', '#e4e4e7', '#d4d4d8', '#a1a1aa', '#71717a', '#52525b', '#3f3f46', '#27272a', '#18181b', '#09090b',
+
   '#fef3c7', '#fde68a', '#fcd34d', '#fbbf24', '#f59e0b', '#d97706', '#b45309', '#92400e', '#78350f', '#451a03',
+
   '#ffe4e6', '#fecdd3', '#fda4af', '#fb7185', '#f43f5e', '#e11d48', '#be123c', '#9f1239', '#881337', '#4c0519'
+
 ];
+
+
 
 const isDarkColor = (color) => {
+
   if (!color) return true;
+
   const hex = color.replace('#', '');
+
   if (hex.length === 6) {
+
     const r = parseInt(hex.substr(0, 2), 16);
+
     const g = parseInt(hex.substr(2, 2), 16);
+
     const b = parseInt(hex.substr(4, 2), 16);
+
     const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+
     return brightness < 128;
+
   }
+
   return true; 
+
 };
 
+
+
 // Kategorien
+
 const CATEGORIES = ['Allgemein', 'Tagebuch', 'Ideen', 'Gesundheit', 'Vision', 'Ziele', 'Bücher', 'Familie'];
 
+
+
 const MOODS = [
+
   { id: 'smile', label: 'Strahlend', color: 'text-amber-500', iconName: 'smile' },
+
   { id: 'heart', label: 'Liebevoll', color: 'text-rose-500', iconName: 'heart' },
+
   { id: 'coffee', label: 'Fokussiert', color: 'text-amber-700', iconName: 'coffee' },
+
   { id: 'cloud-lightning', label: 'Stürmisch', color: 'text-indigo-500', iconName: 'cloud-lightning' },
+
   { id: 'frown', label: 'Nachdenklich', color: 'text-slate-500', iconName: 'frown' }
+
 ];
 
+
+
 const PILLARS = [
+
   { id: 'm1', phase: 'Fundament', title: '1. Das Nordstern-Manifest', desc: 'Definiere deine absoluten, unverhandelbaren Grundwerte. Welche Prinzipien leitenden dich, egal was auf der Welt passiert?' },
+
   { id: 'm2', phase: 'Fundament', title: '2. Der Zeitgeist-Stempel', desc: 'Historischer Kontext: Was passiert gerade auf der Welt? Schreibe über Politik, Technologien und Alltagspreise von heute.' },
+
   { id: 'm3', phase: 'Fundament', title: '3. Das Geistige Testament', desc: 'Vererbe deinen Charakter. Welche Lebensweisheiten, Überzeugungen und moralischen Kompasse möchtest du weitergeben?' },
+
   { id: 'm4', phase: 'Fundament', title: '4. Die Anti-Vision', desc: 'Definiere glasklar, wer du *niemals* werden willst und welche toxischen Pfade du um jeden Preis vermeiden möchtest.' },
+
   { id: 'm5', phase: 'Fundament', title: '5. Das Narben-Register', desc: 'Eine ehrliche, ungeschönte Dokumentation deines größten Fehlschlags und wie du dich daraus zurückgekämpft hast.' },
+
   { id: 'm6', phase: 'Kommunikation', title: '6. Die Zeitkapsel', desc: 'Eine Botschaft an die Zukunft. Nutze die Datums-Siegelfunktion, um diesen Text für Jahrzehnte zu verschließen.' },
+
   { id: 'm7', phase: 'Kommunikation', title: '7. Der Enkel-Dialog', desc: 'Stelle tiefgründige Fragen, die der zukünftige Leser (dein Enkel/Kind) in seinem eigenen Leben für sich selbst beantworten soll.' },
+
   { id: 'm8', phase: 'Kommunikation', title: '8. Stammbaum der Fähigkeiten', desc: 'Dokumentiere, wie du dir über Jahrzehnte bestimmte Fähigkeiten oder Meisterschaft angeeignet hast.' },
+
   { id: 'm9', phase: 'Kommunikation', title: '9. Schicksals-Tagebuch', desc: 'Ein Ort für unglaubliche Zufälle, unerwartetes "Glück" und unerklärliche Momente deines Lebens.' },
+
   { id: 'm10', phase: 'Kommunikation', title: '10. Das Dankbarkeits-Echo', desc: 'Wem verdankst du etwas? Setzt dich als Bindeglied in eine Kette von Mentoren, Eltern und Lehrern.' },
+
   { id: 'm11', phase: 'Struktur', title: '11. Purer Text (Agnostisch)', desc: 'Schreibe in einfachen Sätzen rohe Fakten auf, völlig ohne Emotionen. Nur die Essenz, damit sie in 100 Jahren klar verstanden wird.' },
+
   { id: 'm12', phase: 'Struktur', title: '12. Matroschka-Ziele', desc: 'Bricht deine 50-Jahres-Vision auf ein 10-Jahres-Ziel, dann auf this Jahr, diesen Monat und den heutigen Tag herunter.' },
+
   { id: 'm13', phase: 'Struktur', title: '13. Die Essenz-Filterung', desc: 'Fasse das vergangene Jahr in exakt drei Sätzen zusammen: Größter Triumph, größter Schmerz, wichtigste Lektion.' },
+
   { id: 'm14', phase: 'Struktur', title: '14. Offene Fragen', desc: 'Dinge im Leben, dem Universum oder in dir selbst, die du noch nicht verstehst. Zeige intellektuelle Demut.' },
+
   { id: 'm15', phase: 'Struktur', title: '15. Denkwerkzeuge', desc: 'Wie entscheidest du? Notiere die mentalen Modelle und Heuristiken, die dir in schweren Situationen helfen.' },
+
   { id: 'm16', phase: 'Tiefe', title: '16. Emotionaler Farb-Code', desc: 'Vergib dieser Lebensphase eine Farbe and erkläre, warum. (z.B. "Die feuerroten Jahre des Umbruchs").' },
+
   { id: 'm17', phase: 'Tiefe', title: '17. Die Friedens-Akte', desc: 'Aufzeichnungen darüber, wie du einen schweren zwischenmenschlichen Konflikt gelöst (oder nicht gelöst) hast.' },
+
   { id: 'm18', phase: 'Tiefe', title: '18. Das Alltags-Fossil', desc: 'Dokumentiere einen extrem banalen, minutengenauen Ablauf eines völlig normalen Dienstags.' },
+
   { id: 'm19', phase: 'Tiefe', title: '19. Rhythmus-Tracker', desc: 'Beobachte deine eigenen Lebensenergie-Zyklen. Wann musstest du aufbauen, wann loslassen?' },
+
   { id: 'm20', phase: 'Tiefe', title: '20. Ideen-Gewächshaus', desc: 'Ideen, die du heute hast, für die du (oder die Welt) aber noch nicht bereit bist. Lass sie hier reifen.' },
+
   { id: 'm21', phase: 'Anpassung', title: '21. Der Pivot-Tracker', desc: 'Hebe Momente hervor, in denen du dein Leben radikal in eine völlig neue Richtung gelenkt hast.' },
+
   { id: 'm22', phase: 'Anpassung', title: '22. Umwelt-Resonanz', desc: 'Beobachtungen über die Natur und Umwelt an deinem Wohnort im Wandel der Zeit.' },
+
   { id: 'm23', phase: 'Anpassung', title: '23. Die Loslass-Liste', desc: 'Eine Liste von Träumen, Zielen oder Menschen, die du bewusst (und in Frieden) aufgegeben hast.' },
+
   { id: 'm24', phase: 'Anpassung', title: '24. Stimme & Akzent', desc: 'Nutze die Mikrofon-Funktion im Editor, um deinen Enkeln eine Audio-Nachricht mit deiner echten Stimme zu hinterlassen.' },
+
   { id: 'm25', phase: 'Anpassung', title: '25. Raum für Unbegreifliches', desc: 'Platz für Konzepte, Technologien und Lebensrealitäten, die es heute noch gar nicht gibt.' }
+
 ];
+
+
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
+
+
 const getDistance = (lat1, lon1, lat2, lon2) => {
+
   const R = 6371e3;
+
   const p1 = lat1 * Math.PI/180, p2 = lat2 * Math.PI/180;
+
   const dp = (lat2-lat1) * Math.PI/180, dl = (lon2-lon1) * Math.PI/180;
+
   const a = Math.sin(dp/2) * Math.sin(dp/2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2) * Math.sin(dl/2);
+
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+
 };
+
+
 
 // ACHTUNG: Die Datenbank heißt exakt LegacyVisionDB und bleibt bei Version 3, 
+
 // damit deine alten Daten 1:1 wiedererkannt werden!
+
 const initDB = () => {
+
   return new Promise((resolve, reject) => {
+
     const request = indexedDB.open('LegacyVisionDB', 3);
+
     request.onupgradeneeded = (e) => {
+
       const db = e.target.result;
+
       if (!db.objectStoreNames.contains('entries')) db.createObjectStore('entries', { keyPath: 'id' });
+
     };
+
     request.onsuccess = () => resolve(request.result);
+
     request.onerror = () => reject(request.error);
+
   });
+
 };
 
+
+
 function App() {
+
   const [db, setDb] = useState(null);
+
   const [entries, setEntries] = useState([]);
+
   const [user, setUser] = useState({ name: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', testamentId: null, isDark: true, appBgColor: null });
+
   const [view, setView] = useState('loading');
+
   const [isLoaded, setIsLoaded] = useState(false);
 
+
+
   // P2P State
+
   const [peerId, setPeerId] = useState(null);
+
   const [peerInstance, setPeerInstance] = useState(null);
+
   const [syncStatus, setSyncStatus] = useState('');
+
   const [importId, setImportId] = useState(() => {
+
     const params = new URLSearchParams(window.location.search);
+
     return params.get('import');
+
   });
 
+
+
   const [searchQuery, setSearchQuery] = useState('');
+
   const [activeCategory, setActiveCategory] = useState('Alle');
+
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
+
+
   const [dialog, setDialog] = useState(null);
+
   const [picker, setPicker] = useState(null);
+
   const [installHint, setInstallHint] = useState('');
 
+
+
   const [viewingEntry, setViewingEntry] = useState(null);
+
   const [showEditor, setShowEditor] = useState(false);
+
   const [showTimeline, setShowTimeline] = useState(false); // NEU: Timeline / Zeitreise Modus
+
   const [timelineMonth, setTimelineMonth] = useState(() => new Date()); // Für den Kalender
+
   const [timelineSearchQuery, setTimelineSearchQuery] = useState(''); // Für die Lupe in der Zeitreise
+
   const [timelineSelectedDate, setTimelineSelectedDate] = useState(null); // Für Klick auf einen Kalendertag
+
   
+
   const [affirmation, setAffirmation] = useState(null);
 
+
+
   const [unlockTarget, setUnlockTarget] = useState(null);
+
   const [pinInput, setPinInput] = useState('');
+
   const [pinError, setPinError] = useState(false);
+
   const [isChangingPin, setIsChangingPin] = useState(false);
+
   const [oldPinInput, setOldPinInput] = useState('');
+
   const [newPinInput, setNewPinInput] = useState('');
 
+
+
   // Audio / TTS State
+
   const [isSpeaking, setIsSpeaking] = useState(false);
+
   const audioPlayerRef = useRef(new Audio());
 
+
+
   // Editor State
+
   const [editingId, setEditingId] = useState(null);
+
   const [title, setTitle] = useState('');
+
   const [text, setText] = useState(''); 
+
   const [selectedColor, setSelectedColor] = useState(COLORS[8]);
+
   const [selectedImage, setSelectedImage] = useState(null);
+
   const [selectedVideo, setSelectedVideo] = useState(null);
+
   const [isLocked, setIsLocked] = useState(false);
+
   const [audioUrl, setAudioUrl] = useState(null);
+
   const [isManifested, setIsManifested] = useState(false);
+
   const [unlockDate, setUnlockDate] = useState('');
+
   const [unlockLocation, setUnlockLocation] = useState(null);
+
   const [entryType, setEntryType] = useState('vision');
+
   const [category, setCategory] = useState(CATEGORIES[0]);
+
   const [mood, setMood] = useState(null);
+
   const [location, setLocation] = useState(null);
+
   const [parentId, setParentId] = useState('');
+
   const [zenMode, setZenMode] = useState(false);
+
   const [inheritedFrom, setInheritedFrom] = useState(null);
+
   
+
   // Touch Swipe State
+
   const [touchStartPos, setTouchStartPos] = useState({x: null, y: null});
+
   const [touchEndPos, setTouchEndPos] = useState({x: null, y: null});
+
   
+
   const [pillarGuidance, setPillarGuidance] = useState(null);
 
+
+
   const [isDrawing, setIsDrawing] = useState(false);
+
   const canvasRef = useRef(null);
+
   const editorRef = useRef(null);
+
   const [autoSaveStatus, setAutoSaveStatus] = useState('');
+
   
+
   // Wächter für sauberes Speichern (verhindert Endlosschleifen)
+
   const isDirtyRef = useRef(false);
+
   const savedDataRef = useRef("");
+
   
+
   const getCurrentDataString = () => {
+
     return JSON.stringify({
+
       title, 
+
       text: editorRef.current ? editorRef.current.innerHTML : text, 
+
       c: selectedColor, 
+
       i: selectedImage ? selectedImage.substring(0, 50) : null, 
+
       v: selectedVideo ? selectedVideo.substring(0, 50) : null,
+
       a: audioUrl ? audioUrl.substring(0, 50) : null,
+
       l: isLocked, 
+
       m: isManifested, 
+
       d: unlockDate, 
+
       cat: category, 
+
       mo: mood
+
     });
+
   };
+
   
+
   const [burnText, setBurnText] = useState('');
+
   const [isBurning, setIsBurning] = useState(false);
 
+
+
   const [isRecording, setIsRecording] = useState(false);
+
   const mediaRecorderRef = useRef(null);
+
   const audioChunksRef = useRef([]);
 
+
+
   const viewRef = useRef(view);
+
   const editorRefState = useRef(showEditor);
+
   const viewingEntryRef = useRef(viewingEntry);
+
   
+
   // Wächter-Refs für den Zurück-Button
+
   const editingIdRef = useRef(editingId);
+
   const entriesRef = useRef(entries);
 
+
+
   useEffect(() => { viewRef.current = view; }, [view]);
+
   useEffect(() => { editorRefState.current = showEditor; }, [showEditor]);
+
   useEffect(() => { viewingEntryRef.current = viewingEntry; }, [viewingEntry]);
+
   useEffect(() => { editingIdRef.current = editingId; }, [editingId]);
+
   useEffect(() => { entriesRef.current = entries; }, [entries]);
 
+
+
   // ARCHITEKTUR-UPDATE: Dynamisches PWA Icon, das sich sofort ändert, wenn der User sein Profilbild anpasst.
+
   useEffect(() => {
+
     const manifestEl = document.getElementById('dynamic-manifest');
+
     if (manifestEl) {
+
       // Nutze das User-Avatar, falls vorhanden. WICHTIG: Das Icon muss im Browser neu zum Homescreen hinzugefügt werden!
+
       const iconSrc = user.avatar || window.MY_CUSTOM_APP_ICON || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20'/%3E%3C/svg%3E";
+
       const manifestObj = {
+
         "name": "Legacy Vision",
+
         "short_name": "Legacy",
+
         "start_url": window.location.href.split('?')[0],
+
         "display": "standalone",
+
         "background_color": user.appBgColor || (user.isDark ? "#09090b" : "#ffffff"),
+
         "theme_color": user.nameColor || "#f59e0b",
+
         "icons": [{
+
           "src": iconSrc,
+
           "sizes": "512x512",
+
           "type": user.avatar ? "image/jpeg" : "image/svg+xml" // Korrekter Mime-Type für Base64 Avatar
+
         }]
+
       };
+
       const manifestUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifestObj));
+
       manifestEl.setAttribute('href', manifestUrl);
+
     }
+
   }, [user.avatar, user.appBgColor, user.nameColor, user.isDark]);
 
+
+
   // PeerJS P2P Empfänger Logik
-  useEffect(() => {
-    if (importId && isLoaded) {
-      setSyncStatus('Bereite Datenübertragung vor...');
-      const peer = new window.Peer();
-      peer.on('open', () => {
-        setSyncStatus(`Verbinde mit altem Gerät...`);
-        const conn = peer.connect(importId);
-        conn.on('open', () => {
-          setSyncStatus('Verbunden! Empfange Daten...');
-          conn.send('request_data');
-        });
-        conn.on('data', async (data) => {
-          try {
-            const parsed = JSON.parse(data);
-            if (parsed.entries) {
-               setSyncStatus('Daten werden sicher verarbeitet...');
-               if (db) {
-                 const tx = db.transaction('entries', 'readwrite');
-                 const store = tx.objectStore('entries');
-                 parsed.entries.forEach(e => store.put(e));
-                 tx.oncomplete = () => {
-                   if (parsed.user) safeStorageSet('legacy_user', JSON.stringify(parsed.user));
-                   setSyncStatus('Erfolgreich übertragen! Tagebuch wird geöffnet...');
-                   setTimeout(() => {
-                     window.location.href = window.location.origin + window.location.pathname;
-                   }, 2000);
-                 };
-               }
-            }
-          } catch(e) {
-            setSyncStatus('Fehler beim Lesen der Daten.');
-          }
-        });
-        conn.on('error', (err) => setSyncStatus('Verbindungsfehler: ' + err));
-      });
-      peer.on('error', (err) => setSyncStatus('Verbindungsfehler: Das alte Gerät ist nicht bereit.'));
-    }
-  }, [importId, isLoaded, db]);
 
   useEffect(() => {
-    if (isLoaded) {
-      safeStorageSet('legacy_view', view);
-      safeStorageSet('legacy_viewing_id', viewingEntry ? viewingEntry.id : '');
-      safeStorageSet('legacy_editing_id', editingId || '');
-      safeStorageSet('legacy_show_editor', showEditor ? 'true' : 'false');
+
+    if (importId && isLoaded) {
+
+      setSyncStatus('Bereite Datenübertragung vor...');
+
+      const peer = new window.Peer();
+
+      peer.on('open', () => {
+
+        setSyncStatus(`Verbinde mit altem Gerät...`);
+
+        const conn = peer.connect(importId);
+
+        conn.on('open', () => {
+
+          setSyncStatus('Verbunden! Empfange Daten...');
+
+          conn.send('request_data');
+
+        });
+
+        conn.on('data', async (data) => {
+
+          try {
+
+            const parsed = JSON.parse(data);
+
+            if (parsed.entries) {
+
+               setSyncStatus('Daten werden sicher verarbeitet...');
+
+               if (db) {
+
+                 const tx = db.transaction('entries', 'readwrite');
+
+                 const store = tx.objectStore('entries');
+
+                 parsed.entries.forEach(e => store.put(e));
+
+                 tx.oncomplete = () => {
+
+                   if (parsed.user) safeStorageSet('legacy_user', JSON.stringify(parsed.user));
+
+                   setSyncStatus('Erfolgreich übertragen! Tagebuch wird geöffnet...');
+
+                   setTimeout(() => {
+
+                     window.location.href = window.location.origin + window.location.pathname;
+
+                   }, 2000);
+
+                 };
+
+               }
+
+            }
+
+          } catch(e) {
+
+            setSyncStatus('Fehler beim Lesen der Daten.');
+
+          }
+
+        });
+
+        conn.on('error', (err) => setSyncStatus('Verbindungsfehler: ' + err));
+
+      });
+
+      peer.on('error', (err) => setSyncStatus('Verbindungsfehler: Das alte Gerät ist nicht bereit.'));
+
     }
+
+  }, [importId, isLoaded, db]);
+
+
+
+  useEffect(() => {
+
+    if (isLoaded) {
+
+      safeStorageSet('legacy_view', view);
+
+      safeStorageSet('legacy_viewing_id', viewingEntry ? viewingEntry.id : '');
+
+      safeStorageSet('legacy_editing_id', editingId || '');
+
+      safeStorageSet('legacy_show_editor', showEditor ? 'true' : 'false');
+
+    }
+
   }, [view, viewingEntry, showEditor, editingId, isLoaded]);
+
+
 
   const showDialog = (options) => { setDialog({ type: 'alert', confirmLabel: 'Verstanden', ...options }); };
 
+
+
   // ARCHITEKTUR-UPDATE: Zentrale Schließ-Funktion, die IMMER zurück in den Lese-Modus springt
+
   const closeEditor = (savedEntry = null) => {
+
     setShowEditor(false);
+
     if (isRecording) stopRecording();
+
     
+
     if (savedEntry && (savedEntry.title || savedEntry.text || savedEntry.image || savedEntry.audio)) {
+
       setViewingEntry(savedEntry);
+
     } else if (editingIdRef.current) {
+
       const existing = entriesRef.current.find(e => e.id === editingIdRef.current);
+
       setViewingEntry(existing || null);
+
     } else {
+
       setViewingEntry(null);
+
     }
+
   };
 
-  useEffect(() => {
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone || document.referrer.includes('android-app://');
-    if (!isStandalone) {
-      if (window.location.protocol.includes('file') || window.location.protocol.includes('content')) {
-        setInstallHint("Tipp: Du hast diese Datei direkt aus dem Speicher deines Handys geöffnet. Handys blockieren hierbei das 'Zum Startbildschirm hinzufügen'. Lade die App über den originalen Web-Link auf deinen Startbildschirm und nutze danach die 'Importieren'-Funktion in den Einstellungen!");
-      }
-    }
-  }, []);
+
 
   useEffect(() => {
+
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone || document.referrer.includes('android-app://');
+
+    if (!isStandalone) {
+
+      if (window.location.protocol.includes('file') || window.location.protocol.includes('content')) {
+
+        setInstallHint("Tipp: Du hast diese Datei direkt aus dem Speicher deines Handys geöffnet. Handys blockieren hierbei das 'Zum Startbildschirm hinzufügen'. Lade die App über den originalen Web-Link auf deinen Startbildschirm und nutze danach die 'Importieren'-Funktion in den Einstellungen!");
+
+      }
+
+    }
+
+  }, []);
+
+
+
+  useEffect(() => {
+
     if (!isLoaded) return;
+
     window.history.pushState({ locked: true }, '');
 
+
+
     const handlePopState = (e) => {
+
       window.history.pushState({ locked: true }, '');
+
       if (viewingEntryRef.current) {
+
         setViewingEntry(null);
+
       } else if (editorRefState.current) {
+
         closeEditor();
+
       } else if (viewRef.current !== 'dashboard' && viewRef.current !== 'loading' && viewRef.current !== 'onboarding') {
+
         setView('dashboard');
+
       } else if (viewRef.current === 'dashboard') {
+
         showDialog({
+
           type: 'confirm', title: 'Journal verlassen?', message: 'Möchtest du das Vermächtnis wirklich verlassen?',
+
           icon: 'log-out', iconColor: 'text-rose-500', confirmLabel: 'Verlassen', confirmColor: 'bg-rose-600',
+
           onConfirm: () => { window.location.href = "about:blank"; }
+
         });
+
       }
+
     };
+
     window.addEventListener('popstate', handlePopState);
+
     return () => window.removeEventListener('popstate', handlePopState);
+
   }, [isLoaded]);
 
+
+
   useEffect(() => {
+
     const loadApp = async () => {
+
       try {
+
         let currentUser = { name: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', testamentId: null, isDark: true, appBgColor: null };
+
         
+
         const database = await initDB();
+
         setDb(database);
 
+
+
         // --- APP-KLON (SHARE) WIEDERHERSTELLUNG ---
+
         const injectedScript = document.getElementById('legacy-injected-data');
+
         let injectedEntries = null;
+
         if (injectedScript && injectedScript.textContent && injectedScript.textContent.trim() !== 'null') {
+
           try {
+
             const injectedData = JSON.parse(injectedScript.textContent);
+
             if (injectedData && injectedData.user && injectedData.entries) {
+
               currentUser = { ...currentUser, ...injectedData.user };
+
               safeStorageSet('legacy_user', JSON.stringify(currentUser));
+
               injectedEntries = injectedData.entries;
+
               
+
               const tx = database.transaction('entries', 'readwrite');
+
               const store = tx.objectStore('entries');
+
               injectedEntries.forEach(entry => store.put(entry));
+
               await new Promise(resolve => { tx.oncomplete = resolve; });
+
               
+
               injectedScript.textContent = 'null';
+
               showDialog({ title: 'App wiederhergestellt', message: 'Das Journal wurde erfolgreich mit all seinen Daten aus der HTML-Datei geladen!', icon: 'check', iconColor: 'text-emerald-500' });
+
             }
+
           } catch (e) {
+
             console.error("Error parsing injected data", e);
+
           }
+
         }
+
         
+
         const savedUser = safeStorageGet('legacy_user');
+
         if (savedUser && !injectedEntries) {
+
           const parsed = JSON.parse(savedUser);
+
           currentUser = { ...currentUser, ...parsed };
+
         }
+
         setUser(currentUser);
 
+
+
         const transaction = database.transaction('entries', 'readonly');
+
         const request = transaction.objectStore('entries').getAll();
 
+
+
         request.onsuccess = () => {
+
           let loadedEntries = request.result || [];
+
           const lastActiveStr = safeStorageGet('legacy_last_active');
+
           const lastActive = lastActiveStr ? new Date(lastActiveStr) : new Date();
+
           const daysInactive = (new Date() - lastActive) / (1000 * 60 * 60 * 24);
 
+
+
           safeStorageSet('legacy_last_active', new Date().toISOString());
+
           
+
           const sortedEntries = loadedEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
+
           setEntries(sortedEntries);
+
           setIsLoaded(true);
 
+
+
           if (!currentUser.name) {
+
             setView('onboarding');
+
           } else if (currentUser.testamentId && daysInactive > 365) {
+
             setView('testament');
+
           } else {
+
             const storedView = safeStorageGet('legacy_view');
+
             const storedViewingId = safeStorageGet('legacy_viewing_id');
+
             const storedEditingId = safeStorageGet('legacy_editing_id');
+
             const storedShowEditor = safeStorageGet('legacy_show_editor') === 'true';
 
+
+
             if (storedView && storedView !== 'loading' && storedView !== 'onboarding') setView(storedView);
+
             else setView('dashboard');
 
+
+
             if (storedViewingId) {
+
               const vEntry = sortedEntries.find(e => e.id === storedViewingId);
+
               if (vEntry) setViewingEntry(vEntry);
+
             }
+
+
 
             if (storedShowEditor && storedEditingId) {
+
               const eEntry = sortedEntries.find(e => e.id === storedEditingId);
+
               if (eEntry) {
+
                 setEditingId(eEntry.id); 
+
                 setTitle(eEntry.title || ''); 
+
                 setText(eEntry.text || '');
+
                 setSelectedColor(eEntry.color || (currentUser.isDark ? COLORS[8] : COLORS[0]));
+
                 setSelectedImage(eEntry.image || null); setSelectedVideo(eEntry.video || null);
+
                 setIsLocked(eEntry.locked || false); setAudioUrl(eEntry.audio || null);
+
                 setIsManifested(eEntry.manifested || false); setUnlockDate(eEntry.unlockDate || '');
+
                 setUnlockLocation(eEntry.unlockLocation || null); setEntryType(eEntry.type || 'vision');
+
                 setCategory(eEntry.category || CATEGORIES[0]); setMood(eEntry.mood || null);
+
                 setLocation(eEntry.location || null); setParentId(eEntry.parentId || '');
+
                 setInheritedFrom(eEntry.inheritedFrom || null); setPillarGuidance(null);
+
                 setShowEditor(true);
+
                 setTimeout(() => { savedDataRef.current = getCurrentDataString(); }, 100);
+
               }
+
             } else if (storedShowEditor && !storedEditingId) {
+
                setShowEditor(true); 
+
                setTimeout(() => { savedDataRef.current = getCurrentDataString(); }, 100);
+
             }
 
+
+
             checkDailyAffirmation(sortedEntries); 
+
           }
+
         };
+
       } catch (e) {
+
         setIsLoaded(true);
+
         setView('onboarding');
+
       }
+
     };
+
     loadApp();
+
   }, []);
 
+
+
   const checkDailyAffirmation = (allEntries) => {
+
     const today = new Date().toDateString();
+
     if (safeStorageGet('legacy_last_affirmation') !== today && allEntries.length > 0) {
+
       const publicEntries = allEntries.filter(e => !e.locked && !e.archived && !e.parentId);
+
       if (publicEntries.length > 0) {
+
         setAffirmation(publicEntries[Math.floor(Math.random() * publicEntries.length)]);
+
         safeStorageSet('legacy_last_affirmation', today);
+
       }
+
     }
+
   };
 
+
+
   useEffect(() => {
+
     if (isLoaded) safeStorageSet('legacy_user', JSON.stringify(user));
+
     const metaThemeColor = document.getElementById("meta-theme-color");
+
     
+
     if (user.appBgColor) {
+
       document.body.style.setProperty('background-color', user.appBgColor, 'important');
+
       document.body.style.setProperty('color', isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b', 'important');
+
       if (metaThemeColor) metaThemeColor.setAttribute("content", user.appBgColor);
+
     } else {
+
       document.body.style.removeProperty('background-color');
+
       document.body.style.removeProperty('color');
+
       if (user.isDark) {
+
         if (metaThemeColor) metaThemeColor.setAttribute("content", "#09090b");
+
       } else {
+
         if (metaThemeColor) metaThemeColor.setAttribute("content", "#ffffff");
+
       }
+
     }
+
+
 
     if (user.isDark) {
+
       document.documentElement.classList.add('dark');
+
     } else {
+
       document.documentElement.classList.remove('dark');
+
     }
+
   }, [user, isLoaded]);
 
+
+
   const handleReadAloud = async (entry) => {
+
     if (isSpeaking) {
+
       audioPlayerRef.current.pause();
+
       setIsSpeaking(false);
+
       window.speechSynthesis.cancel();
+
       return;
+
     }
 
+
+
     const plainText = (entry.title + ". " + (entry.text || '')).replace(/<[^>]*>?/gm, '');
+
     if (!plainText.trim()) return;
+
+
 
     setIsSpeaking(true);
 
+
+
     try {
+
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`, {
+
         method: 'POST',
+
         headers: { 'Content-Type': 'application/json' },
+
         body: JSON.stringify({
+
           contents: [{ parts: [{ text: "Lies sanft vor: " + plainText }] }],
+
           generationConfig: { 
+
             responseModalities: ["AUDIO"], 
+
             speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } } }
+
           }
+
         })
+
       });
+
+
 
       const result = await response.json();
+
       const pcmBase64 = result.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
 
+
+
       if (pcmBase64) {
+
         const audioUrl = pcmToWav(pcmBase64);
+
         audioPlayerRef.current.src = audioUrl;
+
         audioPlayerRef.current.onended = () => setIsSpeaking(false);
+
         audioPlayerRef.current.play();
+
       } else { throw new Error("TTS fail"); }
+
     } catch (err) {
+
       const utterance = new SpeechSynthesisUtterance(plainText);
+
       utterance.lang = 'de-DE';
+
       const voices = window.speechSynthesis.getVoices();
+
       const femaleVoice = voices.find(v => v.name.includes('Female') || v.name.includes('Google') || v.name.includes('Anna')) || voices[0];
+
       if (femaleVoice) utterance.voice = femaleVoice;
+
       utterance.onend = () => setIsSpeaking(false);
+
       window.speechSynthesis.speak(utterance);
+
     }
+
   };
+
+
 
   // ARCHITEKTUR-UPDATE: Helfer für das Behandeln kompletter Bücher anstatt einzelner Seiten
+
   const getBookRootId = (tempEntries, startId) => {
+
       let current = tempEntries.find(e => e.id === startId);
+
       let safeGuard = 0;
+
       while (current && current.parentId && safeGuard < 1000) {
+
           const p = tempEntries.find(e => e.id === current.parentId);
+
           if (p) current = p; else break;
+
           safeGuard++;
+
       }
+
       return current ? current.id : startId;
+
   };
+
+
 
   const getBookRoot = (entryId) => {
+
      let current = entries.find(e => e.id === entryId);
+
      let safeGuard = 0;
+
      while (current && current.parentId && safeGuard < 1000) {
+
          const p = entries.find(e => e.id === current.parentId);
+
          if (p) current = p; else break;
+
          safeGuard++;
+
      }
+
      return current;
+
   };
+
+
 
   const getAllBookEntries = (rootId) => {
+
      const result = [];
+
      const traverse = (id, depth=0) => {
+
          if (depth > 1000) return;
+
          const entry = entries.find(e => e.id === id);
+
          if (entry && !result.find(r => r.id === entry.id)) {
+
              result.push(entry);
+
              const children = entries.filter(e => e.parentId === id).sort((a,b) => new Date(a.date) - new Date(b.date));
+
              children.forEach(c => traverse(c.id, depth+1));
+
          }
+
      };
+
      traverse(rootId);
+
      return result;
+
   };
+
+
 
   const saveToDB = async (entry) => {
+
     try {
+
       if (db) {
+
         const tx = db.transaction('entries', 'readwrite');
+
         tx.objectStore('entries').put(entry);
+
         tx.oncomplete = () => {
+
           setEntries(prev => {
+
             const exists = prev.find(e => e.id === entry.id);
+
             if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
+
             return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
+
           });
+
         };
+
       } else {
+
         setEntries(prev => {
+
           const exists = prev.find(e => e.id === entry.id);
+
           if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
+
           return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
+
         });
+
       }
+
     } catch (e) { console.error("Save Error", e); }
+
   };
+
+
 
   const moveToTop = (entry) => {
+
     const updatedEntry = { ...entry, orderTimestamp: new Date().toISOString() };
+
     saveToDB(updatedEntry);
+
   };
+
+
 
   // ARCHITEKTUR-UPDATE: Zuverlässige Speichern- & Zurück-Logik mit absolut sicherem Fallback
+
   const checkSaveEntry = (closeAndRead = false) => {
+
     try {
+
         const entryId = editingId || generateId();
+
         const foundEntry = entries.find(e => e.id === entryId);
+
         const currentText = editorRef.current ? editorRef.current.innerHTML : (text || '');
+
         const titleSafe = title || '';
+
         
+
         // Hat der Nutzer irgendwas eingegeben (inklusive Datum oder Stimmung)?
+
         const isEmpty = !titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && !selectedImage && !selectedVideo && !audioUrl && !unlockDate && !mood;
+
         
+
         if (isEmpty && closeAndRead) {
+
           if (!editingId) {
+
              // Komplett neue Seite, die leer gelassen wurde -> komplett verwerfen und ins Dashboard
+
              closeEditor(null); 
+
           } else {
+
              // Bestehender Eintrag, der leer gemacht wurde -> in Leseansicht zurück
+
              closeEditor(foundEntry);
+
           }
+
           return;
+
         }
+
+
 
         const newEntry = {
+
           id: entryId,
+
           title: titleSafe || 'Neue Seite', text: currentText, color: selectedColor,
+
           image: selectedImage, video: selectedVideo, audio: audioUrl,
+
           locked: isLocked, archived: false, manifested: isManifested,
+
           unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
+
           date: editingId ? (foundEntry ? foundEntry.date : new Date().toISOString()) : new Date().toISOString(),
+
           orderTimestamp: editingId ? (foundEntry ? foundEntry.orderTimestamp : new Date().toISOString()) : new Date().toISOString(),
+
         };
+
         
+
         saveToDB(newEntry);
+
         
+
         if (closeAndRead) {
+
           closeEditor(newEntry); // Nutzer wird in die Ansicht des gespeicherten Eintrags zurückgebracht!
+
         } else {
+
           setEditingId(entryId);
+
           setAutoSaveStatus('Manuell gespeichert ✔');
+
           setTimeout(() => setAutoSaveStatus(''), 2000);
+
           isDirtyRef.current = false;
+
         }
+
     } catch (err) {
+
         console.error("Save Error", err);
+
         if (closeAndRead) closeEditor(entries.find(e => e.id === editingId) || null);
+
     }
+
   };
+
+
 
   const confirmDelete = (id) => {
+
     showDialog({
+
       type: 'confirm', title: 'Seite herausreißen?', message: 'Bist du sicher, dass du diese Seite für immer aus deinem Journal reißen möchtest?',
+
       icon: 'trash-2', iconColor: 'text-rose-500', confirmLabel: 'Ja, löschen', confirmColor: 'bg-rose-600',
+
       onConfirm: () => { deleteFromDB(id); closeEditor(null); setDialog(null); }
+
     });
+
   };
+
+
 
   const confirmArchiveDelete = (id) => {
+
     showDialog({
+
       type: 'confirm', title: 'Endgültig löschen?', message: 'Dieser Eintrag wird unwiderruflich aus dem Archiv gelöscht.',
+
       icon: 'alert-triangle', iconColor: 'text-rose-500', confirmLabel: 'Vernichten', confirmColor: 'bg-rose-600',
+
       onConfirm: () => { deleteFromDB(id); setDialog(null); }
+
     });
+
   };
+
+
 
   const handleEditorInput = (e) => {
+
     isDirtyRef.current = true;
+
     setText(e.currentTarget.innerHTML);
-  };
-  
-  // ARCHITEKTUR-UPDATE: Sichere Pfeil-Zurück Funktionen, die sofort und ohne Crash agieren
-  const handleEditorBack = (e) => {
-      if (e) e.stopPropagation();
-      checkSaveEntry(true);
-  };
-  
-  const handleViewerBack = (e) => {
-      if (e) e.stopPropagation();
-      if (isSpeaking) {
-          audioPlayerRef.current.pause();
-          setIsSpeaking(false);
-          window.speechSynthesis.cancel();
-      }
-      setViewingEntry(null);
+
   };
 
-  useEffect(() => {
-    if (showEditor && editorRef.current) {
-      if (editorRef.current.innerHTML !== text) {
-         editorRef.current.innerHTML = text || '';
+  
+
+  // ARCHITEKTUR-UPDATE: Sichere Pfeil-Zurück Funktionen, die sofort und ohne Crash agieren
+
+  const handleEditorBack = (e) => {
+
+      if (e) e.stopPropagation();
+
+      checkSaveEntry(true);
+
+  };
+
+  
+
+  const handleViewerBack = (e) => {
+
+      if (e) e.stopPropagation();
+
+      if (isSpeaking) {
+
+          audioPlayerRef.current.pause();
+
+          setIsSpeaking(false);
+
+          window.speechSynthesis.cancel();
+
       }
+
+      setViewingEntry(null);
+
+  };
+
+
+
+  useEffect(() => {
+
+    if (showEditor && editorRef.current) {
+
+      if (editorRef.current.innerHTML !== text) {
+
+         editorRef.current.innerHTML = text || '';
+
+      }
+
     }
+
   }, [showEditor, editingId]); 
 
+
+
   // ARCHITEKTUR-UPDATE: Stabiles Auto-Save, das das komplette Buch beim Tresor-Klick verschlüsselt!
+
   useEffect(() => {
+
     if (!showEditor || view === 'burn') return;
+
     
+
     const timer = setTimeout(() => {
+
       if (!isDirtyRef.current) return; 
+
       
+
       setAutoSaveStatus('Speichert...');
+
       const currentText = editorRef.current ? editorRef.current.innerHTML : text;
+
       const foundEntry = entries.find(e => e.id === editingId);
+
       
+
       const currentEntry = {
+
         id: editingId || generateId(),
+
         title: title || 'Neue Seite', text: currentText, color: selectedColor,
+
         image: selectedImage, video: selectedVideo, audio: audioUrl,
+
         locked: isLocked, archived: false, manifested: isManifested,
+
         unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
+
         date: editingId ? (foundEntry ? foundEntry.date : new Date().toISOString()) : new Date().toISOString(),
+
         orderTimestamp: editingId ? (foundEntry ? foundEntry.orderTimestamp : new Date().toISOString()) : new Date().toISOString(),
+
       };
+
       
+
       if (!editingId) setEditingId(currentEntry.id);
+
       
+
       // Das Buch-Konzept: Wenn eine Seite gesperrt/entsperrt wird, wende es auf das GANZE Buch an.
+
       const tempEntries = [...entries];
+
       const existingIdx = tempEntries.findIndex(e => e.id === currentEntry.id);
+
       if (existingIdx > -1) tempEntries[existingIdx] = currentEntry;
+
       else tempEntries.push(currentEntry);
 
+
+
       const rootId = getBookRootId(tempEntries, currentEntry.id);
+
       const bookIds = [];
+
       const collectIds = (id, depth=0) => {
+
           if(depth > 1000) return;
+
           if(!bookIds.includes(id)) {
+
               bookIds.push(id);
+
               tempEntries.filter(e => e.parentId === id).forEach(c => collectIds(c.id, depth+1));
+
           }
+
       };
+
       collectIds(rootId);
+
       
+
       const bookEntriesToUpdate = bookIds.map(id => {
+
           if(id === currentEntry.id) return currentEntry;
+
           const existing = tempEntries.find(e => e.id === id);
+
           return { ...existing, locked: isLocked }; // Vererbe den Tresor-Status auf das GANZE Buch
+
       });
 
+
+
       if (db) {
+
         const tx = db.transaction('entries', 'readwrite');
+
         const store = tx.objectStore('entries');
+
         bookEntriesToUpdate.forEach(e => store.put(e));
+
         
+
         tx.oncomplete = () => {
+
           isDirtyRef.current = false;
+
           savedDataRef.current = getCurrentDataString();
+
           setEntries(prev => {
+
             let nextEntries = [...prev];
+
             bookEntriesToUpdate.forEach(upd => {
+
                const idx = nextEntries.findIndex(ex => ex.id === upd.id);
+
                if (idx > -1) nextEntries[idx] = upd;
+
                else nextEntries.push(upd);
+
             });
+
             return nextEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
+
           });
+
           setAutoSaveStatus('Gespeichert');
+
           setTimeout(() => setAutoSaveStatus(''), 2000);
+
         };
+
       }
+
     }, 2000);
+
     
+
     return () => clearTimeout(timer);
+
   }, [title, text, selectedColor, selectedImage, selectedVideo, audioUrl, isLocked, isManifested, unlockDate, unlockLocation, category, mood, location, showEditor, editingId, view, db]);
 
+
+
   const startDrawing = (e) => {
+
     if (!canvasRef.current) return;
+
     const ctx = canvasRef.current.getContext('2d');
+
     const rect = canvasRef.current.getBoundingClientRect();
+
     const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
+
     const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
+
     ctx.beginPath();
+
     ctx.moveTo(x, y);
+
     canvasRef.current.isPainting = true;
+
   };
 
+
+
   const draw = (e) => {
+
     if (!canvasRef.current?.isPainting) return;
+
     const ctx = canvasRef.current.getContext('2d');
+
     const rect = canvasRef.current.getBoundingClientRect();
+
     const x = (e.clientX || (e.clientX && e.touches[0].clientX)) - rect.left;
+
     const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
+
     ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.strokeStyle = user.isDark ? '#ffffff' : '#000000';
+
     ctx.lineTo(x, y); ctx.stroke();
+
   };
+
+
 
   const stopDrawing = () => { if (canvasRef.current) canvasRef.current.isPainting = false; };
 
+
+
   useEffect(() => {
+
     let canvasEl = canvasRef.current;
+
     const preventScroll = (e) => { e.preventDefault(); };
+
     if (isDrawing && canvasEl) {
+
       canvasEl.addEventListener('touchstart', preventScroll, { passive: false });
+
       canvasEl.addEventListener('touchmove', preventScroll, { passive: false });
+
       setTimeout(() => {
+
         if (!canvasEl) return;
+
         const rect = canvasEl.parentElement.getBoundingClientRect();
+
         canvasEl.width = rect.width; canvasEl.height = rect.height;
+
         const ctx = canvasEl.getContext('2d');
+
         ctx.fillStyle = user.isDark ? '#18181b' : '#ffffff';
+
         ctx.fillRect(0, 0, rect.width, rect.height);
+
       }, 50);
+
     }
+
     return () => {
+
       if (canvasEl) { canvasEl.removeEventListener('touchstart', preventScroll); canvasEl.removeEventListener('touchmove', preventScroll); }
+
     };
+
   }, [isDrawing, user.isDark]);
 
+
+
   const handleFileUpload = (e, type) => {
+
     const file = e.target.files[0];
+
     if (!file) return;
+
+
 
     if (type === 'video') {
+
       if (file.size > 15 * 1024 * 1024) { 
+
         showDialog({ title: 'Video zu groß', message: 'Das Video darf maximal 15MB groß sein, um die App nicht zu verlangsamen.', icon: 'x', iconColor: 'text-rose-500' });
+
         e.target.value = null;
+
         return;
+
       }
+
       const reader = new FileReader();
+
       reader.onloadend = () => {
+
         setSelectedVideo(reader.result);
+
         setSelectedImage(null);
+
         isDirtyRef.current = true;
+
       };
+
       reader.readAsDataURL(file);
+
       return;
+
     }
+
+
 
     if (type === 'image') {
+
       const reader = new FileReader();
+
       reader.onload = (event) => {
+
         const img = new Image();
+
         img.onload = () => {
+
           const canvas = document.createElement('canvas');
+
           const MAX_SIZE = 1200; 
+
           let width = img.width; 
+
           let height = img.height;
+
           
+
           if (width > height) { 
+
             if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } 
+
           } else { 
+
             if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } 
+
           }
+
           
+
           canvas.width = width; 
+
           canvas.height = height;
+
           const ctx = canvas.getContext('2d'); 
+
           ctx.drawImage(img, 0, 0, width, height);
+
           
+
           setSelectedImage(canvas.toDataURL('image/jpeg', 0.8)); 
+
           setSelectedVideo(null); 
+
           isDirtyRef.current = true;
+
         };
+
         img.src = event.target.result;
+
       };
+
       reader.readAsDataURL(file);
+
     }
+
     e.target.value = null;
+
   };
+
+
 
   const handleAudioUpload = (e) => {
+
     const file = e.target.files[0];
+
     if (file) {
+
       const reader = new FileReader();
+
       reader.onloadend = () => { setAudioUrl(reader.result); isDirtyRef.current = true; };
+
       reader.readAsDataURL(file);
+
     }
+
   };
+
+
 
   const handleAvatarUpload = (e) => {
+
     const file = e.target.files[0];
+
     if (file) {
+
       const reader = new FileReader();
+
       reader.onload = (event) => {
+
         const img = new Image();
+
         img.onload = () => {
+
           const canvas = document.createElement('canvas');
+
           const MAX_SIZE = 400; let width = img.width; let height = img.height;
+
           if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } }
+
           else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
+
           canvas.width = width; canvas.height = height;
+
           const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
+
           setUser(prev => ({ ...prev, avatar: canvas.toDataURL('image/jpeg', 0.8) }));
+
         };
+
         img.src = event.target.result;
+
       };
+
       reader.readAsDataURL(file);
+
     }
+
     e.target.value = null;
+
   };
+
+
 
   const exportText = () => {
+
     window.print();
+
   };
+
+
 
   const triggerDownload = (content, fileName, mimeType) => {
+
     const blob = new Blob([content], { type: mimeType });
+
     const url = URL.createObjectURL(blob);
+
     const a = document.createElement('a');
+
     a.style.display = 'none';
+
     a.href = url;
+
     a.download = fileName;
+
     document.body.appendChild(a);
+
     a.click();
+
     setTimeout(() => {
+
       document.body.removeChild(a);
+
       URL.revokeObjectURL(url);
+
     }, 250);
+
   };
+
+
 
   const downloadFullApp = () => {
+
     const cloneDocument = document.cloneNode(true);
+
     const rootDiv = cloneDocument.getElementById('root');
+
     if (rootDiv) rootDiv.innerHTML = ''; 
+
     
+
     const existingInjected = cloneDocument.getElementById('legacy-injected-data');
+
     if (existingInjected) existingInjected.remove();
+
     
+
     const data = { user, entries };
+
     const scriptEl = cloneDocument.createElement('script');
+
     scriptEl.id = 'legacy-injected-data';
+
     scriptEl.type = 'application/json';
+
     scriptEl.textContent = JSON.stringify(data);
+
     cloneDocument.head.appendChild(scriptEl);
+
     
+
     const htmlContent = "<!DOCTYPE html>\n" + cloneDocument.documentElement.outerHTML;
+
     const fileName = `Mein_Legacy_Journal_${new Date().toISOString().split('T')[0]}.html`;
+
     
+
     triggerDownload(htmlContent, fileName, 'text/html;charset=utf-8');
+
     
+
     showDialog({ 
+
       title: 'Schritt 1 erledigt!', 
+
       message: 'Die App wurde in deinen "Downloads"-Ordner auf dem Handy heruntergeladen.\n\nSchritt 2: Öffne nun deine "Eigene Dateien"-App, halte die heruntergeladene Datei gedrückt und teile sie per WhatsApp.', 
+
       icon: 'check', 
+
       iconColor: 'text-emerald-500' 
+
     });
+
   };
+
+
 
   const importBackup = (e) => {
+
     const file = e.target.files[0];
+
     if (!file) return;
+
     const reader = new FileReader();
+
     reader.onload = async (e) => {
+
       try {
+
         const resultText = e.target.result;
+
         let data = null;
 
+
+
         if (file.name.toLowerCase().endsWith('.html')) {
+
           const parser = new DOMParser();
+
           const doc = parser.parseFromString(resultText, 'text/html');
+
           const script = doc.getElementById('legacy-injected-data');
+
           if (script && script.textContent && script.textContent !== 'null') {
+
             data = JSON.parse(script.textContent);
+
           } else {
+
             throw new Error("Keine Legacy-Daten in dieser HTML gefunden.");
+
           }
+
         } else {
+
           data = JSON.parse(resultText);
+
         }
+
+
 
         if (data && data.entries) {
+
           const isForeign = data.user && data.user.name !== user.name;
+
           if (db) {
+
             const tx = db.transaction('entries', 'readwrite');
+
             const store = tx.objectStore('entries');
+
             let mergedCount = 0;
+
             data.entries.forEach(entry => {
+
               if (!entries.find(ex => ex.id === entry.id)) {
+
                 if (isForeign) entry.inheritedFrom = data.user.name;
+
                 store.put(entry);
+
                 mergedCount++;
+
               }
+
             });
+
             const req = store.getAll();
+
             req.onsuccess = () => {
+
               setEntries(req.result.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)));
+
               showDialog({ title: 'Erfolg', message: `Fusion erfolgreich! ${mergedCount} neue Seiten importiert.`, icon: 'check' });
+
             };
+
           }
+
         }
+
       } catch (err) { showDialog({ title: 'Fehler', message: 'Ungültige Datei. Konnte die Daten nicht lesen.', icon: 'x' }); }
+
     };
+
     reader.readAsText(file);
+
   };
+
+
 
   const deleteFromDB = async (id) => {
+
     if (!db) return;
+
     const tx = db.transaction('entries', 'readwrite');
+
     tx.objectStore('entries').delete(id);
+
     tx.oncomplete = () => setEntries(prev => prev.filter(e => e.id !== id));
+
   };
 
+
+
   const startRecording = async () => {
+
     try {
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
       mediaRecorderRef.current = new MediaRecorder(stream);
+
       audioChunksRef.current = [];
+
       mediaRecorderRef.current.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+
       mediaRecorderRef.current.onstop = () => {
+
         const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+
         const reader = new FileReader();
+
         reader.readAsDataURL(blob);
+
         reader.onloadend = () => setAudioUrl(reader.result);
+
       };
+
       mediaRecorderRef.current.start();
+
       setIsRecording(true);
+
     } catch (err) { showDialog({ title: 'Fehler', message: 'Mikrofon-Zugriff verweigert.', icon: 'x' }); }
+
   };
+
+
 
   const stopRecording = () => { if (mediaRecorderRef.current) { mediaRecorderRef.current.stop(); setIsRecording(false); } };
 
+
+
   const triggerBurn = () => { 
+
     setIsBurning(true); 
+
     setTimeout(() => { 
+
       setBurnText(''); setIsBurning(false); setView('dashboard');
+
       showDialog({ title: 'Katharsis beendet', message: 'Die Last wurde den Flammen übergeben.', icon: 'wind', iconColor: 'text-slate-400' });
+
     }, 2500); 
+
   };
+
+
 
   const openEditor = (entry = null, pillar = null) => {
+
     isDirtyRef.current = false;
+
     if (entry && entry.id) {
+
       setEditingId(entry.id); 
+
       setTitle(entry.title || '');
+
       let initialText = entry.text || '';
+
       if (initialText && !initialText.includes('<') && (initialText.includes('**') || initialText.includes('*'))) {
+
         initialText = initialText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>').replace(/\n/g, '<br>');
+
       }
+
       setText(initialText); 
+
       setSelectedColor(entry.color); 
+
       setSelectedImage(entry.image); 
+
       setSelectedVideo(entry.video);
+
       setIsLocked(entry.locked || false); 
+
       setAudioUrl(entry.audio); 
+
       setIsManifested(entry.manifested || false);
+
       setUnlockDate(entry.unlockDate || ''); 
+
       setUnlockLocation(entry.unlockLocation || null);
+
       setEntryType(entry.type || 'vision'); 
+
       setCategory(entry.category || CATEGORIES[0]);
+
       setMood(entry.mood || null); 
+
       setLocation(entry.location || null);
+
       setParentId(entry.parentId || ''); 
+
       setInheritedFrom(entry.inheritedFrom || null);
+
       setPillarGuidance(null);
+
     } else {
+
       setEditingId(null); 
+
       setTitle(pillar ? pillar.title : ''); 
+
       setText('');
+
       setSelectedColor(user.isDark ? COLORS[8] : COLORS[1]); 
+
       setSelectedImage(null); 
+
       setSelectedVideo(null); 
+
       setIsLocked(view === 'vault');
+
       setAudioUrl(null); 
+
       setIsManifested(false); 
+
       setUnlockDate(''); 
+
       setUnlockLocation(null);
+
       setEntryType('vision'); 
+
       setCategory(pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory));
+
       setMood(null); 
+
       setLocation(null); 
+
       setParentId(''); 
+
       setInheritedFrom(null);
+
       setPillarGuidance(pillar ? pillar.desc : null);
+
     }
+
     setZenMode(false); 
+
     setShowEditor(true);
+
   };
+
+
 
   const startNewChapter = (parent) => {
+
     isDirtyRef.current = false;
+
     // Neue Seite erbt automatisch den Tresor-Schutz vom Buch!
+
     const isParentLocked = parent.locked || false; 
+
     setViewingEntry(null);
+
     setEditingId(null); 
+
     setTitle(parent.title || ''); 
+
     setText('');
+
     setSelectedColor(user.isDark ? COLORS[8] : COLORS[1]);
+
     setSelectedImage(null); setSelectedVideo(null); 
+
     setIsLocked(isParentLocked); // <--- HIER: Neues Kapitel ist automatisch verschlüsselt, wenn das Buch verschlüsselt ist.
+
     setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setUnlockLocation(null);
+
     setEntryType('vision'); setCategory(parent.category || CATEGORIES[0]);
+
     setMood(null); setLocation(null); 
+
     setParentId(parent.id); 
+
     setInheritedFrom(null);
+
     setZenMode(false); setShowEditor(true);
+
   };
+
+
 
   const getLastPageOfBook = (rootEntry) => {
+
     let current = rootEntry;
+
     while(true) {
+
       const children = entries.filter(e => e.parentId === current.id).sort((a,b) => new Date(a.date) - new Date(b.date));
+
       if (children.length > 0) {
+
         current = children[children.length - 1];
+
       } else {
+
         break;
+
       }
+
     }
+
     return current;
+
   };
+
+
 
   const handleBookClick = (entry) => {
+
     if (searchQuery) {
+
         setViewingEntry(entry);
+
     } else {
+
         const lastPage = getLastPageOfBook(entry);
+
         setViewingEntry(lastPage);
+
     }
+
   };
+
+
 
   const handleVaultClick = async (entry) => {
+
     if (entry.unlockLocation) {
+
       if (!("geolocation" in navigator)) { showDialog({ title: 'Fehler', message: 'Ortung nicht verfügbar.', icon: 'x' }); return; }
+
       navigator.geolocation.getCurrentPosition((pos) => {
+
         const dist = getDistance(pos.coords.latitude, pos.coords.longitude, entry.unlockLocation.lat, entry.unlockLocation.lng);
+
         if (dist > 200) { showDialog({ title: 'Blockiert', message: 'Das Orts-Siegel hält stand. Du bist zu weit entfernt. Gehe an den Ursprungsort zurück.', icon: 'lock', iconColor: 'text-rose-500' }); return; }
+
         else { triggerUnlock(entry); }
+
       }, () => { showDialog({ title: 'Fehler', message: 'Dein Ort konnte nicht ermittelt werden.', icon: 'x' }); });
+
     } else { triggerUnlock(entry); }
+
   };
+
+
 
   const triggerUnlock = (entry) => {
+
     if (!user.pin) { showDialog({ title: 'Hinweis', message: 'Bitte richte zuerst eine PIN in den Einstellungen ein.', icon: 'key-round' }); setView('settings'); return; }
+
     setUnlockTarget(entry); setPinInput(''); setPinError(false);
+
   };
+
+
 
   // ARCHITEKTUR-UPDATE: Erlaubt das Öffnen und Bearbeiten des GESAMTEN Buches im Tresor!
+
   const submitPin = () => {
+
     if (pinInput === user.pin) { 
+
       handleBookClick(unlockTarget); 
+
       setUnlockTarget(null); 
+
     }
+
     else { setPinError(true); setTimeout(() => setPinError(false), 800); setPinInput(''); }
+
   };
+
+
 
   const getBookLength = (rootId) => {
+
     let count = 1;
+
     let currentId = rootId;
+
     while (true) {
+
       const child = entries.find(e => e.parentId === currentId);
+
       if (child) {
+
         count++;
+
         currentId = child.id;
+
       } else {
+
         break;
+
       }
+
     }
+
     return count;
+
   };
 
+
+
   const now = new Date();
+
   
+
   const visibleEntries = entries.filter(e => {
+
     const q = searchQuery.toLowerCase();
+
     const matchesSearch = e.title.toLowerCase().includes(q) || (e.text && e.text.toLowerCase().includes(q));
+
     
+
     if (searchQuery && !matchesSearch) return false;
+
     if (!searchQuery && e.parentId) return false;
 
+
+
     const matchesCategory = activeCategory === 'Alle' || e.category === activeCategory;
+
     if (!searchQuery && !matchesCategory) return false;
+
     
+
     if (view === 'dashboard') return !e.locked && !e.archived;
+
     if (view === 'vault') return e.oe.locked && !e.archived;
+
     if (view === 'archive') return e.archived;
+
     return false;
+
   });
+
+
 
   const renderEntries = visibleEntries;
 
+
+
   const highlightText = (text, query) => {
+
       if (!text) return { __html: '' };
+
       const safeText = text.replace(/<img[^>]*>/g, '[Bild]');
+
       if (!query) return { __html: safeText };
+
       const plainText = safeText.replace(/<[^>]*>?/gm, '');
+
       const parts = plainText.split(new RegExp(`(${query})`, 'gi'));
+
       
+
       const highlighted = parts.map((part, i) => 
+
           part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part
+
       ).join('');
+
       
+
       return { __html: highlighted };
+
   };
+
+
 
   // ARCHITEKTUR-UPDATE: Exakte Extraktion aller als Zitat/Spruch markierten Texte
+
   const getExtractedQuotes = () => {
+
      let allQuotes = [];
+
      // Hier wird jetzt über ALLE existierenden Einträge gefiltert, ohne Einschränkung auf "nicht gesperrt"
+
      entries.filter(e => !e.archived).forEach(entry => {
+
          if(!entry.text) return;
+
          const blockquoteRegex = /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi;
+
          let match;
+
          while ((match = blockquoteRegex.exec(entry.text)) !== null) {
+
              const rawText = match[1].replace(/<[^>]*>?/gm, '').trim();
+
              if(rawText) {
+
                  allQuotes.push({ text: rawText, date: entry.date, title: entry.title, id: entry.id + match.index, entryId: entry.id });
+
              }
+
          }
+
      });
+
      return allQuotes.sort((a,b) => new Date(b.date) - new Date(a.date));
+
   };
+
+
 
   // --- Heatmap Data ---
+
   const heatmapData = Array.from({ length: 30 }).map((_, i) => {
+
     const d = new Date();
+
     d.setDate(d.getDate() - (29 - i));
+
     const dateStr = d.toDateString();
+
     const count = entries.filter(e => new Date(e.date).toDateString() === dateStr).length;
+
     return { date: dateStr, count };
+
   });
+
+
 
   // Zeitreise Kalender Helfer
+
   const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+
   const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
 
+
+
   const today = new Date();
+
   const timeMachineEntries = entries.filter(e => {
+
     if (e.locked || e.archived || e.parentId) return false;
+
     const eDate = new Date(e.date);
+
     return eDate.getDate() === today.getDate() &&
+
            eDate.getMonth() === today.getMonth() &&
+
            eDate.getFullYear() < today.getFullYear();
+
   });
+
   const timeMachineEntry = timeMachineEntries.length > 0 ? timeMachineEntries[0] : null;
 
+
+
   const completedPillars = PILLARS.filter(p => entries.some(e => e.title === p.title)).length;
+
   const totalPillars = PILLARS.length;
+
   const progressPercent = Math.round((completedPillars / totalPillars) * 100);
 
+
+
   const onTouchStart = (e) => {
+
     setTouchEndPos({x: null, y: null});
+
     setTouchStartPos({x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY});
+
   };
+
+
 
   const onTouchMove = (e) => {
+
     setTouchEndPos({x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY});
+
   };
+
+
 
   const onTouchEnd = (swipeNext, swipePrev) => {
+
     if (!touchStartPos.x || !touchEndPos.x) return;
+
     const xDistance = touchStartPos.x - touchEndPos.x;
+
     const yDistance = Math.abs(touchStartPos.y - touchEndPos.y);
+
     
+
     if (yDistance < 60 && Math.abs(xDistance) > 50) {
+
       if (xDistance > 0 && swipeNext) {
+
         setViewingEntry(swipeNext); 
+
       } else if (xDistance < 0 && swipePrev) {
+
         setViewingEntry(swipePrev);
+
       }
+
     }
+
   };
 
+
+
   if (importId && !isLoaded) {
+
     return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>;
+
   }
+
   if (importId && isLoaded) {
+
     return (
+
       <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-slate-900 text-white text-center">
+
         <Icon name="smartphone" size={64} className="text-emerald-500 mb-6 animate-pulse" />
+
         <h1 className="text-3xl font-bold font-serif mb-4">Geräte-Kopplung</h1>
+
         <p className="opacity-80 text-lg mb-8 max-w-sm">{syncStatus || "Initialisiere..."}</p>
+
         {(syncStatus.includes('Fehler') || syncStatus.includes('erfolgreich')) && (
+
           <button type="button" onClick={() => window.location.href = window.location.origin + window.location.pathname} className="px-8 py-4 bg-white text-slate-900 font-bold rounded-xl mt-4 shadow-lg hover:scale-105 transition-transform">Zurück zum Start</button>
+
         )}
+
       </div>
+
     );
+
   }
+
+
 
   if (view === 'loading') return <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff') }}><div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>;
 
+
+
   if (view === 'onboarding') {
+
     return (
+
       <div className="min-h-screen flex items-center justify-center p-6 relative" style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#f8fafc'), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : (user.isDark ? '#ffffff' : '#0f172a') }}>
+
         <div className="max-w-md w-full space-y-8 animate-slide-up z-10">
+
           <div className="text-center space-y-2">
+
             <Icon name="book-open" size={48} className="mx-auto mb-6" style={{ color: user.nameColor || '#f59e0b' }} />
+
             <h1 className="text-4xl font-extrabold font-serif">Dein Vermächtnis</h1>
+
             <p className="text-lg opacity-60 font-light">Ein Ort für deine tiefsten Visionen.</p>
+
           </div>
+
           <div className="p-8 rounded-[2rem] shadow-xl border bg-white border-slate-200 dark:bg-graphite-900 dark:border-white/10">
+
             <div className="space-y-6">
+
               <div>
+
                 <label className="block text-xs font-bold opacity-70 mb-3 uppercase tracking-widest">Wie lautet dein Name?</label>
+
                 <input type="text" value={user.name} onChange={(e) => setUser({...user, name: e.target.value})} className="w-full p-4 rounded-xl border outline-none text-lg bg-slate-50 border-slate-200 dark:bg-black/20 dark:border-transparent text-slate-900 dark:text-white" placeholder="Schreibe hier..." style={{ borderColor: user.nameColor }} />
+
               </div>
+
               <button type="button" onClick={() => user.name.trim() ? setView('dashboard') : showDialog({ title: 'Name fehlt', message: 'Bitte gib deinen Namen ein.', icon: 'user' })} className="w-full py-4 rounded-xl font-bold text-lg hover:scale-[1.02] transition-transform shadow-md" style={{ backgroundColor: user.nameColor || '#18181b', color: isDarkColor(user.nameColor || '#18181b') ? '#ffffff' : '#000000' }}>
+
                 Journal beginnen
+
               </button>
+
             </div>
+
           </div>
+
         </div>
+
       </div>
+
     );
+
   }
 
+
+
   return (
+
     <ErrorBoundary>
+
       <div className="min-h-screen">
 
+
+
         {viewingEntry && !showEditor && (() => {
+
           const prevPage = viewingEntry.parentId ? entries.find(e => e.id === viewingEntry.parentId) : null;
+
           const children = entries.filter(e => e.parentId === viewingEntry.id).sort((a,b) => new Date(a.date) - new Date(b.date));
+
           const nextPage = children.length > 0 ? children[0] : null;
 
+
+
           let swipeNext = nextPage;
+
           let swipePrev = prevPage;
+
           let isHierarchical = viewingEntry.parentId || children.length > 0;
+
           
+
           if (!isHierarchical) {
+
               const visibleChronological = visibleEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
+
               const currentIndex = visibleChronological.findIndex(e => e.id === viewingEntry.id);
+
               if (currentIndex > 0) swipeNext = visibleChronological[currentIndex - 1];
+
               if (currentIndex < visibleChronological.length - 1) swipePrev = visibleChronological[currentIndex + 1];
+
           }
 
+
+
           const prevLabel = isHierarchical ? "Vorherige Seite" : "Neuerer Eintrag";
+
           const nextLabel = isHierarchical ? "Nächste Seite" : "Älterer Eintrag";
 
+
+
           // ARCHITEKTUR-UPDATE: Hole ALLE Seiten des aktuellen Buches für Drucken und Zeitreise
+
           const bookRoot = getBookRoot(viewingEntry.id);
+
           const allBookEntries = getAllBookEntries(bookRoot ? bookRoot.id : viewingEntry.id);
 
+
+
           return (
+
             <div 
+
               className="fixed inset-0 z-[80] overflow-y-auto animate-fade-in custom-scrollbar flex flex-col overscroll-contain screen-only" 
+
               style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff'), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
+
             >
+
               <div className="sticky top-0 z-50 flex justify-between items-center py-4 px-6 sm:px-12 bg-inherit shrink-0 no-print border-b border-black/5 dark:border-white/5" style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff') }}>
+
                 <div className="flex gap-2">
+
                   <button type="button" onClick={handleViewerBack} className="p-3 bg-slate-100 dark:bg-white/10 rounded-full shadow-sm border border-slate-200 dark:border-transparent hover:scale-105 transition-transform"><Icon name="arrow-left" size={20}/></button>
+
                   
+
                   {/* ARCHITEKTUR-UPDATE: Zeitreise-Button (Inhaltsverzeichnis) mit der Profil-Farbe */}
+
                   {allBookEntries.length > 1 && (
+
                     <button type="button" onClick={() => setShowTimeline(true)} className="p-3 rounded-full shadow-sm hover:scale-105 transition-transform bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10" style={{ color: user.nameColor }} title="Inhaltsverzeichnis & Zeitreise">
+
                       <Icon name="list" size={20}/>
+
                     </button>
+
                   )}
+
                 </div>
+
                 
+
                 <div className="flex gap-2">
+
                   {/* ARCHITEKTUR-UPDATE: Der globale Drucken-Button für das komplette Buch */}
+
                   <button type="button" onClick={exportText} className="p-3 bg-slate-100 dark:bg-white/10 rounded-full shadow-sm hover:scale-105 transition-transform" title="Gesamtes Buch drucken">
+
                     <Icon name="printer" size={20}/>
+
                   </button>
+
                   <button type="button"
+
                     onClick={() => handleReadAloud(viewingEntry)} 
+
                     className={`px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 transition-all ${isSpeaking ? 'audio-active bg-amber-500/10' : 'bg-slate-200 dark:bg-white/10 hover:scale-105 transition-transform'}`}
+
                   >
+
                     <Icon name={isSpeaking ? "volume-2" : "volume-1"} size={18}/>
+
                     <span className="hidden sm:inline">{isSpeaking ? "Stopp" : "Vorlesen"}</span>
+
                   </button>
+
                   <button type="button" onClick={() => { const e = viewingEntry; setViewingEntry(null); openEditor(e); }} className="px-5 py-2.5 bg-slate-200 dark:bg-white/10 rounded-full font-bold text-sm hover:scale-105 transition-transform">Bearbeiten</button>
+
                 </div>
+
               </div>
+
+
 
               <div 
+
                 className="max-w-2xl w-full mx-auto min-h-screen flex flex-col px-6 sm:px-12 pb-12"
+
                 onTouchStart={onTouchStart}
+
                 onTouchMove={onTouchMove}
+
                 onTouchEnd={() => onTouchEnd(swipeNext, swipePrev)}
+
               >
+
                 <div className="flex-1 mt-4">
+
                   {viewingEntry.image && <img src={viewingEntry.image} className="w-full rounded-[2rem] mb-10 object-contain shadow-lg border border-slate-200 dark:border-white/5" alt="Vision" />}
+
                   <h1 className="text-4xl sm:text-5xl font-bold mb-6 leading-tight font-serif">{viewingEntry.title}</h1>
+
                   <div className="flex flex-wrap gap-4 mb-10 text-xs font-bold uppercase tracking-widest opacity-60">
+
                     <span className="flex items-center gap-1"><Icon name="calendar" size={14}/> {new Date(viewingEntry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+
                     <span>•</span><span>{viewingEntry.category}</span>
+
                     {viewingEntry.mood && (() => {
+
                       const moodObj = MOODS.find(m=>m.label===viewingEntry.mood);
+
                       if (!moodObj) return null;
+
                       return <><span className="mx-2">•</span><span className={`flex items-center gap-1`}><Icon name={moodObj.iconName} size={14}/> {viewingEntry.mood}</span></>
+
                     })()}
+
                   </div>
+
                   <div className="text-lg sm:text-xl leading-relaxed legacy-content pb-10" dangerouslySetInnerHTML={{__html: viewingEntry.text}} />
+
                   {viewingEntry.audio && <div className="mt-8 mb-10 p-4 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 no-print"><audio src={viewingEntry.audio} controls className="w-full" /></div>}
+
                 </div>
+
                 <div className="flex flex-col gap-6 mt-12 pt-8 border-t border-slate-300 dark:border-white/10 pb-20 shrink-0 no-print">
+
                   
+
                   {!nextPage && (
+
                     <button type="button" onClick={() => startNewChapter(viewingEntry)} className="w-full py-4 rounded-2xl font-bold text-base hover:scale-[1.02] transition-transform shadow-md flex items-center justify-center gap-2" style={{ backgroundColor: user.nameColor || '#18181b', color: isDarkColor(user.nameColor || '#18181b') ? '#ffffff' : '#000000' }}>
+
                       <Icon name="plus" size={20}/> Neue Seite anfügen
+
                     </button>
+
                   )}
 
+
+
                   <div className="flex justify-between items-center w-full">
+
                     {swipePrev ? (
+
                       <button type="button" onClick={() => setViewingEntry(swipePrev)} className="flex items-center gap-3 text-left group flex-1">
+
                         <div className="p-3 bg-white dark:bg-white/5 rounded-full shadow-sm border border-slate-200 dark:border-transparent group-hover:scale-105 transition-transform"><Icon name="chevron-left" size={20} /></div>
+
                         <div className="overflow-hidden">
+
                           <p className="text-[10px] uppercase tracking-widest font-bold opacity-50">{prevLabel}</p>
+
                           <p className="text-sm font-medium truncate w-full">{swipePrev.title}</p>
+
                         </div>
+
                       </button>
+
                     ) : <div className="flex-1" />}
+
                     
+
                     {swipeNext ? (
+
                       <button type="button" onClick={() => setViewingEntry(swipeNext)} className="flex items-center justify-end gap-3 text-right group flex-1">
+
                         <div className="overflow-hidden">
+
                           <p className="text-[10px] uppercase tracking-widest font-bold opacity-50">{nextLabel}</p>
+
                           <p className="text-sm font-medium truncate w-full">{swipeNext.title}</p>
+
                         </div>
+
                         <div className="p-3 bg-white dark:bg-white/5 rounded-full shadow-sm border border-slate-200 dark:border-transparent group-hover:scale-105 transition-transform"><Icon name="chevron-right" size={20} /></div>
+
                       </button>
+
                     ) : <div className="flex-1" />}
+
                   </div>
+
                 </div>
+
               </div>
+
             </div>
+
           );
+
         })()}
+
+
 
         {/* ARCHITEKTUR-UPDATE: Print-Only View für das gesamte Buch */}
+
         {viewingEntry && !showEditor && (
+
           <div className="print-only w-full max-w-4xl mx-auto p-8">
+
             {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((entry) => (
+
               <div key={entry.id} className="mb-16 page-break-after">
+
                 <div className="text-center mb-8 pb-4 border-b border-black/10">
+
                   <h1 className="text-4xl font-serif font-bold mb-2">{entry.title}</h1>
+
                   <p className="opacity-60 font-bold uppercase tracking-widest text-xs">
+
                     {new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })} • {entry.category}
+
                   </p>
+
                 </div>
+
                 {entry.image && <img src={entry.image} className="w-full max-h-[500px] object-contain mb-8 rounded-2xl" alt="Vision" />}
+
                 <div className="text-lg leading-relaxed legacy-content" dangerouslySetInnerHTML={{__html: entry.text}}></div>
+
               </div>
+
             ))}
+
           </div>
+
         )}
+
+
 
         {/* ARCHITEKTUR-UPDATE: Erweitertes Zeitreise-Modal mit Lupe, echtem Kalender und Systemfarben */}
+
         {showTimeline && viewingEntry && !showEditor && (() => {
+
            const bookRoot = getBookRoot(viewingEntry.id);
+
            const bookEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
+
            
+
            // Filterlogik basierend auf der Suchleiste und dem angeklickten Kalender-Datum
+
            const filteredEntries = bookEntries.filter(e => {
+
                const matchesSearch = timelineSearchQuery ? (e.title.toLowerCase().includes(timelineSearchQuery.toLowerCase()) || (e.text && e.text.toLowerCase().includes(timelineSearchQuery.toLowerCase()))) : true;
+
                const matchesDate = timelineSelectedDate ? new Date(e.date).toDateString() === timelineSelectedDate : true;
+
                return matchesSearch && matchesDate;
+
            });
+
+
 
            const grouped = {};
+
            filteredEntries.forEach(entry => {
+
               const d = new Date(entry.date);
+
               const y = d.getFullYear();
+
               const m = d.toLocaleDateString('de-DE', { month: 'long' });
+
               if (!grouped[y]) grouped[y] = {};
+
               if (!grouped[y][m]) grouped[y][m] = [];
+
               grouped[y][m].push(entry);
+
            });
 
+
+
            // Kalender Logik
+
            const daysInMonth = getDaysInMonth(timelineMonth.getFullYear(), timelineMonth.getMonth());
+
            // +6 % 7 macht den Montag zum Start der Woche
+
            const firstDay = (getFirstDayOfMonth(timelineMonth.getFullYear(), timelineMonth.getMonth()) + 6) % 7; 
 
+
+
            return (
+
              <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex justify-end animate-fade-in no-print" onClick={() => setShowTimeline(false)}>
+
                 <div className="w-full max-w-md h-full bg-white dark:bg-slate-900 shadow-2xl animate-slide-up flex flex-col" onClick={e=>e.stopPropagation()}>
+
                    
+
                    <div className="p-6 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-4">
+
                       <div className="flex justify-between items-center">
+
                          <h3 className="font-serif font-bold text-xl flex items-center gap-2" style={{ color: user.nameColor }}><Icon name="calendar-days" /> Zeitreise</h3>
+
                          <button type="button" onClick={()=>setShowTimeline(false)} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-900 dark:text-white"><Icon name="x" size={20}/></button>
+
                       </div>
+
                       
+
                       {/* Lupe / Suchleiste */}
+
                       <div className="relative">
+
                          <Icon name="search" size={16} className="absolute left-4 top-1/2 -translate-y-1/2 opacity-50 text-slate-900 dark:text-white" />
+
                          <input 
+
                             type="text" 
+
                             placeholder="In diesem Buch suchen..." 
+
                             value={timelineSearchQuery}
+
                             onChange={(e) => setTimelineSearchQuery(e.target.value)}
+
                             className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 outline-none focus:ring-2 text-sm text-slate-900 dark:text-white"
+
                             style={{ '--tw-ring-color': user.nameColor }}
+
                          />
+
                       </div>
+
                    </div>
+
+
 
                    <div className="flex-1 overflow-y-auto custom-scrollbar text-slate-900 dark:text-white">
+
                       
+
                       {/* Echter Kalender Container */}
+
                       <div className="p-6 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-black/10">
+
                           <div className="flex justify-between items-center mb-4">
+
                              <button type="button" onClick={() => {const d = new Date(timelineMonth); d.setMonth(d.getMonth()-1); setTimelineMonth(d);}} className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full"><Icon name="chevron-left" size={18}/></button>
+
                              <span className="font-bold text-sm uppercase tracking-widest">{timelineMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}</span>
+
                              <button type="button" onClick={() => {const d = new Date(timelineMonth); d.setMonth(d.getMonth()+1); setTimelineMonth(d);}} className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full"><Icon name="chevron-right" size={18}/></button>
+
                           </div>
+
                           
+
                           <div className="grid grid-cols-7 gap-1 text-center">
+
                              {['Mo','Di','Mi','Do','Fr','Sa','So'].map(d => <div key={d} className="text-[10px] font-bold opacity-50 py-2">{d}</div>)}
+
                              {Array(firstDay).fill(null).map((_, i) => <div key={`empty-${i}`} />)}
+
                              {Array(daysInMonth).fill(null).map((_, i) => {
+
                                  const day = i + 1;
+
                                  const dateStr = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth(), day).toDateString();
+
                                  const hasEntry = bookEntries.some(e => new Date(e.date).toDateString() === dateStr);
+
                                  const isSelected = timelineSelectedDate === dateStr;
+
                                  
+
                                  return (
+
                                      <button type="button"
+
                                          key={day} 
+
                                          onClick={() => setTimelineSelectedDate(isSelected ? null : dateStr)}
+
                                          className={`relative p-2 text-sm rounded-full transition-all flex items-center justify-center aspect-square ${isSelected ? 'shadow-md font-bold' : 'hover:bg-black/5 dark:hover:bg-white/5'} ${hasEntry && !isSelected ? 'font-bold' : ''}`}
+
                                          style={isSelected ? { backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000' } : {}}
+
                                      >
+
                                          <span>{day}</span>
+
                                          {hasEntry && !isSelected && <div className="absolute bottom-1 w-1 h-1 rounded-full" style={{ backgroundColor: user.nameColor }}></div>}
+
                                      </button>
+
                                  );
+
                              })}
+
                           </div>
+
                           {timelineSelectedDate && (
+
                              <div className="mt-4 text-center">
+
                                 <button type="button" onClick={() => setTimelineSelectedDate(null)} className="text-[10px] uppercase font-bold tracking-widest opacity-60 hover:opacity-100">Filter aufheben</button>
+
                              </div>
+
                           )}
+
                       </div>
+
+
 
                       {/* Listen-Ansicht der Einträge */}
+
                       <div className="p-6">
+
                         {Object.keys(grouped).length === 0 ? (
+
                            <p className="text-center opacity-50 text-sm mt-8">Keine Einträge für diesen Filter gefunden.</p>
+
                         ) : Object.keys(grouped).sort((a,b)=>b-a).map(year => (
+
                            <div key={year} className="mb-8">
+
                               <h4 className="font-black text-3xl mb-4 text-slate-800 dark:text-white opacity-80">{year}</h4>
+
                               {Object.keys(grouped[year]).map(month => (
+
                                  <div key={month} className="mb-6 pl-4 border-l-2" style={{ borderColor: `${user.nameColor}40` }}>
+
                                     <h5 className="font-bold text-sm mb-3 uppercase tracking-widest" style={{ color: user.nameColor }}>{month}</h5>
+
                                     <div className="space-y-2">
+
                                        {grouped[year][month].map(e => (
+
                                           <button type="button" key={e.id} onClick={() => { setViewingEntry(e); setShowTimeline(false); }} className={`w-full text-left p-4 rounded-xl transition-colors ${viewingEntry.id === e.id ? 'shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-white/5'}`} style={viewingEntry.id === e.id ? { backgroundColor: `${user.nameColor}20`, border: `1px solid ${user.nameColor}50` } : {}}>
+
                                              <div className="font-bold text-sm truncate">{e.title}</div>
+
                                              <div className="text-[10px] opacity-60 mt-1">{new Date(e.date).toLocaleDateString('de-DE')}</div>
+
                                           </button>
+
                                        ))}
+
                                     </div>
+
                                  </div>
+
                               ))}
+
                            </div>
+
                         ))}
+
                       </div>
+
                    </div>
+
                 </div>
+
              </div>
+
            );
+
         })()}
 
+
+
         {dialog && (
+
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xl animate-fade-in no-print" onClick={() => { if(dialog.type === 'alert') setDialog(null); }}>
+
             <div className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl border bg-white border-slate-200 dark:bg-graphite-900 dark:border-white/10 animate-scale-in" onClick={e => e.stopPropagation()}>
+
               {dialog.icon && (
+
                 <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 shadow-inner bg-slate-50 dark:bg-slate-800">
+
                   <Icon name={dialog.icon} size={36} className={dialog.iconColor || 'text-indigo-500'} />
+
                 </div>
+
               )}
+
               <h3 className="text-2xl font-bold leading-tight mb-4 font-serif">{dialog.title}</h3>
+
               <p className="text-base opacity-70 mb-8 leading-relaxed px-2 whitespace-pre-wrap">{dialog.message}</p>
+
               <div className="flex flex-col gap-3 w-full">
+
                 <button type="button"
+
                   className={`w-full py-4 text-white rounded-2xl font-bold shadow-md text-base transition-transform active:scale-95 ${dialog.confirmColor || 'bg-slate-900 dark:bg-white dark:text-slate-900'}`}
+
                   onClick={() => { if(dialog.onConfirm) dialog.onConfirm(); else setDialog(null); }}
+
                 >{dialog.confirmLabel || 'Verstanden'}</button>
+
                 {dialog.type !== 'alert' && (
+
                   <button type="button"
+
                     className="w-full py-4 rounded-2xl font-bold text-base bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors active:scale-95"
+
                     onClick={() => { if(dialog.onCancel) dialog.onCancel(); else setDialog(null); }}
+
                   >{dialog.cancelLabel || 'Abbrechen'}</button>
+
                 )}
+
               </div>
+
             </div>
+
           </div>
+
         )}
+
+
 
         {picker && (
+
           <div className="fixed inset-0 z-[250] flex items-end sm:items-center justify-center p-4 sm:p-6 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xl animate-fade-in no-print" onClick={() => setPicker(null)}>
+
             <div className="w-full max-w-sm rounded-[2.5rem] shadow-2xl border overflow-hidden animate-slide-up flex flex-col max-h-[80vh] bg-white border-slate-200 dark:bg-graphite-900 dark:border-white/10" onClick={e => e.stopPropagation()}>
+
               <div className="p-6 border-b border-slate-100 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5 shrink-0">
+
                 <h3 className="font-bold text-xl font-serif">{picker.title}</h3>
+
                 <button type="button" onClick={() => setPicker(null)} className="p-2 bg-slate-200 dark:bg-white/10 rounded-full hover:scale-110 transition-transform"><Icon name="x" size={20}/></button>
+
               </div>
+
               <div className="overflow-y-auto custom-scrollbar p-3 space-y-1 overscroll-contain">
+
                 {picker.options.map(opt => (
+
                   <button type="button"
+
                     key={opt.value}
+
                     onClick={() => { picker.onSelect(opt.value); setPicker(null); }}
+
                     className={`w-full text-left p-4 rounded-2xl transition-all font-bold text-base flex justify-between items-center ${picker.currentValue === opt.value ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-md' : 'hover:bg-slate-100 dark:hover:bg-white/10'}`}
+
                   >
+
                     <span className="truncate">{opt.label}</span>
+
                     {picker.currentValue === opt.value && <Icon name="check" size={18} />}
+
                   </button>
+
                 ))}
+
               </div>
+
             </div>
+
           </div>
+
         )}
+
+
 
         {unlockTarget && (
+
           <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 no-print">
+
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => { setUnlockTarget(null); }} />
+
             <div className="relative w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl animate-scale-in border bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 z-10">
+
               <div className="flex flex-col items-center w-full animate-fade-in">
+
                 <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-inner bg-slate-50 dark:bg-slate-800">
+
                   <Icon name="lock" size={28} style={{ color: user.nameColor || '#f59e0b' }} />
+
                 </div>
+
                 <h3 className="text-2xl font-bold mb-2 font-serif text-slate-900 dark:text-white">Tresor Entsperren</h3>
+
                 <p className="text-sm opacity-60 mb-6 truncate w-full text-slate-900 dark:text-white">"{unlockTarget.title}"</p>
+
                 <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitPin()} 
+
                        className={`w-full p-4 text-center text-2xl tracking-[1em] rounded-xl border-2 outline-none text-slate-900 dark:text-white bg-slate-50 dark:bg-black/20 focus:ring-2`}
+
                        style={{ borderColor: pinError ? '#ef4444' : 'transparent', '--tw-ring-color': user.nameColor || '#f59e0b' }}
+
                        placeholder="••••" />
+
                 <div className="flex gap-3 w-full mt-6">
+
                   <button type="button" onClick={() => setUnlockTarget(null)} className="flex-1 py-3 font-medium opacity-60 bg-black/5 dark:bg-white/5 rounded-xl hover:bg-black/10 dark:hover:bg-white/10 text-slate-900 dark:text-white">Abbrechen</button>
+
                   <button type="button" onClick={submitPin} className="flex-1 py-3 rounded-xl font-bold shadow-md hover:opacity-90" style={{ backgroundColor: user.nameColor || '#f59e0b', color: isDarkColor(user.nameColor || '#f59e0b') ? '#ffffff' : '#000000' }}>Öffnen</button>
+
                 </div>
+
               </div>
+
             </div>
+
           </div>
+
         )}
 
+
+
         <header className="sticky top-0 z-30 backdrop-blur-xl border-b px-4 py-3 sm:px-6 sm:py-4 transition-all duration-500 flex justify-between items-center bg-white/90 border-slate-200 dark:bg-graphite-950/80 dark:border-white/10 relative no-print">
+
           <div className="flex items-center gap-3 flex-1 overflow-hidden z-10">
+
             {view === 'settings' ? <h1 className="text-xl font-bold tracking-tight font-serif">Einstellungen</h1> :
+
              view === 'menu' ? <h1 className="text-xl font-bold tracking-tight font-serif">Entdecken</h1> :
+
              view === 'quotes' ? <h1 className="text-xl font-bold tracking-tight font-serif" style={{color: user.nameColor}}>Erkenntnisse</h1> :
+
              view === 'wisdom' ? <h1 className="text-xl font-bold tracking-tight font-serif">Buch der Weisheit</h1> :
+
              view === 'burn' ? <h1 className="text-xl font-bold tracking-tight font-serif text-rose-500">Katharsis</h1> :
+
             (
+
               <>
+
                 {user.avatar && <img src={user.avatar} alt="Profil" className="w-10 h-10 rounded-full object-cover border-2 shadow-sm shrink-0" style={{ borderColor: user.nameColor || '#f59e0b' }} />}
+
                 <div className="flex flex-col overflow-hidden w-full">
+
                   <h1 className="text-xl font-bold tracking-tight truncate font-serif" style={{ color: user.nameColor || '#f59e0b' }}>
+
                     {view === 'archive' ? 'Archiv' : user.name}
+
                   </h1>
+
                   {view === 'vault' && <p className="text-xs mt-0.5 font-medium flex items-center gap-1 text-rose-500"><Icon name="shield-check" size={14} /> Sicherer Tresor</p>}
+
                   {view === 'dashboard' && user.motto && <p className="text-[10px] sm:text-xs mt-1 italic font-medium whitespace-normal leading-snug opacity-70 w-full pr-4">"{user.motto}"</p>}
+
                 </div>
+
               </>
+
             )}
+
           </div>
+
           <div className="flex gap-1 items-center z-10 relative">
+
             {view === 'dashboard' && (
+
               <>
+
                 <div className="relative flex items-center">
+
                   <input type="text" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Tagebuch durchsuchen..." 
+
                          className={`absolute right-full mr-2 transition-all duration-300 border border-slate-200 dark:border-white/10 focus:ring-0 text-sm rounded-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md text-slate-900 dark:text-white shadow-xl ${isSearchOpen ? 'w-[60vw] sm:w-64 px-4 py-2 opacity-100 pointer-events-auto' : 'w-0 p-0 border-transparent opacity-0 pointer-events-none'}`} />
+
                   <button type="button" onClick={() => setIsSearchOpen(!isSearchOpen)} className={`relative z-10 p-2.5 rounded-full transition-colors bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 ${isSearchOpen || searchQuery ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400' : ''}`}><Icon name="search" size={18}/></button>
+
                 </div>
+
                 <button type="button" onClick={() => setView('menu')} className="p-2.5 rounded-full transition-colors bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"><Icon name="menu" size={18}/></button>
+
               </>
+
             )}
+
             {(view === 'settings' || view === 'menu' || view === 'archive' || view === 'wisdom' || view === 'burn' || view === 'quotes') && <button type="button" onClick={() => setView('dashboard')} className="p-2.5 rounded-full border border-transparent bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"><Icon name="x" size={18} /></button>}
+
           </div>
+
+
 
           {isSearchOpen && searchQuery && (
+
             <div className="absolute top-full left-4 right-4 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-h-[60vh] overflow-y-auto custom-scrollbar z-[100]">
+
               {renderEntries.length === 0 ? (
+
                 <div className="p-4 text-center opacity-50 text-sm font-medium text-slate-900 dark:text-white">Keine Einträge gefunden.</div>
+
               ) : (
+
                 renderEntries.map(entry => (
+
                   <button type="button"
+
                     key={entry.id} 
+
                     onClick={() => { handleBookClick(entry); setIsSearchOpen(false); setSearchQuery(''); }} 
+
                     className="w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700/50 last:border-0 transition-colors flex flex-col gap-1"
+
                   >
+
                     <div className="font-bold text-sm text-slate-900 dark:text-white" dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)}></div>
+
                     <div className="text-xs opacity-70 line-clamp-2 text-slate-800 dark:text-slate-300" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)}></div>
+
                     <div className="text-[10px] text-amber-500 font-bold uppercase tracking-widest mt-1">
+
                       {new Date(entry.date).toLocaleDateString()} {entry.parentId && '• Gefunden auf Unterseite'}
+
                     </div>
+
                   </button>
+
                 ))
+
               )}
+
             </div>
+
           )}
+
         </header>
 
+
+
         {/* ARCHITEKTUR-UPDATE: no-print auf <main> angewendet */}
+
         <main className="p-4 sm:p-6 max-w-4xl mx-auto min-h-[60vh] relative z-10 pb-24 no-print">
 
+
+
           {installHint && view !== 'onboarding' && view !== 'loading' && (
+
             <div className="mb-6 p-4 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 rounded-2xl text-xs font-bold leading-relaxed border border-amber-200 dark:border-amber-800/50 flex items-start gap-3 shadow-sm no-print">
+
                <Icon name="info" size={20} className="shrink-0 mt-0.5" />
+
                <p>{installHint}</p>
+
             </div>
+
           )}
+
+
 
           {/* ARCHITEKTUR-UPDATE: Sprüche & Zitate anstelle des Orakels */}
+
           {view === 'quotes' && (() => {
+
              const allQuotes = getExtractedQuotes();
+
              return (
+
                <div className="animate-slide-up space-y-6 no-print">
+
                  <div className="text-center mb-10">
+
                    <h2 className="text-3xl font-serif font-bold mb-3">Deine Erkenntnisse</h2>
+
                    <p className="opacity-60 max-w-xl mx-auto">Alle von dir hervorgehobenen Zitate und Gedanken, gesammelt aus der Tiefe deines Journals.</p>
+
                  </div>
+
                  {allQuotes.length === 0 ? (
+
                    <div className="text-center opacity-30 py-20">
+
                      <Icon name="quote" size={64} className="mx-auto mb-4" />
+
                      <p className="font-serif text-lg font-bold">Noch keine Erkenntnisse markiert.</p>
+
                      <p className="text-sm">Nutze das Anführungszeichen (Zitieren) im Editor.</p>
+
                    </div>
+
                  ) : (
+
                    <div className="columns-1 sm:columns-2 gap-6 space-y-6">
+
                      {allQuotes.map(q => (
+
                         <div key={q.id} onClick={() => { const e = entries.find(x=>x.id===q.entryId); if(e) handleBookClick(e); }} className="break-inside-avoid relative rounded-[2rem] p-8 shadow-sm hover:shadow-md transition-all cursor-pointer border bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 group">
+
                            <Icon name="quote" size={24} className="absolute top-6 left-6 opacity-20" style={{ color: user.nameColor }} />
+
                            <p className="relative z-10 text-lg sm:text-xl font-serif italic leading-relaxed text-slate-800 dark:text-slate-200 mt-6 mb-6">"{q.text}"</p>
+
                            <div className="flex justify-between items-center border-t border-black/5 dark:border-white/5 pt-4">
+
                               <span className="text-[10px] font-bold uppercase tracking-widest opacity-50 truncate mr-4">{q.title}</span>
+
                               <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md bg-black/5 dark:bg-white/5 shrink-0" style={{ color: user.nameColor }}>{new Date(q.date).toLocaleDateString('de-DE')}</span>
+
                            </div>
+
                         </div>
+
                      ))}
+
                    </div>
+
                  )}
+
                </div>
+
              );
+
           })()}
 
+
+
           {view === 'menu' && (
+
             <div className="grid grid-cols-2 gap-4 sm:gap-6 animate-slide-up no-print">
+
               <button type="button" onClick={() => setView('wisdom')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50">
+
                 <Icon name="book-open" size={32} className="text-amber-500" />
+
                 <span className="font-bold text-xs uppercase tracking-widest">Buch der Weisheit</span>
+
               </button>
+
               <button type="button" onClick={() => setView('burn')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/50">
+
                 <Icon name="flame" size={32} className="text-rose-500" />
+
                 <span className="font-bold text-xs uppercase tracking-widest">Katharsis</span>
+
               </button>
+
               <button type="button" onClick={() => setView('quotes')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-white/10" style={{ backgroundColor: `${user.nameColor}15`, borderColor: `${user.nameColor}40` }}>
+
                 <Icon name="quote" size={32} style={{ color: user.nameColor }} />
+
                 <span className="font-bold text-xs uppercase tracking-widest">Erkenntnisse</span>
+
               </button>
+
               <button type="button" onClick={() => setView('archive')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-white/10">
+
                 <Icon name="archive" size={32} className="opacity-50" />
+
                 <span className="font-bold text-xs uppercase tracking-widest">Archiv</span>
+
               </button>
+
               <button type="button" onClick={() => setView('settings')} className="col-span-2 p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-white dark:bg-slate-900/50 border-slate-200 dark:border-white/10">
+
                 <Icon name="settings" size={32} className="opacity-50" />
+
                 <span className="font-bold text-xs uppercase tracking-widest">Einstellungen</span>
+
               </button>
+
             </div>
+
           )}
+
+
 
           {view === 'wisdom' && (
+
             <div className="animate-slide-up space-y-8 no-print">
+
               <div className="text-center mb-8">
+
                 <h2 className="text-3xl font-serif font-bold mb-3">Die 25 Säulen deines Vermächtnisses</h2>
+
                 <p className="opacity-60 max-w-xl mx-auto">Dieser Blueprint ist dein Wegweiser. Wähle eine Säule aus, um sie zu füllen. Zusammen ergeben sie das zeitloseste Bild deines Lebens für die Generationen, die nach dir kommen.</p>
+
               </div>
+
+
 
               <div className="mb-8 p-6 rounded-[2rem] bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-500/30">
+
                  <div className="flex justify-between items-end mb-3">
+
                    <div>
+
                      <h3 className="font-bold text-amber-700 dark:text-amber-500 text-sm uppercase tracking-widest">Dein Vermächtnis wächst</h3>
+
                      <p className="text-xs opacity-70 text-slate-800 dark:text-slate-300 mt-1">{completedPillars} von {totalPillars} Säulen versiegelt</p>
+
                    </div>
+
                    <span className="text-2xl font-black text-amber-500">{progressPercent}%</span>
+
                  </div>
+
                  <div className="w-full bg-amber-200 dark:bg-amber-900/30 h-3 rounded-full overflow-hidden">
+
                    <div className="bg-amber-500 h-full transition-all duration-1000" style={{width: `${progressPercent}%`}}></div>
+
                  </div>
+
               </div>
+
               
+
               {['Fundament', 'Kommunikation', 'Struktur', 'Tiefe', 'Anpassung'].map((phaseTitle, index) => (
+
                 <div key={phaseTitle} className="mb-8">
+
                   <h3 className="text-sm font-bold uppercase tracking-widest text-amber-600 dark:text-amber-500 mb-4 pl-2 border-l-2 border-amber-500">Phase {index + 1}: {phaseTitle}</h3>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+
                     {PILLARS.filter(p => p.phase === phaseTitle).map(pillar => {
+
                       const isCompleted = entries.some(e => e.title === pillar.title);
+
                       return (
+
                         <button type="button" key={pillar.id} onClick={() => openEditor(null, pillar)} className={`p-4 text-left rounded-[1.5rem] border transition-all hover:scale-[1.02] flex items-start gap-3 ${isCompleted ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-500/30' : 'bg-white dark:bg-graphite-900 border-slate-200 dark:border-white/10'}`}>
+
                           <div className={`p-2 rounded-full shrink-0 ${isCompleted ? 'bg-amber-500 text-white' : 'bg-slate-100 dark:bg-white/5 opacity-50'}`}>
+
                             {isCompleted ? <Icon name="check" size={16} /> : <Icon name="pen-tool" size={16} />}
+
                           </div>
+
                           <div>
+
                             <h4 className="font-bold text-sm mb-1">{pillar.title}</h4>
+
                             <p className="text-xs opacity-60 line-clamp-2">{pillar.desc}</p>
+
                           </div>
+
                         </button>
+
                       );
+
                     })}
+
                   </div>
+
                 </div>
+
               ))}
+
             </div>
+
           )}
+
+
 
           {view === 'burn' && (
+
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center animate-fade-in relative overflow-hidden p-6 no-print">
+
               {isBurning && <div className="absolute inset-0 bg-rose-500/20 animate-pulse z-0 rounded-3xl" />}
+
               <Icon name="flame" size={64} className={`mb-6 ${isBurning ? 'text-rose-500 animate-flame' : 'text-slate-400'}`} />
+
               <h2 className="text-3xl font-serif font-bold mb-4 z-10">Katharsis</h2>
+
               <p className="opacity-70 mb-8 z-10 max-w-md">Schreibe auf, was dich belastet, wovor du Angst hast oder was dich wütend macht. Danach übergeben wir es gemeinsam den Flammen. Es wird <b>nirgendwo</b> gespeichert.</p>
+
               <textarea 
+
                 value={burnText} 
+
                 onChange={e=>setBurnText(e.target.value)} 
+
                 disabled={isBurning} 
+
                 className="w-full max-w-lg p-6 rounded-[2rem] bg-white dark:bg-black/30 border-2 border-rose-500/20 focus:border-rose-500 h-48 outline-none resize-none z-10 transition-all shadow-inner text-slate-900 dark:text-white" 
+
                 placeholder="Lass es hier los..." 
+
               />
+
               <button type="button"
+
                 onClick={triggerBurn} 
+
                 disabled={!burnText || isBurning} 
+
                 className="mt-6 px-8 py-4 bg-rose-600 text-white rounded-full font-bold shadow-lg shadow-rose-600/30 hover:bg-rose-700 transition-colors z-10 disabled:opacity-50 flex items-center gap-2"
+
               >
+
                 {isBurning ? 'Verbrennt...' : <><Icon name="flame" size={20}/> Dem Feuer übergeben</>}
+
               </button>
+
             </div>
+
           )}
+
+
 
           {view === 'settings' && (
+
             <div className="space-y-6 animate-slide-up max-w-md mx-auto no-print">
+
               <div className="p-6 rounded-[2rem] shadow-sm border card-bg">
+
                 <h2 className="text-lg font-bold mb-6 flex items-center gap-2 font-serif"><Icon name="user" size={20} className="text-amber-500" /> Profil</h2>
+
                 <div className="flex items-center gap-5 mb-6">
+
                   <div className="relative shrink-0">
+
                     {/* ARCHITEKTUR-UPDATE: Profilbild Skalierung repariert bleeding von Ecken */}
+
                     <div className={`w-20 h-20 rounded-full overflow-hidden border-[3px] shadow-sm flex items-center justify-center border-slate-200 dark:border-slate-700 ${!user.avatar ? 'bg-slate-100 dark:bg-slate-800' : ''}`} style={{ borderColor: user.avatar ? user.nameColor : undefined }}>
+
                       {user.avatar ? <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover scale-[1.02]" /> : <Icon name="user" size={32} className="opacity-30" />}
+
                     </div>
+
                     <label className="absolute -bottom-1 -right-1 p-2 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-full cursor-pointer shadow-lg hover:scale-110 transition-transform"><Icon name="camera" size={14} /><input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" /></label>
+
                   </div>
+
                   <div className="flex-1 space-y-3">
+
                     <input type="text" value={user.name} onChange={(e) => setUser({...user, name: e.target.value})} className="w-full p-3 rounded-xl border-none focus:ring-2 focus:ring-amber-500 text-base font-bold bg-slate-100 dark:bg-black/30 outline-none text-slate-900 dark:text-white" placeholder="Dein Name" />
+
                     
+
                     {/* ARCHITEKTUR-UPDATE: Padding und Margin hinzugefügt, um abgeschnittene vergrößerte runde Knöpfe zu reparieren */}
+
                     <div className="flex gap-2 flex-wrap p-2 -m-2">
+
                       {['#f59e0b', '#ef4444', '#3b82f6', '#10b981', '#8b5cf6', '#1e293b'].map(color => (
+
                         <button type="button" key={color} onClick={() => setUser({...user, nameColor: color})} className={`w-6 h-6 rounded-full border-2 transition-transform ${user.nameColor === color ? 'border-slate-400 scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
+
                       ))}
+
                     </div>
+
                   </div>
+
                 </div>
+
                 <textarea value={user.motto} onChange={(e) => setUser({...user, motto: e.target.value})} className="w-full p-4 rounded-xl border-none focus:ring-2 focus:ring-amber-500 h-20 resize-none text-sm bg-slate-100 dark:bg-black/30 outline-none italic text-slate-900 dark:text-white" placeholder="Dein Lebensmotto..." />
+
               </div>
+
+
 
               <div className="p-6 rounded-[2rem] shadow-sm border bg-white dark:bg-graphite-900 border-slate-200 dark:border-white/10">
+
                 <h2 className="text-lg font-bold mb-4 flex items-center gap-2 font-serif"><Icon name="sun" size={20} className="text-indigo-500" /> Erscheinungsbild</h2>
+
                 
+
                 <div className="mb-6">
+
                   <span className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-2 block text-slate-900 dark:text-white">Modus</span>
+
                   {/* ARCHITEKTUR-UPDATE: Innere Border-Rundung perfekt an die äußere angepasst (16px außen, 8px innen mit p-2 Abstand) */}
+
                   <div className="flex justify-between items-center p-2 bg-slate-100 dark:bg-black/30 rounded-2xl">
+
                     <button type="button" onClick={() => setUser({...user, isDark: false})} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-sm transition-all ${!user.isDark ? 'bg-white shadow-sm text-slate-900' : 'opacity-50 hover:opacity-100 text-slate-900 dark:text-white'}`}><Icon name="sun" size={18}/> Hell</button>
+
                     <button type="button" onClick={() => setUser({...user, isDark: true})} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-sm transition-all ${user.isDark ? 'bg-slate-800 shadow-sm text-white' : 'opacity-50 hover:opacity-100 text-slate-900 dark:text-white'}`}><Icon name="moon" size={18}/> Dunkel</button>
+
                   </div>
+
                 </div>
+
+
 
                 <div>
+
                   <span className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-2 block text-slate-900 dark:text-white">Hintergrundfarbe</span>
+
                   {/* ARCHITEKTUR-UPDATE: Padding und Margin hinzugefügt, um abgeschnittene vergrößerte runde Knöpfe zu reparieren */}
+
                   <div className="flex gap-3 overflow-x-auto hide-scrollbar p-2 -m-2">
+
                     <button type="button"
+
                       onClick={() => setUser({...user, appBgColor: null})} 
+
                       className={`w-10 h-10 rounded-full border-2 shrink-0 flex items-center justify-center transition-transform ${!user.appBgColor ? 'scale-110 border-indigo-500' : 'border-slate-300 dark:border-slate-600 opacity-50 hover:opacity-100'}`}
+
                       style={{ background: user.isDark ? '#09090b' : '#ffffff' }}
+
                     >
+
                       {!user.appBgColor && <Icon name="check" size={16} className={user.isDark ? 'text-white' : 'text-slate-900'} />}
+
                     </button>
+
                     {COLORS.map((c) => (
+
                       <button type="button"
+
                         key={c} 
+
                         onClick={() => setUser({...user, appBgColor: c})} 
+
                         className={`w-10 h-10 rounded-full border-2 shrink-0 flex items-center justify-center transition-transform ${user.appBgColor === c ? 'scale-110 border-current z-10' : 'border-transparent shadow-sm opacity-50 hover:opacity-100'}`} 
+
                         style={{ backgroundColor: c, color: isDarkColor(c) ? '#ffffff' : '#000000' }}
+
                       >
+
                         {user.appBgColor === c && <Icon name="check" size={16} />}
+
                       </button>
+
                     ))}
+
                   </div>
+
                 </div>
+
               </div>
+
+
 
               {/* ARCHITEKTUR-UPDATE: PIN-Einstellungen im Systemdesign mit korrigierten, perfekt sitzenden Ecken (rounded-2xl und rounded-lg) */}
+
               <div className="p-6 rounded-[2rem] shadow-sm border bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10">
+
                 <h2 className="text-lg font-bold mb-4 flex items-center gap-2 font-serif" style={{ color: user.nameColor }}><Icon name="key-round" size={20} /> Tresor PIN</h2>
+
                 {!user.pin ? (
+
                   <div>
+
                     <input type="password" inputMode="numeric" pattern="[0-9]*" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN (z.B. 4 Zahlen)" className="w-full p-4 rounded-xl border-none focus:ring-2 tracking-[0.5em] text-center text-xl mb-4 bg-slate-50 dark:bg-black/30 outline-none text-slate-900 dark:text-white" style={{ '--tw-ring-color': user.nameColor }} />
+
                     <button type="button" onClick={() => { if(newPinInput.length >= 4) { setUser({...user, pin: newPinInput}); setNewPinInput(''); } else showDialog({ title: 'PIN zu kurz', message: 'Die PIN muss mindestens 4 Zeichen lang sein.', icon: 'x' }); }} className="w-full py-3 rounded-xl font-bold text-sm transition-transform shadow-md hover:scale-[1.02]" style={{ backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#fff' : '#000' }}>PIN speichern</button>
+
                   </div>
+
                 ) : isChangingPin ? (
+
                   <div className="space-y-3">
+
                     <input type="password" inputMode="numeric" pattern="[0-9]*" value={oldPinInput} onChange={(e) => setOldPinInput(e.target.value)} placeholder="Alte PIN" className="w-full p-3 rounded-xl text-center tracking-[0.5em] text-lg bg-slate-50 dark:bg-black/30 outline-none text-slate-900 dark:text-white" />
+
                     <input type="password" inputMode="numeric" pattern="[0-9]*" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN" className="w-full p-3 rounded-xl text-center tracking-[0.5em] text-lg bg-slate-50 dark:bg-black/30 outline-none text-slate-900 dark:text-white" />
+
                     <div className="flex gap-3">
+
                       <button type="button" onClick={() => setIsChangingPin(false)} className="flex-1 py-3 bg-slate-200 dark:bg-slate-800 rounded-xl text-sm font-bold text-slate-900 dark:text-white">Abbrechen</button>
+
                       <button type="button" onClick={() => { if (oldPinInput === user.pin) { setUser({...user, pin: newPinInput}); setIsChangingPin(false); showDialog({ title: 'Erfolg', message: 'PIN erfolgreich geändert.', icon: 'check', iconColor: 'text-emerald-500' }); } else showDialog({ title: 'Fehler', message: 'Die alte PIN ist falsch.', icon: 'x', iconColor: 'text-rose-500' }); }} className="flex-1 py-3 rounded-xl text-sm font-bold shadow-md" style={{ backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#fff' : '#000' }}>Speichern</button>
+
                     </div>
+
                   </div>
+
                 ) : (
+
                   <div className="flex justify-between items-center bg-slate-50 dark:bg-black/20 p-2 rounded-2xl">
+
                     <span className="font-bold text-sm text-slate-900 dark:text-white pl-2">PIN Aktiv</span>
+
                     <button type="button" onClick={() => setIsChangingPin(true)} className="px-4 py-2 bg-white dark:bg-slate-800 shadow-sm transition-colors rounded-lg font-bold text-xs" style={{ color: user.nameColor }}>Ändern</button>
+
                   </div>
+
                 )}
+
               </div>
+
+
 
               <div className="p-6 rounded-[2rem] shadow-sm border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50">
+
                 <h2 className="text-base font-bold mb-4 flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><Icon name="smartphone" size={18} /> Auf neues Handy übertragen</h2>
+
                 <p className="text-xs opacity-70 mb-6 text-slate-800 dark:text-slate-300 leading-relaxed">
+
                   Generiere einen sicheren QR-Code. Scanne ihn mit der normalen Handykamera deines <b>neuen</b> Smartphones, um alle Tagebucheinträge drahtlos über eine Peer-to-Peer Verbindung zu importieren.
+
                 </p>
+
+
 
                 {!peerId ? (
+
                   <button type="button" onClick={() => {
+
                     const peer = new window.Peer();
+
                     setSyncStatus('Sichere WebRTC Verbindung wird vorbereitet...');
+
                     peer.on('open', (id) => {
+
                       setPeerId(id);
+
                       setSyncStatus('Bereit! Scanne diesen Code mit dem neuen Handy.');
+
                     });
+
                     peer.on('connection', (conn) => {
+
                       setSyncStatus('Neues Handy verbunden. Sende Daten...');
+
                       conn.on('data', (data) => {
+
                         if (data === 'request_data') {
+
                           conn.send(JSON.stringify({ user, entries }));
+
                           setSyncStatus('Übertragung erfolgreich abgeschlossen!');
+
                           setTimeout(() => { setPeerId(null); setPeerInstance(null); }, 5000);
+
                         }
+
                       });
+
                     });
+
                     setPeerInstance(peer);
+
                   }} className="w-full flex items-center justify-center gap-2 p-4 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-emerald-700 transition-transform hover:scale-[1.02]">
+
                     <Icon name="qr-code" size={18}/> QR-Code generieren
+
                   </button>
+
                 ) : (
+
                   <div className="flex flex-col items-center bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-inner border border-slate-200 dark:border-white/10">
+
                     <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(window.location.origin + window.location.pathname + '?import=' + peerId)}`} alt="Sync QR" className="w-48 h-48 mb-4 rounded-lg shadow-sm" />
+
                     <p className="text-[10px] font-bold text-center text-emerald-600 uppercase tracking-widest mb-1">Status</p>
+
                     <p className="text-xs font-bold text-center text-slate-800 dark:text-slate-200 animate-pulse">{syncStatus}</p>
+
                     <button type="button" onClick={() => { peerInstance?.destroy(); setPeerId(null); setPeerInstance(null); setSyncStatus(''); }} className="mt-4 px-4 py-2 bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white rounded-lg text-xs font-bold hover:bg-slate-200 dark:hover:bg-white/20">Abbrechen</button>
+
                   </div>
+
                 )}
+
               </div>
+
+
 
               <div className="p-6 rounded-[2rem] shadow-sm border bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/50">
+
                 <h2 className="text-base font-bold mb-4 flex items-center gap-2 text-indigo-600"><Icon name="archive" size={18} /> System Backup & Datei</h2>
+
                 
+
                 <p className="text-xs opacity-70 mb-5 text-slate-800 dark:text-slate-300 leading-relaxed">
+
                   Lade dein komplettes Journal (inklusive Bilder) als Datei herunter, um ein Backup lokal aufzubewahren oder per WhatsApp/E-Mail zu teilen.
+
                 </p>
 
+
+
                 <button type="button" onClick={downloadFullApp} className="w-full flex items-center justify-center gap-2 p-4 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 transition-transform hover:scale-[1.02] mb-3">
+
                   <Icon name="download" size={18}/> Komplettes Backup laden
+
                 </button>
+
+
 
                 <div className="flex gap-2">
+
                   <label className="flex-1 flex items-center justify-center gap-1.5 p-3 bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold cursor-pointer border border-slate-300 dark:border-transparent shadow-sm hover:bg-slate-50 transition-colors">
+
                     <Icon name="upload" size={14}/> Backup Importieren <input type="file" accept=".html,.legacy,.json" onChange={importBackup} className="hidden" />
+
                   </label>
+
                 </div>
+
               </div>
+
             </div>
+
           )}
+
+
 
           {['dashboard', 'vault', 'archive'].includes(view) && (
+
             <>
+
               {/* Heatmap Neural Network */}
+
               {view === 'dashboard' && !searchQuery && (
+
                 <div className="mb-6 p-6 rounded-[2rem] shadow-sm border border-slate-200 dark:border-white/10 flex flex-col justify-center animate-fade-in bg-white dark:bg-black/20 no-print">
+
                   <div className="flex justify-between items-center mb-4">
+
                     <span className="font-bold text-xs uppercase tracking-widest opacity-70 text-slate-900 dark:text-white">Aktivität (30 Tage)</span>
+
                     <Icon name="activity" size={16} style={{ color: user.nameColor || '#f59e0b' }} />
+
                   </div>
+
                   <div className="flex gap-1.5 justify-between items-end h-16">
+
                     {heatmapData.map((d, i) => (
+
                       <div key={i} className="heatmap-cell flex-1 rounded-sm transition-all hover:opacity-100" style={{ 
+
                         height: d.count === 0 ? '20%' : `${Math.min(100, 20 + (d.count * 40))}%`, 
+
                         backgroundColor: d.count === 0 ? 'rgba(150,150,150,0.1)' : (user.nameColor || '#f59e0b'),
+
                         opacity: d.count === 0 ? 0.5 : 0.6 + (d.count*0.2),
+
                         boxShadow: d.count > 0 ? `0 0 10px ${user.nameColor || '#f59e0b'}80` : 'none'
+
                       }} title={`${d.count} Einträge am ${d.date}`} />
+
                     ))}
+
                   </div>
+
                 </div>
+
               )}
+
+
 
               {view === 'dashboard' && timeMachineEntry && !searchQuery && (
+
                 <div onClick={() => handleBookClick(timeMachineEntry)} className="mb-6 p-5 rounded-[2rem] border cursor-pointer flex items-center gap-4 hover:scale-[1.02] transition-transform shadow-sm bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-500/30">
+
                   <div className="p-3 text-white rounded-full shrink-0 shadow-md" style={{ backgroundColor: user.nameColor || '#f59e0b' }}><Icon name="history" size={24}/></div>
+
                   <div className="overflow-hidden">
+
                     <h4 className="font-bold text-xs uppercase tracking-widest mb-1" style={{ color: user.nameColor || '#f59e0b' }}>Heute vor {today.getFullYear() - new Date(timeMachineEntry.date).getFullYear()} {today.getFullYear() - new Date(timeMachineEntry.date).getFullYear() === 1 ? 'Jahr' : 'Jahren'}</h4>
+
                     <p className="font-medium text-slate-900 dark:text-white truncate w-full text-lg font-serif">{timeMachineEntry.title}</p>
+
                   </div>
+
                 </div>
+
               )}
+
+
 
               {view === 'dashboard' && (
+
                 <div className="flex overflow-x-auto gap-3 pb-4 mb-6 custom-scrollbar snap-x no-print">
+
                   {['Alle', ...CATEGORIES].map(cat => (
+
                     <button type="button"
+
                       key={cat} onClick={() => setActiveCategory(cat)}
+
                       className={`px-5 py-2.5 rounded-full whitespace-nowrap snap-start text-sm font-bold transition-all ${activeCategory === cat ? 'text-white shadow-md' : 'bg-slate-100 border border-slate-200 dark:bg-white/5 dark:border-white/10 opacity-70 hover:opacity-100 text-slate-900 dark:text-white'}`}
+
                       style={activeCategory === cat ? { backgroundColor: user.nameColor || '#18181b', color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000' } : {}}
+
                     >
+
                       {cat}
+
                     </button>
+
                   ))}
+
                 </div>
+
               )}
+
+
 
               {visibleEntries.length === 0 && view !== 'menu' && view !== 'settings' && !searchQuery && (
+
                 <div className="flex flex-col items-center justify-center py-32 text-center opacity-30 animate-fade-in text-slate-900 dark:text-white">
+
                   {view === 'vault' ? <Icon name="shield-check" size={64} className="mb-6"/> : view === 'archive' ? <Icon name="archive" size={64} className="mb-6"/> : <Icon name="book-open" size={64} className="mb-6"/>}
+
                   <p className="text-xl font-bold font-serif">
+
                     {view === 'vault' ? 'Tresor leer.' : view === 'archive' ? 'Archiv leer.' : 'Dein Buch ist noch leer.'}
+
                   </p>
+
                 </div>
+
               )}
 
+
+
               <div className="columns-1 sm:columns-2 gap-6 space-y-6 pb-20">
+
                 {!searchQuery && renderEntries.map(entry => {
+
                   const isCapsuleLocked = entry.unlockDate && new Date(entry.unlockDate) > now;
+
                   const isGeoLocked = entry.unlockLocation;
+
                   const pagesCount = getBookLength(entry.id);
 
+
+
                   const isDarkTheme = user.isDark;
+
                   const entryColor = entry.color || (isDarkTheme ? COLORS[8] : COLORS[0]);
+
                   let cardBg = entryColor;
+
                   if (isDarkTheme && entryColor === '#ffffff') cardBg = '#18181b';
+
                   if (!isDarkTheme && entryColor === '#0f172a') cardBg = '#ffffff';
+
                   const borderStyle = isDarkTheme ? (cardBg === '#18181b' ? 'border-white/10' : 'border-white/5') : 'border-slate-200';
 
+
+
                   return (
+
                     <div
+
                       key={entry.id} 
+
                       onClick={() => {
+
                         if (isCapsuleLocked) {
+
                           showDialog({ title: 'Zeitkapsel versiegelt', message: `Dieses Dokument öffnet sich erst am ${new Date(entry.unlockDate).toLocaleDateString('de-DE')}.`, icon: 'calendar-clock', iconColor: 'text-indigo-500' });
+
                           return;
+
                         }
+
                         if (entry.locked || isGeoLocked) {
+
                           handleVaultClick(entry);
+
                           return;
+
                         }
+
                         handleBookClick(entry);
+
                       }}
+
                       className={`break-inside-avoid group relative rounded-[2.5rem] shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden cursor-pointer border ${borderStyle} ${entry.manifested ? 'ring-2 ring-amber-400/50' : ''}`}
+
                       style={{ backgroundColor: cardBg, color: isDarkColor(cardBg) ? '#f8fafc' : '#0f172a' }}
+
                     >
+
                       {entry.inheritedFrom && (
+
                         <div className="absolute top-4 left-4 z-30 bg-black/80 text-amber-400 text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1 backdrop-blur-md no-print">
+
                           <Icon name="git-merge" size={12}/> Von {entry.inheritedFrom.split(' ')[0]}
+
                         </div>
+
                       )}
+
                       
+
                       {/* NEU: Tresor/Siegel Badge auf dem normalen Cover */}
+
                       {(entry.locked || isCapsuleLocked || isGeoLocked) && (
+
                         <div className={`absolute left-4 z-30 bg-slate-900/90 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1 backdrop-blur-md no-print ${entry.inheritedFrom ? 'top-12' : 'top-4'}`}>
+
                           {isCapsuleLocked ? <Icon name="calendar-clock" size={12}/> : isGeoLocked ? <Icon name="map-pin" size={12}/> : <Icon name="lock" size={12}/>}
+
                           {isCapsuleLocked ? `Öffnet ${new Date(entry.unlockDate).toLocaleDateString('de-DE')}` : isGeoLocked ? 'Orts-Siegel' : 'Tresor'}
+
                         </div>
+
                       )}
+
+
 
                       {entry.manifested && (
+
                         <div className="absolute top-4 right-4 z-30 bg-amber-500 text-slate-900 text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1 no-print">
+
                           <Icon name="sparkles" size={12}/> Manifestiert
+
                         </div>
+
                       )}
+
+
 
                       {entry.image && (
+
                         <div className="w-full relative overflow-hidden bg-slate-100 dark:bg-black/20 flex justify-center items-center min-h-[200px]">
+
                           <img src={entry.image} alt="Vision" className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000" />
+
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent z-10 pointer-events-none no-print" />
+
                           <h3 className="absolute bottom-6 left-6 right-6 z-20 font-bold text-2xl text-white drop-shadow-md leading-snug line-clamp-2 font-serif" dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
+
                         </div>
+
                       )}
 
+
+
                       <div className="p-6 sm:p-8 flex-1 flex flex-col relative z-20">
+
                         {!entry.image && <h3 className={`font-bold text-2xl leading-tight mb-4 line-clamp-2 font-serif`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />}
+
                         {entry.category === 'Weisheit' && <div className="mb-4 text-[10px] font-bold uppercase tracking-widest opacity-50 flex items-center gap-1 text-amber-500"><Icon name="book-open" size={12}/> Säule der Weisheit</div>}
 
+
+
                         {entry.text && (
+
                           <div className={`text-sm leading-relaxed mb-6 font-medium line-clamp-4 legacy-content opacity-80`} dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
+
                         )}
 
+
+
                         <div className={`flex flex-wrap items-center justify-between pt-4 border-t mt-auto ${isDarkTheme ? 'border-white/10' : 'border-black/10'}`}>
+
                           <div className="flex flex-col">
+
                             <span className={`text-[10px] font-bold uppercase tracking-widest opacity-60`}>
+
                               {new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}
+
                             </span>
+
                           </div>
+
                           <div className="flex gap-2 items-center opacity-60 no-print">
+
                             {view === 'dashboard' && !entry.parentId && (
+
                               <button type="button" onClick={(e) => { e.stopPropagation(); moveToTop(entry); }} className="p-2 rounded-full bg-black/5 dark:bg-white/10 hover:bg-amber-500/20 hover:text-amber-500 transition-colors" title="Nach oben schieben">
+
                                 <Icon name="arrow-up-circle" size={16} />
+
                               </button>
+
                             )}
+
+
 
                             {pagesCount > 1 && !searchQuery && (
+
                               <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest bg-black/10 dark:bg-white/10 px-2 py-1 rounded-md mr-1">
+
                                 <Icon name="layers" size={12} /> {pagesCount}
+
                               </span>
+
                             )}
+
                             {entry.mood && (() => {
+
                               const moodObj = MOODS.find(m=>m.label===entry.mood);
+
                               if (!moodObj) return null;
+
                               return <Icon name={moodObj.iconName} size={16} className={moodObj.color} />;
+
                             })()}
+
                             {entry.location && <Icon name="map-pin" size={16} />}
+
                             {(entry.audio || entry.video) && <Icon name="mic" size={16} />}
+
                             {view === 'archive' && (
+
                               <div className="flex gap-2 ml-2">
+
                                 <button type="button" onClick={(e) => { e.stopPropagation(); setEntries(prev => prev.map(ex => ex.id === entry.id ? { ...ex, archived: false } : ex)); }} className={`p-2 rounded-full bg-black/5 dark:bg-white/10`}><Icon name="rotate-ccw" size={16} /></button>
+
                                 <button type="button" onClick={(e) => { e.stopPropagation(); confirmArchiveDelete(entry.id); }} className="p-2 rounded-full bg-rose-500/10 text-rose-500"><Icon name="trash-2" size={16} /></button>
+
                               </div>
+
                             )}
+
                           </div>
+
                         </div>
+
                       </div>
+
                     </div>
+
                   );
+
                 })}
+
               </div>
+
             </>
+
           )}
+
         </main>
 
+
+
         {showEditor && (
+
           <div className="fixed inset-0 z-[100] flex flex-col sm:items-center sm:justify-center bg-transparent sm:bg-slate-900/40 sm:dark:bg-slate-950/80 sm:backdrop-blur-md no-print sm:p-6">
+
             <div className="hidden sm:block absolute inset-0 bg-transparent" onClick={() => checkSaveEntry(true)} />
+
             <div 
+
               className="relative w-full h-full sm:h-[90dvh] sm:max-w-3xl mx-auto flex flex-col shadow-2xl transition-colors sm:rounded-[2.5rem] border-0 sm:border sm:border-slate-200 sm:dark:border-white/10 overflow-hidden"
+
               style={{ backgroundColor: zenMode ? 'transparent' : (user.appBgColor || (user.isDark ? '#18181b' : '#ffffff')), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
+
             >
+
               <div className={`flex justify-between items-center px-4 py-3 sm:px-6 sm:py-5 border-b shrink-0 ${zenMode ? 'border-transparent' : 'border-black/5 dark:border-white/5'}`}>
+
                 
+
                 {/* ZURUECK BUTTON (Jetzt als klarer Pfeil nach Links) */}
+
                 <button type="button" onClick={handleEditorBack} className={`p-2 rounded-full transition-colors ${isDarkColor(selectedColor) ? 'text-white hover:bg-white/10' : 'text-slate-900 hover:bg-black/5'}`}>
+
                   <Icon name="arrow-left" size={28}/>
+
                 </button>
 
+
+
                 {!zenMode && (
+
                   <div className="flex gap-1 sm:gap-2 overflow-x-auto hide-scrollbar items-center min-w-[100px] justify-end">
+
                     <span className={`flex items-center text-[10px] sm:text-xs font-bold text-emerald-500 transition-opacity duration-300 ${autoSaveStatus ? 'opacity-100' : 'opacity-0'} mr-1 sm:mr-2`}><Icon name="check" size={14} className="mr-1"/> {autoSaveStatus || 'Gespeichert'}</span>
+
                     
+
                     {editingId && <button type="button" onClick={() => confirmDelete(editingId)} className="p-2 sm:p-2.5 rounded-full hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 transition-colors" title="Seite herausreißen"><Icon name="trash-2" size={20}/></button>}
+
                     {editingId && <button type="button" onClick={() => {
+
                       const entryToArchive = {
+
                         id: editingId || generateId(),
+
                         title: title || 'Neue Seite', text: editorRef.current ? editorRef.current.innerHTML : text, color: selectedColor,
+
                         image: selectedImage, video: selectedVideo, audio: audioUrl,
+
                         locked: isLocked, archived: true, manifested: isManifested,
+
                         unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
+
                         date: editingId ? (entries.find(e => e.id === editingId)?.date || new Date().toISOString()) : new Date().toISOString(),
+
                         orderTimestamp: editingId ? (entries.find(e => e.id === editingId)?.orderTimestamp || new Date().toISOString()) : new Date().toISOString(),
+
                       };
+
                       saveToDB(entryToArchive);
+
                       closeEditor(null);
+
                     }} className="p-2 sm:p-2.5 rounded-full transition-colors text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10" title="Ins Archiv"><Icon name="archive" size={20}/></button>}
+
                     <button type="button" onClick={() => setZenMode(true)} className={`p-2 sm:p-2.5 rounded-full transition-colors text-slate-400 ${isDarkColor(selectedColor) ? 'hover:text-white hover:bg-white/10' : 'hover:text-slate-900 hover:bg-black/5'}`} title="Fokus Modus"><Icon name="maximize-2" size={20}/></button>
+
                     <button type="button" onClick={() => { setIsManifested(!isManifested); isDirtyRef.current = true; }} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isManifested ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-500/10'}`} title="Manifestieren (Stern)"><Icon name="sparkles" size={20}/></button>
+
                     <button type="button" onClick={() => { setIsLocked(!isLocked); isDirtyRef.current = true; }} className={`p-2 sm:p-2.5 rounded-full transition-colors ${isLocked ? 'bg-rose-500/20 text-rose-500' : 'text-slate-400 hover:text-rose-500 hover:bg-rose-500/10'}`} title="PIN-Schutz (Tresor)"><Icon name="lock" size={20}/></button>
+
                   </div>
+
                 )}
+
                 {zenMode && <button type="button" onClick={() => setZenMode(false)} className="text-current opacity-50 hover:opacity-100"><Icon name="minimize-2" size={24}/></button>}
+
                 
+
                 {!zenMode && (
+
                   <button type="button" onClick={() => checkSaveEntry(false)} className={`flex items-center gap-1 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full font-bold shadow-md hover:scale-105 transition-transform text-sm ${isDarkColor(selectedColor) ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}`} title="Speichern & bleiben">
+
                     <Icon name="check" size={16} className="sm:hidden" />
+
                     <span className="hidden sm:inline">Sichern</span>
+
                   </button>
+
                 )}
+
               </div>
 
+
+
               <div id="editor-scroll-container" className="flex-1 overflow-y-auto p-4 sm:p-10 flex flex-col gap-4 w-full overscroll-contain relative">
+
               
+
                 {/* ARCHITEKTUR-UPDATE: Stabiles Bild, das beim Öffnen der Tastatur auf dem Handy NICHT wackelt */}
+
                 {!zenMode && selectedImage && (
+
                   <div className="relative w-full h-48 rounded-[2rem] overflow-hidden shadow-md bg-black/5 dark:bg-white/5 shrink-0 border border-slate-200 dark:border-white/10 flex items-center justify-center p-2">
+
                     <img src={selectedImage} alt="Preview" className="w-full h-full object-cover rounded-2xl" />
+
                     <button type="button" onClick={() => { setSelectedImage(null); isDirtyRef.current = true; }} className="absolute top-4 right-4 bg-white/90 dark:bg-black/80 backdrop-blur-md p-3 rounded-full hover:scale-110 transition-transform z-10 shadow-lg text-slate-900 dark:text-white border border-slate-200 dark:border-white/10">
+
                       <Icon name="x" size={18}/>
+
                     </button>
+
                   </div>
+
                 )}
+
+
 
                 {pillarGuidance && !zenMode && (
+
                   <div className="bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 p-3 sm:p-4 rounded-2xl flex gap-3 shrink-0">
+
                     <Icon name="book-open" size={20} className="shrink-0 mt-0.5" />
+
                     <p className="line-clamp-2 text-xs sm:text-sm font-medium">{pillarGuidance}</p>
+
                   </div>
+
                 )}
 
+
+
                 {!zenMode && (
+
                   <div className="flex flex-wrap gap-3 text-xs font-bold uppercase tracking-widest opacity-60 shrink-0">
+
                     <button type="button" onClick={() => setPicker({
+
                       title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c => ({label: c, value: c})), onSelect: (val) => { setCategory(val); isDirtyRef.current = true; }
+
                     })} className="bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2">
+
                       {category} <Icon name="chevron-down" size={14} className="shrink-0"/>
+
                     </button>
+
                     <button type="button" onClick={() => setPicker({
+
                       title: 'Art des Eintrags', currentValue: entryType, options: [{label: 'Vision', value: 'vision'}, {label: 'Brief an die Zukunft', value: 'letter'}], onSelect: (val) => { setEntryType(val); isDirtyRef.current = true; }
+
                     })} className="bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2">
+
                       {entryType === 'vision' ? 'Vision' : 'Brief'} <Icon name="chevron-down" size={14} className="shrink-0"/>
+
                     </button>
+
                   </div>
+
                 )}
+
+
 
                 <input type="text" placeholder="Titel..." value={title || ''} onChange={(e) => { setTitle(e.target.value); isDirtyRef.current = true; }} className="w-full shrink-0 bg-transparent text-current text-3xl sm:text-5xl font-bold placeholder-current opacity-90 border-none focus:ring-0 p-0 focus:outline-none font-serif relative z-10" style={{ color: 'inherit', '::placeholder': { opacity: 0.3 } }} />
 
+
+
                 {!zenMode && (
+
                   <div className="flex gap-2 py-2 border-y border-current border-opacity-10 opacity-70 shrink-0">
+
                     <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); isDirtyRef.current = true; }} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Fett"><Icon name="bold" size={18}/></button>
+
                     <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); isDirtyRef.current = true; }} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Kursiv"><Icon name="italic" size={18}/></button>
+
                     <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); isDirtyRef.current = true; }} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors"><Icon name="list-todo" size={18}/></button>
+
                     <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current = true; }} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Zitat / Weisheit"><Icon name="quote" size={18}/></button>
+
                   </div>
+
                 )}
+
+
 
                 {/* ARCHITEKTUR-UPDATE: Der Text ist jetzt wieder immer da und springt nicht beim Tippen! */}
+
                 <div
+
                   ref={editorRef}
+
                   contentEditable={true}
+
                   suppressContentEditableWarning={true}
+
                   data-placeholder="Schreibe deine Gedanken auf diese leere Seite..."
+
                   onInput={handleEditorInput}
+
                   className="w-full flex-1 bg-transparent text-lg sm:text-xl leading-relaxed focus:outline-none font-medium empty:before:content-[attr(data-placeholder)] empty:before:cursor-text legacy-editor-content pb-64"
+
                   style={{ color: 'inherit', '::before': { opacity: 0.3 } }}
+
                 />
 
+
+
                 {!zenMode && audioUrl && (
+
                   <div className="space-y-4 shrink-0 pb-6">
+
                     <div className="relative p-4 rounded-2xl shadow-sm border border-current border-opacity-20 flex flex-col">
+
                       <span className="text-xs font-bold uppercase tracking-widest mb-2 opacity-60">Sprachnachricht</span>
+
                       <audio src={audioUrl} controls className="w-full" />
+
                       <button type="button" onClick={() => { setAudioUrl(null); isDirtyRef.current = true; }} className="absolute top-4 right-4 text-current opacity-50 hover:opacity-100"><Icon name="x" size={16}/></button>
+
                     </div>
+
                   </div>
+
                 )}
+
               </div>
 
+
+
               {!zenMode && (
+
                 <div className="border-t border-black/5 dark:border-white/5 bg-white/50 dark:bg-black/40 backdrop-blur-2xl p-3 sm:p-6 flex flex-col gap-4 pb-[env(safe-area-inset-bottom,16px)] shrink-0 shadow-lg">
+
                     <div className="flex justify-between items-center overflow-x-auto hide-scrollbar gap-4">
+
                       <div className="flex gap-2 shrink-0">
+
                         <label className={`p-3.5 rounded-full shadow-sm cursor-pointer transition-colors ${isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`} title="Bild hinzufügen"><Icon name="image" size={20}/><input type="file" accept="image/*" onChange={(e)=>handleFileUpload(e,'image')} className="hidden" /></label>
+
                         <button type="button" onClick={() => setIsDrawing(true)} className={`p-3.5 rounded-full shadow-sm transition-colors ${isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`} title="Zeichnen"><Icon name="pen-tool" size={20}/></button>
+
                         <button type="button" onClick={isRecording ? stopRecording : startRecording} className={`p-3.5 rounded-full shadow-sm transition-colors ${isRecording ? 'bg-rose-500 text-white animate-pulse' : isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`} title="Sprache aufnehmen">
+
                           {isRecording ? <Icon name="square" size={20}/> : <Icon name="mic" size={20}/>}
+
                         </button>
+
                       </div>
+
                       <div className={`flex gap-2 shrink-0 border-l pl-4 ${isDarkColor(selectedColor) ? 'border-white/10' : 'border-black/10'}`}>
+
                         <label className={`relative p-3.5 rounded-full shadow-sm flex items-center justify-center cursor-pointer overflow-hidden transition-colors ${unlockDate ? 'bg-indigo-500 text-white' : isDarkColor(selectedColor) ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'}`} title="Datums-Siegel (Zeitkapsel)">
+
                           <Icon name="calendar-clock" size={20}/>
+
                           <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); isDirtyRef.current = true;}} className="absolute opacity-0 w-[200%] h-[200%] -top-1/2 -left-1/2 cursor-pointer" />
+
                         </label>
+
                       </div>
+
                     </div>
+
+
 
                     <div className={`flex justify-between items-center overflow-x-auto hide-scrollbar gap-6 border-t pt-3 ${isDarkColor(selectedColor) ? 'border-white/5' : 'border-black/5'}`}>
+
                       <div className="flex gap-2 shrink-0">
+
                         {MOODS.map(m => (
+
                           <button type="button" key={m.id} onClick={()=> { setMood(m.label===mood ? null : m.label); isDirtyRef.current = true; }} className={`p-2.5 rounded-full transition-all ${mood===m.label ? 'bg-slate-800 dark:bg-white shadow-lg scale-110 ' + m.color : 'opacity-40 hover:opacity-100 text-current'}`}>
+
                             <Icon name={m.iconName} size={20} />
+
                           </button>
+
                         ))}
+
                       </div>
+
                       <div className="flex gap-2 shrink-0">
+
                         {COLORS.slice(0, 18).map((c) => (
+
                           <button type="button" key={c} onClick={() => { setSelectedColor(c); isDirtyRef.current = true; }} className={`w-8 h-8 rounded-full shadow-sm border-2 transition-transform ${selectedColor === c ? 'scale-110 border-current z-10' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`} style={{ backgroundColor: c }} />
+
                         ))}
+
                       </div>
+
                     </div>
+
                 </div>
+
               )}
+
             </div>
+
           </div>
+
         )}
+
+
 
         {isDrawing && (
+
           <div className="fixed inset-0 z-[120] flex flex-col bg-slate-900 text-white no-print">
+
             <div className="flex justify-between items-center p-6 border-b border-white/10 bg-slate-950">
+
               <button type="button" onClick={() => setIsDrawing(false)} className="p-3 text-white/70 hover:text-white bg-white/5 rounded-full"><Icon name="x" size={24} /></button>
+
               <span className="font-bold text-xl font-serif">Skizze</span>
+
               <button type="button"
+
                 onClick={() => { if(canvasRef.current) { setSelectedImage(canvasRef.current.toDataURL()); setIsDrawing(false); isDirtyRef.current = true; } }}
+
                 className="bg-amber-500 text-slate-900 px-6 py-3 rounded-full font-bold flex gap-2 items-center shadow-lg"
+
               ><Icon name="check" size={18}/> Fertig</button>
+
             </div>
+
             <div className="flex-1 relative bg-white touch-none">
+
               <canvas
+
                 ref={canvasRef}
+
                 className="absolute inset-0 w-full h-full cursor-crosshair touch-none"
+
                 onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing}
+
                 onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing}
+
               />
+
             </div>
+
             <div className="p-4 bg-slate-950 flex justify-center">
+
               <button type="button" onClick={() => {
+
                 if (!canvasRef.current) return;
+
                 const canvas = canvasRef.current;
+
                 const ctx = canvas.getContext('2d');
+
                 ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = user.isDark ? '#18181b' : '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.restore();
+
               }} className="p-3 bg-white/10 rounded-full hover:bg-white/20 text-white"><Icon name="eraser" size={24}/></button>
+
             </div>
+
           </div>
+
         )}
 
+
+
         <nav className="fixed bottom-0 left-0 right-0 backdrop-blur-3xl border-t z-40 transition-colors duration-500 bg-white/90 border-slate-200 dark:bg-graphite-950/90 dark:border-white/10 pb-[env(safe-area-inset-bottom,0px)] no-print">
+
           <div className="flex justify-between items-center h-20 max-w-md mx-auto px-8">
+
             <button type="button" onClick={() => setView('dashboard')} className={`flex flex-col items-center justify-center h-full space-y-1 transition-all ${view === 'dashboard' ? 'text-amber-500 scale-105' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}><Icon name="layout-grid" size={24} /><span className="text-[10px] font-bold uppercase tracking-widest">Buch</span></button>
+
             <div className="relative -top-6">
+
               <button type="button" onClick={() => openEditor()} className="w-16 h-16 rounded-full shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 text-white border-[4px] border-slate-50 dark:border-graphite-950 transition-transform duration-300 bg-slate-900 dark:bg-white dark:text-slate-900"><Icon name="plus" size={32} /></button>
+
             </div>
+
             <button type="button" onClick={() => setView('vault')} className={`flex flex-col items-center justify-center h-full space-y-1 transition-all ${view === 'vault' ? 'text-indigo-500 scale-105' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}><Icon name="lock" size={24} /><span className="text-[10px] font-bold uppercase tracking-widest">Tresor</span></button>
+
           </div>
+
         </nav>
 
+
+
       </div>
+
     </ErrorBoundary>
+
   );
+
 }
 
+
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
+
 root.render(<App />);
+
 </script>
+
 </body>
+
 </html>
+
+
+
+Verwende diesen Code, den ich dir hier eingefügt habe, und sorge dafür, dass die Tresorfunktion wieder funktioniert und ich meine Sachen sehen kann.
