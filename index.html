@@ -271,7 +271,7 @@ const PILLARS = [
   { id: 'm1', phase: 'Fundament', title: '1. Das Nordstern-Manifest', desc: 'Definiere deine absoluten, unverhandelbaren Grundwerte. Welche Prinzipien leitenden dich, egal was auf der Welt passiert?' },
   { id: 'm2', phase: 'Fundament', title: '2. Der Zeitgeist-Stempel', desc: 'Historischer Kontext: Was passiert gerade auf der Welt? Schreibe über Politik, Technologien und Alltagspreise von heute.' },
   { id: 'm3', phase: 'Fundament', title: '3. Das Geistige Testament', desc: 'Vererbe deinen Charakter. Welche Lebensweisheiten, Überzeugungen und moralischen Kompasse möchtest du weitergeben?' },
-  { id: 'm4', phase: 'Fundament', title: '4. Die Anti-Vision', desc: 'Definiere glasklar, wer du *niemals* werden willst und welche toxischen Pfade du um jeden Preis vermeiden  möchtest.' },
+  { id: 'm4', phase: 'Fundament', title: '4. Die Anti-Vision', desc: 'Definiere glasklar, wer du *niemals* werden willst und welche toxischen Pfade du um jeden Preis vermeiden möchtest.' },
   { id: 'm5', phase: 'Fundament', title: '5. Das Narben-Register', desc: 'Eine ehrliche, ungeschönte Dokumentation deines größten Fehlschlags und wie du dich daraus zurückgekämpft hast.' },
   { id: 'm6', phase: 'Kommunikation', title: '6. Die Zeitkapsel', desc: 'Eine Botschaft an die Zukunft. Nutze die Datums-Siegelfunktion, um diesen Text für Jahrzehnte zu verschließen.' },
   { id: 'm7', phase: 'Kommunikation', title: '7. Der Enkel-Dialog', desc: 'Stelle tiefgründige Fragen, die der zukünftige Leser (dein Enkel/Kind) in seinem eigenen Leben für sich selbst beantworten soll.' },
@@ -1516,7 +1516,7 @@ function App() {
         <div className="max-w-md w-full space-y-8 animate-slide-up z-10">
           <div className="text-center space-y-2">
             <Icon name="book-open" size={48} className="mx-auto mb-6" style={{ color: user.nameColor || '#f59e0b' }} />
-            <h1 className="text-4xl font-extrabold font-serif">Dein Vermächtnis</h1>
+            <h1 className="text-4xl font-extrabold">Dein Vermächtnis</h1>
             <p className="text-lg opacity-60 font-light">Ein Ort für deine tiefsten Visionen.</p>
           </div>
           <div className="p-8 rounded-[2rem] shadow-xl border bg-white border-slate-200 dark:bg-graphite-900 dark:border-white/10">
@@ -1567,13 +1567,13 @@ function App() {
               className="fixed inset-0 z-[80] overflow-y-auto animate-fade-in custom-scrollbar flex flex-col overscroll-contain screen-only" 
               style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff'), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
             >
-              <div className="sticky top-0 z-50 flex justify-between items-center py-4 px-6 sm:px-12 bg-inherit shrink-0 no-print border-b border-black/5 dark:border-white/5" style={{ backgroundColor: user.appBgColor || (user.isDark ? '#09090b' : '#ffffff') }}>
+              <div className="sticky top-0 z-50 flex justify-between items-center py-4 px-6 sm:px-12 bg-inherit shrink-0 no-print border-b" style={{ borderColor: 'rgba(150,150,150,0.1)' }}>
                 <div className="flex gap-2">
-                  <button type="button" onClick={handleViewerBack} className="p-3 bg-slate-100 dark:bg-white/10 rounded-full shadow-sm border border-slate-200 dark:border-transparent hover:scale-105 transition-transform"><Icon name="arrow-left" size={20}/></button>
+                  <button type="button" onClick={handleViewerBack} className="p-3 rounded-full shadow-sm hover:scale-105 transition-transform" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}><Icon name="arrow-left" size={20}/></button>
                   
                   {/* ARCHITEKTUR-UPDATE: Zeitreise-Button (Inhaltsverzeichnis) mit der Profil-Farbe */}
                   {allBookEntries.length > 1 && (
-                    <button type="button" onClick={() => setShowTimeline(true)} className="p-3 rounded-full shadow-sm hover:scale-105 transition-transform bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10" style={{ color: user.nameColor }} title="Inhaltsverzeichnis & Zeitreise">
+                    <button type="button" onClick={() => setShowTimeline(true)} className="p-3 rounded-full shadow-sm hover:scale-105 transition-transform" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: user.nameColor }} title="Inhaltsverzeichnis & Zeitreise">
                       <Icon name="list" size={20}/>
                     </button>
                   )}
@@ -1581,17 +1581,18 @@ function App() {
                 
                 <div className="flex gap-2">
                   {/* ARCHITEKTUR-UPDATE: Der globale Drucken-Button für das komplette Buch */}
-                  <button type="button" onClick={exportText} className="p-3 bg-slate-100 dark:bg-white/10 rounded-full shadow-sm hover:scale-105 transition-transform" title="Gesamtes Buch drucken">
+                  <button type="button" onClick={exportText} className="p-3 rounded-full shadow-sm hover:scale-105 transition-transform" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }} title="Gesamtes Buch drucken">
                     <Icon name="printer" size={20}/>
                   </button>
                   <button type="button"
                     onClick={() => handleReadAloud(viewingEntry)} 
-                    className={`px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 transition-all ${isSpeaking ? 'audio-active bg-amber-500/10' : 'bg-slate-200 dark:bg-white/10 hover:scale-105 transition-transform'}`}
+                    className={`px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 transition-all ${isSpeaking ? 'audio-active' : 'hover:scale-105 transition-transform'}`}
+                    style={{ backgroundColor: isSpeaking ? 'rgba(245, 158, 11, 0.1)' : 'rgba(150,150,150,0.1)', color: 'inherit' }}
                   >
                     <Icon name={isSpeaking ? "volume-2" : "volume-1"} size={18}/>
                     <span className="hidden sm:inline">{isSpeaking ? "Stopp" : "Vorlesen"}</span>
                   </button>
-                  <button type="button" onClick={() => { const e = viewingEntry; setViewingEntry(null); openEditor(e); }} className="px-5 py-2.5 bg-slate-200 dark:bg-white/10 rounded-full font-bold text-sm hover:scale-105 transition-transform">Bearbeiten</button>
+                  <button type="button" onClick={() => { const e = viewingEntry; setViewingEntry(null); openEditor(e); }} className="px-5 py-2.5 rounded-full font-bold text-sm hover:scale-105 transition-transform" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}>Bearbeiten</button>
                 </div>
               </div>
 
@@ -1602,10 +1603,10 @@ function App() {
                 onTouchEnd={() => onTouchEnd(swipeNext, swipePrev)}
               >
                 <div className="flex-1 mt-4">
-                  {viewingEntry.image && <img src={viewingEntry.image} className="w-full rounded-[2rem] mb-10 object-contain shadow-lg border border-slate-200 dark:border-white/5" alt="Vision" />}
-                  <h1 className="text-4xl sm:text-5xl font-bold mb-6 leading-tight font-serif">{viewingEntry.title}</h1>
+                  {viewingEntry.image && <img src={viewingEntry.image} className="w-full rounded-[2rem] mb-10 object-contain shadow-lg border" style={{ borderColor: 'rgba(150,150,150,0.1)' }} alt="Vision" />}
+                  <h1 className="text-4xl sm:text-5xl font-bold mb-6 leading-tight">{viewingEntry.title}</h1>
                   <div className="flex flex-wrap gap-4 mb-10 text-xs font-bold uppercase tracking-widest opacity-60">
-                    <span className="flex items-center gap-1"><Icon name="calendar" size={14}/> {new Date(viewingEntry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                    <span className="flex items-center gap-1"><Icon name="calendar" size={14}/> {new Date(viewingEntry.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                     <span>•</span><span>{viewingEntry.category}</span>
                     {viewingEntry.mood && (() => {
                       const moodObj = MOODS.find(m=>m.label===viewingEntry.mood);
@@ -1614,9 +1615,9 @@ function App() {
                     })()}
                   </div>
                   <div className="text-lg sm:text-xl leading-relaxed legacy-content pb-10" dangerouslySetInnerHTML={{__html: viewingEntry.text}} />
-                  {viewingEntry.audio && <div className="mt-8 mb-10 p-4 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 no-print"><audio src={viewingEntry.audio} controls className="w-full" /></div>}
+                  {viewingEntry.audio && <div className="mt-8 mb-10 p-4 rounded-2xl border no-print" style={{ backgroundColor: 'rgba(150,150,150,0.05)', borderColor: 'rgba(150,150,150,0.1)' }}><audio src={viewingEntry.audio} controls className="w-full" /></div>}
                 </div>
-                <div className="flex flex-col gap-6 mt-12 pt-8 border-t border-slate-300 dark:border-white/10 pb-20 shrink-0 no-print">
+                <div className="flex flex-col gap-6 mt-12 pt-8 border-t pb-20 shrink-0 no-print" style={{ borderColor: 'rgba(150,150,150,0.2)' }}>
                   
                   {!nextPage && (
                     <button type="button" onClick={() => startNewChapter(viewingEntry)} className="w-full py-4 rounded-2xl font-bold text-base hover:scale-[1.02] transition-transform shadow-md flex items-center justify-center gap-2" style={{ backgroundColor: user.nameColor || '#18181b', color: isDarkColor(user.nameColor || '#18181b') ? '#ffffff' : '#000000' }}>
@@ -1627,7 +1628,7 @@ function App() {
                   <div className="flex justify-between items-center w-full">
                     {swipePrev ? (
                       <button type="button" onClick={() => setViewingEntry(swipePrev)} className="flex items-center gap-3 text-left group flex-1">
-                        <div className="p-3 bg-white dark:bg-white/5 rounded-full shadow-sm border border-slate-200 dark:border-transparent group-hover:scale-105 transition-transform"><Icon name="chevron-left" size={20} /></div>
+                        <div className="p-3 rounded-full shadow-sm border border-transparent group-hover:scale-105 transition-transform" style={{ backgroundColor: 'rgba(150,150,150,0.05)', color: 'inherit' }}><Icon name="chevron-left" size={20} /></div>
                         <div className="overflow-hidden">
                           <p className="text-[10px] uppercase tracking-widest font-bold opacity-50">{prevLabel}</p>
                           <p className="text-sm font-medium truncate w-full">{swipePrev.title}</p>
@@ -1641,7 +1642,7 @@ function App() {
                           <p className="text-[10px] uppercase tracking-widest font-bold opacity-50">{nextLabel}</p>
                           <p className="text-sm font-medium truncate w-full">{swipeNext.title}</p>
                         </div>
-                        <div className="p-3 bg-white dark:bg-white/5 rounded-full shadow-sm border border-slate-200 dark:border-transparent group-hover:scale-105 transition-transform"><Icon name="chevron-right" size={20} /></div>
+                        <div className="p-3 rounded-full shadow-sm border border-transparent group-hover:scale-105 transition-transform" style={{ backgroundColor: 'rgba(150,150,150,0.05)', color: 'inherit' }}><Icon name="chevron-right" size={20} /></div>
                       </button>
                     ) : <div className="flex-1" />}
                   </div>
@@ -1657,9 +1658,9 @@ function App() {
             {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((entry) => (
               <div key={entry.id} className="mb-16 page-break-after">
                 <div className="text-center mb-8 pb-4 border-b border-black/10">
-                  <h1 className="text-4xl font-serif font-bold mb-2">{entry.title}</h1>
+                  <h1 className="text-4xl font-bold mb-2">{entry.title}</h1>
                   <p className="opacity-60 font-bold uppercase tracking-widest text-xs">
-                    {new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })} • {entry.category}
+                    {new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {entry.category}
                   </p>
                 </div>
                 {entry.image && <img src={entry.image} className="w-full max-h-[500px] object-contain mb-8 rounded-2xl" alt="Vision" />}
@@ -1685,7 +1686,7 @@ function App() {
            filteredEntries.forEach(entry => {
               const d = new Date(entry.date);
               const y = d.getFullYear();
-              const m = d.toLocaleDateString('de-DE', { month: 'long' });
+              const m = d.toLocaleDateString('de-DE', { month: '2-digit', year: 'numeric' });
               if (!grouped[y]) grouped[y] = {};
               if (!grouped[y][m]) grouped[y][m] = [];
               grouped[y][m].push(entry);
@@ -1698,36 +1699,40 @@ function App() {
 
            return (
              <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex justify-end animate-fade-in no-print" onClick={() => setShowTimeline(false)}>
-                <div className="w-full max-w-md h-full bg-white dark:bg-slate-900 shadow-2xl animate-slide-up flex flex-col" onClick={e=>e.stopPropagation()}>
+                <div 
+                   className="w-full max-w-md h-full shadow-2xl animate-slide-up flex flex-col" 
+                   style={{ backgroundColor: user.appBgColor || (user.isDark ? '#18181b' : '#ffffff'), color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
+                   onClick={e=>e.stopPropagation()}
+                >
                    
-                   <div className="p-6 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-4">
+                   <div className="p-6 border-b space-y-4" style={{ borderColor: 'rgba(150,150,150,0.1)', backgroundColor: 'rgba(150,150,150,0.05)' }}>
                       <div className="flex justify-between items-center">
-                         <h3 className="font-serif font-bold text-xl flex items-center gap-2" style={{ color: user.nameColor }}><Icon name="calendar-days" /> Zeitreise</h3>
-                         <button type="button" onClick={()=>setShowTimeline(false)} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-900 dark:text-white"><Icon name="x" size={20}/></button>
+                         <h3 className="font-bold text-xl flex items-center gap-2" style={{ color: user.nameColor }}><Icon name="calendar-days" /> Zeitreise</h3>
+                         <button type="button" onClick={()=>setShowTimeline(false)} className="p-2 rounded-full" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}><Icon name="x" size={20}/></button>
                       </div>
                       
                       {/* Lupe / Suchleiste */}
                       <div className="relative">
-                         <Icon name="search" size={16} className="absolute left-4 top-1/2 -translate-y-1/2 opacity-50 text-slate-900 dark:text-white" />
+                         <Icon name="search" size={16} className="absolute left-4 top-1/2 -translate-y-1/2 opacity-50" style={{ color: 'inherit' }} />
                          <input 
                             type="text" 
                             placeholder="In diesem Buch suchen..." 
                             value={timelineSearchQuery}
                             onChange={(e) => setTimelineSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 outline-none focus:ring-2 text-sm text-slate-900 dark:text-white"
-                            style={{ '--tw-ring-color': user.nameColor }}
+                            className="w-full pl-10 pr-4 py-3 rounded-xl border outline-none focus:ring-2 text-sm"
+                            style={{ backgroundColor: 'rgba(150,150,150,0.1)', borderColor: 'transparent', '--tw-ring-color': user.nameColor, color: 'inherit' }}
                          />
                       </div>
                    </div>
 
-                   <div className="flex-1 overflow-y-auto custom-scrollbar text-slate-900 dark:text-white">
+                   <div className="flex-1 overflow-y-auto custom-scrollbar" style={{ color: 'inherit' }}>
                       
                       {/* Echter Kalender Container */}
-                      <div className="p-6 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-black/10">
+                      <div className="p-6 border-b" style={{ borderColor: 'rgba(150,150,150,0.1)', backgroundColor: 'rgba(150,150,150,0.02)' }}>
                           <div className="flex justify-between items-center mb-4">
-                             <button type="button" onClick={() => {const d = new Date(timelineMonth); d.setMonth(d.getMonth()-1); setTimelineMonth(d);}} className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full"><Icon name="chevron-left" size={18}/></button>
-                             <span className="font-bold text-sm uppercase tracking-widest">{timelineMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}</span>
-                             <button type="button" onClick={() => {const d = new Date(timelineMonth); d.setMonth(d.getMonth()+1); setTimelineMonth(d);}} className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full"><Icon name="chevron-right" size={18}/></button>
+                             <button type="button" onClick={() => {const d = new Date(timelineMonth); d.setMonth(d.getMonth()-1); setTimelineMonth(d);}} className="p-2 rounded-full" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}><Icon name="chevron-left" size={18}/></button>
+                             <span className="font-bold text-sm uppercase tracking-widest">{timelineMonth.toLocaleDateString('de-DE', { month: '2-digit', year: 'numeric' })}</span>
+                             <button type="button" onClick={() => {const d = new Date(timelineMonth); d.setMonth(d.getMonth()+1); setTimelineMonth(d);}} className="p-2 rounded-full" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}><Icon name="chevron-right" size={18}/></button>
                           </div>
                           
                           <div className="grid grid-cols-7 gap-1 text-center">
@@ -1743,8 +1748,8 @@ function App() {
                                      <button type="button"
                                          key={day} 
                                          onClick={() => setTimelineSelectedDate(isSelected ? null : dateStr)}
-                                         className={`relative p-2 text-sm rounded-full transition-all flex items-center justify-center aspect-square ${isSelected ? 'shadow-md font-bold' : 'hover:bg-black/5 dark:hover:bg-white/5'} ${hasEntry && !isSelected ? 'font-bold' : ''}`}
-                                         style={isSelected ? { backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000' } : {}}
+                                         className={`relative p-2 text-sm rounded-full transition-all flex items-center justify-center aspect-square ${isSelected ? 'shadow-md font-bold' : ''} ${hasEntry && !isSelected ? 'font-bold' : ''}`}
+                                         style={isSelected ? { backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000' } : { backgroundColor: 'transparent', color: 'inherit' }}
                                      >
                                          <span>{day}</span>
                                          {hasEntry && !isSelected && <div className="absolute bottom-1 w-1 h-1 rounded-full" style={{ backgroundColor: user.nameColor }}></div>}
@@ -1765,15 +1770,15 @@ function App() {
                            <p className="text-center opacity-50 text-sm mt-8">Keine Einträge für diesen Filter gefunden.</p>
                         ) : Object.keys(grouped).sort((a,b)=>b-a).map(year => (
                            <div key={year} className="mb-8">
-                              <h4 className="font-black text-3xl mb-4 text-slate-800 dark:text-white opacity-80">{year}</h4>
+                              <h4 className="font-black text-3xl mb-4 opacity-80" style={{ color: 'inherit' }}>{year}</h4>
                               {Object.keys(grouped[year]).map(month => (
                                  <div key={month} className="mb-6 pl-4 border-l-2" style={{ borderColor: `${user.nameColor}40` }}>
                                     <h5 className="font-bold text-sm mb-3 uppercase tracking-widest" style={{ color: user.nameColor }}>{month}</h5>
                                     <div className="space-y-2">
                                        {grouped[year][month].map(e => (
-                                          <button type="button" key={e.id} onClick={() => { setViewingEntry(e); setShowTimeline(false); }} className={`w-full text-left p-4 rounded-xl transition-colors ${viewingEntry.id === e.id ? 'shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-white/5'}`} style={viewingEntry.id === e.id ? { backgroundColor: `${user.nameColor}20`, border: `1px solid ${user.nameColor}50` } : {}}>
+                                          <button type="button" key={e.id} onClick={() => { setViewingEntry(e); setShowTimeline(false); }} className={`w-full text-left p-4 rounded-xl transition-colors ${viewingEntry.id === e.id ? 'shadow-sm' : ''}`} style={viewingEntry.id === e.id ? { backgroundColor: `${user.nameColor}20`, border: `1px solid ${user.nameColor}50`, color: 'inherit' } : { backgroundColor: 'transparent', color: 'inherit' }}>
                                              <div className="font-bold text-sm truncate">{e.title}</div>
-                                             <div className="text-[10px] opacity-60 mt-1">{new Date(e.date).toLocaleDateString('de-DE')}</div>
+                                             <div className="text-[10px] opacity-60 mt-1">{new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
                                           </button>
                                        ))}
                                     </div>
@@ -1790,22 +1795,28 @@ function App() {
 
         {dialog && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xl animate-fade-in no-print" onClick={() => { if(dialog.type === 'alert') setDialog(null); }}>
-            <div className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl border bg-white border-slate-200 dark:bg-graphite-900 dark:border-white/10 animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div 
+              className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl border animate-scale-in" 
+              style={{ backgroundColor: user.appBgColor || (user.isDark ? '#18181b' : '#ffffff'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
+              onClick={e => e.stopPropagation()}
+            >
               {dialog.icon && (
-                <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 shadow-inner bg-slate-50 dark:bg-slate-800">
-                  <Icon name={dialog.icon} size={36} className={dialog.iconColor || 'text-indigo-500'} />
+                <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 shadow-inner" style={{ backgroundColor: 'rgba(150,150,150,0.1)' }}>
+                  <Icon name={dialog.icon} size={36} className={dialog.iconColor || 'text-indigo-500'} style={!dialog.iconColor ? {color: user.nameColor} : {}} />
                 </div>
               )}
-              <h3 className="text-2xl font-bold leading-tight mb-4 font-serif">{dialog.title}</h3>
-              <p className="text-base opacity-70 mb-8 leading-relaxed px-2 whitespace-pre-wrap">{dialog.message}</p>
+              <h3 className="text-2xl font-bold leading-tight mb-4" style={{ color: 'inherit' }}>{dialog.title}</h3>
+              <p className="text-base opacity-70 mb-8 leading-relaxed px-2 whitespace-pre-wrap" style={{ color: 'inherit' }}>{dialog.message}</p>
               <div className="flex flex-col gap-3 w-full">
                 <button type="button"
-                  className={`w-full py-4 text-white rounded-2xl font-bold shadow-md text-base transition-transform active:scale-95 ${dialog.confirmColor || 'bg-slate-900 dark:bg-white dark:text-slate-900'}`}
+                  className="w-full py-4 text-white rounded-2xl font-bold shadow-md text-base transition-transform active:scale-95"
+                  style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#18181b'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#18181b')) ? '#ffffff' : '#000000' }}
                   onClick={() => { if(dialog.onConfirm) dialog.onConfirm(); else setDialog(null); }}
                 >{dialog.confirmLabel || 'Verstanden'}</button>
                 {dialog.type !== 'alert' && (
                   <button type="button"
-                    className="w-full py-4 rounded-2xl font-bold text-base bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors active:scale-95"
+                    className="w-full py-4 rounded-2xl font-bold text-base transition-colors active:scale-95"
+                    style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}
                     onClick={() => { if(dialog.onCancel) dialog.onCancel(); else setDialog(null); }}
                   >{dialog.cancelLabel || 'Abbrechen'}</button>
                 )}
@@ -1816,17 +1827,22 @@ function App() {
 
         {picker && (
           <div className="fixed inset-0 z-[250] flex items-end sm:items-center justify-center p-4 sm:p-6 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xl animate-fade-in no-print" onClick={() => setPicker(null)}>
-            <div className="w-full max-w-sm rounded-[2.5rem] shadow-2xl border overflow-hidden animate-slide-up flex flex-col max-h-[80vh] bg-white border-slate-200 dark:bg-graphite-900 dark:border-white/10" onClick={e => e.stopPropagation()}>
-              <div className="p-6 border-b border-slate-100 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5 shrink-0">
-                <h3 className="font-bold text-xl font-serif">{picker.title}</h3>
-                <button type="button" onClick={() => setPicker(null)} className="p-2 bg-slate-200 dark:bg-white/10 rounded-full hover:scale-110 transition-transform"><Icon name="x" size={20}/></button>
+            <div 
+              className="w-full max-w-sm rounded-[2.5rem] shadow-2xl border overflow-hidden animate-slide-up flex flex-col max-h-[80vh]" 
+              style={{ backgroundColor: user.appBgColor || (user.isDark ? '#18181b' : '#ffffff'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-6 border-b flex justify-between items-center shrink-0" style={{ borderColor: 'rgba(150,150,150,0.1)', backgroundColor: 'rgba(150,150,150,0.05)' }}>
+                <h3 className="font-bold text-xl" style={{ color: 'inherit' }}>{picker.title}</h3>
+                <button type="button" onClick={() => setPicker(null)} className="p-2 rounded-full hover:scale-110 transition-transform" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}><Icon name="x" size={20}/></button>
               </div>
               <div className="overflow-y-auto custom-scrollbar p-3 space-y-1 overscroll-contain">
                 {picker.options.map(opt => (
                   <button type="button"
                     key={opt.value}
                     onClick={() => { picker.onSelect(opt.value); setPicker(null); }}
-                    className={`w-full text-left p-4 rounded-2xl transition-all font-bold text-base flex justify-between items-center ${picker.currentValue === opt.value ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-md' : 'hover:bg-slate-100 dark:hover:bg-white/10'}`}
+                    className="w-full text-left p-4 rounded-2xl transition-all font-bold text-base flex justify-between items-center"
+                    style={picker.currentValue === opt.value ? { backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' } : { color: 'inherit', backgroundColor: 'transparent' }}
                   >
                     <span className="truncate">{opt.label}</span>
                     {picker.currentValue === opt.value && <Icon name="check" size={18} />}
@@ -1840,19 +1856,22 @@ function App() {
         {unlockTarget && (
           <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 no-print">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => { setUnlockTarget(null); }} />
-            <div className="relative w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl animate-scale-in border bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 z-10">
+            <div 
+              className="relative w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl animate-scale-in border z-10"
+              style={{ backgroundColor: user.appBgColor || (user.isDark ? '#18181b' : '#ffffff'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
+            >
               <div className="flex flex-col items-center w-full animate-fade-in">
-                <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-inner bg-slate-50 dark:bg-slate-800">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-inner" style={{ backgroundColor: 'rgba(150,150,150,0.1)' }}>
                   <Icon name="lock" size={28} style={{ color: user.nameColor || '#f59e0b' }} />
                 </div>
-                <h3 className="text-2xl font-bold mb-2 font-serif text-slate-900 dark:text-white">Tresor Entsperren</h3>
-                <p className="text-sm opacity-60 mb-6 truncate w-full text-slate-900 dark:text-white">"{unlockTarget.title}"</p>
+                <h3 className="text-2xl font-bold mb-2" style={{ color: 'inherit' }}>Tresor Entsperren</h3>
+                <p className="text-sm opacity-60 mb-6 truncate w-full" style={{ color: 'inherit' }}>"{unlockTarget.title}"</p>
                 <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitPin()} 
-                       className={`w-full p-4 text-center text-2xl tracking-[1em] rounded-xl border-2 outline-none text-slate-900 dark:text-white bg-slate-50 dark:bg-black/20 focus:ring-2`}
-                       style={{ borderColor: pinError ? '#ef4444' : 'transparent', '--tw-ring-color': user.nameColor || '#f59e0b' }}
+                       className="w-full p-4 text-center text-2xl tracking-[1em] rounded-xl border-2 outline-none focus:ring-2"
+                       style={{ backgroundColor: 'rgba(150,150,150,0.1)', borderColor: pinError ? '#ef4444' : 'transparent', '--tw-ring-color': user.nameColor || '#f59e0b', color: 'inherit' }}
                        placeholder="••••" />
                 <div className="flex gap-3 w-full mt-6">
-                  <button type="button" onClick={() => setUnlockTarget(null)} className="flex-1 py-3 font-medium opacity-60 bg-black/5 dark:bg-white/5 rounded-xl hover:bg-black/10 dark:hover:bg-white/10 text-slate-900 dark:text-white">Abbrechen</button>
+                  <button type="button" onClick={() => setUnlockTarget(null)} className="flex-1 py-3 font-medium opacity-60 rounded-xl transition-colors hover:opacity-100" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}>Abbrechen</button>
                   <button type="button" onClick={submitPin} className="flex-1 py-3 rounded-xl font-bold shadow-md hover:opacity-90" style={{ backgroundColor: user.nameColor || '#f59e0b', color: isDarkColor(user.nameColor || '#f59e0b') ? '#ffffff' : '#000000' }}>Öffnen</button>
                 </div>
               </div>
@@ -1860,22 +1879,25 @@ function App() {
           </div>
         )}
 
-        <header className="sticky top-0 z-30 backdrop-blur-xl border-b px-4 py-3 sm:px-6 sm:py-4 transition-all duration-500 flex justify-between items-center bg-white/90 border-slate-200 dark:bg-graphite-950/80 dark:border-white/10 relative no-print">
+        <header 
+          className="sticky top-0 z-30 backdrop-blur-xl border-b px-4 py-3 sm:px-6 sm:py-4 transition-colors duration-500 flex justify-between items-center relative no-print"
+          style={{ backgroundColor: user.appBgColor ? `${user.appBgColor}E6` : (user.isDark ? 'rgba(24, 24, 27, 0.8)' : 'rgba(255, 255, 255, 0.9)'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
+        >
           <div className="flex items-center gap-3 flex-1 overflow-hidden z-10">
-            {view === 'settings' ? <h1 className="text-xl font-bold tracking-tight font-serif">Einstellungen</h1> :
-             view === 'menu' ? <h1 className="text-xl font-bold tracking-tight font-serif">Entdecken</h1> :
-             view === 'quotes' ? <h1 className="text-xl font-bold tracking-tight font-serif" style={{color: user.nameColor}}>Erkenntnisse</h1> :
-             view === 'wisdom' ? <h1 className="text-xl font-bold tracking-tight font-serif">Buch der Weisheit</h1> :
-             view === 'burn' ? <h1 className="text-xl font-bold tracking-tight font-serif text-rose-500">Katharsis</h1> :
+            {view === 'settings' ? <h1 className="text-xl font-bold tracking-tight" style={{ color: 'inherit' }}>Einstellungen</h1> :
+             view === 'menu' ? <h1 className="text-xl font-bold tracking-tight" style={{ color: 'inherit' }}>Entdecken</h1> :
+             view === 'quotes' ? <h1 className="text-xl font-bold tracking-tight" style={{color: user.nameColor}}>Erkenntnisse</h1> :
+             view === 'wisdom' ? <h1 className="text-xl font-bold tracking-tight" style={{ color: 'inherit' }}>Buch der Weisheit</h1> :
+             view === 'burn' ? <h1 className="text-xl font-bold tracking-tight text-rose-500">Katharsis</h1> :
             (
               <>
                 {user.avatar && <img src={user.avatar} alt="Profil" className="w-10 h-10 rounded-full object-cover border-2 shadow-sm shrink-0" style={{ borderColor: user.nameColor || '#f59e0b' }} />}
                 <div className="flex flex-col overflow-hidden w-full">
-                  <h1 className="text-xl font-bold tracking-tight truncate font-serif" style={{ color: user.nameColor || '#f59e0b' }}>
+                  <h1 className="text-xl font-bold tracking-tight truncate" style={{ color: user.nameColor || '#f59e0b' }}>
                     {view === 'archive' ? 'Archiv' : user.name}
                   </h1>
                   {view === 'vault' && <p className="text-xs mt-0.5 font-medium flex items-center gap-1 text-rose-500"><Icon name="shield-check" size={14} /> Sicherer Tresor</p>}
-                  {view === 'dashboard' && user.motto && <p className="text-[10px] sm:text-xs mt-1 italic font-medium whitespace-normal leading-snug opacity-70 w-full pr-4">"{user.motto}"</p>}
+                  {view === 'dashboard' && user.motto && <p className="text-[10px] sm:text-xs mt-1 italic font-medium whitespace-normal leading-snug opacity-70 w-full pr-4" style={{ color: 'inherit' }}>"{user.motto}"</p>}
                 </div>
               </>
             )}
@@ -1885,30 +1907,36 @@ function App() {
               <>
                 <div className="relative flex items-center">
                   <input type="text" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Tagebuch durchsuchen..." 
-                         className={`absolute right-full mr-2 transition-all duration-300 border border-slate-200 dark:border-white/10 focus:ring-0 text-sm rounded-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md text-slate-900 dark:text-white shadow-xl ${isSearchOpen ? 'w-[60vw] sm:w-64 px-4 py-2 opacity-100 pointer-events-auto' : 'w-0 p-0 border-transparent opacity-0 pointer-events-none'}`} />
-                  <button type="button" onClick={() => setIsSearchOpen(!isSearchOpen)} className={`relative z-10 p-2.5 rounded-full transition-colors bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 ${isSearchOpen || searchQuery ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400' : ''}`}><Icon name="search" size={18}/></button>
+                         className={`absolute right-full mr-2 transition-all duration-300 border focus:ring-0 text-sm rounded-full backdrop-blur-md shadow-xl ${isSearchOpen ? 'w-[60vw] sm:w-64 px-4 py-2 opacity-100 pointer-events-auto' : 'w-0 p-0 border-transparent opacity-0 pointer-events-none'}`} 
+                         style={{ backgroundColor: user.appBgColor ? `${user.appBgColor}F2` : (user.isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: 'inherit' }}
+                  />
+                  <button type="button" onClick={() => setIsSearchOpen(!isSearchOpen)} className={`relative z-10 p-2.5 rounded-full transition-colors hover:scale-105`} style={{ backgroundColor: (isSearchOpen || searchQuery) ? 'rgba(245, 158, 11, 0.2)' : 'rgba(150,150,150,0.1)', color: (isSearchOpen || searchQuery) ? '#f59e0b' : 'inherit' }}><Icon name="search" size={18}/></button>
                 </div>
-                <button type="button" onClick={() => setView('menu')} className="p-2.5 rounded-full transition-colors bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"><Icon name="menu" size={18}/></button>
+                <button type="button" onClick={() => setView('menu')} className="p-2.5 rounded-full transition-colors hover:scale-105" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}><Icon name="menu" size={18}/></button>
               </>
             )}
-            {(view === 'settings' || view === 'menu' || view === 'archive' || view === 'wisdom' || view === 'burn' || view === 'quotes') && <button type="button" onClick={() => setView('dashboard')} className="p-2.5 rounded-full border border-transparent bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"><Icon name="x" size={18} /></button>}
+            {(view === 'settings' || view === 'menu' || view === 'archive' || view === 'wisdom' || view === 'burn' || view === 'quotes') && <button type="button" onClick={() => setView('dashboard')} className="p-2.5 rounded-full border border-transparent transition-colors hover:scale-105" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}><Icon name="x" size={18} /></button>}
           </div>
 
           {isSearchOpen && searchQuery && (
-            <div className="absolute top-full left-4 right-4 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-h-[60vh] overflow-y-auto custom-scrollbar z-[100]">
+            <div 
+              className="absolute top-full left-4 right-4 mt-2 border rounded-2xl shadow-2xl max-h-[60vh] overflow-y-auto custom-scrollbar z-[100]"
+              style={{ backgroundColor: user.appBgColor || (user.isDark ? '#1e293b' : '#ffffff'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}
+            >
               {renderEntries.length === 0 ? (
-                <div className="p-4 text-center opacity-50 text-sm font-medium text-slate-900 dark:text-white">Keine Einträge gefunden.</div>
+                <div className="p-4 text-center opacity-50 text-sm font-medium" style={{ color: 'inherit' }}>Keine Einträge gefunden.</div>
               ) : (
                 renderEntries.map(entry => (
                   <button type="button"
                     key={entry.id} 
                     onClick={() => { handleBookClick(entry); setIsSearchOpen(false); setSearchQuery(''); }} 
-                    className="w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700/50 last:border-0 transition-colors flex flex-col gap-1"
+                    className="w-full text-left p-4 border-b last:border-0 transition-colors flex flex-col gap-1"
+                    style={{ borderColor: user.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', color: 'inherit' }}
                   >
-                    <div className="font-bold text-sm text-slate-900 dark:text-white" dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)}></div>
-                    <div className="text-xs opacity-70 line-clamp-2 text-slate-800 dark:text-slate-300" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)}></div>
+                    <div className="font-bold text-sm" style={{ color: 'inherit' }} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)}></div>
+                    <div className="text-xs opacity-70 line-clamp-2" style={{ color: 'inherit' }} dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)}></div>
                     <div className="text-[10px] text-amber-500 font-bold uppercase tracking-widest mt-1">
-                      {new Date(entry.date).toLocaleDateString()} {entry.parentId && '• Gefunden auf Unterseite'}
+                      {new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} {entry.parentId && '• Gefunden auf Unterseite'}
                     </div>
                   </button>
                 ))
@@ -1917,7 +1945,6 @@ function App() {
           )}
         </header>
 
-        {/* ARCHITEKTUR-UPDATE: no-print auf <main> angewendet */}
         <main className="p-4 sm:p-6 max-w-4xl mx-auto min-h-[60vh] relative z-10 pb-24 no-print">
 
           {installHint && view !== 'onboarding' && view !== 'loading' && (
@@ -1927,30 +1954,34 @@ function App() {
             </div>
           )}
 
-          {/* ARCHITEKTUR-UPDATE: Sprüche & Zitate anstelle des Orakels */}
           {view === 'quotes' && (() => {
              const allQuotes = getExtractedQuotes();
              return (
                <div className="animate-slide-up space-y-6 no-print">
                  <div className="text-center mb-10">
-                   <h2 className="text-3xl font-serif font-bold mb-3">Deine Erkenntnisse</h2>
-                   <p className="opacity-60 max-w-xl mx-auto">Alle von dir hervorgehobenen Zitate und Gedanken, gesammelt aus der Tiefe deines Journals.</p>
+                   <h2 className="text-3xl font-bold mb-3" style={{ color: 'inherit' }}>Deine Erkenntnisse</h2>
+                   <p className="opacity-60 max-w-xl mx-auto" style={{ color: 'inherit' }}>Alle von dir hervorgehobenen Zitate und Gedanken, gesammelt aus der Tiefe deines Journals.</p>
                  </div>
                  {allQuotes.length === 0 ? (
-                   <div className="text-center opacity-30 py-20">
+                   <div className="text-center opacity-30 py-20" style={{ color: 'inherit' }}>
                      <Icon name="quote" size={64} className="mx-auto mb-4" />
-                     <p className="font-serif text-lg font-bold">Noch keine Erkenntnisse markiert.</p>
+                     <p className="text-lg font-bold">Noch keine Erkenntnisse markiert.</p>
                      <p className="text-sm">Nutze das Anführungszeichen (Zitieren) im Editor.</p>
                    </div>
                  ) : (
                    <div className="columns-1 sm:columns-2 gap-6 space-y-6">
                      {allQuotes.map(q => (
-                        <div key={q.id} onClick={() => { const e = entries.find(x=>x.id===q.entryId); if(e) handleBookClick(e); }} className="break-inside-avoid relative rounded-[2rem] p-8 shadow-sm hover:shadow-md transition-all cursor-pointer border bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 group">
+                        <div 
+                           key={q.id} 
+                           onClick={() => { const e = entries.find(x=>x.id===q.entryId); if(e) handleBookClick(e); }} 
+                           className="break-inside-avoid relative rounded-[2rem] p-8 shadow-sm hover:shadow-md transition-all cursor-pointer border group"
+                           style={{ backgroundColor: user.appBgColor || (user.isDark ? '#0f172a' : '#ffffff'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
+                        >
                            <Icon name="quote" size={24} className="absolute top-6 left-6 opacity-20" style={{ color: user.nameColor }} />
-                           <p className="relative z-10 text-lg sm:text-xl font-serif italic leading-relaxed text-slate-800 dark:text-slate-200 mt-6 mb-6">"{q.text}"</p>
-                           <div className="flex justify-between items-center border-t border-black/5 dark:border-white/5 pt-4">
-                              <span className="text-[10px] font-bold uppercase tracking-widest opacity-50 truncate mr-4">{q.title}</span>
-                              <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md bg-black/5 dark:bg-white/5 shrink-0" style={{ color: user.nameColor }}>{new Date(q.date).toLocaleDateString('de-DE')}</span>
+                           <p className="relative z-10 text-lg sm:text-xl italic leading-relaxed mt-6 mb-6" style={{ color: 'inherit' }}>"{q.text}"</p>
+                           <div className="flex justify-between items-center border-t pt-4" style={{ borderColor: 'rgba(150,150,150,0.2)' }}>
+                              <span className="text-[10px] font-bold uppercase tracking-widest opacity-50 truncate mr-4" style={{ color: 'inherit' }}>{q.title}</span>
+                              <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md shrink-0" style={{ color: user.nameColor, backgroundColor: 'rgba(150,150,150,0.1)' }}>{new Date(q.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                            </div>
                         </div>
                      ))}
@@ -1962,23 +1993,23 @@ function App() {
 
           {view === 'menu' && (
             <div className="grid grid-cols-2 gap-4 sm:gap-6 animate-slide-up no-print">
-              <button type="button" onClick={() => setView('wisdom')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50">
+              <button type="button" onClick={() => setView('wisdom')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm" style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', borderColor: 'rgba(245, 158, 11, 0.3)', color: 'inherit' }}>
                 <Icon name="book-open" size={32} className="text-amber-500" />
                 <span className="font-bold text-xs uppercase tracking-widest">Buch der Weisheit</span>
               </button>
-              <button type="button" onClick={() => setView('burn')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/50">
+              <button type="button" onClick={() => setView('burn')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm" style={{ backgroundColor: 'rgba(244, 63, 94, 0.1)', borderColor: 'rgba(244, 63, 94, 0.3)', color: 'inherit' }}>
                 <Icon name="flame" size={32} className="text-rose-500" />
                 <span className="font-bold text-xs uppercase tracking-widest">Katharsis</span>
               </button>
-              <button type="button" onClick={() => setView('quotes')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-white/10" style={{ backgroundColor: `${user.nameColor}15`, borderColor: `${user.nameColor}40` }}>
+              <button type="button" onClick={() => setView('quotes')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm" style={{ backgroundColor: `${user.nameColor}15`, borderColor: `${user.nameColor}40`, color: 'inherit' }}>
                 <Icon name="quote" size={32} style={{ color: user.nameColor }} />
                 <span className="font-bold text-xs uppercase tracking-widest">Erkenntnisse</span>
               </button>
-              <button type="button" onClick={() => setView('archive')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-white/10">
+              <button type="button" onClick={() => setView('archive')} className="p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm" style={{ backgroundColor: 'rgba(150,150,150,0.05)', borderColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}>
                 <Icon name="archive" size={32} className="opacity-50" />
                 <span className="font-bold text-xs uppercase tracking-widest">Archiv</span>
               </button>
-              <button type="button" onClick={() => setView('settings')} className="col-span-2 p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm bg-white dark:bg-slate-900/50 border-slate-200 dark:border-white/10">
+              <button type="button" onClick={() => setView('settings')} className="col-span-2 p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 text-center border transition-all active:scale-95 shadow-sm" style={{ backgroundColor: 'rgba(150,150,150,0.05)', borderColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}>
                 <Icon name="settings" size={32} className="opacity-50" />
                 <span className="font-bold text-xs uppercase tracking-widest">Einstellungen</span>
               </button>
@@ -1988,32 +2019,42 @@ function App() {
           {view === 'wisdom' && (
             <div className="animate-slide-up space-y-8 no-print">
               <div className="text-center mb-8">
-                <h2 className="text-3xl font-serif font-bold mb-3">Die 25 Säulen deines Vermächtnisses</h2>
-                <p className="opacity-60 max-w-xl mx-auto">Dieser Blueprint ist dein Wegweiser. Wähle eine Säule aus, um sie zu füllen. Zusammen ergeben sie das zeitloseste Bild deines Lebens für die Generationen, die nach dir kommen.</p>
+                <h2 className="text-3xl font-bold mb-3" style={{ color: 'inherit' }}>Die 25 Säulen deines Vermächtnisses</h2>
+                <p className="opacity-60 max-w-xl mx-auto" style={{ color: 'inherit' }}>Dieser Blueprint ist dein Wegweiser. Wähle eine Säule aus, um sie zu füllen. Zusammen ergeben sie das zeitloseste Bild deines Lebens für die Generationen, die nach dir kommen.</p>
               </div>
 
-              <div className="mb-8 p-6 rounded-[2rem] bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-500/30">
+              <div className="mb-8 p-6 rounded-[2rem] border" style={{ backgroundColor: 'rgba(245, 158, 11, 0.05)', borderColor: 'rgba(245, 158, 11, 0.2)' }}>
                  <div className="flex justify-between items-end mb-3">
                    <div>
-                     <h3 className="font-bold text-amber-700 dark:text-amber-500 text-sm uppercase tracking-widest">Dein Vermächtnis wächst</h3>
-                     <p className="text-xs opacity-70 text-slate-800 dark:text-slate-300 mt-1">{completedPillars} von {totalPillars} Säulen versiegelt</p>
+                     <h3 className="font-bold text-amber-500 text-sm uppercase tracking-widest">Dein Vermächtnis wächst</h3>
+                     <p className="text-xs opacity-70 mt-1" style={{ color: 'inherit' }}>{completedPillars} von {totalPillars} Säulen versiegelt</p>
                    </div>
                    <span className="text-2xl font-black text-amber-500">{progressPercent}%</span>
                  </div>
-                 <div className="w-full bg-amber-200 dark:bg-amber-900/30 h-3 rounded-full overflow-hidden">
+                 <div className="w-full h-3 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(245, 158, 11, 0.2)' }}>
                    <div className="bg-amber-500 h-full transition-all duration-1000" style={{width: `${progressPercent}%`}}></div>
                  </div>
               </div>
               
               {['Fundament', 'Kommunikation', 'Struktur', 'Tiefe', 'Anpassung'].map((phaseTitle, index) => (
                 <div key={phaseTitle} className="mb-8">
-                  <h3 className="text-sm font-bold uppercase tracking-widest text-amber-600 dark:text-amber-500 mb-4 pl-2 border-l-2 border-amber-500">Phase {index + 1}: {phaseTitle}</h3>
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-amber-500 mb-4 pl-2 border-l-2 border-amber-500">Phase {index + 1}: {phaseTitle}</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {PILLARS.filter(p => p.phase === phaseTitle).map(pillar => {
                       const isCompleted = entries.some(e => e.title === pillar.title);
                       return (
-                        <button type="button" key={pillar.id} onClick={() => openEditor(null, pillar)} className={`p-4 text-left rounded-[1.5rem] border transition-all hover:scale-[1.02] flex items-start gap-3 ${isCompleted ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-500/30' : 'bg-white dark:bg-graphite-900 border-slate-200 dark:border-white/10'}`}>
-                          <div className={`p-2 rounded-full shrink-0 ${isCompleted ? 'bg-amber-500 text-white' : 'bg-slate-100 dark:bg-white/5 opacity-50'}`}>
+                        <button 
+                           type="button" 
+                           key={pillar.id} 
+                           onClick={() => openEditor(null, pillar)} 
+                           className={`p-4 text-left rounded-[1.5rem] border transition-all hover:scale-[1.02] flex items-start gap-3`}
+                           style={{ 
+                             backgroundColor: isCompleted ? 'rgba(245, 158, 11, 0.1)' : (user.appBgColor || (user.isDark ? '#0f172a' : '#ffffff')), 
+                             borderColor: isCompleted ? 'rgba(245, 158, 11, 0.3)' : (user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'),
+                             color: 'inherit'
+                           }}
+                        >
+                          <div className={`p-2 rounded-full shrink-0 ${isCompleted ? 'bg-amber-500 text-white' : 'opacity-50'}`} style={!isCompleted ? { backgroundColor: 'rgba(150,150,150,0.1)' } : {}}>
                             {isCompleted ? <Icon name="check" size={16} /> : <Icon name="pen-tool" size={16} />}
                           </div>
                           <div>
@@ -2033,13 +2074,14 @@ function App() {
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center animate-fade-in relative overflow-hidden p-6 no-print">
               {isBurning && <div className="absolute inset-0 bg-rose-500/20 animate-pulse z-0 rounded-3xl" />}
               <Icon name="flame" size={64} className={`mb-6 ${isBurning ? 'text-rose-500 animate-flame' : 'text-slate-400'}`} />
-              <h2 className="text-3xl font-serif font-bold mb-4 z-10">Katharsis</h2>
-              <p className="opacity-70 mb-8 z-10 max-w-md">Schreibe auf, was dich belastet, wovor du Angst hast oder was dich wütend macht. Danach übergeben wir es gemeinsam den Flammen. Es wird <b>nirgendwo</b> gespeichert.</p>
+              <h2 className="text-3xl font-bold mb-4 z-10" style={{ color: 'inherit' }}>Katharsis</h2>
+              <p className="opacity-70 mb-8 z-10 max-w-md" style={{ color: 'inherit' }}>Schreibe auf, was dich belastet, wovor du Angst hast oder was dich wütend macht. Danach übergeben wir es gemeinsam den Flammen. Es wird <b>nirgendwo</b> gespeichert.</p>
               <textarea 
                 value={burnText} 
                 onChange={e=>setBurnText(e.target.value)} 
                 disabled={isBurning} 
-                className="w-full max-w-lg p-6 rounded-[2rem] bg-white dark:bg-black/30 border-2 border-rose-500/20 focus:border-rose-500 h-48 outline-none resize-none z-10 transition-all shadow-inner text-slate-900 dark:text-white" 
+                className="w-full max-w-lg p-6 rounded-[2rem] border-2 focus:border-rose-500 h-48 outline-none resize-none z-10 transition-all shadow-inner" 
+                style={{ backgroundColor: 'rgba(150,150,150,0.05)', borderColor: 'rgba(244, 63, 94, 0.2)', color: 'inherit' }}
                 placeholder="Lass es hier los..." 
               />
               <button type="button"
@@ -2054,20 +2096,21 @@ function App() {
 
           {view === 'settings' && (
             <div className="space-y-6 animate-slide-up max-w-md mx-auto no-print">
-              <div className="p-6 rounded-[2rem] shadow-sm border card-bg">
-                <h2 className="text-lg font-bold mb-6 flex items-center gap-2 font-serif"><Icon name="user" size={20} className="text-amber-500" /> Profil</h2>
+              <div 
+                 className="p-6 rounded-[2rem] shadow-sm border"
+                 style={{ backgroundColor: user.appBgColor || (user.isDark ? '#1e293b' : '#ffffff'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
+              >
+                <h2 className="text-lg font-bold mb-6 flex items-center gap-2" style={{ color: 'inherit' }}><Icon name="user" size={20} className="text-amber-500" /> Profil</h2>
                 <div className="flex items-center gap-5 mb-6">
                   <div className="relative shrink-0">
-                    {/* ARCHITEKTUR-UPDATE: Profilbild Skalierung repariert bleeding von Ecken */}
-                    <div className={`w-20 h-20 rounded-full overflow-hidden border-[3px] shadow-sm flex items-center justify-center border-slate-200 dark:border-slate-700 ${!user.avatar ? 'bg-slate-100 dark:bg-slate-800' : ''}`} style={{ borderColor: user.avatar ? user.nameColor : undefined }}>
-                      {user.avatar ? <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover scale-[1.02]" /> : <Icon name="user" size={32} className="opacity-30" />}
+                    <div className={`w-20 h-20 rounded-full overflow-hidden border-[3px] shadow-sm flex items-center justify-center`} style={{ borderColor: user.avatar ? user.nameColor : 'rgba(150,150,150,0.2)', backgroundColor: 'rgba(150,150,150,0.1)' }}>
+                      {user.avatar ? <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover scale-[1.02]" /> : <Icon name="user" size={32} className="opacity-30" style={{ color: 'inherit' }} />}
                     </div>
-                    <label className="absolute -bottom-1 -right-1 p-2 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-full cursor-pointer shadow-lg hover:scale-110 transition-transform"><Icon name="camera" size={14} /><input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" /></label>
+                    <label className="absolute -bottom-1 -right-1 p-2 rounded-full cursor-pointer shadow-lg hover:scale-110 transition-transform" style={{ backgroundColor: user.isDark ? '#ffffff' : '#18181b', color: user.isDark ? '#18181b' : '#ffffff' }}><Icon name="camera" size={14} /><input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" /></label>
                   </div>
                   <div className="flex-1 space-y-3">
-                    <input type="text" value={user.name} onChange={(e) => setUser({...user, name: e.target.value})} className="w-full p-3 rounded-xl border-none focus:ring-2 focus:ring-amber-500 text-base font-bold bg-slate-100 dark:bg-black/30 outline-none text-slate-900 dark:text-white" placeholder="Dein Name" />
+                    <input type="text" value={user.name} onChange={(e) => setUser({...user, name: e.target.value})} className="w-full p-3 rounded-xl border-none focus:ring-2 focus:ring-amber-500 text-base font-bold outline-none" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }} placeholder="Dein Name" />
                     
-                    {/* ARCHITEKTUR-UPDATE: Padding und Margin hinzugefügt, um abgeschnittene vergrößerte runde Knöpfe zu reparieren */}
                     <div className="flex gap-2 flex-wrap p-2 -m-2">
                       {['#f59e0b', '#ef4444', '#3b82f6', '#10b981', '#8b5cf6', '#1e293b'].map(color => (
                         <button type="button" key={color} onClick={() => setUser({...user, nameColor: color})} className={`w-6 h-6 rounded-full border-2 transition-transform ${user.nameColor === color ? 'border-slate-400 scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
@@ -2075,28 +2118,29 @@ function App() {
                     </div>
                   </div>
                 </div>
-                <textarea value={user.motto} onChange={(e) => setUser({...user, motto: e.target.value})} className="w-full p-4 rounded-xl border-none focus:ring-2 focus:ring-amber-500 h-20 resize-none text-sm bg-slate-100 dark:bg-black/30 outline-none italic text-slate-900 dark:text-white" placeholder="Dein Lebensmotto..." />
+                <textarea value={user.motto} onChange={(e) => setUser({...user, motto: e.target.value})} className="w-full p-4 rounded-xl border-none focus:ring-2 focus:ring-amber-500 h-20 resize-none text-sm outline-none italic" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }} placeholder="Dein Lebensmotto..." />
               </div>
 
-              <div className="p-6 rounded-[2rem] shadow-sm border bg-white dark:bg-graphite-900 border-slate-200 dark:border-white/10">
-                <h2 className="text-lg font-bold mb-4 flex items-center gap-2 font-serif"><Icon name="sun" size={20} className="text-indigo-500" /> Erscheinungsbild</h2>
+              <div 
+                 className="p-6 rounded-[2rem] shadow-sm border"
+                 style={{ backgroundColor: user.appBgColor || (user.isDark ? '#1e293b' : '#ffffff'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
+              >
+                <h2 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: 'inherit' }}><Icon name="sun" size={20} className="text-indigo-500" /> Erscheinungsbild</h2>
                 
                 <div className="mb-6">
-                  <span className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-2 block text-slate-900 dark:text-white">Modus</span>
-                  {/* ARCHITEKTUR-UPDATE: Innere Border-Rundung perfekt an die äußere angepasst (16px außen, 8px innen mit p-2 Abstand) */}
-                  <div className="flex justify-between items-center p-2 bg-slate-100 dark:bg-black/30 rounded-2xl">
-                    <button type="button" onClick={() => setUser({...user, isDark: false})} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-sm transition-all ${!user.isDark ? 'bg-white shadow-sm text-slate-900' : 'opacity-50 hover:opacity-100 text-slate-900 dark:text-white'}`}><Icon name="sun" size={18}/> Hell</button>
-                    <button type="button" onClick={() => setUser({...user, isDark: true})} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-sm transition-all ${user.isDark ? 'bg-slate-800 shadow-sm text-white' : 'opacity-50 hover:opacity-100 text-slate-900 dark:text-white'}`}><Icon name="moon" size={18}/> Dunkel</button>
+                  <span className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-2 block" style={{ color: 'inherit' }}>Modus</span>
+                  <div className="flex justify-between items-center p-2 rounded-2xl" style={{ backgroundColor: 'rgba(150,150,150,0.1)' }}>
+                    <button type="button" onClick={() => setUser({...user, isDark: false})} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-sm transition-all ${!user.isDark ? 'shadow-sm' : 'opacity-50 hover:opacity-100'}`} style={!user.isDark ? { backgroundColor: user.appBgColor || '#ffffff', color: isDarkColor(user.appBgColor || '#ffffff') ? '#ffffff' : '#18181b' } : { color: 'inherit' }}><Icon name="sun" size={18}/> Hell</button>
+                    <button type="button" onClick={() => setUser({...user, isDark: true})} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-sm transition-all ${user.isDark ? 'shadow-sm' : 'opacity-50 hover:opacity-100'}`} style={user.isDark ? { backgroundColor: user.appBgColor || '#1e293b', color: isDarkColor(user.appBgColor || '#1e293b') ? '#ffffff' : '#18181b' } : { color: 'inherit' }}><Icon name="moon" size={18}/> Dunkel</button>
                   </div>
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-2 block text-slate-900 dark:text-white">Hintergrundfarbe</span>
-                  {/* ARCHITEKTUR-UPDATE: Padding und Margin hinzugefügt, um abgeschnittene vergrößerte runde Knöpfe zu reparieren */}
+                  <span className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-2 block" style={{ color: 'inherit' }}>Hintergrundfarbe</span>
                   <div className="flex gap-3 overflow-x-auto hide-scrollbar p-2 -m-2">
                     <button type="button"
                       onClick={() => setUser({...user, appBgColor: null})} 
-                      className={`w-10 h-10 rounded-full border-2 shrink-0 flex items-center justify-center transition-transform ${!user.appBgColor ? 'scale-110 border-indigo-500' : 'border-slate-300 dark:border-slate-600 opacity-50 hover:opacity-100'}`}
+                      className={`w-10 h-10 rounded-full border-2 shrink-0 flex items-center justify-center transition-transform ${!user.appBgColor ? 'scale-110 border-indigo-500' : 'border-slate-300 opacity-50 hover:opacity-100'}`}
                       style={{ background: user.isDark ? '#09090b' : '#ffffff' }}
                     >
                       {!user.appBgColor && <Icon name="check" size={16} className={user.isDark ? 'text-white' : 'text-slate-900'} />}
@@ -2115,27 +2159,26 @@ function App() {
                 </div>
               </div>
 
-              {/* ARCHITEKTUR-UPDATE: PIN-Einstellungen im Systemdesign mit korrigierten, perfekt sitzenden Ecken (rounded-2xl und rounded-lg) */}
               <div className="p-6 rounded-[2rem] shadow-sm border bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10">
-                <h2 className="text-lg font-bold mb-4 flex items-center gap-2 font-serif" style={{ color: user.nameColor }}><Icon name="key-round" size={20} /> Tresor PIN</h2>
+                <h2 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: user.nameColor }}><Icon name="key-round" size={20} /> Tresor PIN</h2>
                 {!user.pin ? (
                   <div>
-                    <input type="password" inputMode="numeric" pattern="[0-9]*" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN (z.B. 4 Zahlen)" className="w-full p-4 rounded-xl border-none focus:ring-2 tracking-[0.5em] text-center text-xl mb-4 bg-slate-50 dark:bg-black/30 outline-none text-slate-900 dark:text-white" style={{ '--tw-ring-color': user.nameColor }} />
+                    <input type="password" inputMode="numeric" pattern="[0-9]*" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN (z.B. 4 Zahlen)" className="w-full p-4 rounded-xl border-none focus:ring-2 tracking-[0.5em] text-center text-xl mb-4 outline-none" style={{ backgroundColor: 'rgba(150,150,150,0.1)', '--tw-ring-color': user.nameColor, color: 'inherit' }} />
                     <button type="button" onClick={() => { if(newPinInput.length >= 4) { setUser({...user, pin: newPinInput}); setNewPinInput(''); } else showDialog({ title: 'PIN zu kurz', message: 'Die PIN muss mindestens 4 Zeichen lang sein.', icon: 'x' }); }} className="w-full py-3 rounded-xl font-bold text-sm transition-transform shadow-md hover:scale-[1.02]" style={{ backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#fff' : '#000' }}>PIN speichern</button>
                   </div>
                 ) : isChangingPin ? (
                   <div className="space-y-3">
-                    <input type="password" inputMode="numeric" pattern="[0-9]*" value={oldPinInput} onChange={(e) => setOldPinInput(e.target.value)} placeholder="Alte PIN" className="w-full p-3 rounded-xl text-center tracking-[0.5em] text-lg bg-slate-50 dark:bg-black/30 outline-none text-slate-900 dark:text-white" />
-                    <input type="password" inputMode="numeric" pattern="[0-9]*" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN" className="w-full p-3 rounded-xl text-center tracking-[0.5em] text-lg bg-slate-50 dark:bg-black/30 outline-none text-slate-900 dark:text-white" />
+                    <input type="password" inputMode="numeric" pattern="[0-9]*" value={oldPinInput} onChange={(e) => setOldPinInput(e.target.value)} placeholder="Alte PIN" className="w-full p-3 rounded-xl text-center tracking-[0.5em] text-lg outline-none" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }} />
+                    <input type="password" inputMode="numeric" pattern="[0-9]*" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN" className="w-full p-3 rounded-xl text-center tracking-[0.5em] text-lg outline-none" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }} />
                     <div className="flex gap-3">
-                      <button type="button" onClick={() => setIsChangingPin(false)} className="flex-1 py-3 bg-slate-200 dark:bg-slate-800 rounded-xl text-sm font-bold text-slate-900 dark:text-white">Abbrechen</button>
+                      <button type="button" onClick={() => setIsChangingPin(false)} className="flex-1 py-3 rounded-xl text-sm font-bold" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}>Abbrechen</button>
                       <button type="button" onClick={() => { if (oldPinInput === user.pin) { setUser({...user, pin: newPinInput}); setIsChangingPin(false); showDialog({ title: 'Erfolg', message: 'PIN erfolgreich geändert.', icon: 'check', iconColor: 'text-emerald-500' }); } else showDialog({ title: 'Fehler', message: 'Die alte PIN ist falsch.', icon: 'x', iconColor: 'text-rose-500' }); }} className="flex-1 py-3 rounded-xl text-sm font-bold shadow-md" style={{ backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#fff' : '#000' }}>Speichern</button>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex justify-between items-center bg-slate-50 dark:bg-black/20 p-2 rounded-2xl">
-                    <span className="font-bold text-sm text-slate-900 dark:text-white pl-2">PIN Aktiv</span>
-                    <button type="button" onClick={() => setIsChangingPin(true)} className="px-4 py-2 bg-white dark:bg-slate-800 shadow-sm transition-colors rounded-lg font-bold text-xs" style={{ color: user.nameColor }}>Ändern</button>
+                  <div className="flex justify-between items-center p-2 rounded-2xl" style={{ backgroundColor: 'rgba(150,150,150,0.1)' }}>
+                    <span className="font-bold text-sm pl-2" style={{ color: 'inherit' }}>PIN Aktiv</span>
+                    <button type="button" onClick={() => setIsChangingPin(true)} className="px-4 py-2 shadow-sm transition-colors rounded-lg font-bold text-xs" style={{ backgroundColor: user.appBgColor || (user.isDark ? '#1e293b' : '#ffffff'), color: user.nameColor }}>Ändern</button>
                   </div>
                 )}
               </div>
@@ -2169,11 +2212,11 @@ function App() {
                     <Icon name="qr-code" size={18}/> QR-Code generieren
                   </button>
                 ) : (
-                  <div className="flex flex-col items-center bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-inner border border-slate-200 dark:border-white/10">
+                  <div className="flex flex-col items-center p-6 rounded-2xl shadow-inner border" style={{ backgroundColor: 'rgba(150,150,150,0.1)', borderColor: 'rgba(150,150,150,0.2)' }}>
                     <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(window.location.origin + window.location.pathname + '?import=' + peerId)}`} alt="Sync QR" className="w-48 h-48 mb-4 rounded-lg shadow-sm" />
                     <p className="text-[10px] font-bold text-center text-emerald-600 uppercase tracking-widest mb-1">Status</p>
                     <p className="text-xs font-bold text-center text-slate-800 dark:text-slate-200 animate-pulse">{syncStatus}</p>
-                    <button type="button" onClick={() => { peerInstance?.destroy(); setPeerId(null); setPeerInstance(null); setSyncStatus(''); }} className="mt-4 px-4 py-2 bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white rounded-lg text-xs font-bold hover:bg-slate-200 dark:hover:bg-white/20">Abbrechen</button>
+                    <button type="button" onClick={() => { peerInstance?.destroy(); setPeerId(null); setPeerInstance(null); setSyncStatus(''); }} className="mt-4 px-4 py-2 rounded-lg text-xs font-bold transition-colors" style={{ backgroundColor: 'rgba(150,150,150,0.2)', color: 'inherit' }}>Abbrechen</button>
                   </div>
                 )}
               </div>
@@ -2190,7 +2233,7 @@ function App() {
                 </button>
 
                 <div className="flex gap-2">
-                  <label className="flex-1 flex items-center justify-center gap-1.5 p-3 bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold cursor-pointer border border-slate-300 dark:border-transparent shadow-sm hover:bg-slate-50 transition-colors">
+                  <label className="flex-1 flex items-center justify-center gap-1.5 p-3 rounded-xl text-xs font-bold cursor-pointer border shadow-sm transition-colors" style={{ backgroundColor: 'rgba(255,255,255,0.8)', borderColor: 'rgba(0,0,0,0.1)', color: '#1e293b' }}>
                     <Icon name="upload" size={14}/> Backup Importieren <input type="file" accept=".html,.legacy,.json" onChange={importBackup} className="hidden" />
                   </label>
                 </div>
@@ -2202,9 +2245,12 @@ function App() {
             <>
               {/* Heatmap Neural Network */}
               {view === 'dashboard' && !searchQuery && (
-                <div className="mb-6 p-6 rounded-[2rem] shadow-sm border border-slate-200 dark:border-white/10 flex flex-col justify-center animate-fade-in bg-white dark:bg-black/20 no-print">
+                <div 
+                   className="mb-6 p-6 rounded-[2rem] shadow-sm border flex flex-col justify-center animate-fade-in no-print"
+                   style={{ backgroundColor: user.appBgColor || (user.isDark ? '#1e293b' : '#ffffff'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
+                >
                   <div className="flex justify-between items-center mb-4">
-                    <span className="font-bold text-xs uppercase tracking-widest opacity-70 text-slate-900 dark:text-white">Aktivität (30 Tage)</span>
+                    <span className="font-bold text-xs uppercase tracking-widest opacity-70" style={{ color: 'inherit' }}>Aktivität (30 Tage)</span>
                     <Icon name="activity" size={16} style={{ color: user.nameColor || '#f59e0b' }} />
                   </div>
                   <div className="flex gap-1.5 justify-between items-end h-16">
@@ -2225,7 +2271,7 @@ function App() {
                   <div className="p-3 text-white rounded-full shrink-0 shadow-md" style={{ backgroundColor: user.nameColor || '#f59e0b' }}><Icon name="history" size={24}/></div>
                   <div className="overflow-hidden">
                     <h4 className="font-bold text-xs uppercase tracking-widest mb-1" style={{ color: user.nameColor || '#f59e0b' }}>Heute vor {today.getFullYear() - new Date(timeMachineEntry.date).getFullYear()} {today.getFullYear() - new Date(timeMachineEntry.date).getFullYear() === 1 ? 'Jahr' : 'Jahren'}</h4>
-                    <p className="font-medium text-slate-900 dark:text-white truncate w-full text-lg font-serif">{timeMachineEntry.title}</p>
+                    <p className="font-medium text-slate-900 dark:text-white truncate w-full text-lg">{timeMachineEntry.title}</p>
                   </div>
                 </div>
               )}
@@ -2235,8 +2281,10 @@ function App() {
                   {['Alle', ...CATEGORIES].map(cat => (
                     <button type="button"
                       key={cat} onClick={() => setActiveCategory(cat)}
-                      className={`px-5 py-2.5 rounded-full whitespace-nowrap snap-start text-sm font-bold transition-all ${activeCategory === cat ? 'text-white shadow-md' : 'bg-slate-100 border border-slate-200 dark:bg-white/5 dark:border-white/10 opacity-70 hover:opacity-100 text-slate-900 dark:text-white'}`}
-                      style={activeCategory === cat ? { backgroundColor: user.nameColor || '#18181b', color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000' } : {}}
+                      className={`px-5 py-2.5 rounded-full whitespace-nowrap snap-start text-sm font-bold transition-all ${activeCategory === cat ? 'shadow-md' : 'border opacity-70 hover:opacity-100'}`}
+                      style={activeCategory === cat ? 
+                         { backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#18181b'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#18181b')) ? '#ffffff' : '#000000', borderColor: 'transparent' } : 
+                         { backgroundColor: 'rgba(150,150,150,0.1)', borderColor: 'rgba(150,150,150,0.2)', color: 'inherit' }}
                     >
                       {cat}
                     </button>
@@ -2245,9 +2293,9 @@ function App() {
               )}
 
               {visibleEntries.length === 0 && view !== 'menu' && view !== 'settings' && !searchQuery && (
-                <div className="flex flex-col items-center justify-center py-32 text-center opacity-30 animate-fade-in text-slate-900 dark:text-white">
+                <div className="flex flex-col items-center justify-center py-32 text-center opacity-30 animate-fade-in" style={{ color: 'inherit' }}>
                   {view === 'vault' ? <Icon name="shield-check" size={64} className="mb-6"/> : view === 'archive' ? <Icon name="archive" size={64} className="mb-6"/> : <Icon name="book-open" size={64} className="mb-6"/>}
-                  <p className="text-xl font-bold font-serif">
+                  <p className="text-xl font-bold">
                     {view === 'vault' ? 'Tresor leer.' : view === 'archive' ? 'Archiv leer.' : 'Dein Buch ist noch leer.'}
                   </p>
                 </div>
@@ -2304,15 +2352,15 @@ function App() {
                       )}
 
                       {entry.image && (
-                        <div className="w-full relative overflow-hidden bg-slate-100 dark:bg-black/20 flex justify-center items-center min-h-[200px]">
+                        <div className="w-full relative overflow-hidden flex justify-center items-center min-h-[200px]" style={{ backgroundColor: 'rgba(150,150,150,0.1)' }}>
                           <img src={entry.image} alt="Vision" className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000" />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent z-10 pointer-events-none no-print" />
-                          <h3 className="absolute bottom-6 left-6 right-6 z-20 font-bold text-2xl text-white drop-shadow-md leading-snug line-clamp-2 font-serif" dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
+                          <h3 className="absolute bottom-6 left-6 right-6 z-20 font-bold text-2xl text-white drop-shadow-md leading-snug line-clamp-2" dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
                         </div>
                       )}
 
                       <div className="p-6 sm:p-8 flex-1 flex flex-col relative z-20">
-                        {!entry.image && <h3 className={`font-bold text-2xl leading-tight mb-4 line-clamp-2 font-serif`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />}
+                        {!entry.image && <h3 className={`font-bold text-2xl leading-tight mb-4 line-clamp-2`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />}
                         {entry.category === 'Weisheit' && <div className="mb-4 text-[10px] font-bold uppercase tracking-widest opacity-50 flex items-center gap-1 text-amber-500"><Icon name="book-open" size={12}/> Säule der Weisheit</div>}
 
                         {entry.text && (
@@ -2327,13 +2375,13 @@ function App() {
                           </div>
                           <div className="flex gap-2 items-center opacity-60 no-print">
                             {view === 'dashboard' && !entry.parentId && (
-                              <button type="button" onClick={(e) => { e.stopPropagation(); moveToTop(entry); }} className="p-2 rounded-full bg-black/5 dark:bg-white/10 hover:bg-amber-500/20 hover:text-amber-500 transition-colors" title="Nach oben schieben">
+                              <button type="button" onClick={(e) => { e.stopPropagation(); moveToTop(entry); }} className="p-2 rounded-full transition-colors" style={{ backgroundColor: 'rgba(150,150,150,0.1)' }} title="Nach oben schieben">
                                 <Icon name="arrow-up-circle" size={16} />
                               </button>
                             )}
 
                             {pagesCount > 1 && !searchQuery && (
-                              <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest bg-black/10 dark:bg-white/10 px-2 py-1 rounded-md mr-1">
+                              <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md mr-1" style={{ backgroundColor: 'rgba(150,150,150,0.1)' }}>
                                 <Icon name="layers" size={12} /> {pagesCount}
                               </span>
                             )}
@@ -2346,7 +2394,7 @@ function App() {
                             {(entry.audio || entry.video) && <Icon name="mic" size={16} />}
                             {view === 'archive' && (
                               <div className="flex gap-2 ml-2">
-                                <button type="button" onClick={(e) => { e.stopPropagation(); setEntries(prev => prev.map(ex => ex.id === entry.id ? { ...ex, archived: false } : ex)); }} className={`p-2 rounded-full bg-black/5 dark:bg-white/10`}><Icon name="rotate-ccw" size={16} /></button>
+                                <button type="button" onClick={(e) => { e.stopPropagation(); setEntries(prev => prev.map(ex => ex.id === entry.id ? { ...ex, archived: false } : ex)); }} className={`p-2 rounded-full`} style={{ backgroundColor: 'rgba(150,150,150,0.1)' }}><Icon name="rotate-ccw" size={16} /></button>
                                 <button type="button" onClick={(e) => { e.stopPropagation(); confirmArchiveDelete(entry.id); }} className="p-2 rounded-full bg-rose-500/10 text-rose-500"><Icon name="trash-2" size={16} /></button>
                               </div>
                             )}
