@@ -274,7 +274,7 @@ const MOODS = [
 const PILLARS = [
   { id: 'm1', phase: 'Fundament', title: '1. Das Nordstern-Manifest', desc: 'Definiere deine absoluten, unverhandelbaren Grundwerte. Welche Prinzipien leitenden dich, egal was auf der Welt passiert?' },
   { id: 'm2', phase: 'Fundament', title: '2. Der Zeitgeist-Stempel', desc: 'Historischer Kontext: Was passiert gerade auf der Welt? Schreibe über Politik, Technologien und Alltagspreise von heute.' },
-  { id: 'm3', phase: 'Fundament', title: '3. Das Geistige Testament', desc: 'Vererbe deinen Charakter. Welche Lebensweisheiten, Überzeugungen und moralischen Kompasse möchtest0 weitergeben?' },
+  { id: 'm3', phase: 'Fundament', title: '3. Das Geistige Testament', desc: 'Vererbe deinen Charakter. Welche Lebensweisheiten, Überzeugungen und moralischen Kompasse möchtest du weitergeben?' },
   { id: 'm4', phase: 'Fundament', title: '4. Die Anti-Vision', desc: 'Definiere glasklar, wer du *niemals* werden willst und welche toxischen Pfade du um jeden Preis vermeiden möchtest.' },
   { id: 'm5', phase: 'Fundament', title: '5. Das Narben-Register', desc: 'Eine ehrliche, ungeschönte Dokumentation deines größten Fehlschlags und wie du dich daraus zurückgekämpft hast.' },
   { id: 'm6', phase: 'Kommunikation', title: '6. Die Zeitkapsel', desc: 'Eine Botschaft an die Zukunft. Nutze die Datums-Siegelfunktion, um diesen Text für Jahrzehnte zu verschließen.' },
@@ -766,8 +766,9 @@ function App() {
       const utterance = new SpeechSynthesisUtterance(plainText);
       utterance.lang = 'de-DE';
       const voices = window.speechSynthesis.getVoices();
-      const femaleVoice = voices.find(v => v.name.includes('Female') || v.name.includes('Google') || v.name.includes('Anna')) || voices[0];
-      if (femaleVoice) utterance.voice = femaleVoice;
+      const germanVoices = voices.filter(v => v.lang.startsWith('de'));
+      const voice = germanVoices.find(v => v.name.includes('Kore') || v.name.includes('Male')) || germanVoices[0] || voices[0];
+      if (voice) utterance.voice = voice;
       utterance.onend = () => setIsSpeaking(false);
       window.speechSynthesis.speak(utterance);
     }
@@ -1776,7 +1777,7 @@ function App() {
                                        {grouped[year][month].map(e => (
                                           <button type="button" key={e.id} onClick={() => { setViewingEntry(e); setShowTimeline(false); }} className={`w-full text-left p-4 rounded-xl transition-colors ${viewingEntry.id === e.id ? 'shadow-sm' : ''}`} style={viewingEntry.id === e.id ? { backgroundColor: `${user.nameColor}20`, border: `1px solid ${user.nameColor}50`, color: 'inherit' } : { backgroundColor: 'transparent', color: 'inherit' }}>
                                              <div className="font-bold text-sm truncate">{e.title}</div>
-                                             <div className="text-[10px] opacity-60 mt-1">{new Date(e.date).toLocaleDateString('de-DE')}</div>
+                                             <div className="text-[10px] opacity-60 mt-1">{new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
                                           </button>
                                        ))}
                                     </div>
