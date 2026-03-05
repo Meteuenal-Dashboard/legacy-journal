@@ -69,6 +69,9 @@ window.tailwind = {
 </script>
 <script src="https://cdn.tailwindcss.com"></script>
 
+<!-- DOMPurify für Sicherheit (XSS-Schutz) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -83,6 +86,13 @@ body {
   -webkit-tap-highlight-color: transparent;
   transition: background-color 0.4s ease, color 0.4s ease;
   overscroll-behavior-y: none; 
+}
+
+/* Entferne Serif-Schriftarten */
+h1, h2, h3, .font-serif {
+  font-family: 'Inter', -apple-system, sans-serif !important;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 html:not(.dark) body { background-color: #ffffff !important; color: #18181b !important; }
@@ -166,12 +176,70 @@ html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
 <div id="root"></div>
 
 <script type="text/babel">
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect, useRef, useMemo } = React;
 
 const apiKey = ""; 
 
 const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
 const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
+
+// Helper zur Bereinigung von HTML-Eingaben
+const createSafeHtml = (htmlStr) => {
+    return { __html: window.DOMPurify ? window.DOMPurify.sanitize(htmlStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p'] }) : htmlStr };
+};
+
+// --- Web Crypto API Helper ---
+const encHelper = new TextEncoder();
+const decHelper = new TextDecoder();
+const cryptoKeyCache = {}; 
+
+const getCryptoKey = async (pin, saltStr) => {
+    const cacheKey = pin + saltStr;
+    if (cryptoKeyCache[cacheKey]) return cryptoKeyCache[cacheKey];
+    const keyMaterial = await window.crypto.subtle.importKey(
+        "raw", encHelper.encode(pin), { name: "PBKDF2" }, false, ["deriveBits", "deriveKey"]
+    );
+    const salt = Uint8Array.from(atob(saltStr), c => c.charCodeAt(0));
+    const key = await window.crypto.subtle.deriveKey(
+        { name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" },
+        keyMaterial, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]
+    );
+    cryptoKeyCache[cacheKey] = key;
+    return key;
+};
+
+const encryptData = async (text, pin) => {
+    try {
+        const salt = window.crypto.getRandomValues(new Uint8Array(16));
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+        const saltStr = btoa(String.fromCharCode(...salt));
+        const ivStr = btoa(String.fromCharCode(...iv));
+        
+        const key = await getCryptoKey(pin, saltStr);
+        const encrypted = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, encHelper.encode(text));
+        
+        return {
+            cipher: btoa(String.fromCharCode(...new Uint8Array(encrypted))),
+            iv: ivStr,
+            salt: saltStr
+        };
+    } catch(e) { console.error(e); return null; }
+};
+
+const decryptData = async (encryptedObj, pin) => {
+    if (!encryptedObj || !pin) return null;
+    try {
+        const key = await getCryptoKey(pin, encryptedObj.salt);
+        const iv = Uint8Array.from(atob(encryptedObj.iv), c => c.charCodeAt(0));
+        const cipher = Uint8Array.from(atob(encryptedObj.cipher), c => c.charCodeAt(0));
+        
+        const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, cipher);
+        return decHelper.decode(decrypted);
+    } catch(e) { 
+        console.error("Wrong PIN or corrupted data");
+        return null; 
+    }
+};
 
 const pcmToWav = (pcmBase64, sampleRate = 24000) => {
   const pcmData = Uint8Array.from(atob(pcmBase64), c => c.charCodeAt(0)).buffer;
@@ -204,7 +272,7 @@ class ErrorBoundary extends React.Component {
       return (
         <div className="min-h-screen flex items-center justify-center bg-graphite-950 text-white p-8 text-center">
           <div>
-            <h1 className="text-2xl font-bold text-rose-500 mb-4">Ein Moment bitte...</h1>
+            <h1 className="text-2xl font-bold text-rose-500 mb-4 font-serif">Ein Moment bitte...</h1>
             <p className="opacity-70 mb-8">Die App hat sich verschluckt. Bitte lade die Seite neu.</p>
             <button type="button" onClick={() => window.location.reload()} className="px-6 py-3 bg-amber-500 text-slate-900 font-bold rounded-xl shadow-lg">Neu laden</button>
           </div>
@@ -283,7 +351,7 @@ const PILLARS = [
   { id: 'm13', phase: 'Struktur', title: '13. Die Essenz-Filterung', desc: 'Fasse das vergangene Jahr in exakt drei Sätzen zusammen: Größter Triumph, größter Schmerz, wichtigste Lektion.' },
   { id: 'm14', phase: 'Struktur', title: '14. Offene Fragen', desc: 'Dinge im Leben, dem Universum oder in dir selbst, die du noch nicht verstehst. Zeige intellektuelle Demut.' },
   { id: 'm15', phase: 'Struktur', title: '15. Denkwerkzeuge', desc: 'Wie entscheidest du? Notiere die mentalen Modelle und Heuristiken, die dir in schweren Situationen helfen.' },
-  { id: 'm16', phase: 'Tiefe', title: '16. Emotionaler Farb-Code', desc: 'Vergib dieser Lebensphase eine Farbe und erkläre, warum. (z.B. "Die feuerroten Jahre des Umbruchs").' },
+  { id: 'm16', phase: 'Tiefe', title: '16. Emotionaler Farb-Code', desc: 'Vergib dieser Lebensphase eine Farbe and erkläre, warum. (z.B. "Die feuerroten Jahre des Umbruchs").' },
   { id: 'm17', phase: 'Tiefe', title: '17. Die Friedens-Akte', desc: 'Aufzeichnungen darüber, wie du einen schweren zwischenmenschlichen Konflikt gelöst (oder nicht gelöst) hast.' },
   { id: 'm18', phase: 'Tiefe', title: '18. Das Alltags-Fossil', desc: 'Dokumentiere einen extrem banalen, minutengenauen Ablauf eines völlig normalen Dienstags.' },
   { id: 'm19', phase: 'Tiefe', title: '19. Rhythmus-Tracker', desc: 'Beobachte deine eigenen Lebensenergie-Zyklen. Wann musstest du aufbauen, wann loslassen?' },
@@ -499,11 +567,24 @@ function App() {
           try {
             const parsed = JSON.parse(data);
             if (parsed.entries) {
-               setSyncStatus('Daten werden sicher verarbeitet...');
+               setSyncStatus('Daten werden sicher verarbeitet und verschlüsselt...');
                if (db) {
+                 const pinToUse = parsed.user ? parsed.user.pin : user.pin;
+                 const entriesToSave = await Promise.all(parsed.entries.map(async (e) => {
+                     if (e.locked && pinToUse) {
+                         let dbE = { ...e };
+                         const payload = JSON.stringify({ text: dbE.text || '', title: dbE.title || '' });
+                         dbE.encryptedData = await encryptData(payload, pinToUse);
+                         dbE.text = '';
+                         dbE.title = 'Verschlüsselter Eintrag';
+                         return dbE;
+                     }
+                     return e;
+                 }));
+                 
                  const tx = db.transaction('entries', 'readwrite');
                  const store = tx.objectStore('entries');
-                 parsed.entries.forEach(e => store.put(e));
+                 entriesToSave.forEach(e => store.put(e));
                  tx.oncomplete = () => {
                    if (parsed.user) safeStorageSet('legacy_user', JSON.stringify(parsed.user));
                    setSyncStatus('Erfolgreich übertragen! Tagebuch wird geöffnet...');
@@ -603,7 +684,21 @@ function App() {
               
               const tx = database.transaction('entries', 'readwrite');
               const store = tx.objectStore('entries');
-              injectedEntries.forEach(entry => store.put(entry));
+              
+              const pinToUse = currentUser.pin;
+              const entriesToSave = await Promise.all(injectedEntries.map(async (e) => {
+                 if (e.locked && pinToUse) {
+                     let dbE = { ...e };
+                     const payload = JSON.stringify({ text: dbE.text || '', title: dbE.title || '' });
+                     dbE.encryptedData = await encryptData(payload, pinToUse);
+                     dbE.text = '';
+                     dbE.title = 'Verschlüsselter Eintrag';
+                     return dbE;
+                 }
+                 return e;
+              }));
+              
+              entriesToSave.forEach(entry => store.put(entry));
               await new Promise(resolve => { tx.oncomplete = resolve; });
               
               injectedScript.textContent = 'null';
@@ -624,8 +719,25 @@ function App() {
         const transaction = database.transaction('entries', 'readonly');
         const request = transaction.objectStore('entries').getAll();
 
-        request.onsuccess = () => {
+        request.onsuccess = async () => {
           let loadedEntries = request.result || [];
+          
+          // CRYPTO-UPDATE: Datenbank-Inhalte in den Speicher laden & entschlüsseln
+          if (currentUser.pin) {
+              loadedEntries = await Promise.all(loadedEntries.map(async (e) => {
+                  if (e.locked && e.encryptedData) {
+                      const decStr = await decryptData(e.encryptedData, currentUser.pin);
+                      if (decStr) {
+                          try {
+                              const parsed = JSON.parse(decStr);
+                              return { ...e, text: parsed.text, title: parsed.title };
+                          } catch(err){}
+                      }
+                  }
+                  return e;
+              }));
+          }
+          
           const lastActiveStr = safeStorageGet('legacy_last_active');
           const lastActive = lastActiveStr ? new Date(lastActiveStr) : new Date();
           const daysInactive = (new Date() - lastActive) / (1000 * 60 * 60 * 24);
@@ -813,13 +925,29 @@ function App() {
      return result;
   };
 
-  const saveToDB = async (entry) => {
+  const saveToDB = async (entry, forcePin = null) => {
+    const activePin = forcePin || user.pin;
+    let dbEntry = { ...entry };
+    
+    // CRYPTO-UPDATE: Automatisches Verschlüsseln vor dem Wegschreiben in die DB
+    try {
+        if (dbEntry.locked && activePin) {
+            const payload = JSON.stringify({ text: dbEntry.text || '', title: dbEntry.title || '' });
+            dbEntry.encryptedData = await encryptData(payload, activePin);
+            dbEntry.text = ''; // Lösche Klartext aus der DB-Version
+            dbEntry.title = 'Verschlüsselter Eintrag';
+        } else if (!dbEntry.locked) {
+            dbEntry.encryptedData = null; // Sicherstellen, dass ungeschützte Einträge sauber sind
+        }
+    } catch(e) { console.error("Encryption error", e); }
+
     try {
       if (db) {
         const tx = db.transaction('entries', 'readwrite');
-        tx.objectStore('entries').put(entry);
+        tx.objectStore('entries').put(dbEntry); // Verschlüsselt ablegen
         tx.oncomplete = () => {
           setEntries(prev => {
+            // Im React-Speicher (entries) bleibt die Klartext-Version für nahtlose UX!
             const exists = prev.find(e => e.id === entry.id);
             if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
             return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
@@ -937,7 +1065,7 @@ function App() {
   useEffect(() => {
     if (!showEditor || view === 'burn') return;
     
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       if (!isDirtyRef.current) return; 
       
       setAutoSaveStatus('Speichert...');
@@ -980,9 +1108,23 @@ function App() {
       });
 
       if (db) {
+        // CRYPTO-UPDATE: Komplettes Buch massen-verschlüsseln
+        const dbEntries = await Promise.all(bookEntriesToUpdate.map(async (e) => {
+            let dbE = { ...e };
+            if (dbE.locked && user.pin) {
+                const payload = JSON.stringify({ text: dbE.text || '', title: dbE.title || '' });
+                dbE.encryptedData = await encryptData(payload, user.pin);
+                dbE.text = '';
+                dbE.title = 'Verschlüsselter Eintrag';
+            } else if (!dbE.locked) {
+                dbE.encryptedData = null;
+            }
+            return dbE;
+        }));
+
         const tx = db.transaction('entries', 'readwrite');
         const store = tx.objectStore('entries');
-        bookEntriesToUpdate.forEach(e => store.put(e));
+        dbEntries.forEach(e => store.put(e));
         
         tx.oncomplete = () => {
           isDirtyRef.current = false;
@@ -1206,7 +1348,21 @@ function App() {
             const tx = db.transaction('entries', 'readwrite');
             const store = tx.objectStore('entries');
             let mergedCount = 0;
-            data.entries.forEach(entry => {
+            
+            const pinToUse = data.user ? data.user.pin : user.pin;
+            const entriesToSave = await Promise.all(data.entries.map(async (e) => {
+               if (e.locked && pinToUse) {
+                   let dbE = { ...e };
+                   const payload = JSON.stringify({ text: dbE.text || '', title: dbE.title || '' });
+                   dbE.encryptedData = await encryptData(payload, pinToUse);
+                   dbE.text = '';
+                   dbE.title = 'Verschlüsselter Eintrag';
+                   return dbE;
+               }
+               return e;
+            }));
+
+            entriesToSave.forEach(entry => {
               if (!entries.find(ex => ex.id === entry.id)) {
                 if (isForeign) entry.inheritedFrom = data.user.name;
                 store.put(entry);
@@ -1214,8 +1370,23 @@ function App() {
               }
             });
             const req = store.getAll();
-            req.onsuccess = () => {
-              setEntries(req.result.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)));
+            req.onsuccess = async () => {
+              let loadedEntries = req.result || [];
+              if (user.pin) {
+                  loadedEntries = await Promise.all(loadedEntries.map(async (e) => {
+                      if (e.locked && e.encryptedData) {
+                          const decStr = await decryptData(e.encryptedData, user.pin);
+                          if (decStr) {
+                              try {
+                                  const parsed = JSON.parse(decStr);
+                                  return { ...e, text: parsed.text, title: parsed.title };
+                              } catch(err){}
+                          }
+                      }
+                      return e;
+                  }));
+              }
+              setEntries(loadedEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)));
               showDialog({ title: 'Erfolg', message: `Fusion erfolgreich! ${mergedCount} neue Seiten importiert.`, icon: 'check' });
             };
           }
@@ -1392,27 +1563,34 @@ function App() {
 
   const now = new Date();
   
-  const visibleEntries = entries.filter(e => {
-    const q = searchQuery.toLowerCase();
-    const matchesSearch = e.title.toLowerCase().includes(q) || (e.text && e.text.toLowerCase().includes(q));
-    
-    if (searchQuery && !matchesSearch) return false;
-    if (!searchQuery && e.parentId) return false;
+  // PERFORMANCE-UPDATE: Memoization
+  const visibleEntries = useMemo(() => {
+    return entries.filter(e => {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = e.title.toLowerCase().includes(q) || (e.text && e.text.toLowerCase().includes(q));
+      
+      if (searchQuery && !matchesSearch) return false;
+      if (!searchQuery && e.parentId) return false;
 
-    const matchesCategory = activeCategory === 'Alle' || e.category === activeCategory;
-    if (!searchQuery && !matchesCategory) return false;
-    
-    if (view === 'dashboard') return !e.locked && !e.archived;
-    if (view === 'vault') return e.locked && !e.archived;
-    if (view === 'archive') return e.archived;
-    return false;
-  });
+      const matchesCategory = activeCategory === 'Alle' || e.category === activeCategory;
+      if (!searchQuery && !matchesCategory) return false;
+      
+      if (view === 'dashboard') return !e.locked && !e.archived;
+      if (view === 'vault') return e.locked && !e.archived;
+      if (view === 'archive') return e.archived;
+      return false;
+    });
+  }, [entries, searchQuery, activeCategory, view]);
 
   const renderEntries = visibleEntries;
 
   const highlightText = (text, query) => {
       if (!text) return { __html: '' };
-      const safeText = text.replace(/<img[^>]*>/g, '[Bild]');
+      let safeText = text.replace(/<img[^>]*>/g, '[Bild]');
+      
+      // XSS-Schutz mit DOMPurify
+      safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p'] }) : safeText;
+      
       if (!query) return { __html: safeText };
       const plainText = safeText.replace(/<[^>]*>?/gm, '');
       const parts = plainText.split(new RegExp(`(${query})`, 'gi'));
@@ -1425,9 +1603,9 @@ function App() {
   };
 
   // ARCHITEKTUR-UPDATE: Exakte Extraktion aller als Zitat/Spruch markierten Texte
-  const getExtractedQuotes = () => {
-     let allQuotes = [];
-     // Hier wird jetzt über ALLE existierenden Einträge gefiltert, ohne Einschränkung auf "nicht gesperrt"
+  const allQuotes = useMemo(() => {
+     if (view !== 'quotes') return [];
+     let quotes = [];
      entries.filter(e => !e.archived).forEach(entry => {
          if(!entry.text) return;
          const blockquoteRegex = /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi;
@@ -1435,39 +1613,47 @@ function App() {
          while ((match = blockquoteRegex.exec(entry.text)) !== null) {
              const rawText = match[1].replace(/<[^>]*>?/gm, '').trim();
              if(rawText) {
-                 allQuotes.push({ text: rawText, date: entry.date, title: entry.title, id: entry.id + match.index, entryId: entry.id });
+                 quotes.push({ text: rawText, date: entry.date, title: entry.title, id: entry.id + match.index, entryId: entry.id });
              }
          }
      });
-     return allQuotes.sort((a,b) => new Date(b.date) - new Date(a.date));
-  };
+     return quotes.sort((a,b) => new Date(b.date) - new Date(a.date));
+  }, [entries, view]);
 
   // --- Heatmap Data ---
-  const heatmapData = Array.from({ length: 30 }).map((_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (29 - i));
-    const dateStr = d.toDateString();
-    const count = entries.filter(e => new Date(e.date).toDateString() === dateStr).length;
-    return { date: dateStr, count };
-  });
+  const heatmapData = useMemo(() => {
+    return Array.from({ length: 30 }).map((_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (29 - i));
+      const dateStr = d.toDateString();
+      const count = entries.filter(e => new Date(e.date).toDateString() === dateStr).length;
+      return { date: dateStr, count };
+    });
+  }, [entries]);
 
   // Zeitreise Kalender Helfer
   const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
   const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
 
   const today = new Date();
-  const timeMachineEntries = entries.filter(e => {
-    if (e.locked || e.archived || e.parentId) return false;
-    const eDate = new Date(e.date);
-    return eDate.getDate() === today.getDate() &&
-           eDate.getMonth() === today.getMonth() &&
-           eDate.getFullYear() < today.getFullYear();
-  });
-  const timeMachineEntry = timeMachineEntries.length > 0 ? timeMachineEntries[0] : null;
+  
+  // PERFORMANCE-UPDATE: Memoization
+  const timeMachineEntry = useMemo(() => {
+    const todayStr = today.getDate() + '-' + today.getMonth();
+    const match = entries.find(e => {
+      if (e.locked || e.archived || e.parentId) return false;
+      const eDate = new Date(e.date);
+      return eDate.getDate() + '-' + eDate.getMonth() === todayStr && eDate.getFullYear() < today.getFullYear();
+    });
+    return match || null;
+  }, [entries]);
 
-  const completedPillars = PILLARS.filter(p => entries.some(e => e.title === p.title)).length;
-  const totalPillars = PILLARS.length;
-  const progressPercent = Math.round((completedPillars / totalPillars) * 100);
+  const { completedPillars, totalPillars, progressPercent } = useMemo(() => {
+    const completed = PILLARS.filter(p => entries.some(e => e.title === p.title)).length;
+    const total = PILLARS.length;
+    const percent = Math.round((completed / total) * 100);
+    return { completedPillars: completed, totalPillars: total, progressPercent: percent };
+  }, [entries]);
 
   const onTouchStart = (e) => {
     setTouchEndPos({x: null, y: null});
@@ -1516,7 +1702,7 @@ function App() {
         <div className="max-w-md w-full space-y-8 animate-slide-up z-10">
           <div className="text-center space-y-2">
             <Icon name="book-open" size={48} className="mx-auto mb-6" style={{ color: user.nameColor || '#f59e0b' }} />
-            <h1 className="text-4xl font-extrabold">Dein Vermächtnis</h1>
+            <h1 className="text-4xl font-extrabold font-serif">Dein Vermächtnis</h1>
             <p className="text-lg opacity-60 font-light">Ein Ort für deine tiefsten Visionen.</p>
           </div>
           <div className="p-8 rounded-[2rem] shadow-xl border bg-white border-slate-200 dark:bg-graphite-900 dark:border-white/10">
@@ -1604,7 +1790,7 @@ function App() {
               >
                 <div className="flex-1 mt-4">
                   {viewingEntry.image && <img src={viewingEntry.image} className="w-full rounded-[2rem] mb-10 object-contain shadow-lg border" style={{ borderColor: 'rgba(150,150,150,0.1)' }} alt="Vision" />}
-                  <h1 className="text-4xl sm:text-5xl font-bold mb-6 leading-tight">{viewingEntry.title}</h1>
+                  <h1 className="text-4xl sm:text-5xl font-bold mb-6 leading-tight font-serif">{viewingEntry.title}</h1>
                   <div className="flex flex-wrap gap-4 mb-10 text-xs font-bold uppercase tracking-widest opacity-60">
                     <span className="flex items-center gap-1"><Icon name="calendar" size={14}/> {new Date(viewingEntry.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                     <span>•</span><span>{viewingEntry.category}</span>
@@ -1614,7 +1800,8 @@ function App() {
                       return <><span className="mx-2">•</span><span className={`flex items-center gap-1`}><Icon name={moodObj.iconName} size={14}/> {viewingEntry.mood}</span></>
                     })()}
                   </div>
-                  <div className="text-lg sm:text-xl leading-relaxed legacy-content pb-10" dangerouslySetInnerHTML={{__html: viewingEntry.text}} />
+                  {/* DOMPurify Integration */}
+                  <div className="text-lg sm:text-xl leading-relaxed legacy-content pb-10" dangerouslySetInnerHTML={createSafeHtml(viewingEntry.text)} />
                   {viewingEntry.audio && <div className="mt-8 mb-10 p-4 rounded-2xl border no-print" style={{ backgroundColor: 'rgba(150,150,150,0.05)', borderColor: 'rgba(150,150,150,0.1)' }}><audio src={viewingEntry.audio} controls className="w-full" /></div>}
                 </div>
                 <div className="flex flex-col gap-6 mt-12 pt-8 border-t pb-20 shrink-0 no-print" style={{ borderColor: 'rgba(150,150,150,0.2)' }}>
@@ -1658,13 +1845,13 @@ function App() {
             {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((entry) => (
               <div key={entry.id} className="mb-16 page-break-after">
                 <div className="text-center mb-8 pb-4 border-b border-black/10">
-                  <h1 className="text-4xl font-bold mb-2">{entry.title}</h1>
+                  <h1 className="text-4xl font-serif font-bold mb-2">{entry.title}</h1>
                   <p className="opacity-60 font-bold uppercase tracking-widest text-xs">
                     {new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {entry.category}
                   </p>
                 </div>
                 {entry.image && <img src={entry.image} className="w-full max-h-[500px] object-contain mb-8 rounded-2xl" alt="Vision" />}
-                <div className="text-lg leading-relaxed legacy-content" dangerouslySetInnerHTML={{__html: entry.text}}></div>
+                <div className="text-lg leading-relaxed legacy-content" dangerouslySetInnerHTML={createSafeHtml(entry.text)}></div>
               </div>
             ))}
           </div>
@@ -1686,7 +1873,7 @@ function App() {
            filteredEntries.forEach(entry => {
               const d = new Date(entry.date);
               const y = d.getFullYear();
-              const m = d.toLocaleDateString('de-DE', { month: '2-digit', year: 'numeric' });
+              const m = d.toLocaleDateString('de-DE', { month: 'long' });
               if (!grouped[y]) grouped[y] = {};
               if (!grouped[y][m]) grouped[y][m] = [];
               grouped[y][m].push(entry);
@@ -1707,7 +1894,7 @@ function App() {
                    
                    <div className="p-6 border-b space-y-4" style={{ borderColor: 'rgba(150,150,150,0.1)', backgroundColor: 'rgba(150,150,150,0.05)' }}>
                       <div className="flex justify-between items-center">
-                         <h3 className="font-bold text-xl flex items-center gap-2" style={{ color: user.nameColor }}><Icon name="calendar-days" /> Zeitreise</h3>
+                         <h3 className="font-serif font-bold text-xl flex items-center gap-2" style={{ color: user.nameColor }}><Icon name="calendar-days" /> Zeitreise</h3>
                          <button type="button" onClick={()=>setShowTimeline(false)} className="p-2 rounded-full" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}><Icon name="x" size={20}/></button>
                       </div>
                       
@@ -1805,7 +1992,7 @@ function App() {
                   <Icon name={dialog.icon} size={36} className={dialog.iconColor || 'text-indigo-500'} style={!dialog.iconColor ? {color: user.nameColor} : {}} />
                 </div>
               )}
-              <h3 className="text-2xl font-bold leading-tight mb-4" style={{ color: 'inherit' }}>{dialog.title}</h3>
+              <h3 className="text-2xl font-bold leading-tight mb-4 font-serif" style={{ color: 'inherit' }}>{dialog.title}</h3>
               <p className="text-base opacity-70 mb-8 leading-relaxed px-2 whitespace-pre-wrap" style={{ color: 'inherit' }}>{dialog.message}</p>
               <div className="flex flex-col gap-3 w-full">
                 <button type="button"
@@ -1833,7 +2020,7 @@ function App() {
               onClick={e => e.stopPropagation()}
             >
               <div className="p-6 border-b flex justify-between items-center shrink-0" style={{ borderColor: 'rgba(150,150,150,0.1)', backgroundColor: 'rgba(150,150,150,0.05)' }}>
-                <h3 className="font-bold text-xl" style={{ color: 'inherit' }}>{picker.title}</h3>
+                <h3 className="font-bold text-xl font-serif" style={{ color: 'inherit' }}>{picker.title}</h3>
                 <button type="button" onClick={() => setPicker(null)} className="p-2 rounded-full hover:scale-110 transition-transform" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}><Icon name="x" size={20}/></button>
               </div>
               <div className="overflow-y-auto custom-scrollbar p-3 space-y-1 overscroll-contain">
@@ -1864,7 +2051,7 @@ function App() {
                 <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-inner" style={{ backgroundColor: 'rgba(150,150,150,0.1)' }}>
                   <Icon name="lock" size={28} style={{ color: user.nameColor || '#f59e0b' }} />
                 </div>
-                <h3 className="text-2xl font-bold mb-2" style={{ color: 'inherit' }}>Tresor Entsperren</h3>
+                <h3 className="text-2xl font-bold mb-2 font-serif" style={{ color: 'inherit' }}>Tresor Entsperren</h3>
                 <p className="text-sm opacity-60 mb-6 truncate w-full" style={{ color: 'inherit' }}>"{unlockTarget.title}"</p>
                 <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitPin()} 
                        className="w-full p-4 text-center text-2xl tracking-[1em] rounded-xl border-2 outline-none focus:ring-2"
@@ -1884,16 +2071,16 @@ function App() {
           style={{ backgroundColor: user.appBgColor ? `${user.appBgColor}E6` : (user.isDark ? 'rgba(24, 24, 27, 0.8)' : 'rgba(255, 255, 255, 0.9)'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
         >
           <div className="flex items-center gap-3 flex-1 overflow-hidden z-10">
-            {view === 'settings' ? <h1 className="text-xl font-bold tracking-tight" style={{ color: 'inherit' }}>Einstellungen</h1> :
-             view === 'menu' ? <h1 className="text-xl font-bold tracking-tight" style={{ color: 'inherit' }}>Entdecken</h1> :
-             view === 'quotes' ? <h1 className="text-xl font-bold tracking-tight" style={{color: user.nameColor}}>Erkenntnisse</h1> :
-             view === 'wisdom' ? <h1 className="text-xl font-bold tracking-tight" style={{ color: 'inherit' }}>Buch der Weisheit</h1> :
-             view === 'burn' ? <h1 className="text-xl font-bold tracking-tight text-rose-500">Katharsis</h1> :
+            {view === 'settings' ? <h1 className="text-xl font-bold tracking-tight font-serif" style={{ color: 'inherit' }}>Einstellungen</h1> :
+             view === 'menu' ? <h1 className="text-xl font-bold tracking-tight font-serif" style={{ color: 'inherit' }}>Entdecken</h1> :
+             view === 'quotes' ? <h1 className="text-xl font-bold tracking-tight font-serif" style={{color: user.nameColor}}>Erkenntnisse</h1> :
+             view === 'wisdom' ? <h1 className="text-xl font-bold tracking-tight font-serif" style={{ color: 'inherit' }}>Buch der Weisheit</h1> :
+             view === 'burn' ? <h1 className="text-xl font-bold tracking-tight font-serif text-rose-500">Katharsis</h1> :
             (
               <>
                 {user.avatar && <img src={user.avatar} alt="Profil" className="w-10 h-10 rounded-full object-cover border-2 shadow-sm shrink-0" style={{ borderColor: user.nameColor || '#f59e0b' }} />}
                 <div className="flex flex-col overflow-hidden w-full">
-                  <h1 className="text-xl font-bold tracking-tight truncate" style={{ color: user.nameColor || '#f59e0b' }}>
+                  <h1 className="text-xl font-bold tracking-tight truncate font-serif" style={{ color: user.nameColor || '#f59e0b' }}>
                     {view === 'archive' ? 'Archiv' : user.name}
                   </h1>
                   {view === 'vault' && <p className="text-xs mt-0.5 font-medium flex items-center gap-1 text-rose-500"><Icon name="shield-check" size={14} /> Sicherer Tresor</p>}
@@ -1955,17 +2142,16 @@ function App() {
           )}
 
           {view === 'quotes' && (() => {
-             const allQuotes = getExtractedQuotes();
              return (
                <div className="animate-slide-up space-y-6 no-print">
                  <div className="text-center mb-10">
-                   <h2 className="text-3xl font-bold mb-3" style={{ color: 'inherit' }}>Deine Erkenntnisse</h2>
+                   <h2 className="text-3xl font-serif font-bold mb-3" style={{ color: 'inherit' }}>Deine Erkenntnisse</h2>
                    <p className="opacity-60 max-w-xl mx-auto" style={{ color: 'inherit' }}>Alle von dir hervorgehobenen Zitate und Gedanken, gesammelt aus der Tiefe deines Journals.</p>
                  </div>
                  {allQuotes.length === 0 ? (
                    <div className="text-center opacity-30 py-20" style={{ color: 'inherit' }}>
                      <Icon name="quote" size={64} className="mx-auto mb-4" />
-                     <p className="text-lg font-bold">Noch keine Erkenntnisse markiert.</p>
+                     <p className="font-serif text-lg font-bold">Noch keine Erkenntnisse markiert.</p>
                      <p className="text-sm">Nutze das Anführungszeichen (Zitieren) im Editor.</p>
                    </div>
                  ) : (
@@ -1978,7 +2164,7 @@ function App() {
                            style={{ backgroundColor: user.appBgColor || (user.isDark ? '#0f172a' : '#ffffff'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
                         >
                            <Icon name="quote" size={24} className="absolute top-6 left-6 opacity-20" style={{ color: user.nameColor }} />
-                           <p className="relative z-10 text-lg sm:text-xl italic leading-relaxed mt-6 mb-6" style={{ color: 'inherit' }}>"{q.text}"</p>
+                           <p className="relative z-10 text-lg sm:text-xl font-serif italic leading-relaxed mt-6 mb-6" style={{ color: 'inherit' }}>"{q.text}"</p>
                            <div className="flex justify-between items-center border-t pt-4" style={{ borderColor: 'rgba(150,150,150,0.2)' }}>
                               <span className="text-[10px] font-bold uppercase tracking-widest opacity-50 truncate mr-4" style={{ color: 'inherit' }}>{q.title}</span>
                               <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md shrink-0" style={{ color: user.nameColor, backgroundColor: 'rgba(150,150,150,0.1)' }}>{new Date(q.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
@@ -2019,7 +2205,7 @@ function App() {
           {view === 'wisdom' && (
             <div className="animate-slide-up space-y-8 no-print">
               <div className="text-center mb-8">
-                <h2 className="text-3xl font-bold mb-3" style={{ color: 'inherit' }}>Die 25 Säulen deines Vermächtnisses</h2>
+                <h2 className="text-3xl font-serif font-bold mb-3" style={{ color: 'inherit' }}>Die 25 Säulen deines Vermächtnisses</h2>
                 <p className="opacity-60 max-w-xl mx-auto" style={{ color: 'inherit' }}>Dieser Blueprint ist dein Wegweiser. Wähle eine Säule aus, um sie zu füllen. Zusammen ergeben sie das zeitloseste Bild deines Lebens für die Generationen, die nach dir kommen.</p>
               </div>
 
@@ -2074,13 +2260,13 @@ function App() {
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center animate-fade-in relative overflow-hidden p-6 no-print">
               {isBurning && <div className="absolute inset-0 bg-rose-500/20 animate-pulse z-0 rounded-3xl" />}
               <Icon name="flame" size={64} className={`mb-6 ${isBurning ? 'text-rose-500 animate-flame' : 'text-slate-400'}`} />
-              <h2 className="text-3xl font-bold mb-4 z-10" style={{ color: 'inherit' }}>Katharsis</h2>
+              <h2 className="text-3xl font-serif font-bold mb-4 z-10" style={{ color: 'inherit' }}>Katharsis</h2>
               <p className="opacity-70 mb-8 z-10 max-w-md" style={{ color: 'inherit' }}>Schreibe auf, was dich belastet, wovor du Angst hast oder was dich wütend macht. Danach übergeben wir es gemeinsam den Flammen. Es wird <b>nirgendwo</b> gespeichert.</p>
               <textarea 
                 value={burnText} 
                 onChange={e=>setBurnText(e.target.value)} 
                 disabled={isBurning} 
-                className="w-full max-w-lg p-6 rounded-[2rem] border-2 focus:border-rose-500 h-48 outline-none resize-none z-10 transition-all shadow-inner" 
+                className="w-full max-w-lg p-6 rounded-[2rem] border-2 focus:border-rose-500 h-48 outline-none resize-none z-10 transition-all shadow-inner font-serif text-lg" 
                 style={{ backgroundColor: 'rgba(150,150,150,0.05)', borderColor: 'rgba(244, 63, 94, 0.2)', color: 'inherit' }}
                 placeholder="Lass es hier los..." 
               />
@@ -2100,7 +2286,7 @@ function App() {
                  className="p-6 rounded-[2rem] shadow-sm border"
                  style={{ backgroundColor: user.appBgColor || (user.isDark ? '#1e293b' : '#ffffff'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
               >
-                <h2 className="text-lg font-bold mb-6 flex items-center gap-2" style={{ color: 'inherit' }}><Icon name="user" size={20} className="text-amber-500" /> Profil</h2>
+                <h2 className="text-lg font-bold mb-6 flex items-center gap-2 font-serif" style={{ color: 'inherit' }}><Icon name="user" size={20} className="text-amber-500" /> Profil</h2>
                 <div className="flex items-center gap-5 mb-6">
                   <div className="relative shrink-0">
                     <div className={`w-20 h-20 rounded-full overflow-hidden border-[3px] shadow-sm flex items-center justify-center`} style={{ borderColor: user.avatar ? user.nameColor : 'rgba(150,150,150,0.2)', backgroundColor: 'rgba(150,150,150,0.1)' }}>
@@ -2125,7 +2311,7 @@ function App() {
                  className="p-6 rounded-[2rem] shadow-sm border"
                  style={{ backgroundColor: user.appBgColor || (user.isDark ? '#1e293b' : '#ffffff'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
               >
-                <h2 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: 'inherit' }}><Icon name="sun" size={20} className="text-indigo-500" /> Erscheinungsbild</h2>
+                <h2 className="text-lg font-bold mb-4 flex items-center gap-2 font-serif" style={{ color: 'inherit' }}><Icon name="sun" size={20} className="text-indigo-500" /> Erscheinungsbild</h2>
                 
                 <div className="mb-6">
                   <span className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-2 block" style={{ color: 'inherit' }}>Modus</span>
@@ -2160,7 +2346,7 @@ function App() {
               </div>
 
               <div className="p-6 rounded-[2rem] shadow-sm border bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10">
-                <h2 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: user.nameColor }}><Icon name="key-round" size={20} /> Tresor PIN</h2>
+                <h2 className="text-lg font-bold mb-4 flex items-center gap-2 font-serif" style={{ color: user.nameColor }}><Icon name="key-round" size={20} /> Tresor PIN</h2>
                 {!user.pin ? (
                   <div>
                     <input type="password" inputMode="numeric" pattern="[0-9]*" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN (z.B. 4 Zahlen)" className="w-full p-4 rounded-xl border-none focus:ring-2 tracking-[0.5em] text-center text-xl mb-4 outline-none" style={{ backgroundColor: 'rgba(150,150,150,0.1)', '--tw-ring-color': user.nameColor, color: 'inherit' }} />
@@ -2271,7 +2457,7 @@ function App() {
                   <div className="p-3 text-white rounded-full shrink-0 shadow-md" style={{ backgroundColor: user.nameColor || '#f59e0b' }}><Icon name="history" size={24}/></div>
                   <div className="overflow-hidden">
                     <h4 className="font-bold text-xs uppercase tracking-widest mb-1" style={{ color: user.nameColor || '#f59e0b' }}>Heute vor {today.getFullYear() - new Date(timeMachineEntry.date).getFullYear()} {today.getFullYear() - new Date(timeMachineEntry.date).getFullYear() === 1 ? 'Jahr' : 'Jahren'}</h4>
-                    <p className="font-medium text-slate-900 dark:text-white truncate w-full text-lg">{timeMachineEntry.title}</p>
+                    <p className="font-medium text-slate-900 dark:text-white truncate w-full text-lg font-serif">{timeMachineEntry.title}</p>
                   </div>
                 </div>
               )}
@@ -2295,7 +2481,7 @@ function App() {
               {visibleEntries.length === 0 && view !== 'menu' && view !== 'settings' && !searchQuery && (
                 <div className="flex flex-col items-center justify-center py-32 text-center opacity-30 animate-fade-in" style={{ color: 'inherit' }}>
                   {view === 'vault' ? <Icon name="shield-check" size={64} className="mb-6"/> : view === 'archive' ? <Icon name="archive" size={64} className="mb-6"/> : <Icon name="book-open" size={64} className="mb-6"/>}
-                  <p className="text-xl font-bold">
+                  <p className="text-xl font-bold font-serif">
                     {view === 'vault' ? 'Tresor leer.' : view === 'archive' ? 'Archiv leer.' : 'Dein Buch ist noch leer.'}
                   </p>
                 </div>
@@ -2355,12 +2541,12 @@ function App() {
                         <div className="w-full relative overflow-hidden flex justify-center items-center min-h-[200px]" style={{ backgroundColor: 'rgba(150,150,150,0.1)' }}>
                           <img src={entry.image} alt="Vision" className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000" />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent z-10 pointer-events-none no-print" />
-                          <h3 className="absolute bottom-6 left-6 right-6 z-20 font-bold text-2xl text-white drop-shadow-md leading-snug line-clamp-2" dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
+                          <h3 className="absolute bottom-6 left-6 right-6 z-20 font-bold text-2xl text-white drop-shadow-md leading-snug line-clamp-2 font-serif" dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
                         </div>
                       )}
 
                       <div className="p-6 sm:p-8 flex-1 flex flex-col relative z-20">
-                        {!entry.image && <h3 className={`font-bold text-2xl leading-tight mb-4 line-clamp-2`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />}
+                        {!entry.image && <h3 className={`font-bold text-2xl leading-tight mb-4 line-clamp-2 font-serif`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />}
                         {entry.category === 'Weisheit' && <div className="mb-4 text-[10px] font-bold uppercase tracking-widest opacity-50 flex items-center gap-1 text-amber-500"><Icon name="book-open" size={12}/> Säule der Weisheit</div>}
 
                         {entry.text && (
@@ -2370,7 +2556,7 @@ function App() {
                         <div className={`flex flex-wrap items-center justify-between pt-4 border-t mt-auto ${isDarkTheme ? 'border-white/10' : 'border-black/10'}`}>
                           <div className="flex flex-col">
                             <span className={`text-[10px] font-bold uppercase tracking-widest opacity-60`}>
-                              {new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                              {new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}
                             </span>
                           </div>
                           <div className="flex gap-2 items-center opacity-60 no-print">
@@ -2490,7 +2676,7 @@ function App() {
                   </div>
                 )}
 
-                <input type="text" placeholder="Titel..." value={title || ''} onChange={(e) => { setTitle(e.target.value); isDirtyRef.current = true; }} className="w-full shrink-0 bg-transparent text-current text-3xl sm:text-5xl font-bold placeholder-current opacity-90 border-none focus:ring-0 p-0 focus:outline-none relative z-10" style={{ color: 'inherit', '::placeholder': { opacity: 0.3 } }} />
+                <input type="text" placeholder="Titel..." value={title || ''} onChange={(e) => { setTitle(e.target.value); isDirtyRef.current = true; }} className="w-full shrink-0 bg-transparent text-current text-3xl sm:text-5xl font-bold placeholder-current opacity-90 border-none focus:ring-0 p-0 focus:outline-none font-serif relative z-10" style={{ color: 'inherit', '::placeholder': { opacity: 0.3 } }} />
 
                 {!zenMode && (
                   <div className="flex gap-2 py-2 border-y border-current border-opacity-10 opacity-70 shrink-0">
