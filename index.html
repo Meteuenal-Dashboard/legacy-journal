@@ -21,7 +21,6 @@
   // ==========================================
   // HIER DEINEN BASE64-BILD-TEXT EINFÜGEN:
   // Base64 gekürzt für reibungslosen Code-Export.
-  // Füge deinen langen String hier lokal wieder ein.
   // ==========================================
   window.MY_CUSTOM_APP_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20'/%3E%3C/svg%3E";
   
@@ -176,10 +175,11 @@ html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
   /* Optimierte Bilddarstellung für den Druck ohne Verzerrung */
   img { 
     max-width: 100% !important;
-    height: auto !important;
+    max-height: 500px !important;
     object-fit: contain !important; /* Verhindert Verzerrung */
     margin-bottom: 2rem !important; 
     page-break-inside: avoid; 
+    border-radius: 0.5rem !important;
   }
   .viewer-gallery-container img {
     width: 100% !important;
@@ -202,7 +202,7 @@ const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } c
 
 // Helper zur Bereinigung von HTML-Eingaben
 const createSafeHtml = (htmlStr) => {
-    return { __html: window.DOMPurify ? window.DOMPurify.sanitize(htmlStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p'] }) : htmlStr };
+    return { __html: window.DOMPurify ? window.DOMPurify.sanitize(htmlStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3'] }) : htmlStr };
 };
 
 // --- Web Crypto API Helper ---
@@ -253,7 +253,6 @@ const decryptData = async (encryptedObj, pin) => {
         const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, cipher);
         return decHelper.decode(decrypted);
     } catch(e) { 
-        console.error("Wrong PIN or corrupted data");
         return null; 
     }
 };
@@ -390,8 +389,6 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
 };
 
-// ACHTUNG: Die Datenbank heißt exakt LegacyVisionDB und bleibt bei Version 3, 
-// damit deine alten Daten 1:1 wiedererkannt werden!
 const initDB = () => {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('LegacyVisionDB', 3);
@@ -407,9 +404,14 @@ const initDB = () => {
 function App() {
   const [db, setDb] = useState(null);
   const [entries, setEntries] = useState([]);
-  const [user, setUser] = useState({ name: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', testamentId: null, isDark: true, appBgColor: null });
+  const [user, setUser] = useState({ name: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', testamentId: null, isDark: true, appBgColor: null, cloudSync: false });
   const [view, setView] = useState('loading');
   const [isLoaded, setIsLoaded] = useState(false);
+
+  // Firebase / Cloud Sync State
+  const [fb, setFb] = useState(null);
+  const [syncingCloud, setSyncingCloud] = useState(false);
+  const hasSyncedRef = useRef(false);
 
   // P2P State
   const [peerId, setPeerId] = useState(null);
@@ -429,12 +431,12 @@ function App() {
   const [installHint, setInstallHint] = useState('');
 
   const [viewingEntry, setViewingEntry] = useState(null);
-  const [currentViewerImgIdx, setCurrentViewerImgIdx] = useState(0); // State für Galerie-Index
+  const [currentViewerImgIdx, setCurrentViewerImgIdx] = useState(0);
   const [showEditor, setShowEditor] = useState(false);
-  const [showTimeline, setShowTimeline] = useState(false); // NEU: Timeline / Zeitreise Modus
-  const [timelineMonth, setTimelineMonth] = useState(() => new Date()); // Für den Kalender
-  const [timelineSearchQuery, setTimelineSearchQuery] = useState(''); // Für die Lupe in der Zeitreise
-  const [timelineSelectedDate, setTimelineSelectedDate] = useState(null); // Für Klick auf einen Kalendertag
+  const [showTimeline, setShowTimeline] = useState(false);
+  const [timelineMonth, setTimelineMonth] = useState(() => new Date()); 
+  const [timelineSearchQuery, setTimelineSearchQuery] = useState(''); 
+  const [timelineSelectedDate, setTimelineSelectedDate] = useState(null); 
   
   const [affirmation, setAffirmation] = useState(null);
 
@@ -454,7 +456,7 @@ function App() {
   const [title, setTitle] = useState('');
   const [text, setText] = useState(''); 
   const [selectedColor, setSelectedColor] = useState(COLORS[8]);
-  const [selectedImages, setSelectedImages] = useState([]); // State geändert von selectedImage auf selectedImages Array
+  const [selectedImages, setSelectedImages] = useState([]); 
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [isLocked, setIsLocked] = useState(false);
   const [audioUrl, setAudioUrl] = useState(null);
@@ -480,7 +482,6 @@ function App() {
   const editorRef = useRef(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState('');
   
-  // Wächter für sauberes Speichern (verhindert Endlosschleifen)
   const isDirtyRef = useRef(false);
   const savedDataRef = useRef("");
   
@@ -489,7 +490,7 @@ function App() {
       title, 
       text: editorRef.current ? editorRef.current.innerHTML : text, 
       c: selectedColor, 
-      images: selectedImages.map(img => img.substring(0, 50)), // dirty check für images array
+      images: selectedImages.map(img => img.substring(0, 50)), 
       v: selectedVideo ? selectedVideo.substring(0, 50) : null,
       a: audioUrl ? audioUrl.substring(0, 50) : null,
       l: isLocked, 
@@ -507,35 +508,10 @@ function App() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // --- KI Orakel State ---
-  const [oracleInsight, setOracleInsight] = useState(null);
-  const [isOracleLoading, setIsOracleLoading] = useState(false);
-
-  const generateOracleInsight = async () => {
-    setIsOracleLoading(true);
-    try {
-      const recentEntries = entries.slice(0, 5).map(e => e.title + " " + e.text).join('\n').substring(0, 2000);
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: "Lies diese kurzen Tagebuchauszüge und formuliere eine einzige, tiefe, philosophische Frage für den Nutzer, die ihn zum Nachdenken anregt. Halte es kurz, mystisch und tiefgründig. Einträge:\n" + recentEntries }] }]
-        })
-      });
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      setOracleInsight(text || 'Die Sterne schweigen heute. Frage dich selbst: Was vermeidest du gerade?');
-    } catch(e) {
-      setOracleInsight('Das Orakel ist momentan verschleiert. Blicke nach innen.');
-    }
-    setIsOracleLoading(false);
-  };
-
   const viewRef = useRef(view);
   const editorRefState = useRef(showEditor);
   const viewingEntryRef = useRef(viewingEntry);
   
-  // Wächter-Refs für den Zurück-Button
   const editingIdRef = useRef(editingId);
   const entriesRef = useRef(entries);
 
@@ -544,13 +520,192 @@ function App() {
   useEffect(() => { viewingEntryRef.current = viewingEntry; }, [viewingEntry]);
   useEffect(() => { editingIdRef.current = editingId; }, [editingId]);
   useEffect(() => { entriesRef.current = entries; }, [entries]);
-  useEffect(() => { setCurrentViewerImgIdx(0); }, [viewingEntry]); // Galerie-Index zurücksetzen bei neuem Eintrag
+  useEffect(() => { setCurrentViewerImgIdx(0); }, [viewingEntry]);
 
-  // ARCHITEKTUR-UPDATE: Dynamisches PWA Icon, das sich sofort ändert, wenn der User sein Profilbild anpasst.
+  // Firebase Setup
+  useEffect(() => {
+    const initFB = async () => {
+       try {
+          if (typeof __firebase_config === 'undefined') return;
+          const config = JSON.parse(__firebase_config);
+          const { initializeApp } = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js');
+          const { getAuth, signInWithCustomToken, signInAnonymously } = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js');
+          const { getFirestore, collection, doc, setDoc, deleteDoc, getDocs, getDoc } = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
+          
+          const app = initializeApp(config);
+          const auth = getAuth(app);
+          const firestoreDb = getFirestore(app);
+          
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+             await signInWithCustomToken(auth, __initial_auth_token);
+          } else {
+             await signInAnonymously(auth);
+          }
+          setFb({ db: firestoreDb, auth, doc, setDoc, deleteDoc, getDocs, getDoc, collection });
+       } catch(e) { console.error("Firebase Init Error", e); }
+    };
+    initFB();
+  }, []);
+
+  const syncSingleEntryToCloud = async (entry) => {
+      if (!fb || !fb.auth.currentUser || !user.cloudSync || !user.pin) return;
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'legacy-vision';
+      const userId = fb.auth.currentUser.uid;
+      try {
+          const payload = JSON.stringify(entry);
+          const encrypted = await encryptData(payload, user.pin);
+          if (encrypted) {
+              if (encrypted.cipher.length > 900000) {
+                  setAutoSaveStatus('Warnung: Zu groß für Cloud!');
+                  setTimeout(() => setAutoSaveStatus(''), 4000);
+                  return;
+              }
+              const docRef = fb.doc(fb.db, 'artifacts', appId, 'users', userId, 'entries', entry.id);
+              await fb.setDoc(docRef, { id: entry.id, encryptedData: encrypted, timestamp: Date.now() });
+          }
+      } catch(e) { console.error("Cloud Save Error", e); }
+  };
+
+  const deleteSingleEntryFromCloud = async (id) => {
+      if (!fb || !fb.auth.currentUser || !user.cloudSync) return;
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'legacy-vision';
+      const userId = fb.auth.currentUser.uid;
+      try {
+          const docRef = fb.doc(fb.db, 'artifacts', appId, 'users', userId, 'entries', id);
+          await fb.deleteDoc(docRef);
+      } catch(e) { console.error("Cloud Delete Error", e); }
+  };
+
+  const syncProfileToCloud = async (userData) => {
+      if (!fb || !fb.auth.currentUser || !userData.cloudSync || !userData.pin) return;
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'legacy-vision';
+      const userId = fb.auth.currentUser.uid;
+      try {
+          const payload = JSON.stringify(userData);
+          const encrypted = await encryptData(payload, userData.pin);
+          if (encrypted) {
+              const docRef = fb.doc(fb.db, 'artifacts', appId, 'users', userId, 'profile', 'data');
+              await fb.setDoc(docRef, { encryptedData: encrypted, timestamp: Date.now() });
+          }
+      } catch(e) {}
+  };
+
+  const performCloudSync = async () => {
+      if (!fb || !fb.auth.currentUser) return;
+      if (!user.pin) {
+          showDialog({ title: 'PIN fehlt', message: 'Bitte lege zuerst deine Tresor-PIN fest, um die Daten zu entschlüsseln.', icon: 'lock' });
+          return;
+      }
+
+      setSyncingCloud(true);
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'legacy-vision';
+      const userId = fb.auth.currentUser.uid;
+
+      try {
+          // Restore Profile
+          try {
+              const profileRef = fb.doc(fb.db, 'artifacts', appId, 'users', userId, 'profile', 'data');
+              const profileSnap = await fb.getDoc(profileRef);
+              if (profileSnap.exists()) {
+                  const profileData = profileSnap.data();
+                  if (profileData.encryptedData) {
+                      const decProfile = await decryptData(profileData.encryptedData, user.pin);
+                      if (decProfile) {
+                          const parsedProfile = JSON.parse(decProfile);
+                          setUser({ ...user, ...parsedProfile, cloudSync: true });
+                      }
+                  }
+              }
+          } catch(e) {}
+
+          // Restore Entries
+          const cloudRef = fb.collection(fb.db, 'artifacts', appId, 'users', userId, 'entries');
+          const cloudSnap = await fb.getDocs(cloudRef);
+          
+          const cloudEntries = [];
+          cloudSnap.forEach(doc => cloudEntries.push(doc.data()));
+          
+          if (cloudEntries.length === 0) {
+              showDialog({ title: 'Cloud leer', message: 'Es wurden keine Einträge in der Cloud gefunden.', icon: 'cloud-off' });
+              setSyncingCloud(false);
+              return;
+          }
+
+          let recoveredCount = 0;
+          let failedDecrypt = 0;
+          const tx = db.transaction('entries', 'readwrite');
+          const store = tx.objectStore('entries');
+
+          for (let cloudDoc of cloudEntries) {
+              if (cloudDoc.encryptedData) {
+                  try {
+                      const decryptedStr = await decryptData(cloudDoc.encryptedData, user.pin);
+                      if (decryptedStr) {
+                          const parsed = JSON.parse(decryptedStr);
+                          
+                          let dbItem = { ...parsed };
+                          if (dbItem.locked) {
+                              const payload = JSON.stringify({ text: dbItem.text || '', title: dbItem.title || '' });
+                              dbItem.encryptedData = await encryptData(payload, user.pin);
+                              dbItem.text = '';
+                              dbItem.title = 'Verschlüsselter Eintrag';
+                          }
+                          store.put(dbItem);
+                          recoveredCount++;
+                      } else {
+                          failedDecrypt++;
+                      }
+                  } catch(e) { failedDecrypt++; }
+              }
+          }
+
+          tx.oncomplete = () => {
+              const readTx = db.transaction('entries', 'readonly');
+              const req = readTx.objectStore('entries').getAll();
+              req.onsuccess = async () => {
+                  let loadedEntries = req.result || [];
+                  loadedEntries = loadedEntries.map(e => ({ ...e, images: e.images || (e.image ? [e.image] : []) }));
+                  if (user.pin) {
+                      loadedEntries = await Promise.all(loadedEntries.map(async (e) => {
+                          if (e.locked && e.encryptedData) {
+                              const decStr = await decryptData(e.encryptedData, user.pin);
+                              if (decStr) {
+                                  try {
+                                      const parsed = JSON.parse(decStr);
+                                      return { ...e, text: parsed.text, title: parsed.title };
+                                  } catch(err){}
+                              }
+                          }
+                          return e;
+                      }));
+                  }
+                  setEntries(loadedEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)));
+                  
+                  if (failedDecrypt > 0) {
+                      showDialog({ title: 'Entschlüsselung unvollständig', message: `${failedDecrypt} Einträge konnten nicht geladen werden. Hast du auf dem alten Gerät eine andere PIN verwendet? Ändere die PIN entsprechend und versuche es erneut.`, icon: 'shield-alert', iconColor: 'text-rose-500' });
+                  } else {
+                      showDialog({ title: 'Wiederhergestellt', message: `${recoveredCount} Einträge wurden erfolgreich aus der sicheren Cloud geladen und entschlüsselt.`, icon: 'check', iconColor: 'text-emerald-500' });
+                  }
+              }
+          };
+      } catch(e) {
+          showDialog({ title: 'Verbindungsfehler', message: 'Die Cloud konnte nicht erreicht werden.', icon: 'wifi-off', iconColor: 'text-rose-500' });
+      } finally {
+          setSyncingCloud(false);
+          hasSyncedRef.current = true;
+      }
+  };
+
+  useEffect(() => {
+      if (fb && isLoaded && user.cloudSync && user.pin && !hasSyncedRef.current) {
+          // performCloudSync(); // Disabled automatic pull on every refresh to prevent overwriting local edits if offline. Rely on manual restore for new devices.
+      }
+  }, [fb, isLoaded, user.cloudSync, user.pin]);
+
+  // PWA Icon Sync
   useEffect(() => {
     const manifestEl = document.getElementById('dynamic-manifest');
     if (manifestEl) {
-      // Nutze das User-Avatar, falls vorhanden. WICHTIG: Das Icon muss im Browser neu zum Homescreen hinzugefügt werden!
       const iconSrc = user.avatar || window.MY_CUSTOM_APP_ICON || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20'/%3E%3C/svg%3E";
       const manifestObj = {
         "name": "Legacy Vision",
@@ -562,7 +717,7 @@ function App() {
         "icons": [{
           "src": iconSrc,
           "sizes": "512x512",
-          "type": user.avatar ? "image/jpeg" : "image/svg+xml" // Korrekter Mime-Type für Base64 Avatar
+          "type": user.avatar ? "image/jpeg" : "image/svg+xml"
         }]
       };
       const manifestUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifestObj));
@@ -591,7 +746,6 @@ function App() {
                  const pinToUse = parsed.user ? parsed.user.pin : user.pin;
                  const entriesToSave = await Promise.all(parsed.entries.map(async (e) => {
                      let dbE = { ...e };
-                     // Kompatibilität: Einzelbild zu Bilder-Array migrieren falls nötig
                      dbE.images = dbE.images || (dbE.image ? [dbE.image] : []);
                      if (dbE.locked && pinToUse) {
                          const payload = JSON.stringify({ text: dbE.text || '', title: dbE.title || '' });
@@ -636,7 +790,6 @@ function App() {
 
   const showDialog = (options) => { setDialog({ type: 'alert', confirmLabel: 'Verstanden', ...options }); };
 
-  // ARCHITEKTUR-UPDATE: Zentrale Schließ-Funktion, die IMMER zurück in den Lese-Modus springt
   const closeEditor = (savedEntry = null) => {
     setShowEditor(false);
     if (isRecording) stopRecording();
@@ -687,7 +840,7 @@ function App() {
   useEffect(() => {
     const loadApp = async () => {
       try {
-        let currentUser = { name: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', testamentId: null, isDark: true, appBgColor: null };
+        let currentUser = { name: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', testamentId: null, isDark: true, appBgColor: null, cloudSync: false };
         
         const database = await initDB();
         setDb(database);
@@ -709,7 +862,6 @@ function App() {
               const pinToUse = currentUser.pin;
               const entriesToSave = await Promise.all(injectedEntries.map(async (e) => {
                  let dbE = { ...e };
-                 // Kompatibilität: Einzelbild zu Bilder-Array migrieren falls nötig
                  dbE.images = dbE.images || (dbE.image ? [dbE.image] : []);
                  if (dbE.locked && pinToUse) {
                      const payload = JSON.stringify({ text: dbE.text || '', title: dbE.title || '' });
@@ -745,13 +897,11 @@ function App() {
         request.onsuccess = async () => {
           let loadedEntries = request.result || [];
           
-          // Kompatibilität: Einzelbild zu Bilder-Array migrieren falls nötig
           loadedEntries = loadedEntries.map(e => ({
             ...e,
-            images: e.images || (e.image ? [e.image] : []) // Migriere intern Einzelbild zu Liste
+            images: e.images || (e.image ? [e.image] : [])
           }));
 
-          // CRYPTO-UPDATE: Datenbank-Inhalte in den Speicher laden & entschlüsseln
           if (currentUser.pin) {
               loadedEntries = await Promise.all(loadedEntries.map(async (e) => {
                   if (e.locked && e.encryptedData) {
@@ -802,7 +952,7 @@ function App() {
                 setTitle(eEntry.title || ''); 
                 setText(eEntry.text || '');
                 setSelectedColor(eEntry.color || (currentUser.isDark ? COLORS[8] : COLORS[0]));
-                setSelectedImages(eEntry.images || (eEntry.image ? [eEntry.image] : [])); // Bilder laden
+                setSelectedImages(eEntry.images || (eEntry.image ? [eEntry.image] : []));
                 setSelectedVideo(eEntry.video || null);
                 setIsLocked(eEntry.locked || false); setAudioUrl(eEntry.audio || null);
                 setIsManifested(eEntry.manifested || false); setUnlockDate(eEntry.unlockDate || '');
@@ -841,7 +991,10 @@ function App() {
   };
 
   useEffect(() => {
-    if (isLoaded) safeStorageSet('legacy_user', JSON.stringify(user));
+    if (isLoaded) {
+        safeStorageSet('legacy_user', JSON.stringify(user));
+        if (user.cloudSync) syncProfileToCloud(user);
+    }
     const metaThemeColor = document.getElementById("meta-theme-color");
     
     if (user.appBgColor) {
@@ -906,7 +1059,6 @@ function App() {
       const voices = window.speechSynthesis.getVoices();
       const germanVoices = voices.filter(v => v.lang.startsWith('de'));
       
-      // Bevorzugt Kore (falls lokal vorhanden), ansonsten eine männliche/neutrale Stimme, um die typische Standard-Frauenstimme zu umgehen
       const voice = germanVoices.find(v => v.name.includes('Kore')) || 
                     germanVoices.find(v => v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('männlich') || v.name.includes('Premium')) || 
                     germanVoices[0] || voices[0];
@@ -917,7 +1069,6 @@ function App() {
     }
   };
 
-  // ARCHITEKTUR-UPDATE: Helfer für das Behandeln kompletter Bücher anstatt einzelner Seiten
   const getBookRootId = (tempEntries, startId) => {
       let current = tempEntries.find(e => e.id === startId);
       let safeGuard = 0;
@@ -959,29 +1110,28 @@ function App() {
     const activePin = forcePin || user.pin;
     let dbEntry = { ...entry };
     
-    // CRYPTO-UPDATE: Automatisches Verschlüsseln vor dem Wegschreiben in die DB
     try {
         if (dbEntry.locked && activePin) {
             const payload = JSON.stringify({ text: dbEntry.text || '', title: dbEntry.title || '' });
             dbEntry.encryptedData = await encryptData(payload, activePin);
-            dbEntry.text = ''; // Lösche Klartext aus der DB-Version
+            dbEntry.text = ''; 
             dbEntry.title = 'Verschlüsselter Eintrag';
         } else if (!dbEntry.locked) {
-            dbEntry.encryptedData = null; // Sicherstellen, dass ungeschützte Einträge sauber sind
+            dbEntry.encryptedData = null; 
         }
     } catch(e) { console.error("Encryption error", e); }
 
     try {
       if (db) {
         const tx = db.transaction('entries', 'readwrite');
-        tx.objectStore('entries').put(dbEntry); // Verschlüsselt ablegen
+        tx.objectStore('entries').put(dbEntry); 
         tx.oncomplete = () => {
           setEntries(prev => {
-            // Im React-Speicher (entries) bleibt die Klartext-Version für nahtlose UX!
             const exists = prev.find(e => e.id === entry.id);
             if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
             return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
           });
+          syncSingleEntryToCloud(entry);
         };
       } else {
         setEntries(prev => {
@@ -998,7 +1148,6 @@ function App() {
     saveToDB(updatedEntry);
   };
 
-  // ARCHITEKTUR-UPDATE: Zuverlässige Speichern- & Zurück-Logik mit absolut sicherem Fallback
   const checkSaveEntry = (closeAndRead = false) => {
     try {
         const entryId = editingId || generateId();
@@ -1006,15 +1155,12 @@ function App() {
         const currentText = editorRef.current ? editorRef.current.innerHTML : (text || '');
         const titleSafe = title || '';
         
-        // Hat der Nutzer irgendwas eingegeben (inklusive Datum oder Stimmung)?
         const isEmpty = !titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && (!selectedImages || selectedImages.length === 0) && !selectedVideo && !audioUrl && !unlockDate && !mood;
         
         if (isEmpty && closeAndRead) {
           if (!editingId) {
-             // Komplett neue Seite, die leer gelassen wurde -> komplett verwerfen und ins Dashboard
              closeEditor(null); 
           } else {
-             // Bestehender Eintrag, der leer gemacht wurde -> in Leseansicht zurück
              closeEditor(foundEntry);
           }
           return;
@@ -1023,7 +1169,7 @@ function App() {
         const newEntry = {
           id: entryId,
           title: titleSafe || 'Neue Seite', text: currentText, color: selectedColor,
-          images: selectedImages, // Speichert das Array der Bilder
+          images: selectedImages,
           video: selectedVideo, audio: audioUrl,
           locked: isLocked, archived: false, manifested: isManifested,
           unlockDate, unlockLocation, type: entryType, category, mood, location, parentId, inheritedFrom,
@@ -1034,7 +1180,7 @@ function App() {
         saveToDB(newEntry);
         
         if (closeAndRead) {
-          closeEditor(newEntry); // Nutzer wird in die Ansicht des gespeicherten Eintrags zurückgebracht!
+          closeEditor(newEntry); 
         } else {
           setEditingId(entryId);
           setAutoSaveStatus('Manuell gespeichert ✔');
@@ -1068,7 +1214,6 @@ function App() {
     setText(e.currentTarget.innerHTML);
   };
   
-  // ARCHITEKTUR-UPDATE: Sichere Pfeil-Zurück Funktionen, die sofort und ohne Crash agieren
   const handleEditorBack = (e) => {
       if (e) e.stopPropagation();
       checkSaveEntry(true);
@@ -1092,7 +1237,6 @@ function App() {
     }
   }, [showEditor, editingId]); 
 
-  // ARCHITEKTUR-UPDATE: Stabiles Auto-Save, das das komplette Buch beim Tresor-Klick verschlüsselt!
   useEffect(() => {
     if (!showEditor || view === 'burn') return;
     
@@ -1116,7 +1260,6 @@ function App() {
       
       if (!editingId) setEditingId(currentEntry.id);
       
-      // Das Buch-Konzept: Wenn eine Seite gesperrt/entsperrt wird, wende es auf das GANZE Buch an.
       const tempEntries = [...entries];
       const existingIdx = tempEntries.findIndex(e => e.id === currentEntry.id);
       if (existingIdx > -1) tempEntries[existingIdx] = currentEntry;
@@ -1136,11 +1279,10 @@ function App() {
       const bookEntriesToUpdate = bookIds.map(id => {
           if(id === currentEntry.id) return currentEntry;
           const existing = tempEntries.find(e => e.id === id);
-          return { ...existing, locked: isLocked }; // Vererbe den Tresor-Status auf das GANZE Buch
+          return { ...existing, locked: isLocked }; 
       });
 
       if (db) {
-        // CRYPTO-UPDATE: Komplettes Buch massen-verschlüsseln
         const dbEntries = await Promise.all(bookEntriesToUpdate.map(async (e) => {
             let dbE = { ...e };
             if (dbE.locked && user.pin) {
@@ -1172,6 +1314,8 @@ function App() {
           });
           setAutoSaveStatus('Gespeichert');
           setTimeout(() => setAutoSaveStatus(''), 2000);
+          
+          bookEntriesToUpdate.forEach(e => syncSingleEntryToCloud(e));
         };
       }
     }, 2000);
@@ -1247,7 +1391,6 @@ function App() {
     if (type === 'image') {
       const MAX_SIZE = 1200; 
       
-      // Warteraum für die verarbeiteten Base64 Bilder
       const processedImagesPromises = files.map(file => {
           return new Promise((resolve) => {
               const reader = new FileReader();
@@ -1276,14 +1419,13 @@ function App() {
           });
       });
 
-      // Warte bis alle Bilder verarbeitet sind, dann füge sie dem Array hinzu
       Promise.all(processedImagesPromises).then(base64Images => {
           setSelectedImages(prev => [...prev, ...base64Images]);
           setSelectedVideo(null); 
           isDirtyRef.current = true;
       });
     }
-    e.target.value = null; // Reset input
+    e.target.value = null; 
   };
 
   const handleAudioUpload = (e) => {
@@ -1396,7 +1538,6 @@ function App() {
             const pinToUse = data.user ? data.user.pin : user.pin;
             const entriesToSave = await Promise.all(data.entries.map(async (e) => {
                let dbE = { ...e };
-               // Kompatibilität: Einzelbild zu Bilder-Array migrieren falls nötig
                dbE.images = dbE.images || (dbE.image ? [dbE.image] : []);
                if (e.locked && pinToUse) {
                    const payload = JSON.stringify({ text: dbE.text || '', title: dbE.title || '' });
@@ -1418,10 +1559,9 @@ function App() {
             const req = store.getAll();
             req.onsuccess = async () => {
               let loadedEntries = req.result || [];
-              // Kompatibilität: Einzelbild zu Bilder-Array migrieren falls nötig
               loadedEntries = loadedEntries.map(e => ({
                 ...e,
-                images: e.images || (e.image ? [e.image] : []) // Migriere intern Einzelbild zu Liste
+                images: e.images || (e.image ? [e.image] : []) 
               }));
               if (user.pin) {
                   loadedEntries = await Promise.all(loadedEntries.map(async (e) => {
@@ -1451,7 +1591,10 @@ function App() {
     if (!db) return;
     const tx = db.transaction('entries', 'readwrite');
     tx.objectStore('entries').delete(id);
-    tx.oncomplete = () => setEntries(prev => prev.filter(e => e.id !== id));
+    tx.oncomplete = () => {
+        setEntries(prev => prev.filter(e => e.id !== id));
+        deleteSingleEntryFromCloud(id);
+    };
   };
 
   const startRecording = async () => {
@@ -1492,7 +1635,7 @@ function App() {
       }
       setText(initialText); 
       setSelectedColor(entry.color); 
-      setSelectedImages(entry.images || (entry.image ? [entry.image] : [])); // Bilder laden
+      setSelectedImages(entry.images || (entry.image ? [entry.image] : [])); 
       setSelectedVideo(entry.video);
       setIsLocked(entry.locked || false); 
       setAudioUrl(entry.audio); 
@@ -1532,7 +1675,6 @@ function App() {
 
   const startNewChapter = (parent) => {
     isDirtyRef.current = false;
-    // Neue Seite erbt automatisch den Tresor-Schutz vom Buch!
     const isParentLocked = parent.locked || false; 
     setViewingEntry(null);
     setEditingId(null); 
@@ -1540,7 +1682,7 @@ function App() {
     setText('');
     setSelectedColor(user.isDark ? COLORS[8] : COLORS[1]);
     setSelectedImages([]); setSelectedVideo(null); 
-    setIsLocked(isParentLocked); // <--- HIER: Neues Kapitel ist automatisch verschlüsselt, wenn das Buch verschlüsselt ist.
+    setIsLocked(isParentLocked); 
     setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setUnlockLocation(null);
     setEntryType('vision'); setCategory(parent.category || CATEGORIES[0]);
     setMood(null); setLocation(null); 
@@ -1587,7 +1729,6 @@ function App() {
     setUnlockTarget(entry); setPinInput(''); setPinError(false);
   };
 
-  // ARCHITEKTUR-UPDATE: Erlaubt das Öffnen und Bearbeiten des GESAMTEN Buches im Tresor!
   const submitPin = () => {
     if (pinInput === user.pin) { 
       handleBookClick(unlockTarget); 
@@ -1614,7 +1755,6 @@ function App() {
 
   const now = new Date();
   
-  // PERFORMANCE-UPDATE: Memoization
   const visibleEntries = useMemo(() => {
     return entries.filter(e => {
       const q = searchQuery.toLowerCase();
@@ -1639,8 +1779,7 @@ function App() {
       if (!text) return { __html: '' };
       let safeText = text.replace(/<img[^>]*>/g, '[Bild]');
       
-      // XSS-Schutz mit DOMPurify
-      safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p'] }) : safeText;
+      safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3'] }) : safeText;
       
       if (!query) return { __html: safeText };
       const plainText = safeText.replace(/<[^>]*>?/gm, '');
@@ -1653,7 +1792,6 @@ function App() {
       return { __html: highlighted };
   };
 
-  // ARCHITEKTUR-UPDATE: Exakte Extraktion aller als Zitat/Spruch markierten Texte
   const allQuotes = useMemo(() => {
      if (view !== 'quotes') return [];
      let quotes = [];
@@ -1671,7 +1809,6 @@ function App() {
      return quotes.sort((a,b) => new Date(b.date) - new Date(a.date));
   }, [entries, view]);
 
-  // --- Heatmap Data ---
   const heatmapData = useMemo(() => {
     return Array.from({ length: 30 }).map((_, i) => {
       const d = new Date();
@@ -1682,13 +1819,11 @@ function App() {
     });
   }, [entries]);
 
-  // Zeitreise Kalender Helfer
   const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
   const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
 
   const today = new Date();
   
-  // PERFORMANCE-UPDATE: Memoization
   const timeMachineEntry = useMemo(() => {
     const todayStr = today.getDate() + '-' + today.getMonth();
     const match = entries.find(e => {
@@ -2230,13 +2365,13 @@ function App() {
              return (
                <div className="animate-slide-up space-y-6 no-print">
                  <div className="text-center mb-10">
-                   <h2 className="text-3xl font-bold mb-3" style={{ color: 'inherit' }}>Deine Erkenntnisse</h2>
+                   <h2 className="text-3xl font-serif font-bold mb-3" style={{ color: 'inherit' }}>Deine Erkenntnisse</h2>
                    <p className="opacity-60 max-w-xl mx-auto" style={{ color: 'inherit' }}>Alle von dir hervorgehobenen Zitate und Gedanken, gesammelt aus der Tiefe deines Journals.</p>
                  </div>
                  {allQuotes.length === 0 ? (
                    <div className="text-center opacity-30 py-20" style={{ color: 'inherit' }}>
                      <Icon name="quote" size={64} className="mx-auto mb-4" />
-                     <p className="text-lg font-bold">Noch keine Erkenntnisse markiert.</p>
+                     <p className="font-serif text-lg font-bold">Noch keine Erkenntnisse markiert.</p>
                      <p className="text-sm">Nutze das Anführungszeichen (Zitieren) im Editor.</p>
                    </div>
                  ) : (
@@ -2249,7 +2384,7 @@ function App() {
                            style={{ backgroundColor: user.appBgColor || (user.isDark ? '#0f172a' : '#ffffff'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
                         >
                            <Icon name="quote" size={24} className="absolute top-6 left-6 opacity-20" style={{ color: user.nameColor }} />
-                           <p className="relative z-10 text-lg sm:text-xl italic leading-relaxed mt-6 mb-6" style={{ color: 'inherit' }}>"{q.text}"</p>
+                           <p className="relative z-10 text-lg sm:text-xl font-serif italic leading-relaxed mt-6 mb-6" style={{ color: 'inherit' }}>"{q.text}"</p>
                            <div className="flex justify-between items-center border-t pt-4" style={{ borderColor: 'rgba(150,150,150,0.2)' }}>
                               <span className="text-[10px] font-bold uppercase tracking-widest opacity-50 truncate mr-4" style={{ color: 'inherit' }}>{q.title}</span>
                               <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md shrink-0" style={{ color: user.nameColor, backgroundColor: 'rgba(150,150,150,0.1)' }}>{new Date(q.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
@@ -2290,7 +2425,7 @@ function App() {
           {view === 'wisdom' && (
             <div className="animate-slide-up space-y-8 no-print">
               <div className="text-center mb-8">
-                <h2 className="text-3xl font-bold mb-3" style={{ color: 'inherit' }}>Die 25 Säulen deines Vermächtnisses</h2>
+                <h2 className="text-3xl font-serif font-bold mb-3" style={{ color: 'inherit' }}>Die 25 Säulen deines Vermächtnisses</h2>
                 <p className="opacity-60 max-w-xl mx-auto" style={{ color: 'inherit' }}>Dieser Blueprint ist dein Wegweiser. Wähle eine Säule aus, um sie zu füllen. Zusammen ergeben sie das zeitloseste Bild deines Lebens für die Generationen, die nach dir kommen.</p>
               </div>
 
@@ -2345,13 +2480,13 @@ function App() {
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center animate-fade-in relative overflow-hidden p-6 no-print">
               {isBurning && <div className="absolute inset-0 bg-rose-500/20 animate-pulse z-0 rounded-3xl" />}
               <Icon name="flame" size={64} className={`mb-6 ${isBurning ? 'text-rose-500 animate-flame' : 'text-slate-400'}`} />
-              <h2 className="text-3xl font-bold mb-4 z-10" style={{ color: 'inherit' }}>Katharsis</h2>
+              <h2 className="text-3xl font-serif font-bold mb-4 z-10" style={{ color: 'inherit' }}>Katharsis</h2>
               <p className="opacity-70 mb-8 z-10 max-w-md" style={{ color: 'inherit' }}>Schreibe auf, was dich belastet, wovor du Angst hast oder was dich wütend macht. Danach übergeben wir es gemeinsam den Flammen. Es wird <b>nirgendwo</b> gespeichert.</p>
               <textarea 
                 value={burnText} 
                 onChange={e=>setBurnText(e.target.value)} 
                 disabled={isBurning} 
-                className="w-full max-w-lg p-6 rounded-[2rem] border-2 focus:border-rose-500 h-48 outline-none resize-none z-10 transition-all shadow-inner text-lg" 
+                className="w-full max-w-lg p-6 rounded-[2rem] border-2 focus:border-rose-500 h-48 outline-none resize-none z-10 transition-all shadow-inner font-serif text-lg" 
                 style={{ backgroundColor: 'rgba(150,150,150,0.05)', borderColor: 'rgba(244, 63, 94, 0.2)', color: 'inherit' }}
                 placeholder="Lass es hier los..." 
               />
@@ -2371,7 +2506,7 @@ function App() {
                  className="p-6 rounded-[2rem] shadow-sm border"
                  style={{ backgroundColor: user.appBgColor || (user.isDark ? '#1e293b' : '#ffffff'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
               >
-                <h2 className="text-lg font-bold mb-6 flex items-center gap-2" style={{ color: 'inherit' }}><Icon name="user" size={20} className="text-amber-500" /> Profil</h2>
+                <h2 className="text-lg font-bold mb-6 flex items-center gap-2 font-serif" style={{ color: 'inherit' }}><Icon name="user" size={20} className="text-amber-500" /> Profil</h2>
                 <div className="flex items-center gap-5 mb-6">
                   <div className="relative shrink-0">
                     <div className={`w-20 h-20 rounded-full overflow-hidden border-[3px] shadow-sm flex items-center justify-center`} style={{ borderColor: user.avatar ? user.nameColor : 'rgba(150,150,150,0.2)', backgroundColor: 'rgba(150,150,150,0.1)' }}>
@@ -2396,7 +2531,7 @@ function App() {
                  className="p-6 rounded-[2rem] shadow-sm border"
                  style={{ backgroundColor: user.appBgColor || (user.isDark ? '#1e293b' : '#ffffff'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
               >
-                <h2 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: 'inherit' }}><Icon name="sun" size={20} className="text-indigo-500" /> Erscheinungsbild</h2>
+                <h2 className="text-lg font-bold mb-4 flex items-center gap-2 font-serif" style={{ color: 'inherit' }}><Icon name="sun" size={20} className="text-indigo-500" /> Erscheinungsbild</h2>
                 
                 <div className="mb-6">
                   <span className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-2 block" style={{ color: 'inherit' }}>Modus</span>
@@ -2420,7 +2555,7 @@ function App() {
                       <button type="button"
                         key={c} 
                         onClick={() => setUser({...user, appBgColor: c})} 
-                        className={`w-10 h-10 rounded-full border-2 shrink-0 flex items-center justify-center transition-transform ${user.appBgColor === c ? 'scale-110 border-current z-10' : 'border-transparent shadow-sm opacity-50 hover:opacity-100'}`} 
+                        className={`w-10 h-10 rounded-full border-2 shrink-0 flex items-center justify-center transition-transform ${user.appBgColor === c ? 'scale-110 border-current z-10' : 'border-transparent shadow-sm opacity-50 hover:opacity-100 hover:scale-105'}`} 
                         style={{ backgroundColor: c, color: isDarkColor(c) ? '#ffffff' : '#000000' }}
                       >
                         {user.appBgColor === c && <Icon name="check" size={16} />}
@@ -2431,7 +2566,7 @@ function App() {
               </div>
 
               <div className="p-6 rounded-[2rem] shadow-sm border bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10">
-                <h2 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: user.nameColor }}><Icon name="key-round" size={20} /> Tresor PIN</h2>
+                <h2 className="text-lg font-bold mb-4 flex items-center gap-2 font-serif" style={{ color: user.nameColor }}><Icon name="key-round" size={20} /> Tresor PIN</h2>
                 {!user.pin ? (
                   <div>
                     <input type="password" inputMode="numeric" pattern="[0-9]*" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} placeholder="Neue PIN (z.B. 4 Zahlen)" className="w-full p-4 rounded-xl border-none focus:ring-2 tracking-[0.5em] text-center text-xl mb-4 outline-none" style={{ backgroundColor: 'rgba(150,150,150,0.1)', '--tw-ring-color': user.nameColor, color: 'inherit' }} />
@@ -2454,10 +2589,45 @@ function App() {
                 )}
               </div>
 
-              <div className="p-6 rounded-[2rem] shadow-sm border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50">
-                <h2 className="text-base font-bold mb-4 flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><Icon name="smartphone" size={18} /> Auf neues Handy übertragen</h2>
+              {/* NEU: Cloud-Tresor Settings */}
+              <div className="p-6 rounded-[2rem] shadow-sm border bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900/50">
+                <h2 className="text-base font-bold mb-4 flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                  <Icon name="cloud" size={18} /> Cloud-Tresor (Auto-Backup)
+                </h2>
                 <p className="text-xs opacity-70 mb-6 text-slate-800 dark:text-slate-300 leading-relaxed">
-                  Generiere einen sicheren QR-Code. Scanne ihn mit der normalen Handykamera deines <b>neuen</b> Smartphones, um alle Tagebucheinträge drahtlos über eine Peer-to-Peer Verbindung zu importieren.
+                  Sichere dein Vermächtnis ausfallsicher in der Cloud. <b>100% Ende-zu-Ende verschlüsselt.</b> Niemand, nicht einmal die Entwickler, können deine Einträge lesen. Nur deine Tresor-PIN ist der Schlüssel.
+                </p>
+
+                <div className="flex justify-between items-center p-4 rounded-2xl mb-4 shadow-sm border bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10">
+                  <span className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                      <Icon name="refresh-cw" size={16} className={user.cloudSync && syncingCloud ? 'animate-spin text-blue-500' : ''} /> Auto-Sync
+                  </span>
+                  <button type="button" onClick={() => {
+                      if (!user.pin) {
+                          showDialog({ title: 'PIN fehlt', message: 'Bitte richte im Menüpunkt darüber zuerst eine Tresor-PIN ein, um deine Daten verschlüsselt in die Cloud zu laden.', icon: 'lock' });
+                          return;
+                      }
+                      const nextState = !user.cloudSync;
+                      setUser({...user, cloudSync: nextState});
+                      if (nextState) {
+                         showDialog({ title: 'Cloud-Tresor aktiv', message: 'Deine Daten werden ab sofort automatisch und verschlüsselt gesichert.', icon: 'cloud-lightning', iconColor: 'text-blue-500' });
+                         entries.forEach(e => syncSingleEntryToCloud(e));
+                         syncProfileToCloud({...user, cloudSync: nextState});
+                      }
+                  }} className={`px-4 py-2 shadow-sm transition-colors rounded-lg font-bold text-xs ${user.cloudSync ? 'bg-blue-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
+                    {user.cloudSync ? 'Aktiviert' : 'Aus'}
+                  </button>
+                </div>
+
+                <button type="button" onClick={performCloudSync} className="w-full flex items-center justify-center gap-2 p-4 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-blue-700 transition-transform hover:scale-[1.02]">
+                  <Icon name="cloud-download" size={18} className={syncingCloud && !user.cloudSync ? 'animate-bounce' : ''}/> {syncingCloud ? 'Synchronisiert...' : 'Aus der Cloud wiederherstellen'}
+                </button>
+              </div>
+
+              <div className="p-6 rounded-[2rem] shadow-sm border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50">
+                <h2 className="text-base font-bold mb-4 flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><Icon name="smartphone" size={18} /> P2P Geräte-Transfer</h2>
+                <p className="text-xs opacity-70 mb-6 text-slate-800 dark:text-slate-300 leading-relaxed">
+                  Generiere einen sicheren QR-Code. Scanne ihn mit der normalen Handykamera deines <b>neuen</b> Smartphones, um alle Tagebucheinträge direkt (ohne Cloud) zu übertragen.
                 </p>
 
                 {!peerId ? (
@@ -2493,19 +2663,19 @@ function App() {
               </div>
 
               <div className="p-6 rounded-[2rem] shadow-sm border bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/50">
-                <h2 className="text-base font-bold mb-4 flex items-center gap-2 text-indigo-600"><Icon name="archive" size={18} /> System Backup & Datei</h2>
+                <h2 className="text-base font-bold mb-4 flex items-center gap-2 text-indigo-600"><Icon name="archive" size={18} /> Manuelles Datei-Backup</h2>
                 
                 <p className="text-xs opacity-70 mb-5 text-slate-800 dark:text-slate-300 leading-relaxed">
-                  Lade dein komplettes Journal (inklusive Bilder) als Datei herunter, um ein Backup lokal aufzubewahren oder per WhatsApp/E-Mail zu teilen.
+                  Lade dein komplettes Journal (inklusive Bilder) als HTML-Datei herunter, um ein lokales Backup aufzubewahren oder per WhatsApp zu teilen.
                 </p>
 
                 <button type="button" onClick={downloadFullApp} className="w-full flex items-center justify-center gap-2 p-4 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 transition-transform hover:scale-[1.02] mb-3">
-                  <Icon name="download" size={18}/> Komplettes Backup laden
+                  <Icon name="download" size={18}/> Datei herunterladen
                 </button>
 
                 <div className="flex gap-2">
                   <label className="flex-1 flex items-center justify-center gap-1.5 p-3 rounded-xl text-xs font-bold cursor-pointer border shadow-sm transition-colors" style={{ backgroundColor: 'rgba(255,255,255,0.8)', borderColor: 'rgba(0,0,0,0.1)', color: '#1e293b' }}>
-                    <Icon name="upload" size={14}/> Backup Importieren <input type="file" accept=".html,.legacy,.json" onChange={importBackup} className="hidden" />
+                    <Icon name="upload" size={14}/> Datei Importieren <input type="file" accept=".html,.legacy,.json" onChange={importBackup} className="hidden" />
                   </label>
                 </div>
               </div>
@@ -2542,7 +2712,7 @@ function App() {
                   <div className="p-3 text-white rounded-full shrink-0 shadow-md" style={{ backgroundColor: user.nameColor || '#f59e0b' }}><Icon name="history" size={24}/></div>
                   <div className="overflow-hidden">
                     <h4 className="font-bold text-xs uppercase tracking-widest mb-1" style={{ color: user.nameColor || '#f59e0b' }}>Heute vor {today.getFullYear() - new Date(timeMachineEntry.date).getFullYear()} {today.getFullYear() - new Date(timeMachineEntry.date).getFullYear() === 1 ? 'Jahr' : 'Jahren'}</h4>
-                    <p className="font-medium text-slate-900 dark:text-white truncate w-full text-lg">{timeMachineEntry.title}</p>
+                    <p className="font-medium text-slate-900 dark:text-white truncate w-full text-lg font-serif">{timeMachineEntry.title}</p>
                   </div>
                 </div>
               )}
@@ -2566,7 +2736,7 @@ function App() {
               {visibleEntries.length === 0 && view !== 'menu' && view !== 'settings' && !searchQuery && (
                 <div className="flex flex-col items-center justify-center py-32 text-center opacity-30 animate-fade-in" style={{ color: 'inherit' }}>
                   {view === 'vault' ? <Icon name="shield-check" size={64} className="mb-6"/> : view === 'archive' ? <Icon name="archive" size={64} className="mb-6"/> : <Icon name="book-open" size={64} className="mb-6"/>}
-                  <p className="text-xl font-bold">
+                  <p className="text-xl font-bold font-serif">
                     {view === 'vault' ? 'Tresor leer.' : view === 'archive' ? 'Archiv leer.' : 'Dein Buch ist noch leer.'}
                   </p>
                 </div>
@@ -2636,12 +2806,12 @@ function App() {
                           )}
 
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent z-10 pointer-events-none no-print" />
-                          <h3 className="absolute bottom-6 left-6 right-6 z-20 font-bold text-2xl text-white drop-shadow-md leading-snug line-clamp-2" dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
+                          <h3 className="absolute bottom-6 left-6 right-6 z-20 font-bold text-2xl text-white drop-shadow-md leading-snug line-clamp-2 font-serif" dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
                         </div>
                       )}
 
                       <div className="p-6 sm:p-8 flex-1 flex flex-col relative z-20">
-                        {!hasImages && <h3 className={`font-bold text-2xl leading-tight mb-4 line-clamp-2`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />}
+                        {!hasImages && <h3 className={`font-bold text-2xl leading-tight mb-4 line-clamp-2 font-serif`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />}
                         {entry.category === 'Weisheit' && <div className="mb-4 text-[10px] font-bold uppercase tracking-widest opacity-50 flex items-center gap-1 text-amber-500"><Icon name="book-open" size={12}/> Säule der Weisheit</div>}
 
                         {entry.text && (
