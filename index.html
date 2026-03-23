@@ -642,7 +642,7 @@ function App() {
           cloudSnap.forEach(doc => cloudEntries.push(doc.data()));
           
           if (cloudEntries.length === 0) {
-              showDialog({ title: 'Cloud leer', message: 'Es wurden keine Einträge in der Cloud gefunden.', icon: 'cloud-off' });
+              showDialog({ title: 'Cloud leer', message: 'Es wurden keine Einträge in class Cloud gefunden.', icon: 'cloud-off' });
               setSyncingCloud(false);
               return;
           }
@@ -1877,6 +1877,16 @@ function App() {
     }
   };
 
+  // Verhindert, dass der Handy-Browser beim Scrollen das gesamte Fenster verschiebt
+  useEffect(() => {
+    if (showEditor || viewingEntry || unlockTarget || dialog || picker || showTimeline) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+    return () => document.body.classList.remove('modal-open');
+  }, [showEditor, viewingEntry, unlockTarget, dialog, picker, showTimeline]);
+
   if (importId && !isLoaded) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>;
   }
@@ -2396,7 +2406,9 @@ function App() {
             </div>
           )}
 
-          {view === 'quotes' && (
+          {view === 'quotes' && (() => {
+             const allQuotes = getExtractedQuotes ? getExtractedQuotes() : []; // Fallback safety
+             return (
                <div className="animate-slide-up space-y-6 no-print">
                  <div className="text-center mb-10">
                    <h2 className="text-3xl font-serif font-bold mb-3" style={{ color: 'inherit' }}>Deine Erkenntnisse</h2>
@@ -2428,7 +2440,8 @@ function App() {
                    </div>
                  )}
                </div>
-          )}
+             );
+          })()}
 
           {view === 'menu' && (
             <div className="grid grid-cols-2 gap-4 sm:gap-6 animate-slide-up no-print">
@@ -2941,6 +2954,16 @@ function App() {
                 )}
               </div>
 
+              {/* NEUE FIXIERTE FORMATIERUNGSLEISTE (Unter dem Header, immer sichtbar) */}
+              {!zenMode && (
+                <div className="flex gap-2 p-2 border-b shrink-0 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 sm:px-6" style={{ borderColor: user.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                  <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-2.5 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-current" title="Fett"><Icon name="bold" size={20}/></button>
+                  <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-2.5 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-current" title="Kursiv"><Icon name="italic" size={20}/></button>
+                  <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-2.5 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-current"><Icon name="list-todo" size={20}/></button>
+                  <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-2.5 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-current" title="Zitat / Weisheit"><Icon name="quote" size={20}/></button>
+                </div>
+              )}
+
               <div id="editor-scroll-container" className="flex-1 overflow-y-auto p-4 sm:p-10 flex flex-col gap-4 w-full overscroll-contain relative">
               
                 {/* Bilder-Liste im Editor */}
@@ -2980,15 +3003,6 @@ function App() {
                 )}
 
                 <input type="text" placeholder="Titel..." value={title || ''} onChange={(e) => { setTitle(e.target.value); isDirtyRef.current = true; }} className="w-full shrink-0 bg-transparent text-current text-3xl sm:text-5xl font-bold placeholder-current opacity-90 border-none focus:ring-0 p-0 focus:outline-none font-serif relative z-10" style={{ color: 'inherit', '::placeholder': { opacity: 0.3 } }} />
-
-                {!zenMode && (
-                  <div className="flex gap-2 py-2 border-y border-current border-opacity-10 opacity-100 shrink-0 relative z-10 my-2">
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-3 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors" title="Fett"><Icon name="bold" size={22}/></button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-3 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors" title="Kursiv"><Icon name="italic" size={22}/></button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-3 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"><Icon name="list-todo" size={22}/></button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-3 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors" title="Zitat / Weisheit"><Icon name="quote" size={22}/></button>
-                  </div>
-                )}
 
                 {/* ARCHITEKTUR-UPDATE: Der Text ist jetzt wieder immer da und springt nicht beim Tippen! */}
                 <div
