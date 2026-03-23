@@ -173,12 +173,11 @@ html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
     page-break-inside: avoid; 
     margin-bottom: 24px !important; 
   }
-  /* Optimierte Bilddarstellung für den Druck im 16:9 Format */
-  .print-only img { 
-    width: 100% !important;
-    aspect-ratio: 16 / 9 !important;
-    object-fit: cover !important; 
-    border-radius: 0.5rem !important;
+  /* Optimierte Bilddarstellung für den Druck ohne Verzerrung */
+  img { 
+    max-width: 100% !important;
+    height: auto !important;
+    object-fit: contain !important; /* Verhindert Verzerrung */
     margin-bottom: 2rem !important; 
     page-break-inside: avoid; 
   }
@@ -203,7 +202,7 @@ const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } c
 
 // Helper zur Bereinigung von HTML-Eingaben
 const createSafeHtml = (htmlStr) => {
-    return { __html: window.DOMPurify ? window.DOMPurify.sanitize(htmlStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3'] }) : htmlStr };
+    return { __html: window.DOMPurify ? window.DOMPurify.sanitize(htmlStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p'] }) : htmlStr };
 };
 
 // --- Web Crypto API Helper ---
@@ -1641,7 +1640,7 @@ function App() {
       let safeText = text.replace(/<img[^>]*>/g, '[Bild]');
       
       // XSS-Schutz mit DOMPurify
-      safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3'] }) : safeText;
+      safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p'] }) : safeText;
       
       if (!query) return { __html: safeText };
       const plainText = safeText.replace(/<[^>]*>?/gm, '');
