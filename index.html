@@ -712,12 +712,6 @@ function App() {
       }
   };
 
-  useEffect(() => {
-      if (fb && isLoaded && user.cloudSync && user.pin && !hasSyncedRef.current) {
-          // performCloudSync(); // Disabled automatic pull on every refresh to prevent overwriting local edits if offline. Rely on manual restore for new devices.
-      }
-  }, [fb, isLoaded, user.cloudSync, user.pin]);
-
   // PWA Icon Sync
   useEffect(() => {
     const manifestEl = document.getElementById('dynamic-manifest');
@@ -2403,7 +2397,7 @@ function App() {
           )}
 
           {view === 'quotes' && (() => {
-             const allQuotes = getExtractedQuotes();
+             const allQuotes = getExtractedQuotes ? getExtractedQuotes() : []; // Fallback safety
              return (
                <div className="animate-slide-up space-y-6 no-print">
                  <div className="text-center mb-10">
@@ -2950,6 +2944,16 @@ function App() {
                 )}
               </div>
 
+              {/* NEW TOOLBAR LOCATION */}
+              {!zenMode && (
+                <div className="flex gap-2 px-4 py-3 border-b shrink-0" style={{ borderColor: 'rgba(150,150,150,0.1)', backgroundColor: 'rgba(150,150,150,0.05)' }}>
+                  <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-3 rounded-xl shadow-sm transition-colors hover:opacity-70" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }} title="Fett"><Icon name="bold" size={22}/></button>
+                  <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-3 rounded-xl shadow-sm transition-colors hover:opacity-70" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }} title="Kursiv"><Icon name="italic" size={22}/></button>
+                  <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-3 rounded-xl shadow-sm transition-colors hover:opacity-70" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }}><Icon name="list-todo" size={22}/></button>
+                  <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-3 rounded-xl shadow-sm transition-colors hover:opacity-70" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }} title="Zitat / Weisheit"><Icon name="quote" size={22}/></button>
+                </div>
+              )}
+
               <div id="editor-scroll-container" className="flex-1 overflow-y-auto p-4 sm:p-10 flex flex-col gap-4 w-full overscroll-contain relative">
               
                 {/* Bilder-Liste im Editor */}
@@ -2989,15 +2993,6 @@ function App() {
                 )}
 
                 <input type="text" placeholder="Titel..." value={title || ''} onChange={(e) => { setTitle(e.target.value); isDirtyRef.current = true; }} className="w-full shrink-0 bg-transparent text-current text-3xl sm:text-5xl font-bold placeholder-current opacity-90 border-none focus:ring-0 p-0 focus:outline-none font-serif relative z-10" style={{ color: 'inherit', '::placeholder': { opacity: 0.3 } }} />
-
-                {!zenMode && (
-                  <div className="flex gap-2 py-2 border-y border-current border-opacity-10 opacity-100 shrink-0 relative z-10 my-2">
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-3 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors" title="Fett"><Icon name="bold" size={22}/></button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-3 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors" title="Kursiv"><Icon name="italic" size={22}/></button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-3 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"><Icon name="list-todo" size={22}/></button>
-                    <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-3 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors" title="Zitat / Weisheit"><Icon name="quote" size={22}/></button>
-                  </div>
-                )}
 
                 {/* ARCHITEKTUR-UPDATE: Der Text ist jetzt wieder immer da und springt nicht beim Tippen! */}
                 <div
