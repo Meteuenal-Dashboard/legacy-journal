@@ -2407,7 +2407,6 @@ function App() {
           )}
 
           {view === 'quotes' && (() => {
-             const allQuotes = getExtractedQuotes ? getExtractedQuotes() : []; // Fallback safety
              return (
                <div className="animate-slide-up space-y-6 no-print">
                  <div className="text-center mb-10">
@@ -2954,13 +2953,13 @@ function App() {
                 )}
               </div>
 
-              {/* NEUE FIXIERTE FORMATIERUNGSLEISTE (Unter dem Header, immer sichtbar) */}
+              {/* FIXIERTE TOOLBAR AUSSERHALB DES SCROLL-CONTAINERS */}
               {!zenMode && (
-                <div className="flex gap-2 p-2 border-b shrink-0 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 sm:px-6" style={{ borderColor: user.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                  <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-2.5 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-current" title="Fett"><Icon name="bold" size={20}/></button>
-                  <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-2.5 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-current" title="Kursiv"><Icon name="italic" size={20}/></button>
-                  <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-2.5 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-current"><Icon name="list-todo" size={20}/></button>
-                  <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-2.5 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-current" title="Zitat / Weisheit"><Icon name="quote" size={20}/></button>
+                <div className="flex gap-2 p-2 border-b border-current border-opacity-10 opacity-100 shrink-0 z-40 backdrop-blur-xl shadow-sm px-4 sm:px-10" style={{ backgroundColor: user.appBgColor ? `${user.appBgColor}F2` : (user.isDark ? 'rgba(24, 24, 27, 0.85)' : 'rgba(255, 255, 255, 0.85)') }}>
+                  <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-3 rounded-xl hover:bg-black/10 dark:hover:bg-white/20 transition-colors" title="Fett"><Icon name="bold" size={22}/></button>
+                  <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-3 rounded-xl hover:bg-black/10 dark:hover:bg-white/20 transition-colors" title="Kursiv"><Icon name="italic" size={22}/></button>
+                  <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-3 rounded-xl hover:bg-black/10 dark:hover:bg-white/20 transition-colors"><Icon name="list-todo" size={22}/></button>
+                  <button type="button" onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current = true; }} className="flex-1 flex justify-center p-3 rounded-xl hover:bg-black/10 dark:hover:bg-white/20 transition-colors" title="Zitat / Weisheit"><Icon name="quote" size={22}/></button>
                 </div>
               )}
 
