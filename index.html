@@ -9,13 +9,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" id="meta-theme-color" content="#ffffff">
-<!-- Zwingt den Browser, unsere hell/dunkel Logik zu respektieren (gegen Samsung Force Dark Mode) -->
 <meta name="color-scheme" content="light dark">
 
-<!-- Container für den App-Klon (Sicherung der Daten für Weiterleitung) -->
 <script id="legacy-injected-data" type="application/json">null</script>
 
-<!-- Dynamisches PWA Manifest für Android/Samsung -->
 <link rel="manifest" id="dynamic-manifest" href="">
 <script>
   // ==========================================
@@ -43,7 +40,6 @@
   document.getElementById('dynamic-manifest').setAttribute('href', manifestUrl);
 </script>
 
-<!-- Moderne Premium-Schriftarten (Nur Inter für durchgängig modernen Look) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -71,7 +67,6 @@ window.tailwind = {
 </script>
 <script src="https://cdn.tailwindcss.com"></script>
 
-<!-- DOMPurify für Sicherheit (XSS-Schutz) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -88,6 +83,11 @@ body {
   -webkit-tap-highlight-color: transparent;
   transition: background-color 0.4s ease, color 0.4s ease;
   overscroll-behavior-y: none; 
+}
+
+/* Verhindert das Wegrutschen des gesamten Bildschirms bei geöffneter Tastatur */
+body.modal-open {
+  overflow: hidden !important;
 }
 
 /* Entferne Serif-Schriftarten */
@@ -702,7 +702,7 @@ function App() {
                   if (failedDecrypt > 0) {
                       showDialog({ title: 'Entschlüsselung unvollständig', message: `${failedDecrypt} Einträge konnten nicht geladen werden. Hast du auf dem alten Gerät eine andere PIN verwendet? Ändere die PIN entsprechend und versuche es erneut.`, icon: 'shield-alert', iconColor: 'text-rose-500' });
                   } else {
-                      showDialog({ title: 'Wiederhergestellt', message: `${recoveredCount} Einträge wurden erfolgreich aus der sicheren Cloud geladen und entschlüsselt.`, icon: 'check', iconColor: 'text-emerald-500' });
+                      showDialog({ title: 'Wiederhergestellt', message: `${recoveredCount} Einträge wurden erfolgreich aus der sicheren Cloud geladen und entschlüsselt.`, icon: 'check', iconColor: 'textemerald-500' });
                   }
               }
           };
@@ -2411,7 +2411,7 @@ function App() {
           )}
 
           {view === 'quotes' && (() => {
-             const allQuotes = getExtractedQuotes ? getExtractedQuotes() : []; // Fallback safety
+             const allQuotes = typeof getExtractedQuotes !== 'undefined' ? getExtractedQuotes() : []; // Safety check
              return (
                <div className="animate-slide-up space-y-6 no-print">
                  <div className="text-center mb-10">
