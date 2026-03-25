@@ -25,9 +25,10 @@
   window.MY_CUSTOM_APP_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20'/%3E%3C/svg%3E";
   
   const manifest = {
+    "id": "/legacy-vision-journal/",
     "name": "Legacy Vision",
     "short_name": "Legacy",
-    "start_url": window.location.href.split('?')[0],
+    "start_url": window.location.pathname || "/",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#f59e0b",
@@ -718,9 +719,10 @@ function App() {
     if (manifestEl) {
       const iconSrc = user.avatar || window.MY_CUSTOM_APP_ICON || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20'/%3E%3C/svg%3E";
       const manifestObj = {
+        "id": "/legacy-vision-journal/",
         "name": "Legacy Vision",
         "short_name": "Legacy",
-        "start_url": window.location.href.split('?')[0],
+        "start_url": window.location.pathname || "/",
         "display": "standalone",
         "background_color": user.appBgColor || (user.isDark ? "#09090b" : "#ffffff"),
         "theme_color": user.nameColor || "#f59e0b",
