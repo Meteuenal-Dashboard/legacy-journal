@@ -2488,9 +2488,7 @@ function App() {
             </div>
           )}
 
-          {view === 'quotes' && (() => {
-             const allQuotes = typeof allQuotes !== 'undefined' ? allQuotes : [];
-             return (
+          {view === 'quotes' && (
                <div className="animate-slide-up space-y-6 no-print">
                  <div className="text-center mb-10">
                    <h2 className="text-3xl font-serif font-bold mb-3" style={{ color: 'inherit' }}>Deine Erkenntnisse</h2>
@@ -2522,8 +2520,7 @@ function App() {
                    </div>
                  )}
                </div>
-             );
-          })()}
+          )}
 
           {view === 'menu' && (
             <div className="grid grid-cols-2 gap-4 sm:gap-6 animate-slide-up no-print">
