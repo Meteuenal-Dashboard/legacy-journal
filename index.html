@@ -7,7 +7,7 @@
 
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" id="meta-theme-color" content="#ffffff">
 <!-- Zwingt den Browser, unsere hell/dunkel Logik zu respektieren (gegen Samsung Force Dark Mode) -->
 <meta name="color-scheme" content="light dark">
@@ -24,34 +24,48 @@
   // ==========================================
   window.MY_CUSTOM_APP_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20'/%3E%3C/svg%3E";
   
-  const iconType = window.MY_CUSTOM_APP_ICON.startsWith('data:image/jpeg') ? 'image/jpeg' : (window.MY_CUSTOM_APP_ICON.startsWith('data:image/png') ? 'image/png' : 'image/svg+xml');
-  const startUrl = window.location.href.split('?')[0];
-  
-  const manifest = {
-    "id": "legacy-vision-journal",
-    "name": "Legacy Vision",
-    "short_name": "Legacy",
-    "start_url": startUrl,
-    "display": "standalone",
-    "background_color": "#ffffff",
-    "theme_color": "#f59e0b",
-    "icons": [
-      {
-        "src": window.MY_CUSTOM_APP_ICON,
-        "sizes": "192x192",
-        "type": iconType,
-        "purpose": "any maskable"
-      },
-      {
-        "src": window.MY_CUSTOM_APP_ICON,
-        "sizes": "512x512",
-        "type": iconType,
-        "purpose": "any maskable"
+  function updateManifest(iconUrl, isSvg = false) {
+      const manifest = {
+          name: "Legacy Vision",
+          short_name: "Legacy",
+          start_url: window.location.pathname,
+          display: "standalone",
+          background_color: "#ffffff",
+          theme_color: "#f59e0b",
+          icons: [{
+              src: iconUrl,
+              sizes: "192x192 512x512",
+              type: isSvg ? "image/svg+xml" : "image/jpeg",
+              purpose: "any maskable"
+          }]
+      };
+
+      const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+      const manifestURL = URL.createObjectURL(blob);
+      
+      let manifestEl = document.getElementById('dynamic-manifest') || document.createElement('link');
+      manifestEl.rel = 'manifest'; 
+      manifestEl.id = 'dynamic-manifest'; 
+      manifestEl.href = manifestURL;
+      
+      if(!document.getElementById('dynamic-manifest')) {
+          document.head.appendChild(manifestEl);
       }
-    ]
-  };
-  const manifestUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
-  document.getElementById('dynamic-manifest').setAttribute('href', manifestUrl);
+  }
+
+  window.addEventListener('load', function() {
+      updateManifest(window.MY_CUSTOM_APP_ICON, true);
+  });
+
+  // Zwingend erforderlich für Chrome: Ein einfacher Service Worker zur PWA-Anerkennung
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      const swCode = "self.addEventListener('install', (e) => { self.skipWaiting(); }); self.addEventListener('activate', (e) => { e.waitUntil(self.clients.claim()); }); self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request).catch(() => new Response('Offline'))); });";
+      const blob = new Blob([swCode], {type: 'application/javascript'});
+      const swUrl = URL.createObjectURL(blob);
+      navigator.serviceWorker.register(swUrl).catch(function(err) { console.log('SW registration failed:', err); });
+    });
+  }
 </script>
 
 <!-- Moderne Premium-Schriftarten (Nur Inter für durchgängig modernen Look) -->
@@ -732,26 +746,27 @@ function App() {
 
   // PWA Icon Sync
   useEffect(() => {
-    const manifestEl = document.getElementById('dynamic-manifest');
+    const iconSrc = user.avatar || window.MY_CUSTOM_APP_ICON;
+    const isSvg = !user.avatar && iconSrc.startsWith('data:image/svg');
+    const manifestObj = {
+      name: "Legacy Vision",
+      short_name: "Legacy",
+      start_url: window.location.pathname,
+      display: "standalone",
+      background_color: user.appBgColor || (user.isDark ? "#09090b" : "#ffffff"),
+      theme_color: user.nameColor || "#f59e0b",
+      icons: [{
+        src: iconSrc,
+        sizes: "192x192 512x512",
+        type: isSvg ? "image/svg+xml" : "image/jpeg",
+        purpose: "any maskable"
+      }]
+    };
+    const blob = new Blob([JSON.stringify(manifestObj)], {type: 'application/json'});
+    const manifestURL = URL.createObjectURL(blob);
+    let manifestEl = document.getElementById('dynamic-manifest');
     if (manifestEl) {
-      const iconSrc = user.avatar || window.MY_CUSTOM_APP_ICON || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20'/%3E%3C/svg%3E";
-      const iconType = iconSrc.startsWith('data:image/jpeg') ? 'image/jpeg' : (iconSrc.startsWith('data:image/png') ? 'image/png' : 'image/svg+xml');
-      const startUrl = window.location.href.split('?')[0];
-      const manifestObj = {
-        "id": "legacy-vision-journal",
-        "name": "Legacy Vision",
-        "short_name": "Legacy",
-        "start_url": startUrl,
-        "display": "standalone",
-        "background_color": user.appBgColor || (user.isDark ? "#09090b" : "#ffffff"),
-        "theme_color": user.nameColor || "#f59e0b",
-        "icons": [
-          { "src": iconSrc, "sizes": "192x192", "type": iconType, "purpose": "any maskable" },
-          { "src": iconSrc, "sizes": "512x512", "type": iconType, "purpose": "any maskable" }
-        ]
-      };
-      const manifestUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifestObj));
-      manifestEl.setAttribute('href', manifestUrl);
+      manifestEl.setAttribute('href', manifestURL);
     }
   }, [user.avatar, user.appBgColor, user.nameColor, user.isDark]);
 
@@ -2426,7 +2441,7 @@ function App() {
                      {allQuotes.map(q => (
                         <div 
                            key={q.id} 
-                           onClick={() => { const e = entries.find(x=>x.id===q.entryId); if(e) handleBookClick(e); }} 
+                           onClick={() => { const e = entries.find(x=>x.id===q.entryId); if(e) { setView('dashboard'); setViewingEntry(e); } }} 
                            className="break-inside-avoid relative rounded-[2rem] p-8 shadow-sm hover:shadow-md transition-all cursor-pointer border group"
                            style={{ backgroundColor: user.appBgColor || (user.isDark ? '#0f172a' : '#ffffff'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
                         >
