@@ -24,24 +24,64 @@
   // ==========================================
   window.MY_CUSTOM_APP_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20'/%3E%3C/svg%3E";
   
-  function updateManifest(iconUrl, isSvg = false) {
+  function initManifest() {
+      let appName = "Legacy Vision";
+      let shortName = "Legacy";
+      let iconUrl = window.MY_CUSTOM_APP_ICON;
+      let isSvg = true;
+
+      // Versuche sofort beim Start die Benutzerdaten zu laden (vor React)
+      try {
+          let userData = null;
+          const injectedEl = document.getElementById('legacy-injected-data');
+          if (injectedEl && injectedEl.textContent && injectedEl.textContent.trim() !== 'null') {
+              const data = JSON.parse(injectedEl.textContent);
+              if (data && data.user) userData = data.user;
+          } else {
+              const savedStr = localStorage.getItem('legacy_user');
+              if (savedStr) userData = JSON.parse(savedStr);
+          }
+
+          if (userData) {
+              if (userData.appName && userData.appName.trim() !== "") {
+                  appName = userData.appName.trim();
+                  shortName = userData.appName.trim();
+              }
+              if (userData.avatar) {
+                  iconUrl = userData.avatar;
+                  isSvg = false;
+              }
+          }
+      } catch(e) {}
+
+      const iconType = isSvg ? "image/svg+xml" : "image/png";
+      
       const manifest = {
-          name: "Legacy Vision",
-          short_name: "Legacy",
-          start_url: window.location.pathname,
-          display: "standalone",
-          background_color: "#ffffff",
-          theme_color: "#f59e0b",
-          icons: [{
-              src: iconUrl,
-              sizes: "192x192 512x512",
-              type: isSvg ? "image/svg+xml" : "image/jpeg",
-              purpose: "any maskable"
-          }]
+          "id": "legacy-vision-journal",
+          "name": appName,
+          "short_name": shortName,
+          "start_url": ".",
+          "display": "standalone",
+          "background_color": "#ffffff",
+          "theme_color": "#f59e0b",
+          "icons": [
+            {
+              "src": iconUrl,
+              "sizes": "192x192",
+              "type": iconType,
+              "purpose": "any maskable"
+            },
+            {
+              "src": iconUrl,
+              "sizes": "512x512",
+              "type": iconType,
+              "purpose": "any maskable"
+            }
+          ]
       };
 
-      const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
-      const manifestURL = URL.createObjectURL(blob);
+      const manifestString = JSON.stringify(manifest);
+      const manifestURL = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(manifestString);
       
       let manifestEl = document.getElementById('dynamic-manifest') || document.createElement('link');
       manifestEl.rel = 'manifest'; 
@@ -53,9 +93,8 @@
       }
   }
 
-  window.addEventListener('load', function() {
-      updateManifest(window.MY_CUSTOM_APP_ICON, true);
-  });
+  // Sofortige Initialisierung für schnelle PWA-Erkennung
+  initManifest();
 
   // Zwingend erforderlich für Chrome: Ein einfacher Service Worker zur PWA-Anerkennung
   if ('serviceWorker' in navigator) {
@@ -755,18 +794,18 @@ function App() {
       "id": "legacy-vision-journal",
       "name": appName,
       "short_name": shortName,
-      "start_url": window.location.pathname,
+      "start_url": ".",
       "display": "standalone",
       "background_color": user.appBgColor || (user.isDark ? "#09090b" : "#ffffff"),
       "theme_color": user.nameColor || "#f59e0b",
       "icons": [
-        { "src": iconSrc, "sizes": "192x192", "type": isSvg ? "image/svg+xml" : "image/jpeg", "purpose": "any maskable" },
-        { "src": iconSrc, "sizes": "512x512", "type": isSvg ? "image/svg+xml" : "image/jpeg", "purpose": "any maskable" }
+        { "src": iconSrc, "sizes": "192x192", "type": isSvg ? "image/svg+xml" : "image/png", "purpose": "any maskable" },
+        { "src": iconSrc, "sizes": "512x512", "type": isSvg ? "image/svg+xml" : "image/png", "purpose": "any maskable" }
       ]
     };
     
-    const blob = new Blob([JSON.stringify(manifestObj)], {type: 'application/json'});
-    const manifestURL = URL.createObjectURL(blob);
+    const manifestString = JSON.stringify(manifestObj);
+    const manifestURL = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(manifestString);
     let manifestEl = document.getElementById('dynamic-manifest');
     if (manifestEl) {
       manifestEl.setAttribute('href', manifestURL);
@@ -1505,7 +1544,7 @@ function App() {
           const startX = (img.width - minDim) / 2;
           const startY = (img.height - minDim) / 2;
           ctx.drawImage(img, startX, startY, minDim, minDim, 0, 0, SIZE, SIZE);
-          setUser(prev => ({ ...prev, avatar: canvas.toDataURL('image/jpeg', 0.9) }));
+          setUser(prev => ({ ...prev, avatar: canvas.toDataURL('image/png') }));
         };
         img.src = event.target.result;
       };
