@@ -436,7 +436,7 @@ const initDB = () => {
 function App() {
   const [db, setDb] = useState(null);
   const [entries, setEntries] = useState([]);
-  const [user, setUser] = useState({ name: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', testamentId: null, isDark: true, appBgColor: null, cloudSync: false });
+  const [user, setUser] = useState({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', testamentId: null, isDark: true, appBgColor: null, cloudSync: false });
   const [view, setView] = useState('loading');
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -748,27 +748,30 @@ function App() {
   useEffect(() => {
     const iconSrc = user.avatar || window.MY_CUSTOM_APP_ICON;
     const isSvg = !user.avatar && iconSrc.startsWith('data:image/svg');
+    const appName = user.appName?.trim() || "Legacy Vision";
+    const shortName = user.appName?.trim() || "Legacy";
+    
     const manifestObj = {
-      name: "Legacy Vision",
-      short_name: "Legacy",
-      start_url: window.location.pathname,
-      display: "standalone",
-      background_color: user.appBgColor || (user.isDark ? "#09090b" : "#ffffff"),
-      theme_color: user.nameColor || "#f59e0b",
-      icons: [{
-        src: iconSrc,
-        sizes: "192x192 512x512",
-        type: isSvg ? "image/svg+xml" : "image/jpeg",
-        purpose: "any maskable"
-      }]
+      "id": "legacy-vision-journal",
+      "name": appName,
+      "short_name": shortName,
+      "start_url": window.location.pathname,
+      "display": "standalone",
+      "background_color": user.appBgColor || (user.isDark ? "#09090b" : "#ffffff"),
+      "theme_color": user.nameColor || "#f59e0b",
+      "icons": [
+        { "src": iconSrc, "sizes": "192x192", "type": isSvg ? "image/svg+xml" : "image/jpeg", "purpose": "any maskable" },
+        { "src": iconSrc, "sizes": "512x512", "type": isSvg ? "image/svg+xml" : "image/jpeg", "purpose": "any maskable" }
+      ]
     };
+    
     const blob = new Blob([JSON.stringify(manifestObj)], {type: 'application/json'});
     const manifestURL = URL.createObjectURL(blob);
     let manifestEl = document.getElementById('dynamic-manifest');
     if (manifestEl) {
       manifestEl.setAttribute('href', manifestURL);
     }
-  }, [user.avatar, user.appBgColor, user.nameColor, user.isDark]);
+  }, [user.avatar, user.appBgColor, user.nameColor, user.isDark, user.appName]);
 
   // PeerJS P2P Empfänger Logik
   useEffect(() => {
@@ -885,7 +888,7 @@ function App() {
   useEffect(() => {
     const loadApp = async () => {
       try {
-        let currentUser = { name: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', testamentId: null, isDark: true, appBgColor: null, cloudSync: false };
+        let currentUser = { name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', testamentId: null, isDark: true, appBgColor: null, cloudSync: false };
         
         const database = await initDB();
         setDb(database);
@@ -1493,12 +1496,16 @@ function App() {
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_SIZE = 400; let width = img.width; let height = img.height;
-          if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } }
-          else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
-          canvas.width = width; canvas.height = height;
-          const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
-          setUser(prev => ({ ...prev, avatar: canvas.toDataURL('image/jpeg', 0.8) }));
+          const SIZE = 512; // Chromes Standard für PWA
+          canvas.width = SIZE; 
+          canvas.height = SIZE;
+          const ctx = canvas.getContext('2d'); 
+          // Quadratisch zuschneiden
+          const minDim = Math.min(img.width, img.height);
+          const startX = (img.width - minDim) / 2;
+          const startY = (img.height - minDim) / 2;
+          ctx.drawImage(img, startX, startY, minDim, minDim, 0, 0, SIZE, SIZE);
+          setUser(prev => ({ ...prev, avatar: canvas.toDataURL('image/jpeg', 0.9) }));
         };
         img.src = event.target.result;
       };
@@ -2424,7 +2431,9 @@ function App() {
             </div>
           )}
 
-          {view === 'quotes' && (
+          {view === 'quotes' && (() => {
+             const allQuotes = typeof getExtractedQuotes !== 'undefined' ? getExtractedQuotes() : []; // Fallback safety
+             return (
                <div className="animate-slide-up space-y-6 no-print">
                  <div className="text-center mb-10">
                    <h2 className="text-3xl font-serif font-bold mb-3" style={{ color: 'inherit' }}>Deine Erkenntnisse</h2>
@@ -2456,7 +2465,8 @@ function App() {
                    </div>
                  )}
                </div>
-          )}
+             );
+          })()}
 
           {view === 'menu' && (
             <div className="grid grid-cols-2 gap-4 sm:gap-6 animate-slide-up no-print">
@@ -2577,7 +2587,7 @@ function App() {
                   </div>
                   <div className="flex-1 space-y-3">
                     <input type="text" value={user.name} onChange={(e) => setUser({...user, name: e.target.value})} className="w-full p-3 rounded-xl border-none focus:ring-2 focus:ring-amber-500 text-base font-bold outline-none" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }} placeholder="Dein Name" />
-                    
+                    <input type="text" value={user.appName || ''} onChange={(e) => setUser({...user, appName: e.target.value})} className="w-full p-3 rounded-xl border-none focus:ring-2 focus:ring-amber-500 text-xs font-bold outline-none" style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit' }} placeholder="App-Name (für Startbildschirm)" title="Dieser Name erscheint auf deinem Startbildschirm" />
                     <div className="flex gap-2 flex-wrap p-2 -m-2">
                       {['#f59e0b', '#ef4444', '#3b82f6', '#10b981', '#8b5cf6', '#1e293b'].map(color => (
                         <button type="button" key={color} onClick={() => setUser({...user, nameColor: color})} className={`w-6 h-6 rounded-full border-2 transition-transform ${user.nameColor === color ? 'border-slate-400 scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
