@@ -34,8 +34,9 @@
     "theme_color": "#f59e0b",
     "icons": [{
       "src": window.MY_CUSTOM_APP_ICON,
-      "sizes": "512x512",
-      "type": window.MY_CUSTOM_APP_ICON.startsWith('data:image/jpeg') ? 'image/jpeg' : (window.MY_CUSTOM_APP_ICON.startsWith('data:image/png') ? 'image/png' : 'image/svg+xml')
+      "sizes": "192x192 512x512",
+      "type": window.MY_CUSTOM_APP_ICON.startsWith('data:image/jpeg') ? 'image/jpeg' : (window.MY_CUSTOM_APP_ICON.startsWith('data:image/png') ? 'image/png' : 'image/svg+xml'),
+      "purpose": "any maskable"
     }]
   };
   const manifestUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
@@ -728,8 +729,9 @@ function App() {
         "theme_color": user.nameColor || "#f59e0b",
         "icons": [{
           "src": iconSrc,
-          "sizes": "512x512",
-          "type": user.avatar ? "image/jpeg" : "image/svg+xml"
+          "sizes": "192x192 512x512",
+          "type": user.avatar ? "image/jpeg" : "image/svg+xml",
+          "purpose": "any maskable"
         }]
       };
       const manifestUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifestObj));
@@ -1879,6 +1881,16 @@ function App() {
     }
   };
 
+  // Verhindert, dass der Handy-Browser beim Scrollen das gesamte Fenster verschiebt
+  useEffect(() => {
+    if (showEditor || viewingEntry || unlockTarget || dialog || picker || showTimeline) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+    return () => document.body.classList.remove('modal-open');
+  }, [showEditor, viewingEntry, unlockTarget, dialog, picker, showTimeline]);
+
   if (importId && !isLoaded) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>;
   }
@@ -2399,6 +2411,7 @@ function App() {
           )}
 
           {view === 'quotes' && (() => {
+             const allQuotes = getExtractedQuotes ? getExtractedQuotes() : []; // Fallback safety
              return (
                <div className="animate-slide-up space-y-6 no-print">
                  <div className="text-center mb-10">
