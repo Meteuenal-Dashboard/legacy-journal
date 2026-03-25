@@ -96,15 +96,6 @@
   // Sofortige Initialisierung für schnelle PWA-Erkennung
   initManifest();
 
-  // Zwingend erforderlich für Chrome: Ein einfacher Service Worker zur PWA-Anerkennung
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function() {
-      const swCode = "self.addEventListener('install', (e) => { self.skipWaiting(); }); self.addEventListener('activate', (e) => { e.waitUntil(self.clients.claim()); }); self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request).catch(() => new Response('Offline'))); });";
-      const blob = new Blob([swCode], {type: 'application/javascript'});
-      const swUrl = URL.createObjectURL(blob);
-      navigator.serviceWorker.register(swUrl).catch(function(err) { console.log('SW registration failed:', err); });
-    });
-  }
 </script>
 
 <!-- Moderne Premium-Schriftarten (Nur Inter für durchgängig modernen Look) -->
@@ -151,7 +142,6 @@ body {
   font-family: 'Inter', -apple-system, sans-serif;
   -webkit-tap-highlight-color: transparent;
   transition: background-color 0.4s ease, color 0.4s ease;
-  overscroll-behavior-y: none; 
 }
 
 /* Verhindert das Wegrutschen des gesamten Bildschirms bei geöffneter Tastatur */
@@ -595,6 +585,34 @@ function App() {
   useEffect(() => { editingIdRef.current = editingId; }, [editingId]);
   useEffect(() => { entriesRef.current = entries; }, [entries]);
   useEffect(() => { setCurrentViewerImgIdx(0); }, [viewingEntry]);
+
+  // Pull-to-Refresh Logik
+  useEffect(() => {
+    let startY = 0;
+    const onTouchStart = (e) => {
+      // Nur auslösen, wenn wir ganz oben gescrollt sind
+      if (window.scrollY === 0) {
+        startY = e.touches[0].clientY;
+      } else {
+        startY = 0;
+      }
+    };
+    const onTouchEnd = (e) => {
+      if (startY > 0) {
+        const yDiff = e.changedTouches[0].clientY - startY;
+        // Wenn mehr als 150px nach unten gezogen wird und wir ganz oben sind
+        if (yDiff > 150 && window.scrollY === 0) {
+          window.location.reload();
+        }
+      }
+    };
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchend', onTouchEnd);
+    };
+  }, []);
 
   // Automatisch das aktuelle Jahr und Monat in der Timeline aufklappen
   useEffect(() => {
