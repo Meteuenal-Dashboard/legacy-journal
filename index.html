@@ -31,7 +31,7 @@
     "id": "legacy-vision-journal",
     "name": "Legacy Vision",
     "short_name": "Legacy",
-    "start_url": ".",
+    "start_url": startUrl,
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#f59e0b",
@@ -741,7 +741,7 @@ function App() {
         "id": "legacy-vision-journal",
         "name": "Legacy Vision",
         "short_name": "Legacy",
-        "start_url": ".",
+        "start_url": startUrl,
         "display": "standalone",
         "background_color": user.appBgColor || (user.isDark ? "#09090b" : "#ffffff"),
         "theme_color": user.nameColor || "#f59e0b",
@@ -2409,8 +2409,7 @@ function App() {
             </div>
           )}
 
-          {view === 'quotes' && (() => {
-             return (
+          {view === 'quotes' && (
                <div className="animate-slide-up space-y-6 no-print">
                  <div className="text-center mb-10">
                    <h2 className="text-3xl font-serif font-bold mb-3" style={{ color: 'inherit' }}>Deine Erkenntnisse</h2>
@@ -2427,7 +2426,7 @@ function App() {
                      {allQuotes.map(q => (
                         <div 
                            key={q.id} 
-                           onClick={() => { const e = entries.find(x=>x.id===q.entryId); if(e) setViewingEntry(e); }} 
+                           onClick={() => { const e = entries.find(x=>x.id===q.entryId); if(e) handleBookClick(e); }} 
                            className="break-inside-avoid relative rounded-[2rem] p-8 shadow-sm hover:shadow-md transition-all cursor-pointer border group"
                            style={{ backgroundColor: user.appBgColor || (user.isDark ? '#0f172a' : '#ffffff'), borderColor: user.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: user.appBgColor ? (isDarkColor(user.appBgColor) ? '#ffffff' : '#18181b') : undefined }}
                         >
@@ -2442,8 +2441,7 @@ function App() {
                    </div>
                  )}
                </div>
-             );
-          })()}
+          )}
 
           {view === 'menu' && (
             <div className="grid grid-cols-2 gap-4 sm:gap-6 animate-slide-up no-print">
