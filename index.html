@@ -556,7 +556,14 @@ function App() {
               await fb.createUserWithEmailAndPassword(fb.auth, authEmail, authPassword);
           }
       } catch (e) {
-          setAuthError(e.message);
+          let errorMsg = 'Ein unbekannter Fehler ist aufgetreten.';
+          if (e.code === 'auth/email-already-in-use') errorMsg = 'Diese E-Mail-Adresse wird bereits verwendet.';
+          else if (e.code === 'auth/invalid-email') errorMsg = 'Die E-Mail-Adresse ist ungültig.';
+          else if (e.code === 'auth/weak-password') errorMsg = 'Das Passwort ist zu kurz (mind. 6 Zeichen).';
+          else if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') errorMsg = 'Falsche E-Mail-Adresse oder Passwort.';
+          else errorMsg = e.message;
+          
+          setAuthError(errorMsg);
       }
   };
 
@@ -1209,10 +1216,10 @@ function App() {
                 <input type="password" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} className="w-full p-4 rounded-xl border outline-none text-base bg-slate-50 border-slate-200 dark:bg-black/20 dark:border-transparent text-slate-900 dark:text-white" placeholder="••••••••" />
               </div>
               <button onClick={handleAuth} className="w-full py-4 rounded-xl font-bold text-lg hover:scale-[1.02] transition-transform shadow-md bg-amber-500 text-slate-900 mt-4">
-                {isLoginMode ? 'Einloggen' : 'Neuen Tresor erstellen'}
+                {isLoginMode ? 'Einloggen' : 'Registrieren (Neuer Account)'}
               </button>
               <button onClick={() => setIsLoginMode(!isLoginMode)} className="w-full py-4 text-sm opacity-70 hover:opacity-100 transition-opacity font-bold">
-                {isLoginMode ? 'Noch keinen Tresor? Hier registrieren' : 'Bereits einen Tresor? Einloggen'}
+                {isLoginMode ? 'Noch kein Account? Hier registrieren' : 'Bereits einen Account? Einloggen'}
               </button>
             </div>
           </div>
