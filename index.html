@@ -12,115 +12,12 @@
 <meta name="theme-color" id="meta-theme-color" content="#09090b">
 <meta name="color-scheme" content="light dark">
 
-<!-- PWA Manifest Injection -->
-<link rel="manifest" id="dynamic-manifest" href="">
-<script>
-  window.MY_CUSTOM_APP_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20'/%3E%3C/svg%3E";
-  
-  function initManifest() {
-      let appName = "Legacy Vision";
-      let shortName = "Legacy";
-      let iconUrl = window.MY_CUSTOM_APP_ICON;
-      let isSvg = true;
+<!-- PWA Manifest & Icons -->
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192x192.png">
 
-      // Versuche sofort beim Start die Benutzerdaten zu laden (vor React)
-      try {
-          let userData = null;
-          const injectedEl = document.getElementById('legacy-injected-data');
-          if (injectedEl && injectedEl.textContent && injectedEl.textContent.trim() !== 'null') {
-              const data = JSON.parse(injectedEl.textContent);
-              if (data && data.user) userData = data.user;
-          } else {
-              const savedStr = localStorage.getItem('legacy_user');
-              if (savedStr) userData = JSON.parse(savedStr);
-          }
-
-          if (userData) {
-              if (userData.appName && userData.appName.trim() !== "") {
-                  appName = userData.appName.trim();
-                  shortName = userData.appName.trim();
-              }
-              if (userData.avatar) {
-                  iconUrl = userData.avatar;
-                  isSvg = false;
-              }
-          }
-      } catch(e) {}
-
-      const iconType = isSvg ? "image/svg+xml" : "image/png";
-      
-      const manifest = {
-          "id": "legacy-vision-journal-cloud",
-          "name": appName,
-          "short_name": shortName,
-          "start_url": "./index.html",
-          "display": "standalone",
-          "background_color": "#09090b",
-          "theme_color": "#f59e0b",
-          "icons": [
-            { "src": iconUrl, "sizes": "192x192", "type": iconType, "purpose": "any maskable" },
-            { "src": iconUrl, "sizes": "512x512", "type": iconType, "purpose": "any maskable" }
-          ]
-      };
-
-      const manifestString = JSON.stringify(manifest);
-      const manifestURL = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(manifestString);
-      
-      let manifestEl = document.getElementById('dynamic-manifest') || document.createElement('link');
-      manifestEl.rel = 'manifest'; 
-      manifestEl.id = 'dynamic-manifest'; 
-      manifestEl.href = manifestURL;
-      
-      if(!document.getElementById('dynamic-manifest')) {
-          document.head.appendChild(manifestEl);
-      }
-  }
-
-  // Sofortige Initialisierung für schnelle PWA-Erkennung
-  initManifest();
-
-  // Robuster Service Worker (Cache First, Fallback to Network)
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function() {
-      const swCode = `
-        const CACHE_NAME = 'legacy-vision-v2';
-        const urlsToCache = ['./', './index.html'];
-        
-        self.addEventListener('install', (e) => {
-          self.skipWaiting();
-          e.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache)));
-        });
-        
-        self.addEventListener('activate', (e) => {
-          e.waitUntil(
-            caches.keys().then((cacheNames) => {
-              return Promise.all(
-                cacheNames.map((cacheName) => {
-                  if (cacheName !== CACHE_NAME) return caches.delete(cacheName);
-                })
-              );
-            }).then(() => self.clients.claim())
-          );
-        });
-        
-        self.addEventListener('fetch', (e) => {
-          // Firebase-Aufrufe NIEMALS cachen
-          if (e.request.url.includes('firestore.googleapis.com') || e.request.url.includes('identitytoolkit.googleapis.com')) {
-             return;
-          }
-          e.respondWith(
-            caches.match(e.request).then((response) => {
-              return response || fetch(e.request).catch(() => caches.match('./index.html'));
-            })
-          );
-        });
-      `;
-      const blob = new Blob([swCode], {type: 'application/javascript'});
-      const swUrl = URL.createObjectURL(blob);
-      navigator.serviceWorker.register(swUrl).catch(err => console.log('SW registration failed:', err));
-    });
-  }
-</script>
+<!-- Container für den App-Klon (Sicherung der Daten für Weiterleitung) -->
+<script id="legacy-injected-data" type="application/json">null</script>
 
 <!-- Moderne Premium-Schriftarten (Nur Inter für durchgängig modernen Look) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -495,7 +392,8 @@ function App() {
                      const parsed = JSON.parse(savedStr);
                      if (parsed.pin) {
                          setUser(parsed);
-                         setView('dashboard');
+                         if (!parsed.name) setView('onboarding');
+                         else setView('dashboard');
                      } else {
                          setView('pin_entry');
                      }
@@ -571,6 +469,7 @@ function App() {
       if(fb) {
           await fb.signOut(fb.auth);
           setUser({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', isDark: true, appBgColor: null });
+          localStorage.removeItem('legacy_user');
           setEntries([]);
           setView('auth');
       }
@@ -1042,35 +941,6 @@ function App() {
     return () => document.body.classList.remove('modal-open');
   }, [showEditor, viewingEntry, unlockTarget, dialog, picker, showTimeline]);
 
-  // PWA Icon Sync
-  useEffect(() => {
-    const iconSrc = user.avatar || window.MY_CUSTOM_APP_ICON || "";
-    const isSvg = !user.avatar && typeof iconSrc === 'string' && iconSrc.startsWith('data:image/svg');
-    const appName = user.appName?.trim() || "Legacy Vision";
-    const shortName = user.appName?.trim() || "Legacy";
-    
-    const manifestObj = {
-      "id": "legacy-vision-journal-cloud",
-      "name": appName,
-      "short_name": shortName,
-      "start_url": window.location.pathname,
-      "display": "standalone",
-      "background_color": user.appBgColor || (user.isDark ? "#09090b" : "#ffffff"),
-      "theme_color": user.nameColor || "#f59e0b",
-      "icons": [
-        { "src": iconSrc, "sizes": "192x192", "type": isSvg ? "image/svg+xml" : "image/png", "purpose": "any maskable" },
-        { "src": iconSrc, "sizes": "512x512", "type": isSvg ? "image/svg+xml" : "image/png", "purpose": "any maskable" }
-      ]
-    };
-    
-    const manifestString = JSON.stringify(manifestObj);
-    const manifestURL = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(manifestString);
-    let manifestEl = document.getElementById('dynamic-manifest');
-    if (manifestEl) {
-      manifestEl.setAttribute('href', manifestURL);
-    }
-  }, [user.avatar, user.appBgColor, user.nameColor, user.isDark, user.appName]);
-
   // PeerJS P2P Empfänger Logik
   useEffect(() => {
     if (importId && isLoaded) {
@@ -1222,7 +1092,7 @@ function App() {
               <button onClick={handleAuth} className="w-full py-4 rounded-xl font-bold text-lg hover:scale-[1.02] transition-transform shadow-md bg-amber-500 text-slate-900 mt-4">
                 {isLoginMode ? 'Einloggen' : 'Konto erstellen'}
               </button>
-              <button onClick={() => { setIsLoginMode(!isLoginMode); setAuthError(''); }} className="w-full py-4 text-sm opacity-70 hover:opacity-100 transition-opacity font-bold">
+              <button onClick={() => { setIsLoginMode(!isLoginMode); setAuthError(''); }} className="w-full py-4 text-sm font-bold transition-opacity text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">
                 {isLoginMode ? 'Noch kein Account? Hier registrieren' : 'Bereits einen Account? Einloggen'}
               </button>
             </div>
@@ -1240,10 +1110,10 @@ function App() {
           <h1 className="text-3xl font-bold font-serif mb-2">Tresor-PIN eingeben</h1>
           <p className="opacity-60 mb-8 px-4">Deine Daten in der Cloud sind verschlüsselt. Gib deine Tresor-PIN ein, um sie lokal auf diesem Gerät zu entschlüsseln.</p>
           <div className="p-8 rounded-[2rem] shadow-xl border bg-white border-slate-200 dark:bg-graphite-900 dark:border-white/10">
-             <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { setUser({...user, pin: newPinInput}); safeStorageSet('legacy_user', JSON.stringify({...user, pin: newPinInput})); setView('dashboard'); } }}
+             <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { const newUserObj = {...user, pin: newPinInput}; setUser(newUserObj); safeStorageSet('legacy_user', JSON.stringify(newUserObj)); if (!newUserObj.name) setView('onboarding'); else setView('dashboard'); } }}
                     className="w-full p-4 text-center text-3xl tracking-[1em] rounded-xl outline-none focus:ring-2 mb-6 border border-slate-200 dark:border-transparent"
                     style={{ backgroundColor: 'rgba(150,150,150,0.1)', color: 'inherit', '--tw-ring-color': user.nameColor || '#f59e0b' }} placeholder="••••" />
-             <button onClick={() => { setUser({...user, pin: newPinInput}); safeStorageSet('legacy_user', JSON.stringify({...user, pin: newPinInput})); setView('dashboard'); }} className="w-full py-4 font-bold rounded-xl text-lg hover:scale-[1.02] shadow-md transition-transform" style={{ backgroundColor: user.nameColor || '#f59e0b', color: isDarkColor(user.nameColor || '#f59e0b') ? '#ffffff' : '#000000' }}>Tresor entsperren</button>
+             <button onClick={() => { const newUserObj = {...user, pin: newPinInput}; setUser(newUserObj); safeStorageSet('legacy_user', JSON.stringify(newUserObj)); if (!newUserObj.name) setView('onboarding'); else setView('dashboard'); }} className="w-full py-4 font-bold rounded-xl text-lg hover:scale-[1.02] shadow-md transition-transform" style={{ backgroundColor: user.nameColor || '#f59e0b', color: isDarkColor(user.nameColor || '#f59e0b') ? '#ffffff' : '#000000' }}>Tresor entsperren</button>
              <button onClick={handleLogout} className="mt-6 w-full py-3 text-xs font-bold uppercase opacity-50 hover:opacity-100 tracking-widest text-rose-500">Ausloggen</button>
           </div>
         </div>
