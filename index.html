@@ -144,6 +144,8 @@
 
   .legacy-editor-content p, .legacy-content p { line-height: 1.7; margin-bottom: 1rem; }
   .legacy-editor-content b, .legacy-content b, .legacy-editor-content strong, .legacy-content strong { font-weight: 700; color: inherit; }
+  .legacy-editor-content ul, .legacy-content ul { list-style-type: disc; padding-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.5rem; }
+  .legacy-editor-content li, .legacy-content li { margin-bottom: 0.25rem; }
   .legacy-editor-content blockquote, .legacy-content blockquote { border-left: 4px solid currentColor; padding-left: 1.5rem; font-style: normal; font-weight: 600; opacity: 0.9; background: transparent; margin: 1.5rem 0; font-size: 1.1em; }
   [contenteditable="true"]:empty:before { content: attr(data-placeholder); opacity: 0.3; pointer-events: none; display: block; font-weight: 400; }
   html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
@@ -282,7 +284,14 @@ const Icon = ({ name, size = 24, className = '', ...props }) => {
   return <span ref={spanRef} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} {...props}></span>;
 };
 
-const COLORS = ['#ffffff', '#e4e4e7', '#a1a1aa', '#52525b', '#27272a', '#18181b', '#09090b', '#fbbf24', '#f59e0b', '#d97706', '#fb7185', '#f43f5e', '#e11d48', '#3b82f6', '#10b981'];
+// 25 COLORS added for maximum personalization
+const COLORS = [
+  '#ffffff', '#f8fafc', '#e4e4e7', '#a1a1aa', '#52525b', 
+  '#27272a', '#18181b', '#09090b', '#fef08a', '#fbbf24', 
+  '#f59e0b', '#d97706', '#fecdd3', '#fb7185', '#f43f5e', 
+  '#e11d48', '#bfdbfe', '#3b82f6', '#1d4ed8', '#a7f3d0', 
+  '#10b981', '#047857', '#e9d5ff', '#8b5cf6', '#6d28d9'
+];
 const isDarkColor = (color) => {
   if (!color) return true;
   const hex = color.replace('#', '');
@@ -351,6 +360,7 @@ function App() {
   const [viewingEntry, setViewingEntry] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
   const [currentViewerImgIdx, setCurrentViewerImgIdx] = useState(0);
+  const [touchStart, setTouchStart] = useState(null);
   
   const [showTimeline, setShowTimeline] = useState(false); 
   const [timelineMonth, setTimelineMonth] = useState(() => new Date()); 
@@ -408,6 +418,8 @@ function App() {
 
   const editorRef = useRef(null);
   const isDirtyRef = useRef(false);
+  const currentEntryRef = useRef({});
+  const editingIdRef = useRef(null);
 
   // Initialize Firebase & Auth
   useEffect(() => {
@@ -507,9 +519,9 @@ function App() {
               const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
               const cred = await navigator.credentials.create({
                   publicKey: {
-                      challenge, rp: { name: "Legacy Journal" }, user: { id: new Uint8Array(16), name: user.name, displayName: user.name },
+                      challenge, rp: { name: "Legacy Journal" }, user: { id: new Uint8Array(16), name: user.name || 'User', displayName: user.name || 'User' },
                       pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
-                      authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" }, timeout: 60000
+                      authenticatorSelection: { userVerification: "preferred" }, timeout: 60000
                   }
               });
               if (cred) {
@@ -526,7 +538,7 @@ function App() {
   const handleBiometricUnlock = async () => {
       try {
           const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
-          const cred = await navigator.credentials.get({ publicKey: { challenge, userVerification: "required" } });
+          const cred = await navigator.credentials.get({ publicKey: { challenge, userVerification: "preferred" } });
           if (cred) {
               const savedPin = atob(safeStorageGet('legacy_bio_pin'));
               if (savedPin) {
@@ -625,6 +637,12 @@ function App() {
     }
   }, [importId, isLoaded, db]);
 
+  // Robust Save Logic Update
+  useEffect(() => {
+     editingIdRef.current = editingId;
+     currentEntryRef.current = { title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom };
+  }, [editingId, title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom]);
+
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; let dbEntry = { ...entry };
     try { if (dbEntry.locked && activePin) { const payload = JSON.stringify({ text: dbEntry.text || '', title: dbEntry.title || '' }); dbEntry.encryptedData = await encryptData(payload, activePin); dbEntry.text = ''; dbEntry.title = 'Verschlüsselter Eintrag'; } else if (!dbEntry.locked) { dbEntry.encryptedData = null; } } catch(e) {}
@@ -637,12 +655,16 @@ function App() {
 
   const checkSaveEntry = (closeAndRead = false) => {
     try {
-        const entryId = editingId || generateId(); const currentText = editorRef.current ? editorRef.current.innerHTML : (text || ''); const titleSafe = title || '';
-        if (!titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && (!selectedImages || selectedImages.length === 0) && !audioUrl && closeAndRead) { closeEditor(entries.find(e => e.id === editingId) || null); return; }
-        const newEntry = { id: entryId, title: titleSafe || 'Ohne Titel', text: currentText, color: selectedColor, images: selectedImages, audio: audioUrl, locked: isLocked, archived: false, manifested: isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, date: editingId ? (entries.find(e => e.id === editingId)?.date || new Date().toISOString()) : new Date().toISOString(), orderTimestamp: editingId ? (entries.find(e => e.id === editingId)?.orderTimestamp || new Date().toISOString()) : new Date().toISOString() };
+        const state = currentEntryRef.current;
+        const entryId = editingIdRef.current || generateId(); 
+        const currentText = editorRef.current ? editorRef.current.innerHTML : (state.text || ''); 
+        const titleSafe = state.title || '';
+        
+        if (!titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && (!state.selectedImages || state.selectedImages.length === 0) && !state.audioUrl && closeAndRead) { closeEditor(entries.find(e => e.id === editingIdRef.current) || null); return; }
+        const newEntry = { id: entryId, title: titleSafe || 'Ohne Titel', text: currentText, color: state.selectedColor, images: state.selectedImages, audio: state.audioUrl, locked: state.isLocked, archived: false, manifested: state.isManifested, category: state.category, mood: state.mood, unlockDate: state.unlockDate, location: state.location, parentId: state.parentId, inheritedFrom: state.inheritedFrom, date: editingIdRef.current ? (entries.find(e => e.id === editingIdRef.current)?.date || new Date().toISOString()) : new Date().toISOString(), orderTimestamp: editingIdRef.current ? (entries.find(e => e.id === editingIdRef.current)?.orderTimestamp || new Date().toISOString()) : new Date().toISOString() };
         saveToDB(newEntry);
         if (closeAndRead) closeEditor(newEntry); else { setEditingId(entryId); isDirtyRef.current = false; setAutoSaveStatus('Gespeichert'); setTimeout(()=>setAutoSaveStatus(''), 2000); }
-    } catch (err) { if (closeAndRead) closeEditor(entries.find(e => e.id === editingId) || null); }
+    } catch (err) { if (closeAndRead) closeEditor(entries.find(e => e.id === editingIdRef.current) || null); }
   };
 
   useEffect(() => { if (!showEditor || view === 'burn') return; const timer = setTimeout(() => { if (isDirtyRef.current) checkSaveEntry(false); }, 3000); return () => clearTimeout(timer); }, [title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, showEditor]);
@@ -706,7 +728,6 @@ function App() {
 
   const renderEntries = visibleEntries; const now = new Date();
   
-  // HINZUGEFÜGT: Helper-Funktion zum Hervorheben von Suchtexten
   const highlightText = (text, query) => {
       if (!text) return { __html: '' };
       let safeText = text.replace(/<img[^>]*>/g, '[Bild]');
@@ -726,9 +747,39 @@ function App() {
   const getAllBookEntries = (rootId) => { const result = []; const traverse = (id, depth=0) => { if (depth > 1000) return; const entry = entries.find(e => e.id === id); if (entry && !result.find(r => r.id === entry.id)) { result.push(entry); entries.filter(e => e.parentId === id).sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(c => traverse(c.id, depth+1)); } }; traverse(rootId); return result; };
   const getBookRoot = (entryId) => { let current = entries.find(e => e.id === entryId); let safeGuard = 0; while (current && current.parentId && safeGuard < 1000) { const p = entries.find(e => e.id === current.parentId); if (p) current = p; else break; safeGuard++; } return current; };
 
+  // Swipe Navigation in Viewer
+  const handleTouchStart = (e) => { setTouchStart(e.touches[0].clientX); };
+  const handleTouchEnd = (e) => {
+      if (!touchStart || !viewingEntry) return;
+      const touchEnd = e.changedTouches[0].clientX; const distance = touchStart - touchEnd;
+      
+      let swipeNext = null, swipePrev = null;
+      const allBookEntries = getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id);
+      if (allBookEntries.length > 1) {
+          const cIdx = allBookEntries.findIndex(ex => ex.id === viewingEntry.id);
+          if (cIdx > 0) swipePrev = allBookEntries[cIdx - 1]; 
+          if (cIdx < allBookEntries.length - 1) swipeNext = allBookEntries[cIdx + 1]; 
+      } else {
+          const sorted = visibleEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
+          const cIdx = sorted.findIndex(ex => ex.id === viewingEntry.id);
+          if (cIdx > 0) swipePrev = sorted[cIdx - 1]; 
+          if (cIdx < sorted.length - 1) swipeNext = sorted[cIdx + 1]; 
+      }
+
+      if (distance > 50 && swipeNext) { setViewingEntry(swipeNext); setCurrentViewerImgIdx(0); } // Swipe left
+      if (distance < -50 && swipePrev) { setViewingEntry(swipePrev); setCurrentViewerImgIdx(0); } // Swipe right
+      setTouchStart(null);
+  };
+
   // Canvas
-  const startDrawing = (e) => { if (!canvasRef.current) return; const ctx = canvasRef.current.getContext('2d'); const rect = canvasRef.current.getBoundingClientRect(); const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left; const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top; ctx.beginPath(); ctx.moveTo(x, y); canvasRef.current.isPainting = true; };
-  const draw = (e) => { if (!canvasRef.current?.isPainting) return; const ctx = canvasRef.current.getContext('2d'); const rect = canvasRef.current.getBoundingClientRect(); const x = (e.clientX || (e.clientX && e.touches[0].clientX)) - rect.left; const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.strokeStyle = user.isDark ? '#ffffff' : '#000000'; ctx.lineTo(x, y); ctx.stroke(); };
+  const getCanvasCoordinates = (e) => {
+      if (!canvasRef.current) return { x: 0, y: 0 };
+      const rect = canvasRef.current.getBoundingClientRect();
+      if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+  const startDrawing = (e) => { if (!canvasRef.current) return; const {x, y} = getCanvasCoordinates(e); const ctx = canvasRef.current.getContext('2d'); ctx.beginPath(); ctx.moveTo(x, y); canvasRef.current.isPainting = true; };
+  const draw = (e) => { if (!canvasRef.current?.isPainting) return; const {x, y} = getCanvasCoordinates(e); const ctx = canvasRef.current.getContext('2d'); ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.strokeStyle = user.isDark ? '#ffffff' : '#000000'; ctx.lineTo(x, y); ctx.stroke(); };
   const stopDrawing = () => { if (canvasRef.current) canvasRef.current.isPainting = false; };
   useEffect(() => { let canvasEl = canvasRef.current; const preventScroll = (e) => e.preventDefault(); if (isDrawing && canvasEl) { canvasEl.addEventListener('touchstart', preventScroll, { passive: false }); canvasEl.addEventListener('touchmove', preventScroll, { passive: false }); setTimeout(() => { if (!canvasEl) return; const rect = canvasEl.parentElement.getBoundingClientRect(); canvasEl.width = rect.width; canvasEl.height = rect.height; const ctx = canvasEl.getContext('2d'); ctx.fillStyle = user.isDark ? '#18181b' : '#ffffff'; ctx.fillRect(0, 0, rect.width, rect.height); }, 50); } return () => { if (canvasEl) { canvasEl.removeEventListener('touchstart', preventScroll); canvasEl.removeEventListener('touchmove', preventScroll); } }; }, [isDrawing, user.isDark]);
 
@@ -906,14 +957,14 @@ function App() {
         {/* --- MAIN HEADER --- */}
         <header className="sticky top-0 z-30 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-slate-200 dark:border-zinc-800 px-6 py-4 flex justify-between items-center transition-colors duration-300 no-print">
           <div className="flex items-center gap-3 overflow-hidden">
-            {view === 'settings' ? <h1 className="text-xl font-bold tracking-tight">Einstellungen</h1> :
-             view === 'archive' ? <h1 className="text-xl font-bold tracking-tight">Archiv</h1> :
+            {view === 'archive' ? <h1 className="text-xl font-bold tracking-tight">Archiv</h1> :
              view === 'menu' ? <h1 className="text-xl font-bold tracking-tight">Entdecken</h1> :
              view === 'wisdom' ? <h1 className="text-xl font-bold tracking-tight">Buch der Weisheit</h1> :
              view === 'burn' ? <h1 className="text-xl font-bold tracking-tight text-rose-500">Katharsis</h1> :
              view === 'quotes' ? <h1 className="text-xl font-bold tracking-tight">Erkenntnisse</h1> :
              view === 'map' ? <h1 className="text-xl font-bold tracking-tight text-amber-500">Lebenskarte</h1> :
              view === 'vault' ? <h1 className="text-xl font-bold tracking-tight flex items-center gap-2"><Icon name="lock" size={20}/> Tresor</h1> :
+             view === 'settings' ? <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">Einstellungen</h1> :
             (
               <>
                 <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-zinc-800 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
@@ -953,8 +1004,98 @@ function App() {
               <button onClick={() => setView('burn')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-105 transition-transform"><Icon name="flame" size={32} className="text-rose-500" /><span className="font-bold text-sm">Katharsis</span></button>
               <button onClick={() => setView('quotes')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-105 transition-transform"><Icon name="quote" size={32} className="text-indigo-500" /><span className="font-bold text-sm">Erkenntnisse</span></button>
               <button onClick={() => setView('archive')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-105 transition-transform"><Icon name="archive" size={32} className="opacity-50" /><span className="font-bold text-sm">Archiv</span></button>
-              <button onClick={() => setView('settings')} className="col-span-2 p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-105 transition-transform"><Icon name="settings" size={32} className="opacity-50" /><span className="font-bold text-sm">Einstellungen</span></button>
+              <button onClick={() => setView('settings')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-105 transition-transform"><Icon name="settings" size={32} className="opacity-50" /><span className="font-bold text-sm">Einstellungen</span></button>
             </div>
+          )}
+
+          {/* --- SETTINGS VIEW --- */}
+          {view === 'settings' && (
+             <div className="animate-slide-up space-y-6">
+                <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
+                   <h2 className="text-base font-bold mb-4 flex items-center gap-2"><Icon name="user" size={18}/> Profil</h2>
+                   <div className="flex flex-col sm:flex-row items-center gap-5 mb-6">
+                       <div className="relative shrink-0">
+                           <div className="w-24 h-24 rounded-full overflow-hidden border-4 shadow-sm flex items-center justify-center bg-slate-100 dark:bg-zinc-800" style={{ borderColor: user.nameColor }}>
+                               {user.avatar ? <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover scale-[1.02]" /> : <Icon name="user" size={40} className="opacity-30 text-slate-900 dark:text-white" />}
+                           </div>
+                       </div>
+                       <label className="w-full sm:flex-1 py-3 px-4 rounded-xl cursor-pointer shadow-sm font-bold text-sm text-center border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:scale-[1.02] transition-transform">
+                           Profilbild ändern <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                       </label>
+                   </div>
+                   <input type="text" value={user.name} onChange={e=>setUser({...user, name: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-lg mb-4 focus:ring-2 focus:ring-slate-200 dark:focus:ring-zinc-700" placeholder="Dein Name" />
+                   <textarea value={user.motto} onChange={e=>setUser({...user, motto: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-medium text-sm resize-none h-24 focus:ring-2 focus:ring-slate-200 dark:focus:ring-zinc-700" placeholder="Lebensmotto..." />
+                </div>
+
+                <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
+                   <h2 className="text-base font-bold mb-4 flex items-center gap-2"><Icon name="moon" size={18}/> Design & Farben</h2>
+                   <div className="flex p-1 bg-slate-100 dark:bg-zinc-950 rounded-2xl mb-6">
+                      <button onClick={() => setUser({...user, isDark: false})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${!user.isDark ? 'bg-white shadow-sm text-black' : 'text-slate-500'}`}>Hell</button>
+                      <button onClick={() => setUser({...user, isDark: true})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${user.isDark ? 'bg-zinc-800 shadow-sm text-white' : 'text-slate-500'}`}>Dunkel</button>
+                   </div>
+                   <div className="flex flex-wrap gap-2">
+                      {COLORS.map(color => (
+                          <button key={color} onClick={() => setUser({...user, nameColor: color})} className={`w-8 h-8 rounded-full border-2 transition-transform ${user.nameColor === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
+                      ))}
+                   </div>
+                </div>
+                
+                <div className="p-6 rounded-[2rem] bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 shadow-sm">
+                   <h2 className="text-base font-bold mb-2 flex items-center gap-2 text-blue-600 dark:text-blue-400"><Icon name="cloud" size={18}/> Verschlüsselter Cloud-Tresor</h2>
+                   <p className="text-xs font-medium opacity-70 mb-4">Deine Daten werden AES-GCM verschlüsselt gesichert.</p>
+                   <button onClick={() => {
+                      if (!user.pin) { showDialog({title:'PIN fehlt', message:'Bitte lege zuerst eine PIN fest.'}); return; }
+                      setUser({...user, cloudSync: !user.cloudSync});
+                      if (!user.cloudSync) { entries.forEach(e=>syncSingleEntryToCloud(e)); syncProfileToCloud({...user, cloudSync:true}); }
+                   }} className={`w-full p-4 rounded-2xl font-bold text-sm transition-transform hover:scale-[1.02] shadow-sm mb-3 ${user.cloudSync ? 'bg-blue-600 text-white' : 'bg-white dark:bg-zinc-900 text-slate-700 dark:text-white'}`}>{user.cloudSync ? 'Cloud Sync ist Aktiv' : 'Cloud Sync aktivieren'}</button>
+                   <button onClick={performCloudSync} className="w-full p-4 rounded-2xl font-bold text-sm bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 hover:scale-[1.02] shadow-sm transition-transform flex items-center justify-center gap-2">{syncingCloud ? 'Lädt...' : <><Icon name="download-cloud" size={18}/> Aus der Cloud wiederherstellen</>}</button>
+                </div>
+
+                <div className="p-6 rounded-[2rem] bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 shadow-sm">
+                   <h2 className="text-base font-bold mb-2 flex items-center gap-2 text-indigo-600 dark:text-indigo-400"><Icon name="archive" size={18}/> Ewigkeits-Archiv (ZIP)</h2>
+                   <p className="text-xs font-medium opacity-70 mb-4">Exportiert alle deine Einträge als simple, für immer lesbare Textdateien (.md) und extrahiert alle Bilder.</p>
+                   <button onClick={exportEternityArchive} className="w-full p-4 rounded-2xl font-bold text-sm bg-indigo-600 text-white hover:scale-[1.02] shadow-sm transition-transform flex items-center justify-center gap-2 mb-3"><Icon name="folder-down" size={18}/> Als ZIP speichern</button>
+                </div>
+
+                <div className="p-6 rounded-[2rem] bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 shadow-sm">
+                   <h2 className="text-base font-bold mb-2 flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><Icon name="smartphone" size={18}/> P2P Transfer (Ohne Cloud)</h2>
+                   <p className="text-xs font-medium opacity-70 mb-4">Scanne einen QR Code mit deinem neuen Handy, um Daten direkt zu senden.</p>
+                   {!peerId ? (
+                      <button onClick={() => {
+                         const peer = new window.Peer(); setSyncStatus('WebRTC wird vorbereitet...');
+                         peer.on('open', (id) => { setPeerId(id); setSyncStatus('Scanne den Code mit dem neuen Gerät.'); });
+                         peer.on('connection', (c) => { setSyncStatus('Verbunden! Sende...'); c.on('data', (d) => { if(d==='request_data'){c.send(JSON.stringify({user,entries})); setSyncStatus('Erledigt!'); setTimeout(()=>{setPeerId(null);}, 4000);} }); });
+                         setPeerInstance(peer);
+                      }} className="w-full p-4 rounded-2xl font-bold text-sm bg-emerald-600 text-white hover:scale-[1.02] shadow-sm transition-transform flex items-center justify-center gap-2"><Icon name="qr-code" size={18}/> QR-Code generieren</button>
+                   ) : (
+                      <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl flex flex-col items-center">
+                         <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin + window.location.pathname + '?import=' + peerId)}`} className="w-40 h-40 mb-3 rounded-lg" />
+                         <p className="text-xs font-bold text-emerald-600 mb-3 animate-pulse">{syncStatus}</p>
+                         <button onClick={()=>{peerInstance?.destroy(); setPeerId(null); setSyncStatus('');}} className="text-xs font-bold opacity-50">Abbrechen</button>
+                      </div>
+                   )}
+                </div>
+
+                <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
+                   <h2 className="text-base font-bold mb-4 flex items-center gap-2"><Icon name="key" size={18}/> Sicherheit</h2>
+                   {window.PublicKeyCredential && (
+                       <div className="flex justify-between items-center mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800">
+                           <div className="flex items-center gap-3">
+                               <Icon name="fingerprint" size={20} className={user.biometric ? 'text-indigo-500' : 'text-slate-400'}/>
+                               <div>
+                                   <div className="font-bold text-sm">Biometrie</div>
+                                   <div className="text-[10px] opacity-60">TouchID / FaceID</div>
+                               </div>
+                           </div>
+                           <button onClick={toggleBiometric} className={`w-12 h-6 rounded-full transition-colors relative ${user.biometric ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-zinc-700'}`}>
+                               <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${user.biometric ? 'left-7' : 'left-1'}`} />
+                           </button>
+                       </div>
+                   )}
+                   <input type="password" inputMode="numeric" value={user.pin} onChange={e=>setUser({...user, pin: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em] mb-4 focus:ring-2 focus:ring-slate-200 dark:focus:ring-zinc-700" placeholder="Tresor-PIN" />
+                </div>
+                <button onClick={handleLogout} className="w-full p-4 rounded-2xl font-bold text-rose-500 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-900/30 active:scale-95 transition-transform flex items-center justify-center gap-2"><Icon name="log-out" size={18}/> Abmelden</button>
+             </div>
           )}
 
           {view === 'map' && (
@@ -1116,10 +1257,10 @@ function App() {
 
         {/* --- VIEWER --- */}
         {viewingEntry && !showEditor && (
-           <div className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-black animate-fade-in custom-scrollbar flex flex-col">
+           <div className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-black animate-fade-in custom-scrollbar flex flex-col" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
              <div className="sticky top-0 z-40 flex justify-between items-center py-4 px-6 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-slate-100 dark:border-zinc-900 shrink-0 no-print">
                <div className="flex gap-2">
-                 <button onClick={() => setViewingEntry(null)} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform"><Icon name="arrow-left" size={20}/></button>
+                 <button onClick={() => {setViewingEntry(null); setCurrentViewerImgIdx(0);}} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform"><Icon name="arrow-left" size={20}/></button>
                  {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).length > 1 && (
                      <button onClick={() => setShowTimeline(true)} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform text-amber-500"><Icon name="calendar-days" size={20}/></button>
                  )}
@@ -1152,8 +1293,20 @@ function App() {
              {/* Single Entry View */}
              <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-32">
                 {viewingEntry.images && viewingEntry.images.length > 0 && (
-                  <img src={viewingEntry.images[0]} className="w-full rounded-3xl mb-8 object-cover shadow-sm border border-slate-100 dark:border-zinc-800" alt="Cover" />
+                  <div className="relative w-full aspect-video rounded-3xl overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-8 group">
+                      <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-cover transition-transform duration-700" alt="Cover" />
+                      {viewingEntry.images.length > 1 && (
+                          <>
+                              <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p - 1 + viewingEntry.images.length) % viewingEntry.images.length); }} className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print"><Icon name="chevron-left" size={24}/></button>
+                              <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p + 1) % viewingEntry.images.length); }} className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print"><Icon name="chevron-right" size={24}/></button>
+                              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/30 px-3 py-1.5 rounded-full backdrop-blur-sm no-print">
+                                  {viewingEntry.images.map((_, i) => <div key={i} className={`w-2 h-2 rounded-full transition-colors ${i === currentViewerImgIdx ? 'bg-white' : 'bg-white/40'}`} />)}
+                              </div>
+                          </>
+                      )}
+                  </div>
                 )}
+
                 <h1 className="text-4xl sm:text-5xl font-extrabold mb-6 tracking-tight leading-tight">{viewingEntry.title}</h1>
                 <div className="flex gap-4 mb-10 text-xs font-bold uppercase tracking-widest opacity-50">
                   <span>{new Date(viewingEntry.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
@@ -1170,24 +1323,71 @@ function App() {
            </div>
         )}
 
-        {/* --- TIMELINE / ZEITREISE --- */}
+        {/* --- TIMELINE / ZEITREISE (Calendar Style) --- */}
         {showTimeline && viewingEntry && !showEditor && (() => {
            const bookRoot = getBookRoot(viewingEntry.id);
            const bookEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
+           
+           const daysInMonth = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth() + 1, 0).getDate();
+           const firstDay = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth(), 1).getDay();
+           const emptySlots = (firstDay + 6) % 7; 
+           const daysArray = Array.from({length: daysInMonth}, (_, i) => i + 1);
+
+           const entriesOnSelectedDate = timelineSelectedDate ? bookEntries.filter(e => new Date(e.date).toDateString() === timelineSelectedDate) : [];
+
            return (
              <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex justify-end animate-fade-in no-print" onClick={() => setShowTimeline(false)}>
                 <div className="w-full max-w-sm h-full bg-white dark:bg-zinc-950 shadow-2xl animate-slide-up flex flex-col" onClick={e=>e.stopPropagation()}>
-                   <div className="p-6 border-b border-slate-100 dark:border-zinc-900 flex justify-between items-center">
+                   <div className="p-6 border-b border-slate-100 dark:border-zinc-900 flex justify-between items-center shrink-0">
                       <h3 className="font-bold text-xl flex items-center gap-2"><Icon name="calendar-days" className="text-amber-500"/> Zeitreise</h3>
                       <button onClick={()=>setShowTimeline(false)} className="p-2 rounded-full bg-slate-100 dark:bg-zinc-900"><Icon name="x" size={20}/></button>
                    </div>
-                   <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                      {bookEntries.map((e, idx) => (
-                         <button key={e.id} onClick={() => { setViewingEntry(e); setShowTimeline(false); }} className={`w-full text-left p-4 rounded-2xl mb-2 flex flex-col gap-1 transition-colors ${viewingEntry.id === e.id ? 'bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30' : 'bg-slate-50 dark:bg-zinc-900 border border-transparent'}`}>
-                            <span className="font-bold text-sm truncate">{idx+1}. {e.title}</span>
-                            <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">{new Date(e.date).toLocaleDateString('de-DE')}</span>
-                         </button>
-                      ))}
+                   
+                   <div className="flex-1 overflow-y-auto custom-scrollbar">
+                       <div className="p-6 border-b border-slate-100 dark:border-zinc-900">
+                          <div className="flex justify-between items-center mb-6">
+                              <button onClick={() => { const d = new Date(timelineMonth); d.setMonth(d.getMonth()-1); setTimelineMonth(d); }} className="p-2 rounded-full bg-slate-100 dark:bg-zinc-900"><Icon name="chevron-left" size={20}/></button>
+                              <span className="font-bold text-sm uppercase tracking-widest">{timelineMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}</span>
+                              <button onClick={() => { const d = new Date(timelineMonth); d.setMonth(d.getMonth()+1); setTimelineMonth(d); }} className="p-2 rounded-full bg-slate-100 dark:bg-zinc-900"><Icon name="chevron-right" size={20}/></button>
+                          </div>
+                          
+                          <div className="grid grid-cols-7 gap-2 text-center">
+                              {['Mo','Di','Mi','Do','Fr','Sa','So'].map(d => <div key={d} className="text-[10px] font-bold opacity-50 py-2">{d}</div>)}
+                              {Array(emptySlots).fill(null).map((_, i) => <div key={`empty-${i}`} />)}
+                              {daysArray.map(day => {
+                                  const dateStr = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth(), day).toDateString();
+                                  const hasEntry = bookEntries.some(e => new Date(e.date).toDateString() === dateStr);
+                                  const isSelected = timelineSelectedDate === dateStr;
+                                  
+                                  return (
+                                      <button key={day} onClick={() => setTimelineSelectedDate(isSelected ? null : dateStr)} className={`relative p-2 text-sm rounded-full transition-all flex items-center justify-center aspect-square ${isSelected ? 'shadow-md font-bold' : ''}`} style={isSelected ? { backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000' } : { backgroundColor: 'transparent' }}>
+                                          <span>{day}</span>
+                                          {hasEntry && !isSelected && <div className="absolute bottom-1 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: user.nameColor }}></div>}
+                                      </button>
+                                  );
+                              })}
+                          </div>
+                       </div>
+
+                       <div className="p-4">
+                           {!timelineSelectedDate ? (
+                               <p className="text-center opacity-40 text-sm font-medium mt-8">Wähle einen markierten Tag aus.</p>
+                           ) : entriesOnSelectedDate.length === 0 ? (
+                               <p className="text-center opacity-40 text-sm font-medium mt-8">Kein Eintrag an diesem Tag.</p>
+                           ) : (
+                               <div className="space-y-3">
+                                   {entriesOnSelectedDate.map((e) => (
+                                       <button key={e.id} onClick={() => { setViewingEntry(e); setShowTimeline(false); }} className={`w-full text-left p-4 rounded-2xl flex items-center gap-4 transition-colors ${viewingEntry.id === e.id ? 'bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30' : 'bg-slate-50 dark:bg-zinc-900 border border-transparent'}`}>
+                                           {e.images && e.images.length > 0 && <img src={e.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0" />}
+                                           <div className="flex-1 overflow-hidden">
+                                               <span className="font-bold text-sm truncate block">{e.title}</span>
+                                               <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">{new Date(e.date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
+                                           </div>
+                                       </button>
+                                   ))}
+                               </div>
+                           )}
+                       </div>
                    </div>
                 </div>
              </div>
@@ -1227,10 +1427,10 @@ function App() {
                  <input type="text" placeholder="Ein brillianter Gedanke..." value={title} onChange={(e) => { setTitle(e.target.value); isDirtyRef.current = true; }} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tight outline-none placeholder:opacity-30 mb-4" />
                  
                  <div className="flex gap-2 mb-4 overflow-x-auto hide-scrollbar">
-                    <button onClick={() => { document.execCommand('bold', false, null); isDirtyRef.current = true; }} className="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200"><Icon name="bold" size={18}/></button>
-                    <button onClick={() => { document.execCommand('italic', false, null); isDirtyRef.current = true; }} className="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200"><Icon name="italic" size={18}/></button>
-                    <button onClick={() => { document.execCommand('insertUnorderedList', false, null); isDirtyRef.current = true; }} className="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200"><Icon name="list-todo" size={18}/></button>
-                    <button onClick={() => { document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current = true; }} className="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200"><Icon name="quote" size={18}/></button>
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); isDirtyRef.current = true; }} className="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200"><Icon name="bold" size={18}/></button>
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); isDirtyRef.current = true; }} className="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200"><Icon name="italic" size={18}/></button>
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); isDirtyRef.current = true; }} className="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200"><Icon name="list-todo" size={18}/></button>
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current = true; }} className="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200"><Icon name="quote" size={18}/></button>
                     
                     <button onClick={() => setPicker({ title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c,value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;} })} className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-zinc-900 font-bold text-xs uppercase tracking-widest ml-auto">{category}</button>
                  </div>
@@ -1341,85 +1541,6 @@ function App() {
               )}
             </div>
           </div>
-        )}
-
-        {/* --- SETTINGS VIEW --- */}
-        {view === 'settings' && (
-           <div className="max-w-md mx-auto p-6 animate-slide-up space-y-6 pb-32 no-print">
-              <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
-                 <h2 className="text-base font-bold mb-4 flex items-center gap-2"><Icon name="user" size={18}/> Profil</h2>
-                 <input type="text" value={user.name} onChange={e=>setUser({...user, name: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-lg mb-4" placeholder="Dein Name" />
-                 <textarea value={user.motto} onChange={e=>setUser({...user, motto: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-medium text-sm resize-none h-24" placeholder="Lebensmotto..." />
-              </div>
-
-              <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
-                 <h2 className="text-base font-bold mb-4 flex items-center gap-2"><Icon name="moon" size={18}/> Design</h2>
-                 <div className="flex p-1 bg-slate-100 dark:bg-zinc-950 rounded-2xl">
-                    <button onClick={() => setUser({...user, isDark: false})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${!user.isDark ? 'bg-white shadow-sm text-black' : 'text-slate-500'}`}>Hell</button>
-                    <button onClick={() => setUser({...user, isDark: true})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${user.isDark ? 'bg-zinc-800 shadow-sm text-white' : 'text-slate-500'}`}>Dunkel</button>
-                 </div>
-              </div>
-              
-              <div className="p-6 rounded-[2rem] bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 shadow-sm">
-                 <h2 className="text-base font-bold mb-2 flex items-center gap-2 text-blue-600 dark:text-blue-400"><Icon name="cloud" size={18}/> Verschlüsselter Cloud-Tresor</h2>
-                 <p className="text-xs font-medium opacity-70 mb-4">Deine Daten werden AES-GCM verschlüsselt gesichert.</p>
-                 <button onClick={() => {
-                    if (!user.pin) { showDialog({title:'PIN fehlt', message:'Bitte lege zuerst eine PIN fest.'}); return; }
-                    setUser({...user, cloudSync: !user.cloudSync});
-                    if (!user.cloudSync) { entries.forEach(e=>syncSingleEntryToCloud(e)); syncProfileToCloud({...user, cloudSync:true}); }
-                 }} className={`w-full p-4 rounded-2xl font-bold text-sm transition-transform hover:scale-[1.02] shadow-sm mb-3 ${user.cloudSync ? 'bg-blue-600 text-white' : 'bg-white dark:bg-zinc-900 text-slate-700 dark:text-white'}`}>{user.cloudSync ? 'Cloud Sync ist Aktiv' : 'Cloud Sync aktivieren'}</button>
-                 <button onClick={performCloudSync} className="w-full p-4 rounded-2xl font-bold text-sm bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 hover:scale-[1.02] shadow-sm transition-transform flex items-center justify-center gap-2">{syncingCloud ? 'Lädt...' : <><Icon name="download-cloud" size={18}/> Aus der Cloud wiederherstellen</>}</button>
-              </div>
-
-              {/* ZIP EXPORT */}
-              <div className="p-6 rounded-[2rem] bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 shadow-sm">
-                 <h2 className="text-base font-bold mb-2 flex items-center gap-2 text-indigo-600 dark:text-indigo-400"><Icon name="archive" size={18}/> Ewigkeits-Archiv (ZIP)</h2>
-                 <p className="text-xs font-medium opacity-70 mb-4">Exportiert alle deine Einträge als simple, für immer lesbare Textdateien (.md) und extrahiert alle Bilder.</p>
-                 <button onClick={exportEternityArchive} className="w-full p-4 rounded-2xl font-bold text-sm bg-indigo-600 text-white hover:scale-[1.02] shadow-sm transition-transform flex items-center justify-center gap-2 mb-3"><Icon name="folder-down" size={18}/> Als ZIP speichern</button>
-              </div>
-
-              <div className="p-6 rounded-[2rem] bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 shadow-sm">
-                 <h2 className="text-base font-bold mb-2 flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><Icon name="smartphone" size={18}/> P2P Transfer (Ohne Cloud)</h2>
-                 <p className="text-xs font-medium opacity-70 mb-4">Scanne einen QR Code mit deinem neuen Handy, um Daten direkt zu senden.</p>
-                 {!peerId ? (
-                    <button onClick={() => {
-                       const peer = new window.Peer(); setSyncStatus('WebRTC wird vorbereitet...');
-                       peer.on('open', (id) => { setPeerId(id); setSyncStatus('Scanne den Code mit dem neuen Gerät.'); });
-                       peer.on('connection', (c) => { setSyncStatus('Verbunden! Sende...'); c.on('data', (d) => { if(d==='request_data'){c.send(JSON.stringify({user,entries})); setSyncStatus('Erledigt!'); setTimeout(()=>{setPeerId(null);}, 4000);} }); });
-                       setPeerInstance(peer);
-                    }} className="w-full p-4 rounded-2xl font-bold text-sm bg-emerald-600 text-white hover:scale-[1.02] shadow-sm transition-transform flex items-center justify-center gap-2"><Icon name="qr-code" size={18}/> QR-Code generieren</button>
-                 ) : (
-                    <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl flex flex-col items-center">
-                       <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin + window.location.pathname + '?import=' + peerId)}`} className="w-40 h-40 mb-3 rounded-lg" />
-                       <p className="text-xs font-bold text-emerald-600 mb-3 animate-pulse">{syncStatus}</p>
-                       <button onClick={()=>{peerInstance?.destroy(); setPeerId(null); setSyncStatus('');}} className="text-xs font-bold opacity-50">Abbrechen</button>
-                    </div>
-                 )}
-              </div>
-
-              <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
-                 <h2 className="text-base font-bold mb-4 flex items-center gap-2"><Icon name="key" size={18}/> Sicherheit</h2>
-                 
-                 {/* Biometric Toggle */}
-                 {window.PublicKeyCredential && (
-                     <div className="flex justify-between items-center mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800">
-                         <div className="flex items-center gap-3">
-                             <Icon name="fingerprint" size={20} className={user.biometric ? 'text-indigo-500' : 'text-slate-400'}/>
-                             <div>
-                                 <div className="font-bold text-sm">Biometrie</div>
-                                 <div className="text-[10px] opacity-60">TouchID / FaceID</div>
-                             </div>
-                         </div>
-                         <button onClick={toggleBiometric} className={`w-12 h-6 rounded-full transition-colors relative ${user.biometric ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-zinc-700'}`}>
-                             <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${user.biometric ? 'left-7' : 'left-1'}`} />
-                         </button>
-                     </div>
-                 )}
-
-                 <input type="password" inputMode="numeric" value={user.pin} onChange={e=>setUser({...user, pin: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em] mb-4" placeholder="Tresor-PIN" />
-              </div>
-              <button onClick={handleLogout} className="w-full p-4 rounded-2xl font-bold text-rose-500 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-900/30 active:scale-95 transition-transform flex items-center justify-center gap-2"><Icon name="log-out" size={18}/> Abmelden</button>
-           </div>
         )}
 
       </div>
