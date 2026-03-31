@@ -3,35 +3,97 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Legacy Vision Journal</title>
+<title>Legacy Vision Journal - Ultimate Edition</title>
 
 <!-- PWA & iOS Premium Integration -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" id="meta-theme-color" content="#f8fafc" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#09090b" media="(prefers-color-scheme: dark)">
 <meta name="color-scheme" content="light dark">
 
+<!-- W3C Standard Manifest -->
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192x192.png">
+
+<!-- Container für den App-Klon -->
+<script id="legacy-injected-data" type="application/json">null</script>
+
+<!-- Dynamisches PWA Manifest für Android/Samsung -->
+<link rel="manifest" id="dynamic-manifest" href="">
+<script>
+  window.MY_CUSTOM_APP_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20'/%3E%3C/svg%3E";
+  
+  function initManifest() {
+      let appName = "Legacy Vision";
+      let shortName = "Legacy";
+      let iconUrl = window.MY_CUSTOM_APP_ICON;
+      let isSvg = true;
+
+      try {
+          let userData = null;
+          const injectedEl = document.getElementById('legacy-injected-data');
+          if (injectedEl && injectedEl.textContent && injectedEl.textContent.trim() !== 'null') {
+              const data = JSON.parse(injectedEl.textContent);
+              if (data && data.user) userData = data.user;
+          } else {
+              const savedStr = localStorage.getItem('legacy_user');
+              if (savedStr) userData = JSON.parse(savedStr);
+          }
+
+          if (userData) {
+              if (userData.appName && userData.appName.trim() !== "") {
+                  appName = userData.appName.trim();
+                  shortName = userData.appName.trim();
+              }
+              if (userData.avatar) {
+                  iconUrl = userData.avatar;
+                  isSvg = false;
+              }
+          }
+      } catch(e) {}
+
+      const iconType = isSvg ? "image/svg+xml" : "image/png";
+      const manifest = {
+          "id": "legacy-vision-journal",
+          "name": appName,
+          "short_name": shortName,
+          "start_url": window.location.pathname,
+          "display": "standalone",
+          "background_color": "#ffffff",
+          "theme_color": "#f59e0b",
+          "icons": [
+            { "src": iconUrl, "sizes": "192x192", "type": iconType, "purpose": "any maskable" },
+            { "src": iconUrl, "sizes": "512x512", "type": iconType, "purpose": "any maskable" }
+          ]
+      };
+
+      const manifestString = JSON.stringify(manifest);
+      const manifestURL = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(manifestString);
+      
+      let manifestEl = document.getElementById('dynamic-manifest') || document.createElement('link');
+      manifestEl.rel = 'manifest'; 
+      manifestEl.id = 'dynamic-manifest'; 
+      manifestEl.href = manifestURL;
+      
+      if(!document.getElementById('dynamic-manifest')) {
+          document.head.appendChild(manifestEl);
+      }
+  }
+  initManifest();
+</script>
+
+<!-- Inter Font & Libraries -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   window.tailwind = {
-    config: {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: { sans: ['Inter', 'sans-serif'], serif: ['Inter', 'sans-serif'] },
-          colors: {
-            slate: { 50: '#f8fafc', 100: '#f1f5f9', 900: '#0f172a' },
-            zinc: { 800: '#27272a', 900: '#18181b', 950: '#09090b' }
-          }
-        }
-      }
-    }
+    config: { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'], serif: ['Inter', 'sans-serif'] }, colors: { slate: { 50: '#f8fafc', 100: '#f1f5f9', 900: '#0f172a' }, zinc: { 800: '#27272a', 900: '#18181b', 950: '#09090b' } } } } }
   };
 </script>
 
@@ -41,6 +103,19 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Service Worker Registration -->
+<script>
+  if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.protocol === 'http:')) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').then(reg => console.log('SW registriert:', reg.scope)).catch(err => console.warn('SW Fehler:', err));
+    });
+  } else {
+    console.log('Service Worker erfordert HTTP/HTTPS (aktuell: ' + window.location.protocol + '). Registrierung übersprungen.');
+  }
+</script>
 
 <style>
   html, body {
@@ -52,15 +127,12 @@
 
   body.modal-open { overflow: hidden !important; }
 
-  /* Premium Light/Dark Mode Palette */
   html:not(.dark) body { background-color: #f8fafc !important; color: #0f172a !important; }
   html.dark body { background-color: #000000 !important; color: #f8fafc !important; }
 
-  /* Floating Bottom Nav Padding */
   .pb-safe { padding-bottom: env(safe-area-inset-bottom, 32px); }
   .floating-nav-spacing { padding-bottom: calc(100px + env(safe-area-inset-bottom, 20px)); }
 
-  /* Clean Typography */
   h1, h2, h3, h4, h5, h6 { font-weight: 800; letter-spacing: -0.03em; }
 
   @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } } .animate-fade-in { animation: fade-in 0.4s ease-out forwards; }
@@ -70,7 +142,6 @@
   .custom-scrollbar::-webkit-scrollbar { display: none; }
   .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-  /* Editor Typography Enhancement */
   .legacy-editor-content p, .legacy-content p { line-height: 1.7; margin-bottom: 1rem; }
   .legacy-editor-content b, .legacy-content b, .legacy-editor-content strong, .legacy-content strong { font-weight: 700; color: inherit; }
   .legacy-editor-content blockquote, .legacy-content blockquote { border-left: 4px solid currentColor; padding-left: 1.5rem; font-style: normal; font-weight: 600; opacity: 0.9; background: transparent; margin: 1.5rem 0; font-size: 1.1em; }
@@ -78,17 +149,26 @@
   html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
   .search-highlight { background-color: rgba(245, 158, 11, 0.3); padding: 0 2px; border-radius: 3px; border-bottom: 1px solid #f59e0b; }
 
-  /* Print */
+  /* Map Container */
+  .map-container { height: 100%; width: 100%; border-radius: 1.5rem; z-index: 1; }
+
+  /* --- BUCHDRUCK-MODUS (CSS Paged Media) --- */
   .print-only { display: none; }
   @media print {
-    @page { margin: 1.5cm; }
+    @page { margin: 2cm; @bottom-center { content: counter(page); font-family: 'Inter', sans-serif; font-size: 12px; color: #888; } }
     body, html, #root, .min-h-screen { background: #ffffff !important; color: #000000 !important; height: auto !important; overflow: visible !important; width: 100% !important; }
     nav, header, button, .no-print, .screen-only, .custom-scrollbar::-webkit-scrollbar { display: none !important; }
     .print-only { display: block !important; width: 100% !important; max-width: 100% !important; padding: 0 !important; }
     .page-break-after { page-break-after: always; }
     .group { box-shadow: none !important; border: none !important; background: #ffffff !important; color: #000000 !important; page-break-inside: avoid; margin-bottom: 24px !important; }
     img { max-width: 100% !important; max-height: 500px !important; object-fit: contain !important; margin-bottom: 2rem !important; page-break-inside: avoid; border-radius: 0.5rem !important; }
-    * { color: #000000 !important; } h1, h2, h3 { page-break-after: avoid; }
+    * { color: #000000 !important; } 
+    h1, h2, h3 { page-break-after: avoid; }
+    
+    /* Echte Buch-Typografie */
+    .print-title-page { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; text-align: center; }
+    .legacy-content { text-align: justify; hyphens: auto; font-family: 'Georgia', serif; }
+    .legacy-content p:first-of-type::first-letter { font-size: 3.5em; float: left; line-height: 0.9; padding-right: 8px; font-weight: bold; color: #111; }
   }
 </style>
 </head>
@@ -146,6 +226,27 @@ const decryptData = async (encryptedObj, pin) => {
     } catch(e) { return null; }
 };
 
+const pcmToWav = (pcmBase64, sampleRate = 24000) => {
+  const pcmData = Uint8Array.from(atob(pcmBase64), c => c.charCodeAt(0)).buffer;
+  const wavHeader = new ArrayBuffer(44);
+  const view = new DataView(wavHeader);
+  view.setUint32(0, 0x52494646, false); 
+  view.setUint32(4, 36 + pcmData.byteLength, true); 
+  view.setUint32(8, 0x57415645, false); 
+  view.setUint32(12, 0x666d7420, false); 
+  view.setUint32(16, 16, true); 
+  view.setUint16(20, 1, true); 
+  view.setUint16(22, 1, true); 
+  view.setUint32(24, sampleRate, true); 
+  view.setUint32(28, sampleRate * 2, true); 
+  view.setUint16(32, 2, true); 
+  view.setUint16(34, 16, true); 
+  view.setUint32(36, 0x64617461, false); 
+  view.setUint32(40, pcmData.byteLength, true); 
+  const blob = new Blob([wavHeader, pcmData], { type: 'audio/wav' });
+  return URL.createObjectURL(blob);
+};
+
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { hasError: false, error: null }; }
   static getDerivedStateFromError(error) { return { hasError: true, error }; }
@@ -192,12 +293,22 @@ const isDarkColor = (color) => {
   return true; 
 };
 
-const CATEGORIES = ['Tagebuch', 'Ideen', 'Gesundheit', 'Vision', 'Ziele'];
+const CATEGORIES = ['Allgemein', 'Tagebuch', 'Ideen', 'Gesundheit', 'Vision', 'Ziele', 'Bücher', 'Familie'];
 const MOODS = [
   { id: 'smile', label: 'Strahlend', color: 'text-amber-500', iconName: 'smile' },
+  { id: 'heart', label: 'Liebevoll', color: 'text-rose-500', iconName: 'heart' },
   { id: 'coffee', label: 'Fokussiert', color: 'text-blue-500', iconName: 'coffee' },
-  { id: 'cloud-lightning', label: 'Stürmisch', color: 'text-rose-500', iconName: 'cloud-lightning' },
+  { id: 'cloud-lightning', label: 'Stürmisch', color: 'text-indigo-500', iconName: 'cloud-lightning' },
   { id: 'frown', label: 'Nachdenklich', color: 'text-slate-500', iconName: 'frown' }
+];
+
+const PILLARS = [
+  { id: 'm1', phase: 'Fundament', title: '1. Das Nordstern-Manifest', desc: 'Definiere deine absoluten, unverhandelbaren Grundwerte.' },
+  { id: 'm2', phase: 'Fundament', title: '2. Der Zeitgeist-Stempel', desc: 'Historischer Kontext: Was passiert gerade auf der Welt?' },
+  { id: 'm3', phase: 'Fundament', title: '3. Das Geistige Testament', desc: 'Vererbe deinen Charakter. Welche Lebensweisheiten möchtest du weitergeben?' },
+  { id: 'm6', phase: 'Kommunikation', title: '6. Die Zeitkapsel', desc: 'Eine Botschaft an die Zukunft. Nutze das Datumssiegel.' },
+  { id: 'm12', phase: 'Struktur', title: '12. Matroschka-Ziele', desc: 'Bricht deine große Vision herunter.' },
+  { id: 'm24', phase: 'Anpassung', title: '24. Stimme & Akzent', desc: 'Nutze das Mikrofon, um eine Audio-Nachricht zu hinterlassen.' }
 ];
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -217,44 +328,79 @@ const initDB = () => {
 function App() {
   const [db, setDb] = useState(null);
   const [fb, setFb] = useState(null);
-  const [authUser, setAuthUser] = useState(null);
   
   const [entries, setEntries] = useState([]);
-  const [user, setUser] = useState({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', isDark: true, appBgColor: null, cloudSync: false });
+  const [user, setUser] = useState({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', isDark: true, appBgColor: null, cloudSync: false, biometric: false });
   const [view, setView] = useState('loading'); 
   const [isLoaded, setIsLoaded] = useState(false);
   
-  // Modern Auth State
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [authMsg, setAuthMsg] = useState('');
-  const [authMode, setAuthMode] = useState('login'); // login, register, reset
+  const [authMode, setAuthMode] = useState('login');
+  const [syncingCloud, setSyncingCloud] = useState(false);
 
-  // General State
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('Alle');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [dialog, setDialog] = useState(null);
+  const [picker, setPicker] = useState(null);
 
   const [viewingEntry, setViewingEntry] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
+  const [currentViewerImgIdx, setCurrentViewerImgIdx] = useState(0);
   
+  const [showTimeline, setShowTimeline] = useState(false); 
+  const [timelineMonth, setTimelineMonth] = useState(() => new Date()); 
+  const [timelineSearchQuery, setTimelineSearchQuery] = useState(''); 
+  const [timelineSelectedDate, setTimelineSelectedDate] = useState(null); 
+  const [expandedNodes, setExpandedNodes] = useState({});
+
   const [unlockTarget, setUnlockTarget] = useState(null);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
+  const [isChangingPin, setIsChangingPin] = useState(false);
+  const [oldPinInput, setOldPinInput] = useState('');
+  const [newPinInput, setNewPinInput] = useState('');
 
-  // Editor State
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const audioPlayerRef = useRef(new Audio());
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+
+  const [burnText, setBurnText] = useState('');
+  const [isBurning, setIsBurning] = useState(false);
+
+  const [isDrawing, setIsDrawing] = useState(false);
+  const canvasRef = useRef(null);
+  
+  const mapRef = useRef(null);
+  const mapInstance = useRef(null);
+
+  const [peerId, setPeerId] = useState(null);
+  const [peerInstance, setPeerInstance] = useState(null);
+  const [syncStatus, setSyncStatus] = useState('');
+  const [importId, setImportId] = useState(() => new URLSearchParams(window.location.search).get('import'));
+
   const [editingId, setEditingId] = useState(null);
   const [title, setTitle] = useState('');
   const [text, setText] = useState(''); 
   const [selectedColor, setSelectedColor] = useState(COLORS[8]);
   const [selectedImages, setSelectedImages] = useState([]); 
   const [isLocked, setIsLocked] = useState(false);
+  const [audioUrl, setAudioUrl] = useState(null);
   const [isManifested, setIsManifested] = useState(false);
+  const [unlockDate, setUnlockDate] = useState('');
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [mood, setMood] = useState(null);
+  const [location, setLocation] = useState(null);
+  const [parentId, setParentId] = useState('');
   const [zenMode, setZenMode] = useState(false);
+  const [inheritedFrom, setInheritedFrom] = useState(null);
+  const [pillarGuidance, setPillarGuidance] = useState(null);
+  const [autoSaveStatus, setAutoSaveStatus] = useState('');
 
   const editorRef = useRef(null);
   const isDirtyRef = useRef(false);
@@ -263,53 +409,28 @@ function App() {
   useEffect(() => {
     const initFB = async () => {
        try {
-          const firebaseConfig = {
-            apiKey: "AIzaSyBs7DoO5z8cuIc3DtdArgorKRx_FX7JX-U",
-            authDomain: "tagebuch-og.firebaseapp.com",
-            projectId: "tagebuch-og",
-            storageBucket: "tagebuch-og.firebasestorage.app",
-            messagingSenderId: "418864246292",
-            appId: "1:418864246292:web:957b604fe7ce4380c24101"
-          };
-          
+          const firebaseConfig = { apiKey: "AIzaSyBs7DoO5z8cuIc3DtdArgorKRx_FX7JX-U", authDomain: "tagebuch-og.firebaseapp.com", projectId: "tagebuch-og", storageBucket: "tagebuch-og.firebasestorage.app", messagingSenderId: "418864246292", appId: "1:418864246292:web:957b604fe7ce4380c24101" };
           const nativeImport = new Function('url', 'return import(url)');
           const { initializeApp } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
           const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
-          const { getFirestore, collection, doc, setDoc, deleteDoc } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+          const { getFirestore, collection, doc, setDoc, deleteDoc, getDocs, getDoc } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
           
-          const app = initializeApp(firebaseConfig);
-          const auth = getAuth(app);
-          const firestoreDb = getFirestore(app);
-          
-          setFb({ db: firestoreDb, auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, collection, doc, setDoc, deleteDoc });
+          const app = initializeApp(firebaseConfig); const auth = getAuth(app); const firestoreDb = getFirestore(app);
+          setFb({ db: firestoreDb, auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, collection, doc, setDoc, deleteDoc, getDocs, getDoc });
 
           onAuthStateChanged(auth, (u) => {
              if (u) {
                  if (u.emailVerified) {
-                     setAuthUser(u);
                      const savedStr = localStorage.getItem('legacy_user');
                      if (savedStr) {
                          const parsed = JSON.parse(savedStr);
-                         if (parsed.pin) {
-                             setUser(parsed);
-                             setView(parsed.name ? 'dashboard' : 'onboarding');
-                         } else {
-                             setView('pin_entry');
-                         }
-                     } else {
-                         setView('pin_entry');
-                     }
-                 } else {
-                     signOut(auth);
-                     setAuthUser(null);
-                     setView('auth');
-                 }
-             } else {
-                 setAuthUser(null);
-                 setView('auth');
-             }
+                         if (parsed.pin) { setUser(parsed); setView(parsed.name ? 'dashboard' : 'onboarding'); } 
+                         else setView('pin_entry');
+                     } else setView('pin_entry');
+                 } else { signOut(auth); setView('auth'); }
+             } else setView('auth');
           });
-       } catch(e) { console.error("Firebase Init Error", e); }
+       } catch(e) { console.error(e); }
     };
     initFB();
   }, []);
@@ -318,221 +439,377 @@ function App() {
   useEffect(() => {
     const loadApp = async () => {
       try {
-        const database = await initDB();
-        setDb(database);
-        const transaction = database.transaction('entries', 'readonly');
-        const request = transaction.objectStore('entries').getAll();
+        const database = await initDB(); setDb(database);
+        const transaction = database.transaction('entries', 'readonly'); const request = transaction.objectStore('entries').getAll();
 
         request.onsuccess = async () => {
           let loadedEntries = request.result || [];
-          
           const savedUser = safeStorageGet('legacy_user');
           let currentUser = user;
-          if (savedUser) {
-             currentUser = { ...user, ...JSON.parse(savedUser) };
-             setUser(currentUser);
-          }
+          if (savedUser) { currentUser = { ...user, ...JSON.parse(savedUser) }; setUser(currentUser); }
 
           if (currentUser.pin) {
             loadedEntries = await Promise.all(loadedEntries.map(async (e) => {
               if (e.locked && e.encryptedData) {
                 const decStr = await decryptData(e.encryptedData, currentUser.pin);
-                if (decStr) {
-                  try {
-                    const parsed = JSON.parse(decStr);
-                    return { ...e, text: parsed.text, title: parsed.title };
-                  } catch(err){}
-                }
+                if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, text: parsed.text, title: parsed.title }; } catch(err){} }
               }
               return e;
             }));
           }
-          
           setEntries(loadedEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)));
           setIsLoaded(true);
         };
-      } catch (e) {
-        setIsLoaded(true);
-      }
+      } catch (e) { setIsLoaded(true); }
     };
     loadApp();
   }, []);
 
-  // Auth Handlers (Double Opt-In & Reset)
   const handleAuth = async () => {
       setAuthError(''); setAuthMsg('');
-      if (!fb || !authEmail) { setAuthError('Bitte fülle alle Felder aus.'); return; }
-      
+      if (!fb || !authEmail) { setAuthError('Bitte fülle deine E-Mail aus.'); return; }
       try {
           if (authMode === 'login') {
               if (!authPassword) { setAuthError('Passwort fehlt.'); return; }
               const cred = await fb.signInWithEmailAndPassword(fb.auth, authEmail, authPassword);
-              if (!cred.user.emailVerified) {
-                  setAuthError('Bitte bestätige zuerst deine E-Mail-Adresse (Double Opt-In).');
-                  await fb.signOut(fb.auth);
-              }
+              if (!cred.user.emailVerified) { setAuthError('Bitte bestätige zuerst deine E-Mail (Double Opt-In).'); await fb.signOut(fb.auth); }
           } else if (authMode === 'register') {
               if (!authPassword) { setAuthError('Passwort fehlt.'); return; }
               const cred = await fb.createUserWithEmailAndPassword(fb.auth, authEmail, authPassword);
               await fb.sendEmailVerification(cred.user);
-              setAuthMsg('Erfolg! Bitte prüfe deine E-Mails und klicke auf den Bestätigungslink.');
-              await fb.signOut(fb.auth); // Logout until verified
-              setAuthMode('login');
+              setAuthMsg('Erfolg! Bitte prüfe deine E-Mails.'); await fb.signOut(fb.auth); setAuthMode('login');
           } else if (authMode === 'reset') {
               await fb.sendPasswordResetEmail(fb.auth, authEmail);
-              setAuthMsg('Link zum Zurücksetzen des Passworts wurde gesendet.');
-              setAuthMode('login');
+              setAuthMsg('Passwort-Reset-Link gesendet!'); setTimeout(() => setAuthMode('login'), 3000);
           }
       } catch (e) {
-          let errorMsg = 'Ein Fehler ist aufgetreten.';
-          if (e.code === 'auth/email-already-in-use') errorMsg = 'Diese E-Mail wird bereits verwendet.';
-          else if (e.code === 'auth/invalid-email') errorMsg = 'Die E-Mail-Adresse ist ungültig.';
-          else if (e.code === 'auth/weak-password') errorMsg = 'Passwort zu schwach (min. 6 Zeichen).';
-          else if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') errorMsg = 'E-Mail oder Passwort falsch.';
+          let errorMsg = 'Fehler aufgetreten.';
+          if (e.code === 'auth/email-already-in-use') errorMsg = 'E-Mail wird bereits verwendet.';
+          else if (e.code === 'auth/invalid-email') errorMsg = 'E-Mail ungültig.';
+          else if (e.code === 'auth/weak-password') errorMsg = 'Passwort zu schwach.';
+          else if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') errorMsg = 'Daten falsch.';
           setAuthError(errorMsg);
       }
   };
 
   const handleLogout = async () => {
-      if(fb) {
-          await fb.signOut(fb.auth);
-          setUser({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', isDark: true, appBgColor: null, cloudSync: false });
-          localStorage.removeItem('legacy_user');
-          setEntries([]);
-          setView('auth');
+      if(fb) { await fb.signOut(fb.auth); setUser({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', isDark: true, appBgColor: null, cloudSync: false, biometric: false }); localStorage.removeItem('legacy_user'); setEntries([]); setView('auth'); }
+  };
+
+  // --- IDEA 1: Biometric WebAuthn ---
+  const toggleBiometric = async () => {
+      if (!user.biometric) {
+          try {
+              const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
+              const cred = await navigator.credentials.create({
+                  publicKey: {
+                      challenge, rp: { name: "Legacy Journal" }, user: { id: new Uint8Array(16), name: user.name, displayName: user.name },
+                      pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+                      authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" }, timeout: 60000
+                  }
+              });
+              if (cred) {
+                  setUser({...user, biometric: true});
+                  safeStorageSet('legacy_bio_pin', btoa(user.pin)); 
+                  showDialog({title: 'Aktiviert', message: 'Biometrisches Entsperren ist nun aktiv.', icon: 'fingerprint'});
+              }
+          } catch(e) { showDialog({title: 'Fehler', message: 'Biometrie konnte nicht aktiviert werden oder wurde abgebrochen.', icon: 'x'}); }
+      } else {
+          setUser({...user, biometric: false}); localStorage.removeItem('legacy_bio_pin');
       }
   };
 
-  // App Theme Sync
+  const handleBiometricUnlock = async () => {
+      try {
+          const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
+          const cred = await navigator.credentials.get({ publicKey: { challenge, userVerification: "required" } });
+          if (cred) {
+              const savedPin = atob(safeStorageGet('legacy_bio_pin'));
+              if (savedPin) {
+                  const newUserObj = {...user, pin: savedPin}; setUser(newUserObj); safeStorageSet('legacy_user', JSON.stringify(newUserObj));
+                  setView(newUserObj.name ? 'dashboard' : 'onboarding');
+              }
+          }
+      } catch(e) { showDialog({title: 'Fehler', message: 'Biometrische Prüfung fehlgeschlagen.', icon: 'x'}); }
+  };
+
   useEffect(() => {
     const metaThemeColor = document.getElementById("meta-theme-color");
-    if (user.isDark) {
-      document.documentElement.classList.add('dark');
-      if (metaThemeColor) metaThemeColor.setAttribute("content", "#000000");
-    } else {
-      document.documentElement.classList.remove('dark');
-      if (metaThemeColor) metaThemeColor.setAttribute("content", "#f8fafc");
-    }
+    if (user.isDark) { document.documentElement.classList.add('dark'); if (metaThemeColor) metaThemeColor.setAttribute("content", "#000000"); } 
+    else { document.documentElement.classList.remove('dark'); if (metaThemeColor) metaThemeColor.setAttribute("content", "#f8fafc"); }
   }, [user.isDark]);
 
-  const saveToDB = async (entry, forcePin = null) => {
-    const activePin = forcePin || user.pin;
-    let dbEntry = { ...entry };
-    try {
-        if (dbEntry.locked && activePin) {
-            const payload = JSON.stringify({ text: dbEntry.text || '', title: dbEntry.title || '' });
-            dbEntry.encryptedData = await encryptData(payload, activePin);
-            dbEntry.text = ''; 
-            dbEntry.title = 'Verschlüsselter Eintrag';
-        } else if (!dbEntry.locked) {
-            dbEntry.encryptedData = null; 
-        }
-    } catch(e) {}
+  const syncSingleEntryToCloud = async (entry) => {
+      if (!fb || !fb.auth.currentUser || !user.cloudSync || !user.pin) return;
+      const appId = 'legacy-vision'; const userId = fb.auth.currentUser.uid;
+      try { const payload = JSON.stringify(entry); const encrypted = await encryptData(payload, user.pin); if (encrypted) { const docRef = fb.doc(fb.db, 'artifacts', appId, 'users', userId, 'entries', entry.id); await fb.setDoc(docRef, { id: entry.id, encryptedData: encrypted, timestamp: Date.now() }); } } catch(e) {}
+  };
+  const deleteSingleEntryFromCloud = async (id) => {
+      if (!fb || !fb.auth.currentUser || !user.cloudSync) return;
+      try { await fb.deleteDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', fb.auth.currentUser.uid, 'entries', id)); } catch(e) {}
+  };
+  const syncProfileToCloud = async (userData) => {
+      if (!fb || !fb.auth.currentUser || !userData.cloudSync || !userData.pin) return;
+      try { const encrypted = await encryptData(JSON.stringify(userData), userData.pin); if (encrypted) await fb.setDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', fb.auth.currentUser.uid, 'profile', 'data'), { encryptedData: encrypted, timestamp: Date.now() }); } catch(e) {}
+  };
 
+  const performCloudSync = async () => {
+      if (!fb || !fb.auth.currentUser) return;
+      if (!user.pin) { showDialog({ title: 'PIN fehlt', message: 'Bitte lege eine PIN fest.', icon: 'lock' }); return; }
+      setSyncingCloud(true); const appId = 'legacy-vision'; const userId = fb.auth.currentUser.uid;
+      try {
+          try {
+              const profileSnap = await fb.getDoc(fb.doc(fb.db, 'artifacts', appId, 'users', userId, 'profile', 'data'));
+              if (profileSnap.exists() && profileSnap.data().encryptedData) {
+                  const decProfile = await decryptData(profileSnap.data().encryptedData, user.pin);
+                  if (decProfile) setUser({ ...user, ...JSON.parse(decProfile), cloudSync: true });
+              }
+          } catch(e) {}
+
+          const cloudSnap = await fb.getDocs(fb.collection(fb.db, 'artifacts', appId, 'users', userId, 'entries'));
+          const cloudEntries = []; cloudSnap.forEach(doc => cloudEntries.push(doc.data()));
+          if (cloudEntries.length === 0) { showDialog({ title: 'Cloud leer', message: 'Keine Cloud-Einträge gefunden.', icon: 'cloud-off' }); setSyncingCloud(false); return; }
+
+          let recoveredCount = 0; let failedDecrypt = 0; const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries');
+          for (let cloudDoc of cloudEntries) {
+              if (cloudDoc.encryptedData) {
+                  try {
+                      const decryptedStr = await decryptData(cloudDoc.encryptedData, user.pin);
+                      if (decryptedStr) {
+                          let dbItem = { ...JSON.parse(decryptedStr) };
+                          if (dbItem.locked) { const payload = JSON.stringify({ text: dbItem.text || '', title: dbItem.title || '' }); dbItem.encryptedData = await encryptData(payload, user.pin); dbItem.text = ''; dbItem.title = 'Verschlüsselter Eintrag'; }
+                          store.put(dbItem); recoveredCount++;
+                      } else failedDecrypt++;
+                  } catch(e) { failedDecrypt++; }
+              }
+          }
+          tx.oncomplete = () => {
+              const req = db.transaction('entries', 'readonly').objectStore('entries').getAll();
+              req.onsuccess = async () => {
+                  let loadedEntries = req.result || [];
+                  loadedEntries = loadedEntries.map(e => ({ ...e, images: e.images || (e.image ? [e.image] : []) }));
+                  if (user.pin) loadedEntries = await Promise.all(loadedEntries.map(async (e) => { if (e.locked && e.encryptedData) { const decStr = await decryptData(e.encryptedData, user.pin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, text: parsed.text, title: parsed.title }; } catch(err){} } } return e; }));
+                  setEntries(loadedEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)));
+                  if (failedDecrypt > 0) showDialog({ title: 'Entschlüsselung unvollständig', message: `${failedDecrypt} Einträge fehlgeschlagen. PIN falsch?`, icon: 'shield-alert' });
+                  else showDialog({ title: 'Wiederhergestellt', message: `${recoveredCount} Einträge geladen.`, icon: 'check' });
+              };
+          };
+      } catch(e) { showDialog({ title: 'Verbindungsfehler', message: 'Cloud nicht erreichbar.', icon: 'wifi-off' }); }
+      finally { setSyncingCloud(false); }
+  };
+
+  useEffect(() => {
+    if (importId && isLoaded) {
+      setSyncStatus('Bereite Datenübertragung vor...'); const peer = new window.Peer();
+      peer.on('open', () => { setSyncStatus(`Verbinde mit altem Gerät...`); const conn = peer.connect(importId); conn.on('open', () => { setSyncStatus('Verbunden! Empfange Daten...'); conn.send('request_data'); }); conn.on('data', async (data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.entries) {
+               setSyncStatus('Daten werden verarbeitet...');
+               if (db) {
+                 const pinToUse = parsed.user ? parsed.user.pin : user.pin;
+                 const entriesToSave = await Promise.all(parsed.entries.map(async (e) => {
+                     let dbE = { ...e }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []);
+                     if (dbE.locked && pinToUse) { const payload = JSON.stringify({ text: dbE.text || '', title: dbE.title || '' }); dbE.encryptedData = await encryptData(payload, pinToUse); dbE.text = ''; dbE.title = 'Verschlüsselter Eintrag'; return dbE; } return dbE;
+                 }));
+                 const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); entriesToSave.forEach(e => store.put(e));
+                 tx.oncomplete = () => { if (parsed.user) safeStorageSet('legacy_user', JSON.stringify(parsed.user)); setSyncStatus('Erfolgreich übertragen!'); setTimeout(() => { window.location.href = window.location.origin + window.location.pathname; }, 2000); };
+               }
+            }
+          } catch(e) { setSyncStatus('Fehler beim Lesen.'); }
+        }); conn.on('error', (err) => setSyncStatus('Verbindungsfehler: ' + err)); }); peer.on('error', (err) => setSyncStatus('Gerät nicht bereit.'));
+    }
+  }, [importId, isLoaded, db]);
+
+  const saveToDB = async (entry, forcePin = null) => {
+    const activePin = forcePin || user.pin; let dbEntry = { ...entry };
+    try { if (dbEntry.locked && activePin) { const payload = JSON.stringify({ text: dbEntry.text || '', title: dbEntry.title || '' }); dbEntry.encryptedData = await encryptData(payload, activePin); dbEntry.text = ''; dbEntry.title = 'Verschlüsselter Eintrag'; } else if (!dbEntry.locked) { dbEntry.encryptedData = null; } } catch(e) {}
     try {
-      if (db) {
-        const tx = db.transaction('entries', 'readwrite');
-        tx.objectStore('entries').put(dbEntry); 
-        tx.oncomplete = () => {
-          setEntries(prev => {
-            const exists = prev.find(e => e.id === entry.id);
-            if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
-            return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
-          });
-        };
-      }
+      if (db) { const tx = db.transaction('entries', 'readwrite'); tx.objectStore('entries').put(dbEntry); tx.oncomplete = () => { setEntries(prev => { const exists = prev.find(e => e.id === entry.id); if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); }); syncSingleEntryToCloud(entry); }; }
     } catch (e) {}
   };
 
-  const deleteFromDB = async (id) => {
-    if (!db) return;
-    const tx = db.transaction('entries', 'readwrite');
-    tx.objectStore('entries').delete(id);
-    tx.oncomplete = () => { setEntries(prev => prev.filter(e => e.id !== id)); };
-  };
+  const deleteFromDB = async (id) => { if (!db) return; const tx = db.transaction('entries', 'readwrite'); tx.objectStore('entries').delete(id); tx.oncomplete = () => { setEntries(prev => prev.filter(e => e.id !== id)); deleteSingleEntryFromCloud(id); }; };
 
   const checkSaveEntry = (closeAndRead = false) => {
     try {
-        const entryId = editingId || generateId();
-        const currentText = editorRef.current ? editorRef.current.innerHTML : (text || '');
-        const titleSafe = title || '';
-        
-        const isEmpty = !titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && (!selectedImages || selectedImages.length === 0);
-        
-        if (isEmpty && closeAndRead) {
-          closeEditor(entries.find(e => e.id === editingId) || null);
-          return;
-        }
-
-        const newEntry = {
-          id: entryId, title: titleSafe || 'Ohne Titel', text: currentText, color: selectedColor, images: selectedImages,
-          locked: isLocked, archived: false, manifested: isManifested, category, mood,
-          date: editingId ? (entries.find(e => e.id === editingId)?.date || new Date().toISOString()) : new Date().toISOString(),
-          orderTimestamp: editingId ? (entries.find(e => e.id === editingId)?.orderTimestamp || new Date().toISOString()) : new Date().toISOString(),
-        };
-        
+        const entryId = editingId || generateId(); const currentText = editorRef.current ? editorRef.current.innerHTML : (text || ''); const titleSafe = title || '';
+        if (!titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && (!selectedImages || selectedImages.length === 0) && !audioUrl && closeAndRead) { closeEditor(entries.find(e => e.id === editingId) || null); return; }
+        const newEntry = { id: entryId, title: titleSafe || 'Ohne Titel', text: currentText, color: selectedColor, images: selectedImages, audio: audioUrl, locked: isLocked, archived: false, manifested: isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, date: editingId ? (entries.find(e => e.id === editingId)?.date || new Date().toISOString()) : new Date().toISOString(), orderTimestamp: editingId ? (entries.find(e => e.id === editingId)?.orderTimestamp || new Date().toISOString()) : new Date().toISOString() };
         saveToDB(newEntry);
-        if (closeAndRead) closeEditor(newEntry); 
-        else { setEditingId(entryId); isDirtyRef.current = false; }
+        if (closeAndRead) closeEditor(newEntry); else { setEditingId(entryId); isDirtyRef.current = false; setAutoSaveStatus('Gespeichert'); setTimeout(()=>setAutoSaveStatus(''), 2000); }
     } catch (err) { if (closeAndRead) closeEditor(entries.find(e => e.id === editingId) || null); }
   };
 
-  const closeEditor = (savedEntry = null) => {
-    setShowEditor(false);
-    setViewingEntry(savedEntry);
-  };
+  useEffect(() => { if (!showEditor || view === 'burn') return; const timer = setTimeout(() => { if (isDirtyRef.current) checkSaveEntry(false); }, 3000); return () => clearTimeout(timer); }, [title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, showEditor]);
 
-  const openEditor = (entry = null) => {
+  const closeEditor = (savedEntry = null) => { setShowEditor(false); if(isRecording) stopRecording(); setViewingEntry(savedEntry); };
+
+  const openEditor = (entry = null, pillar = null) => {
     isDirtyRef.current = false;
     if (entry && entry.id) {
-      setEditingId(entry.id); setTitle(entry.title || ''); setText(entry.text || ''); 
-      setSelectedColor(entry.color); setSelectedImages(entry.images || []);
-      setIsLocked(entry.locked || false); setIsManifested(entry.manifested || false);
-      setCategory(entry.category || CATEGORIES[0]); setMood(entry.mood || null);
+      setEditingId(entry.id); setTitle(entry.title || ''); setText(entry.text || ''); setSelectedColor(entry.color); setSelectedImages(entry.images || []); setIsLocked(entry.locked || false); setIsManifested(entry.manifested || false); setCategory(entry.category || CATEGORIES[0]); setMood(entry.mood || null); setAudioUrl(entry.audio || null); setUnlockDate(entry.unlockDate || ''); setLocation(entry.location || null); setParentId(entry.parentId || ''); setInheritedFrom(entry.inheritedFrom || null); setPillarGuidance(null);
     } else {
-      setEditingId(null); setTitle(''); setText('');
-      setSelectedColor(user.isDark ? COLORS[8] : COLORS[0]); setSelectedImages([]); 
-      setIsLocked(view === 'vault'); setIsManifested(false);
-      setCategory(activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory); setMood(null);
+      setEditingId(null); setTitle(pillar ? pillar.title : ''); setText(''); setSelectedColor(user.isDark ? COLORS[8] : COLORS[0]); setSelectedImages([]); setIsLocked(view === 'vault'); setIsManifested(false); setCategory(pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory)); setMood(null); setAudioUrl(null); setUnlockDate(''); setLocation(null); setParentId(''); setInheritedFrom(null); setPillarGuidance(pillar ? pillar.desc : null);
     }
     setZenMode(false); setShowEditor(true);
   };
 
+  const startNewChapter = (parent) => { isDirtyRef.current = false; setViewingEntry(null); setEditingId(null); setTitle(parent.title || ''); setText(''); setSelectedColor(user.isDark ? COLORS[8] : COLORS[0]); setSelectedImages([]); setIsLocked(parent.locked || false); setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setLocation(null); setCategory(parent.category || CATEGORIES[0]); setMood(null); setParentId(parent.id); setInheritedFrom(null); setZenMode(false); setShowEditor(true); };
+
   const showDialog = (options) => { setDialog({ type: 'alert', confirmLabel: 'Okay', ...options }); };
 
-  const triggerUnlock = (entry) => {
-    if (!user.pin) { showDialog({ title: 'PIN fehlt', message: 'Bitte richte zuerst eine PIN in den Einstellungen ein.', icon: 'key' }); setView('settings'); return; }
-    setUnlockTarget(entry); setPinInput(''); setPinError(false);
+  // --- IDEA 4: Cryptographic Time Capsule (NTP Time Check) ---
+  const handleOpenEntry = async (entry) => {
+      if (entry.unlockDate) {
+          try {
+              showDialog({title: 'Kryptografische Zeit-Sperre', message: 'Prüfe globales Zeitsiegel (NTP)...', icon: 'clock'});
+              const res = await fetch('https://worldtimeapi.org/api/timezone/Etc/UTC');
+              const data = await res.json();
+              const realTime = new Date(data.datetime);
+              const unlockTime = new Date(entry.unlockDate);
+              if (realTime < unlockTime) {
+                  setDialog(null); setTimeout(() => showDialog({title: 'Zeitkapsel versiegelt', message: `Das kryptografische Zeitsiegel ist intakt. Die Kapsel öffnet erst am ${unlockTime.toLocaleDateString('de-DE')}.`, icon: 'lock', iconColor: 'text-indigo-500'}), 300);
+                  return;
+              }
+              setDialog(null);
+          } catch(e) {
+              if (new Date() < new Date(entry.unlockDate)) {
+                  showDialog({title: 'Zeitkapsel versiegelt', message: `Öffnet erst am ${new Date(entry.unlockDate).toLocaleDateString('de-DE')}.`, icon: 'lock', iconColor: 'text-indigo-500'});
+                  return;
+              }
+              setDialog(null);
+          }
+      }
+
+      if (entry.locked) {
+          if (!user.pin) { showDialog({ title: 'PIN fehlt', message: 'Bitte richte zuerst eine PIN in den Einstellungen ein.', icon: 'key' }); setView('settings'); return; }
+          setUnlockTarget(entry); setPinInput(''); setPinError(false);
+      } else {
+          setViewingEntry(entry);
+      }
   };
 
-  const submitPin = () => {
-    if (pinInput === user.pin) { setViewingEntry(unlockTarget); setUnlockTarget(null); setPinInput(''); }
-    else { setPinError(true); setTimeout(() => setPinError(false), 800); setPinInput(''); }
-  };
+  const submitPin = () => { if (pinInput === user.pin) { setViewingEntry(unlockTarget); setUnlockTarget(null); setPinInput(''); } else { setPinError(true); setTimeout(() => setPinError(false), 800); setPinInput(''); } };
 
   const visibleEntries = useMemo(() => {
     return entries.filter(e => {
-      const q = searchQuery.toLowerCase();
-      const matchesSearch = e.title.toLowerCase().includes(q) || (e.text && e.text.toLowerCase().includes(q));
-      if (searchQuery && !matchesSearch) return false;
-      const matchesCategory = activeCategory === 'Alle' || e.category === activeCategory;
-      if (!searchQuery && !matchesCategory) return false;
-      
-      if (view === 'dashboard') return !e.locked && !e.archived;
-      if (view === 'vault') return e.locked && !e.archived;
-      if (view === 'archive') return e.archived;
-      return false;
+      const q = searchQuery.toLowerCase(); const matchesSearch = e.title.toLowerCase().includes(q) || (e.text && e.text.toLowerCase().includes(q)); if (searchQuery && !matchesSearch) return false; if (!searchQuery && e.parentId) return false;
+      const matchesCategory = activeCategory === 'Alle' || e.category === activeCategory; if (!searchQuery && !matchesCategory) return false;
+      if (view === 'dashboard') return !e.locked && !e.archived; if (view === 'vault') return e.locked && !e.archived; if (view === 'archive') return e.archived; return false;
     });
   }, [entries, searchQuery, activeCategory, view]);
 
-  // Handle Input in Editor
+  const renderEntries = visibleEntries; const now = new Date();
+  const allQuotes = useMemo(() => { if (view !== 'quotes') return []; let quotes = []; entries.filter(e => !e.archived).forEach(entry => { if(!entry.text) return; const blockquoteRegex = /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi; let match; while ((match = blockquoteRegex.exec(entry.text)) !== null) { const rawText = match[1].replace(/<[^>]*>?/gm, '').trim(); if(rawText) quotes.push({ text: rawText, date: entry.date, title: entry.title, id: entry.id + match.index, entryId: entry.id }); } }); return quotes.sort((a,b) => new Date(b.date) - new Date(a.date)); }, [entries, view]);
+  const heatmapData = useMemo(() => { return Array.from({ length: 30 }).map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (29 - i)); const dateStr = d.toDateString(); return { date: dateStr, count: entries.filter(e => new Date(e.date).toDateString() === dateStr).length }; }); }, [entries]);
+  const { completedPillars, totalPillars, progressPercent } = useMemo(() => { const completed = PILLARS.filter(p => entries.some(e => e.title === p.title)).length; return { completedPillars: completed, totalPillars: PILLARS.length, progressPercent: Math.round((completed / PILLARS.length) * 100) }; }, [entries]);
+  const getAllBookEntries = (rootId) => { const result = []; const traverse = (id, depth=0) => { if (depth > 1000) return; const entry = entries.find(e => e.id === id); if (entry && !result.find(r => r.id === entry.id)) { result.push(entry); entries.filter(e => e.parentId === id).sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(c => traverse(c.id, depth+1)); } }; traverse(rootId); return result; };
+  const getBookRoot = (entryId) => { let current = entries.find(e => e.id === entryId); let safeGuard = 0; while (current && current.parentId && safeGuard < 1000) { const p = entries.find(e => e.id === current.parentId); if (p) current = p; else break; safeGuard++; } return current; };
+
+  // Canvas
+  const startDrawing = (e) => { if (!canvasRef.current) return; const ctx = canvasRef.current.getContext('2d'); const rect = canvasRef.current.getBoundingClientRect(); const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left; const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top; ctx.beginPath(); ctx.moveTo(x, y); canvasRef.current.isPainting = true; };
+  const draw = (e) => { if (!canvasRef.current?.isPainting) return; const ctx = canvasRef.current.getContext('2d'); const rect = canvasRef.current.getBoundingClientRect(); const x = (e.clientX || (e.clientX && e.touches[0].clientX)) - rect.left; const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.strokeStyle = user.isDark ? '#ffffff' : '#000000'; ctx.lineTo(x, y); ctx.stroke(); };
+  const stopDrawing = () => { if (canvasRef.current) canvasRef.current.isPainting = false; };
+  useEffect(() => { let canvasEl = canvasRef.current; const preventScroll = (e) => e.preventDefault(); if (isDrawing && canvasEl) { canvasEl.addEventListener('touchstart', preventScroll, { passive: false }); canvasEl.addEventListener('touchmove', preventScroll, { passive: false }); setTimeout(() => { if (!canvasEl) return; const rect = canvasEl.parentElement.getBoundingClientRect(); canvasEl.width = rect.width; canvasEl.height = rect.height; const ctx = canvasEl.getContext('2d'); ctx.fillStyle = user.isDark ? '#18181b' : '#ffffff'; ctx.fillRect(0, 0, rect.width, rect.height); }, 50); } return () => { if (canvasEl) { canvasEl.removeEventListener('touchstart', preventScroll); canvasEl.removeEventListener('touchmove', preventScroll); } }; }, [isDrawing, user.isDark]);
+
+  // Audio
+  const startRecording = async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); mediaRecorderRef.current = new MediaRecorder(stream); audioChunksRef.current = []; mediaRecorderRef.current.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); }; mediaRecorderRef.current.onstop = () => { const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); const reader = new FileReader(); reader.readAsDataURL(blob); reader.onloadend = () => { setAudioUrl(reader.result); isDirtyRef.current = true; }; }; mediaRecorderRef.current.start(); setIsRecording(true); } catch (err) { showDialog({ title: 'Fehler', message: 'Mikrofon verweigert.', icon: 'mic-off' }); } };
+  const stopRecording = () => { if (mediaRecorderRef.current) { mediaRecorderRef.current.stop(); setIsRecording(false); } };
+  const handleReadAloud = (entry) => { if (isSpeaking) { window.speechSynthesis.cancel(); setIsSpeaking(false); return; } const plainText = (entry.title + ". " + (entry.text || '')).replace(/<[^>]*>?/gm, ''); if (!plainText.trim()) return; setIsSpeaking(true); const utterance = new SpeechSynthesisUtterance(plainText); utterance.lang = 'de-DE'; utterance.onend = () => setIsSpeaking(false); window.speechSynthesis.speak(utterance); };
+  const triggerBurn = () => { setIsBurning(true); setTimeout(() => { setBurnText(''); setIsBurning(false); setView('dashboard'); showDialog({ title: 'Katharsis', message: 'Dem Feuer übergeben.', icon: 'flame' }); }, 2500); };
+  const handleAvatarUpload = (e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (event) => { const img = new Image(); img.onload = () => { const canvas = document.createElement('canvas'); const SIZE = 512; canvas.width = SIZE; canvas.height = SIZE; const ctx = canvas.getContext('2d'); const minDim = Math.min(img.width, img.height); ctx.drawImage(img, (img.width - minDim) / 2, (img.height - minDim) / 2, minDim, minDim, 0, 0, SIZE, SIZE); setUser(prev => ({ ...prev, avatar: canvas.toDataURL('image/png') })); }; img.src = event.target.result; }; reader.readAsDataURL(file); } };
+
+  // --- IDEA 2: Ewigkeits-Export (JSZip) ---
+  const exportEternityArchive = async () => {
+      if (!window.JSZip) { showDialog({title: 'Fehler', message: 'JSZip Modul nicht geladen.'}); return; }
+      showDialog({title: 'Archiv wird erstellt', message: 'Deine Gedanken werden für die Ewigkeit als reiner Text (.md) verpackt. Bitte warten...', icon: 'loader'});
+      try {
+          const zip = new window.JSZip();
+          const textsFolder = zip.folder("Eintraege");
+          const imagesFolder = zip.folder("Bilder");
+
+          let imgCounter = 1;
+          entries.forEach(e => {
+              let mdContent = `# ${e.title}\n\nDatum: ${new Date(e.date).toLocaleDateString('de-DE')}\nKategorie: ${e.category}\n\n${e.text.replace(/<[^>]*>?/gm, '')}`;
+              if (e.images && e.images.length > 0) {
+                  e.images.forEach(imgBase64 => {
+                      const base64Data = imgBase64.split(',')[1];
+                      const imgName = `Bild_${imgCounter}.jpg`;
+                      imagesFolder.file(imgName, base64Data, {base64: true});
+                      mdContent += `\n\n[Bild: ${imgName}]`;
+                      imgCounter++;
+                  });
+              }
+              const safeTitle = e.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'eintrag';
+              textsFolder.file(`${new Date(e.date).toISOString().split('T')[0]}_${safeTitle}.md`, mdContent);
+          });
+
+          const content = await zip.generateAsync({type:"blob"});
+          const url = URL.createObjectURL(content);
+          const a = document.createElement('a'); a.href = url; a.download = `Legacy_Ewigkeits_Archiv_${new Date().toISOString().split('T')[0]}.zip`;
+          a.click(); URL.revokeObjectURL(url);
+          setDialog(null);
+      } catch(err) {
+          showDialog({title: 'Fehler', message: 'ZIP Erstellung fehlgeschlagen.'});
+      }
+  };
+
+  const downloadFullApp = () => { const cloneDocument = document.cloneNode(true); const rootDiv = cloneDocument.getElementById('root'); if (rootDiv) rootDiv.innerHTML = ''; const existingInjected = cloneDocument.getElementById('legacy-injected-data'); if (existingInjected) existingInjected.remove(); const data = { user, entries }; const scriptEl = cloneDocument.createElement('script'); scriptEl.id = 'legacy-injected-data'; scriptEl.type = 'application/json'; scriptEl.textContent = JSON.stringify(data); cloneDocument.head.appendChild(scriptEl); const htmlContent = "<!DOCTYPE html>\n" + cloneDocument.documentElement.outerHTML; const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Legacy_${new Date().toISOString().split('T')[0]}.html`; a.click(); URL.revokeObjectURL(a.href); showDialog({ title: 'Erledigt!', message: 'App als HTML-Backup gespeichert.', icon: 'download' }); };
+
+  const importBackup = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async (e) => { try { let data = null; if (file.name.toLowerCase().endsWith('.html')) { const doc = new DOMParser().parseFromString(e.target.result, 'text/html'); const script = doc.getElementById('legacy-injected-data'); if (script && script.textContent && script.textContent !== 'null') data = JSON.parse(script.textContent); else throw new Error("Keine Daten"); } else data = JSON.parse(e.target.result); if (data && data.entries && db) { const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); let mergedCount = 0; const pinToUse = data.user ? data.user.pin : user.pin; const entriesToSave = await Promise.all(data.entries.map(async (en) => { let dbE = { ...en }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []); if (dbE.locked && pinToUse) { const payload = JSON.stringify({ text: dbE.text||'', title: dbE.title||'' }); dbE.encryptedData = await encryptData(payload, pinToUse); dbE.text = ''; dbE.title = 'Verschlüsselt'; } return dbE; })); entriesToSave.forEach(en => { if (!entries.find(ex => ex.id === en.id)) { if (data.user && data.user.name !== user.name) en.inheritedFrom = data.user.name; store.put(en); mergedCount++; } }); const req = store.getAll(); req.onsuccess = async () => { let loadedEntries = req.result || []; if (user.pin) loadedEntries = await Promise.all(loadedEntries.map(async (en) => { if (en.locked && en.encryptedData) { const decStr = await decryptData(en.encryptedData, user.pin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...en, text: parsed.text, title: parsed.title }; } catch(err){} } } return en; })); setEntries(loadedEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date))); showDialog({ title: 'Erfolg', message: `${mergedCount} neue Seiten importiert.`, icon: 'check' }); }; } } catch (err) { showDialog({ title: 'Fehler', message: 'Ungültige Datei.', icon: 'x' }); } }; reader.readAsText(file); };
+
+  useEffect(() => { if (showEditor && editorRef.current && editorRef.current.innerHTML !== text) { editorRef.current.innerHTML = text || ''; } }, [showEditor, editingId]); 
+
+  // --- IDEA 3: Geografische Lebenskarte (Leaflet) ---
   useEffect(() => {
-    if (showEditor && editorRef.current && editorRef.current.innerHTML !== text) {
-        editorRef.current.innerHTML = text || '';
-    }
-  }, [showEditor, editingId]); 
+      if (view === 'map' && mapRef.current && !mapInstance.current && window.L) {
+          const map = window.L.map(mapRef.current).setView([51.1657, 10.4515], 3); // Center Germany/World
+          window.L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+              attribution: '© OpenStreetMap contributors, © CARTO'
+          }).addTo(map);
+          
+          let hasMarkers = false;
+          const bounds = window.L.latLngBounds();
+
+          entries.forEach(e => {
+              if (e.location) {
+                  hasMarkers = true;
+                  bounds.extend([e.location.lat, e.location.lng]);
+                  const marker = window.L.circleMarker([e.location.lat, e.location.lng], { 
+                      color: user.nameColor || '#f59e0b', fillColor: user.nameColor || '#f59e0b', fillOpacity: 0.8, radius: 6 
+                  }).addTo(map);
+                  marker.bindPopup(`<b style="color:black;">${e.title}</b><br/><span style="color:black;">${new Date(e.date).toLocaleDateString('de-DE')}</span>`);
+                  marker.on('click', () => { setView('dashboard'); handleOpenEntry(e); });
+              }
+          });
+
+          if (hasMarkers) map.fitBounds(bounds, { padding: [50, 50] });
+          mapInstance.current = map;
+          setTimeout(() => map.invalidateSize(), 200);
+      }
+      
+      if (view !== 'map' && mapInstance.current) {
+          mapInstance.current.remove();
+          mapInstance.current = null;
+      }
+  }, [view, entries, user.nameColor]);
 
   // --- UI RENDERERS ---
+
+  if (importId && !isLoaded) return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>;
+  if (importId && isLoaded) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-slate-900 text-white text-center">
+        <Icon name="smartphone" size={64} className="text-emerald-500 mb-6 animate-pulse" />
+        <h1 className="text-3xl font-bold font-serif mb-4">Geräte-Kopplung</h1>
+        <p className="opacity-80 text-lg mb-8 max-w-sm">{syncStatus || "Initialisiere..."}</p>
+        {(syncStatus.includes('Fehler') || syncStatus.includes('erfolgreich')) && (
+          <button onClick={() => window.location.href = window.location.origin + window.location.pathname} className="px-8 py-4 bg-white text-slate-900 font-bold rounded-2xl mt-4 shadow-lg">Zurück zum Start</button>
+        )}
+      </div>
+    );
+  }
 
   if (view === 'loading' || !isLoaded) return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-black"><div className="w-12 h-12 border-4 border-slate-300 dark:border-zinc-800 border-t-black dark:border-t-white rounded-full animate-spin"></div></div>;
 
@@ -541,33 +818,19 @@ function App() {
       <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-black text-slate-900 dark:text-white selection:bg-slate-200 dark:selection:bg-zinc-800">
         <div className="max-w-sm w-full space-y-10 animate-slide-up z-10">
           <div className="text-center space-y-3">
-            <div className="w-16 h-16 bg-black dark:bg-white rounded-2xl mx-auto flex items-center justify-center shadow-lg">
-                <Icon name="book-open" size={32} className="text-white dark:text-black" />
-            </div>
+            <div className="w-16 h-16 bg-black dark:bg-white rounded-2xl mx-auto flex items-center justify-center shadow-lg"><Icon name="book-open" size={32} className="text-white dark:text-black" /></div>
             <h1 className="text-3xl font-extrabold tracking-tight">Legacy</h1>
             <p className="text-sm opacity-60 font-medium">Dein Leben. Dein Vermächtnis.</p>
           </div>
-
           <div className="space-y-4">
             {authError && <div className="p-4 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-2xl text-sm font-semibold text-center border border-rose-100 dark:border-rose-500/20">{authError}</div>}
             {authMsg && <div className="p-4 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl text-sm font-semibold text-center border border-emerald-100 dark:border-emerald-500/20">{authMsg}</div>}
-            
             <input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} className="w-full p-4 rounded-2xl outline-none text-base font-medium bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-slate-400 dark:focus:border-zinc-600 transition-colors placeholder:opacity-40" placeholder="E-Mail Adresse" />
-            
-            {authMode !== 'reset' && (
-                <input type="password" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} className="w-full p-4 rounded-2xl outline-none text-base font-medium bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-slate-400 dark:focus:border-zinc-600 transition-colors placeholder:opacity-40" placeholder="Passwort" />
-            )}
-
-            <button onClick={handleAuth} className="w-full py-4 rounded-2xl font-bold text-base bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-all shadow-md mt-2">
-              {authMode === 'login' ? 'Einloggen' : authMode === 'register' ? 'Account erstellen' : 'Link anfordern'}
-            </button>
-
+            {authMode !== 'reset' && <input type="password" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} className="w-full p-4 rounded-2xl outline-none text-base font-medium bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-slate-400 dark:focus:border-zinc-600 transition-colors placeholder:opacity-40" placeholder="Passwort" />}
+            <button onClick={handleAuth} className="w-full py-4 rounded-2xl font-bold text-base bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-all shadow-md mt-2">{authMode === 'login' ? 'Einloggen' : authMode === 'register' ? 'Account erstellen' : 'Link anfordern'}</button>
             <div className="flex flex-col gap-2 pt-4">
                 {authMode === 'login' ? (
-                    <>
-                        <button onClick={() => { setAuthMode('register'); setAuthError(''); setAuthMsg(''); }} className="text-sm font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">Neuen Account erstellen</button>
-                        <button onClick={() => { setAuthMode('reset'); setAuthError(''); setAuthMsg(''); }} className="text-xs font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">Passwort vergessen?</button>
-                    </>
+                    <><button onClick={() => { setAuthMode('register'); setAuthError(''); setAuthMsg(''); }} className="text-sm font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">Neuen Account erstellen</button><button onClick={() => { setAuthMode('reset'); setAuthError(''); setAuthMsg(''); }} className="text-xs font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">Passwort vergessen?</button></>
                 ) : (
                     <button onClick={() => { setAuthMode('login'); setAuthError(''); setAuthMsg(''); }} className="text-sm font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">Zurück zum Login</button>
                 )}
@@ -586,10 +849,15 @@ function App() {
           <h1 className="text-2xl font-bold tracking-tight">Tresor entsperren</h1>
           <p className="opacity-60 text-sm font-medium px-4">Gib deine PIN ein, um dein lokales Journal zu entschlüsseln.</p>
           <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-zinc-800">
-             <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { const newUserObj = {...user, pin: newPinInput}; setUser(newUserObj); safeStorageSet('legacy_user', JSON.stringify(newUserObj)); setView(newUserObj.name ? 'dashboard' : 'onboarding'); } }}
-                    className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none mb-6 bg-slate-100 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-zinc-600 transition-all placeholder:opacity-30" placeholder="••••" />
-             <button onClick={() => { const newUserObj = {...user, pin: newPinInput}; setUser(newUserObj); safeStorageSet('legacy_user', JSON.stringify(newUserObj)); setView(newUserObj.name ? 'dashboard' : 'onboarding'); }} className="w-full py-4 font-bold rounded-2xl bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-all shadow-md">Entsperren</button>
-             <button onClick={handleLogout} className="mt-6 w-full py-2 text-xs font-bold uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity">Abmelden</button>
+             <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { const newUserObj = {...user, pin: newPinInput}; setUser(newUserObj); safeStorageSet('legacy_user', JSON.stringify(newUserObj)); setView(newUserObj.name ? 'dashboard' : 'onboarding'); } }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none mb-6 bg-slate-100 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-zinc-600 transition-all placeholder:opacity-30" placeholder="••••" />
+             <button onClick={() => { const newUserObj = {...user, pin: newPinInput}; setUser(newUserObj); safeStorageSet('legacy_user', JSON.stringify(newUserObj)); setView(newUserObj.name ? 'dashboard' : 'onboarding'); }} className="w-full py-4 font-bold rounded-2xl bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-all shadow-md mb-3">Entsperren</button>
+             
+             {/* Biometric Fallback UI in PIN view if enabled */}
+             {safeStorageGet('legacy_bio_pin') && (
+                <button onClick={handleBiometricUnlock} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2 mb-3"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
+             )}
+
+             <button onClick={handleLogout} className="mt-4 w-full py-2 text-xs font-bold uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity">Abmelden</button>
           </div>
         </div>
       </div>
@@ -621,6 +889,11 @@ function App() {
           <div className="flex items-center gap-3 overflow-hidden">
             {view === 'settings' ? <h1 className="text-xl font-bold tracking-tight">Einstellungen</h1> :
              view === 'archive' ? <h1 className="text-xl font-bold tracking-tight">Archiv</h1> :
+             view === 'menu' ? <h1 className="text-xl font-bold tracking-tight">Entdecken</h1> :
+             view === 'wisdom' ? <h1 className="text-xl font-bold tracking-tight">Buch der Weisheit</h1> :
+             view === 'burn' ? <h1 className="text-xl font-bold tracking-tight text-rose-500">Katharsis</h1> :
+             view === 'quotes' ? <h1 className="text-xl font-bold tracking-tight">Erkenntnisse</h1> :
+             view === 'map' ? <h1 className="text-xl font-bold tracking-tight text-amber-500">Lebenskarte</h1> :
              view === 'vault' ? <h1 className="text-xl font-bold tracking-tight flex items-center gap-2"><Icon name="lock" size={20}/> Tresor</h1> :
             (
               <>
@@ -638,13 +911,12 @@ function App() {
             {view === 'dashboard' && (
               <>
                 <button type="button" onClick={() => setIsSearchOpen(!isSearchOpen)} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="search" size={18}/></button>
-                <button type="button" onClick={() => setView('settings')} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="settings" size={18}/></button>
+                <button type="button" onClick={() => setView('menu')} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="menu" size={18}/></button>
               </>
             )}
             {view !== 'dashboard' && <button type="button" onClick={() => setView('dashboard')} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="x" size={18} /></button>}
           </div>
 
-          {/* Search Dropdown */}
           {isSearchOpen && view === 'dashboard' && (
             <div className="absolute top-full left-0 right-0 p-4 bg-white/90 dark:bg-black/90 backdrop-blur-2xl border-b border-slate-200 dark:border-zinc-800 shadow-xl animate-slide-up z-50">
               <input type="text" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Suchen..." autoFocus className="w-full p-4 rounded-2xl bg-slate-100 dark:bg-zinc-900 border-none outline-none font-medium focus:ring-2 focus:ring-slate-300 dark:focus:ring-zinc-700 transition-shadow" />
@@ -652,10 +924,81 @@ function App() {
           )}
         </header>
 
-        {/* --- MAIN FEED --- */}
-        <main className="p-4 sm:p-6 max-w-2xl mx-auto min-h-[70vh] floating-nav-spacing relative z-10 no-print">
+        {/* --- MAIN FEED & VIEWS --- */}
+        <main className={`p-4 sm:p-6 max-w-2xl mx-auto min-h-[70vh] relative z-10 no-print ${view === 'map' ? 'h-[85vh] floating-nav-spacing flex flex-col' : 'floating-nav-spacing'}`}>
           
-          {view === 'dashboard' && !searchQuery && (
+          {view === 'menu' && (
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 animate-slide-up">
+              <button onClick={() => setView('wisdom')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-105 transition-transform"><Icon name="book-open" size={32} className="text-amber-500" /><span className="font-bold text-sm">Weisheit</span></button>
+              <button onClick={() => setView('map')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-105 transition-transform"><Icon name="map" size={32} className="text-emerald-500" /><span className="font-bold text-sm">Lebenskarte</span></button>
+              <button onClick={() => setView('burn')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-105 transition-transform"><Icon name="flame" size={32} className="text-rose-500" /><span className="font-bold text-sm">Katharsis</span></button>
+              <button onClick={() => setView('quotes')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-105 transition-transform"><Icon name="quote" size={32} className="text-indigo-500" /><span className="font-bold text-sm">Erkenntnisse</span></button>
+              <button onClick={() => setView('archive')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-105 transition-transform"><Icon name="archive" size={32} className="opacity-50" /><span className="font-bold text-sm">Archiv</span></button>
+              <button onClick={() => setView('settings')} className="col-span-2 p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-105 transition-transform"><Icon name="settings" size={32} className="opacity-50" /><span className="font-bold text-sm">Einstellungen</span></button>
+            </div>
+          )}
+
+          {view === 'map' && (
+             <div className="flex-1 relative rounded-[2rem] overflow-hidden shadow-lg border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 animate-fade-in flex flex-col">
+                <div ref={mapRef} className="map-container flex-1"></div>
+                <div className="absolute top-4 left-4 right-4 z-[1000] p-4 bg-white/90 dark:bg-black/90 backdrop-blur-md rounded-2xl shadow-lg border border-slate-200 dark:border-zinc-800 flex justify-between items-center pointer-events-auto">
+                    <div className="font-bold text-sm">Orte deines Lebens</div>
+                    <div className="text-xs opacity-70">{entries.filter(e => e.location).length} Markierungen</div>
+                </div>
+             </div>
+          )}
+
+          {view === 'burn' && (
+            <div className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-fade-in relative">
+              {isBurning && <div className="absolute inset-0 bg-rose-500/10 animate-pulse rounded-3xl pointer-events-none" />}
+              <Icon name="flame" size={64} className={`mb-6 ${isBurning ? 'text-rose-500 animate-flame' : 'text-slate-300 dark:text-zinc-700'}`} />
+              <p className="opacity-60 mb-8 max-w-sm">Schreibe auf, was dich belastet. Wir übergeben es den Flammen. Es wird nirgendwo gespeichert.</p>
+              <textarea value={burnText} onChange={e=>setBurnText(e.target.value)} disabled={isBurning} className="w-full p-6 rounded-3xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-rose-500 h-48 outline-none resize-none transition-all text-lg font-medium shadow-sm" placeholder="Lass es los..." />
+              <button onClick={triggerBurn} disabled={!burnText || isBurning} className="mt-6 px-8 py-4 bg-rose-600 text-white rounded-2xl font-bold shadow-lg shadow-rose-600/20 hover:scale-105 transition-transform disabled:opacity-50">Dem Feuer übergeben</button>
+            </div>
+          )}
+
+          {view === 'wisdom' && (
+             <div className="animate-slide-up space-y-6">
+                <div className="p-6 rounded-3xl bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 text-center">
+                   <h3 className="font-bold text-amber-600 dark:text-amber-400 mb-2">Fortschritt deines Vermächtnisses</h3>
+                   <div className="flex justify-between text-sm font-bold opacity-70 mb-2 text-amber-700 dark:text-amber-500"><span>{completedPillars} von {totalPillars}</span><span>{progressPercent}%</span></div>
+                   <div className="w-full h-2 bg-amber-200 dark:bg-amber-900/50 rounded-full overflow-hidden"><div className="h-full bg-amber-500" style={{width:`${progressPercent}%`}}></div></div>
+                </div>
+                {['Fundament', 'Kommunikation', 'Struktur', 'Tiefe', 'Anpassung'].map(phase => (
+                   <div key={phase} className="space-y-3">
+                      <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-zinc-500 ml-2">{phase}</h4>
+                      {PILLARS.filter(p=>p.phase===phase).map(pillar => {
+                         const isCompleted = entries.some(e => e.title === pillar.title);
+                         return (
+                           <button key={pillar.id} onClick={() => openEditor(null, pillar)} className="w-full text-left p-5 rounded-3xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm flex gap-4 hover:scale-[1.02] transition-transform">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isCompleted ? 'bg-amber-500 text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`}><Icon name={isCompleted?"check":"pen-tool"} size={16}/></div>
+                              <div><div className="font-bold text-sm mb-1">{pillar.title}</div><div className="text-xs opacity-60 line-clamp-2 leading-relaxed">{pillar.desc}</div></div>
+                           </button>
+                         )
+                      })}
+                   </div>
+                ))}
+             </div>
+          )}
+
+          {view === 'quotes' && (
+             <div className="animate-slide-up space-y-4">
+                {allQuotes.length === 0 ? (
+                   <div className="text-center py-20 opacity-40"><Icon name="quote" size={48} className="mx-auto mb-4"/><p className="font-bold">Noch keine Erkenntnisse zitiert.</p></div>
+                ) : (
+                   allQuotes.map(q => (
+                      <div key={q.id} onClick={()=>{const e=entries.find(x=>x.id===q.entryId); if(e){setView('dashboard'); handleOpenEntry(e);}}} className="p-6 rounded-3xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm cursor-pointer hover:scale-[1.02] transition-transform">
+                         <Icon name="quote" size={20} className="mb-4 text-amber-500 opacity-50" />
+                         <p className="text-lg font-serif italic font-medium leading-relaxed mb-4">"{q.text}"</p>
+                         <div className="text-xs font-bold uppercase tracking-widest opacity-40">{q.title} • {new Date(q.date).toLocaleDateString('de-DE')}</div>
+                      </div>
+                   ))
+                )}
+             </div>
+          )}
+
+          {['dashboard', 'vault', 'archive'].includes(view) && !searchQuery && (
             <div className="flex overflow-x-auto gap-2 pb-2 mb-6 custom-scrollbar hide-scrollbar">
               {['Alle', ...CATEGORIES].map(cat => (
                 <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-5 py-2 rounded-full whitespace-nowrap text-sm font-semibold transition-all ${activeCategory === cat ? 'bg-black dark:bg-white text-white dark:text-black shadow-md' : 'bg-slate-100 dark:bg-zinc-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-zinc-800'}`}>
@@ -665,62 +1008,81 @@ function App() {
             </div>
           )}
 
-          {visibleEntries.length === 0 && !searchQuery && (
+          {view === 'dashboard' && !searchQuery && (
+             <div className="mb-8 p-6 rounded-3xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm flex flex-col justify-center animate-fade-in">
+                <div className="flex justify-between items-center mb-4"><span className="font-bold text-xs uppercase tracking-widest opacity-50">30-Tage Aktivität</span><Icon name="activity" size={16} className="opacity-30" /></div>
+                <div className="flex gap-1 justify-between items-end h-10">
+                   {heatmapData.map((d, i) => (
+                      <div key={i} className="flex-1 rounded-sm transition-all" style={{ height: d.count===0?'20%':`${Math.min(100, 20+(d.count*40))}%`, backgroundColor: d.count===0 ? (user.isDark?'#27272a':'#f1f5f9') : '#f59e0b' }} />
+                   ))}
+                </div>
+             </div>
+          )}
+
+          {['dashboard', 'vault', 'archive'].includes(view) && visibleEntries.length === 0 && !searchQuery && (
             <div className="flex flex-col items-center justify-center py-32 text-center opacity-40 animate-fade-in">
               <Icon name={view === 'vault' ? "lock" : "book-open"} size={48} className="mb-4"/>
               <p className="text-lg font-bold">{view === 'vault' ? 'Tresor leer.' : view === 'archive' ? 'Archiv leer.' : 'Noch keine Einträge.'}</p>
             </div>
           )}
 
-          <div className="flex flex-col gap-6">
-            {renderEntries.map(entry => {
-              const hasImages = entry.images && entry.images.length > 0;
-              const isDarkTheme = user.isDark;
-              const cardBgClass = isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-slate-100 shadow-sm';
+          {['dashboard', 'vault', 'archive'].includes(view) && (
+            <div className="flex flex-col gap-6">
+              {renderEntries.map(entry => {
+                const hasImages = entry.images && entry.images.length > 0;
+                const isDarkTheme = user.isDark;
+                const cardBgClass = isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-slate-100 shadow-sm';
+                const isCapsuleLocked = entry.unlockDate;
 
-              return (
-                <div key={entry.id} onClick={() => entry.locked ? triggerUnlock(entry) : setViewingEntry(entry)} className={`group relative rounded-3xl overflow-hidden cursor-pointer border transition-all duration-300 active:scale-[0.98] ${cardBgClass}`}>
-                  
-                  {entry.manifested && (
-                    <div className="absolute top-4 right-4 z-20 bg-amber-400 text-amber-950 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
-                      <Icon name="sparkles" size={12}/> Highlight
-                    </div>
-                  )}
-
-                  {hasImages && (
-                    <div className="w-full aspect-video relative overflow-hidden bg-slate-100 dark:bg-zinc-800">
-                      <img src={entry.images[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="Cover" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-                    </div>
-                  )}
-
-                  <div className="p-6 relative z-10">
-                    <div className="flex items-center gap-2 mb-3 text-[10px] font-bold uppercase tracking-widest opacity-50">
-                      <span>{new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                      <span>•</span>
-                      <span>{entry.category}</span>
-                      {entry.locked && <><span className="text-rose-500 flex items-center gap-1 ml-auto"><Icon name="lock" size={12}/> Tresor</span></>}
-                    </div>
-
-                    <h3 className={`font-extrabold text-2xl leading-tight tracking-tight mb-2 line-clamp-2 ${hasImages && entry.locked ? 'text-slate-900 dark:text-white' : ''}`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
+                return (
+                  <div key={entry.id} onClick={() => handleOpenEntry(entry)} className={`group relative rounded-3xl overflow-hidden cursor-pointer border transition-all duration-300 active:scale-[0.98] ${cardBgClass}`}>
                     
-                    {!entry.locked && entry.text && (
-                      <div className="text-sm font-medium leading-relaxed opacity-70 line-clamp-3 mb-4" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
+                    {entry.manifested && (
+                      <div className="absolute top-4 right-4 z-20 bg-amber-400 text-amber-950 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
+                        <Icon name="sparkles" size={12}/> Highlight
+                      </div>
                     )}
 
-                    {entry.locked && (
-                       <div className="text-sm font-medium leading-relaxed opacity-40 italic mb-4">Inhalt durch Tresor-PIN geschützt.</div>
+                    {hasImages && (
+                      <div className="w-full aspect-video relative overflow-hidden bg-slate-100 dark:bg-zinc-800">
+                        <img src={entry.images[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="Cover" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+                      </div>
                     )}
+
+                    <div className="p-6 relative z-10">
+                      <div className="flex items-center gap-2 mb-3 text-[10px] font-bold uppercase tracking-widest opacity-50">
+                        <span>{new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                        <span>•</span>
+                        <span>{entry.category}</span>
+                        {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE')}</span></>}
+                        {entry.locked && !isCapsuleLocked && <><span className="text-rose-500 flex items-center gap-1 ml-auto"><Icon name="lock" size={12}/> Tresor</span></>}
+                        {entry.audio && <><span className="text-emerald-500 flex items-center ml-1"><Icon name="mic" size={12}/></span></>}
+                        {entry.location && <><span className="text-amber-500 flex items-center ml-1"><Icon name="map-pin" size={12}/></span></>}
+                      </div>
+
+                      <h3 className={`font-extrabold text-2xl leading-tight tracking-tight mb-2 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : ''}`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
+                      
+                      {!entry.locked && !isCapsuleLocked && entry.text && (
+                        <div className="text-sm font-medium leading-relaxed opacity-70 line-clamp-3 mb-4" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
+                      )}
+
+                      {(entry.locked || isCapsuleLocked) && (
+                         <div className="text-sm font-medium leading-relaxed opacity-40 italic mb-4">
+                            {isCapsuleLocked ? 'Inhalt durch Zeitsiegel geschützt.' : 'Inhalt durch Tresor-PIN geschützt.'}
+                         </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </main>
 
         {/* --- FLOATING BOTTOM NAV --- */}
         {!showEditor && !viewingEntry && (
-          <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-xs backdrop-blur-2xl bg-white/80 dark:bg-zinc-900/80 border border-slate-200/50 dark:border-zinc-700/50 rounded-[2rem] shadow-2xl flex justify-between items-center px-2 py-2 z-40 transition-all duration-500 no-print">
+          <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-xs backdrop-blur-2xl bg-white/90 dark:bg-zinc-900/90 border border-slate-200/50 dark:border-zinc-700/50 rounded-[2rem] shadow-2xl flex justify-between items-center px-2 py-2 z-40 transition-all duration-500 no-print">
             <button onClick={() => setView('dashboard')} className={`flex-1 flex flex-col items-center justify-center py-2 transition-all rounded-2xl ${view === 'dashboard' ? 'text-black dark:text-white bg-slate-100 dark:bg-zinc-800' : 'text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}>
               <Icon name="layout-grid" size={22} />
             </button>
@@ -736,10 +1098,39 @@ function App() {
         {/* --- VIEWER --- */}
         {viewingEntry && !showEditor && (
            <div className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-black animate-fade-in custom-scrollbar flex flex-col">
-             <div className="sticky top-0 z-50 flex justify-between items-center py-4 px-6 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-slate-100 dark:border-zinc-900 shrink-0">
-               <button onClick={() => setViewingEntry(null)} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform"><Icon name="arrow-left" size={20}/></button>
-               <button onClick={() => { const e = viewingEntry; setViewingEntry(null); openEditor(e); }} className="px-5 py-2.5 rounded-full font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform">Bearbeiten</button>
+             <div className="sticky top-0 z-40 flex justify-between items-center py-4 px-6 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-slate-100 dark:border-zinc-900 shrink-0 no-print">
+               <div className="flex gap-2">
+                 <button onClick={() => setViewingEntry(null)} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform"><Icon name="arrow-left" size={20}/></button>
+                 {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).length > 1 && (
+                     <button onClick={() => setShowTimeline(true)} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform text-amber-500"><Icon name="calendar-days" size={20}/></button>
+                 )}
+               </div>
+               <div className="flex gap-2">
+                 <button onClick={() => window.print()} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform text-slate-500"><Icon name="printer" size={20}/></button>
+                 <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-full transition-transform ${isSpeaking ? 'bg-amber-500 text-white animate-pulse' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105'}`}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={20}/></button>
+                 <button onClick={() => { const e = viewingEntry; setViewingEntry(null); openEditor(e); }} className="px-5 py-2.5 rounded-full font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform">Bearbeiten</button>
+               </div>
              </div>
+
+             {/* Print Title & TOC (Only visible in print media) */}
+             <div className="print-only">
+                 <div className="print-title-page">
+                    <h1 style={{fontSize: '56px', marginBottom: '20px', fontFamily: 'Georgia, serif'}}>{user.appName || 'Legacy Vision Journal'}</h1>
+                    <h3 style={{fontSize: '24px', opacity: 0.6}}>Verfasst von {user.name}</h3>
+                    <p style={{marginTop: '40px', fontStyle: 'italic'}}>{user.motto}</p>
+                    <p style={{position: 'absolute', bottom: '40px'}}>Generiert am {new Date().toLocaleDateString('de-DE')}</p>
+                 </div>
+                 <div className="print-toc">
+                    <h2 style={{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px'}}>Inhaltsverzeichnis</h2>
+                    <ul style={{listStyle: 'none', padding: 0}}>
+                        {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
+                            <li key={idx} style={{marginBottom: '15px', fontSize: '18px'}}><strong>{idx+1}.</strong> {e.title}</li>
+                        ))}
+                    </ul>
+                 </div>
+             </div>
+
+             {/* Single Entry View */}
              <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-32">
                 {viewingEntry.images && viewingEntry.images.length > 0 && (
                   <img src={viewingEntry.images[0]} className="w-full rounded-3xl mb-8 object-cover shadow-sm border border-slate-100 dark:border-zinc-800" alt="Cover" />
@@ -748,28 +1139,82 @@ function App() {
                 <div className="flex gap-4 mb-10 text-xs font-bold uppercase tracking-widest opacity-50">
                   <span>{new Date(viewingEntry.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                   <span>•</span><span>{viewingEntry.category}</span>
+                  {viewingEntry.location && <span className="flex items-center gap-1 text-amber-500"><Icon name="map-pin" size={14}/> GPS-Siegel</span>}
                 </div>
                 <div className="text-lg leading-relaxed font-medium opacity-90 legacy-content" dangerouslySetInnerHTML={createSafeHtml(viewingEntry.text)} />
+                {viewingEntry.audio && <div className="mt-8 p-4 rounded-2xl bg-slate-100 dark:bg-zinc-900 no-print"><audio src={viewingEntry.audio} controls className="w-full" /></div>}
+                
+                <div className="mt-16 pt-8 border-t border-slate-200 dark:border-zinc-800 flex justify-center no-print">
+                    <button onClick={() => startNewChapter(viewingEntry)} className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black font-bold rounded-2xl flex items-center gap-2 hover:scale-105 transition-transform shadow-md"><Icon name="plus" size={20}/> Neue Seite anfügen</button>
+                </div>
              </div>
            </div>
         )}
 
+        {/* --- TIMELINE / ZEITREISE --- */}
+        {showTimeline && viewingEntry && !showEditor && (() => {
+           const bookRoot = getBookRoot(viewingEntry.id);
+           const bookEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
+           return (
+             <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex justify-end animate-fade-in no-print" onClick={() => setShowTimeline(false)}>
+                <div className="w-full max-w-sm h-full bg-white dark:bg-zinc-950 shadow-2xl animate-slide-up flex flex-col" onClick={e=>e.stopPropagation()}>
+                   <div className="p-6 border-b border-slate-100 dark:border-zinc-900 flex justify-between items-center">
+                      <h3 className="font-bold text-xl flex items-center gap-2"><Icon name="calendar-days" className="text-amber-500"/> Zeitreise</h3>
+                      <button onClick={()=>setShowTimeline(false)} className="p-2 rounded-full bg-slate-100 dark:bg-zinc-900"><Icon name="x" size={20}/></button>
+                   </div>
+                   <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                      {bookEntries.map((e, idx) => (
+                         <button key={e.id} onClick={() => { setViewingEntry(e); setShowTimeline(false); }} className={`w-full text-left p-4 rounded-2xl mb-2 flex flex-col gap-1 transition-colors ${viewingEntry.id === e.id ? 'bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30' : 'bg-slate-50 dark:bg-zinc-900 border border-transparent'}`}>
+                            <span className="font-bold text-sm truncate">{idx+1}. {e.title}</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">{new Date(e.date).toLocaleDateString('de-DE')}</span>
+                         </button>
+                      ))}
+                   </div>
+                </div>
+             </div>
+           );
+        })()}
+
         {/* --- EDITOR --- */}
         {showEditor && (
-          <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-black animate-fade-in sm:p-6">
+          <div className="fixed inset-0 z-[150] flex flex-col bg-white dark:bg-black animate-fade-in sm:p-6 no-print">
             <div className="relative w-full h-full max-w-3xl mx-auto flex flex-col bg-white dark:bg-zinc-950 sm:rounded-[2.5rem] sm:border border-slate-200 dark:border-zinc-800 overflow-hidden shadow-2xl">
               
               <div className="flex justify-between items-center px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 dark:border-zinc-900 shrink-0 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md z-20">
                 <button onClick={() => checkSaveEntry(true)} className="p-3 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"><Icon name="arrow-left" size={24}/></button>
-                <div className="flex gap-2">
-                   <button onClick={() => { setIsLocked(!isLocked); isDirtyRef.current = true; }} className={`p-3 rounded-full transition-colors ${isLocked ? 'bg-rose-500/20 text-rose-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`}><Icon name="lock" size={20}/></button>
-                   <button onClick={() => { setIsManifested(!isManifested); isDirtyRef.current = true; }} className={`p-3 rounded-full transition-colors ${isManifested ? 'bg-amber-400/20 text-amber-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`}><Icon name="sparkles" size={20}/></button>
-                   <button onClick={() => checkSaveEntry(false)} className="px-6 py-2.5 rounded-full font-bold shadow-sm bg-black dark:bg-white text-white dark:text-black hover:scale-105 transition-transform text-sm">Sichern</button>
+                <div className="flex gap-2 items-center">
+                   {editingId && <button onClick={() => confirmDelete(editingId)} className="p-3 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10"><Icon name="trash-2" size={20}/></button>}
+                   <button onClick={() => { setIsLocked(!isLocked); isDirtyRef.current = true; }} className={`p-3 rounded-full transition-colors ${isLocked ? 'bg-rose-500/10 text-rose-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`} title="Tresor-Schutz"><Icon name="lock" size={20}/></button>
+                   
+                   {/* Geolocation Button */}
+                   <button onClick={() => {
+                       if(navigator.geolocation) {
+                           showDialog({title:'Orte', message:'Position wird ermittelt...', icon:'loader'});
+                           navigator.geolocation.getCurrentPosition(pos => {
+                               setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                               isDirtyRef.current = true; setDialog(null);
+                               setTimeout(()=>showDialog({title:'Orts-Siegel', message:'Dein Standort wurde verewigt.', icon:'map-pin', iconColor:'text-amber-500'}), 300);
+                           }, () => { setDialog(null); showDialog({title:'Fehler', message:'Ortung fehlgeschlagen.', icon:'x'}); });
+                       }
+                   }} className={`p-3 rounded-full transition-colors ${location ? 'bg-emerald-500/10 text-emerald-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`} title="Standort verewigen"><Icon name="map-pin" size={20}/></button>
+
+                   <button onClick={() => { setIsManifested(!isManifested); isDirtyRef.current = true; }} className={`p-3 rounded-full transition-colors ${isManifested ? 'bg-amber-400/10 text-amber-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`} title="Manifestieren"><Icon name="sparkles" size={20}/></button>
+                   <button onClick={() => checkSaveEntry(false)} className="px-6 py-2.5 rounded-full font-bold shadow-sm bg-black dark:bg-white text-white dark:text-black hover:scale-105 transition-transform text-sm ml-2">Sichern</button>
                 </div>
               </div>
 
               <div className="flex flex-col shrink-0 px-6 sm:px-10 pt-6 pb-2 z-10">
-                 <input type="text" placeholder="Ein brillianter Gedanke..." value={title} onChange={(e) => { setTitle(e.target.value); isDirtyRef.current = true; }} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tight outline-none placeholder:opacity-30 mb-2" />
+                 {pillarGuidance && <div className="mb-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-400 text-sm font-medium flex gap-3"><Icon name="book-open" size={20} className="shrink-0"/>{pillarGuidance}</div>}
+                 <input type="text" placeholder="Ein brillianter Gedanke..." value={title} onChange={(e) => { setTitle(e.target.value); isDirtyRef.current = true; }} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tight outline-none placeholder:opacity-30 mb-4" />
+                 
+                 <div className="flex gap-2 mb-4 overflow-x-auto hide-scrollbar">
+                    <button onClick={() => { document.execCommand('bold', false, null); isDirtyRef.current = true; }} className="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200"><Icon name="bold" size={18}/></button>
+                    <button onClick={() => { document.execCommand('italic', false, null); isDirtyRef.current = true; }} className="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200"><Icon name="italic" size={18}/></button>
+                    <button onClick={() => { document.execCommand('insertUnorderedList', false, null); isDirtyRef.current = true; }} className="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200"><Icon name="list-todo" size={18}/></button>
+                    <button onClick={() => { document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current = true; }} className="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200"><Icon name="quote" size={18}/></button>
+                    
+                    <button onClick={() => setPicker({ title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c,value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;} })} className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-zinc-900 font-bold text-xs uppercase tracking-widest ml-auto">{category}</button>
+                 </div>
               </div>
 
               <div className="flex-1 overflow-y-auto px-6 sm:px-10 pb-32 overscroll-contain">
@@ -783,20 +1228,70 @@ function App() {
                       ))}
                    </div>
                 )}
-                <div ref={editorRef} contentEditable suppressContentEditableWarning data-placeholder="Lass es fließen..." onInput={(e) => { setText(e.currentTarget.innerHTML); isDirtyRef.current = true; }} className="w-full min-h-[50vh] bg-transparent text-lg leading-relaxed font-medium outline-none empty:before:content-[attr(data-placeholder)] legacy-editor-content opacity-90" />
+                {audioUrl && (
+                    <div className="mb-6 p-4 rounded-2xl bg-slate-100 dark:bg-zinc-900 relative">
+                        <audio src={audioUrl} controls className="w-full"/>
+                        <button onClick={()=>setAudioUrl(null)} className="absolute -top-2 -right-2 bg-rose-500 text-white p-1 rounded-full shadow-lg"><Icon name="x" size={14}/></button>
+                    </div>
+                )}
+                <div ref={editorRef} contentEditable suppressContentEditableWarning data-placeholder="Lass es fließen..." onInput={(e) => { setText(e.currentTarget.innerHTML); isDirtyRef.current = true; }} className="w-full min-h-[50vh] bg-transparent text-lg leading-relaxed font-medium outline-none empty:before:content-[attr(data-placeholder)] legacy-editor-content opacity-90 pb-20" />
               </div>
 
-              <div className="absolute bottom-0 left-0 right-0 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 p-4 flex justify-between items-center pb-[env(safe-area-inset-bottom,16px)]">
+              <div className="absolute bottom-0 left-0 right-0 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 p-4 flex justify-between items-center pb-[env(safe-area-inset-bottom,16px)] z-20">
                  <div className="flex gap-2">
                     <label className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm cursor-pointer hover:scale-105 transition-transform"><Icon name="image" size={20}/><input type="file" accept="image/*" multiple onChange={(e) => {
                        const files = Array.from(e.target.files);
-                       files.forEach(file => {
-                           const reader = new FileReader();
-                           reader.onload = (evt) => { setSelectedImages(p => [...p, evt.target.result]); isDirtyRef.current = true; };
-                           reader.readAsDataURL(file);
-                       });
+                       files.forEach(file => { const r = new FileReader(); r.onload = (evt) => { setSelectedImages(p => [...p, evt.target.result]); isDirtyRef.current=true; }; r.readAsDataURL(file); });
                     }} className="hidden" /></label>
+                    <button onClick={()=>setIsDrawing(true)} className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm hover:scale-105 transition-transform"><Icon name="pen-tool" size={20}/></button>
+                    <button onClick={isRecording?stopRecording:startRecording} className={`p-3.5 rounded-full shadow-sm transition-transform hover:scale-105 ${isRecording?'bg-rose-500 text-white animate-pulse':'bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700'}`}>{isRecording?<Icon name="square" size={20}/>:<Icon name="mic" size={20}/>}</button>
+                    
+                    {/* Time Capsule Button */}
+                    <div className="relative pl-2 ml-2 border-l border-slate-200 dark:border-zinc-700 flex">
+                        <label className={`relative p-3.5 rounded-full shadow-sm flex items-center justify-center cursor-pointer transition-transform hover:scale-105 ${unlockDate ? 'bg-indigo-500 text-white border-transparent' : 'bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700'}`} title="Kryptografische Zeitkapsel">
+                           <Icon name="clock" size={20}/>
+                           <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); isDirtyRef.current = true;}} className="absolute opacity-0 w-full h-full cursor-pointer" />
+                        </label>
+                    </div>
                  </div>
+                 <div className="flex gap-2">
+                    {MOODS.slice(0,3).map(m => (
+                       <button key={m.id} onClick={()=>{setMood(mood===m.label?null:m.label); isDirtyRef.current=true;}} className={`p-2.5 rounded-full transition-all ${mood===m.label ? 'bg-white shadow-md scale-110 ' + m.color : 'opacity-40 hover:opacity-100'}`}><Icon name={m.iconName} size={20}/></button>
+                    ))}
+                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- CANVAS DRAWING --- */}
+        {isDrawing && (
+           <div className="fixed inset-0 z-[200] flex flex-col bg-white dark:bg-black animate-fade-in no-print">
+              <div className="flex justify-between items-center p-6 border-b border-slate-100 dark:border-zinc-900 bg-slate-50 dark:bg-zinc-950 shrink-0">
+                 <button onClick={()=>setIsDrawing(false)} className="p-3 rounded-full bg-slate-200 dark:bg-zinc-800"><Icon name="x" size={20}/></button>
+                 <span className="font-bold text-lg">Skizze</span>
+                 <button onClick={()=>{if(canvasRef.current){setSelectedImages(p=>[...p, canvasRef.current.toDataURL()]); setIsDrawing(false); isDirtyRef.current=true;}}} className="px-6 py-2 rounded-full bg-black dark:bg-white text-white dark:text-black font-bold shadow-md text-sm">Fertig</button>
+              </div>
+              <div className="flex-1 relative touch-none bg-white dark:bg-black">
+                 <canvas ref={canvasRef} className="absolute inset-0 w-full h-full touch-none" onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing} onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
+              </div>
+           </div>
+        )}
+
+        {/* --- PICKER DIALOG --- */}
+        {picker && (
+          <div className="fixed inset-0 z-[250] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setPicker(null)}>
+            <div className="w-full max-w-sm rounded-[2.5rem] shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up flex flex-col overflow-hidden max-h-[70vh]" onClick={e => e.stopPropagation()}>
+              <div className="p-6 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
+                 <h3 className="font-bold text-lg">{picker.title}</h3>
+                 <button onClick={()=>setPicker(null)} className="p-2 rounded-full bg-slate-100 dark:bg-zinc-800"><Icon name="x" size={20}/></button>
+              </div>
+              <div className="overflow-y-auto p-4 space-y-2">
+                 {picker.options.map(opt => (
+                    <button key={opt.value} onClick={()=>{picker.onSelect(opt.value); setPicker(null);}} className={`w-full text-left p-4 rounded-2xl font-bold text-sm flex justify-between transition-all ${picker.currentValue===opt.value ? 'bg-black text-white dark:bg-white dark:text-black shadow-md' : 'hover:bg-slate-50 dark:hover:bg-zinc-800'}`}>
+                       {opt.label} {picker.currentValue===opt.value && <Icon name="check" size={16}/>}
+                    </button>
+                 ))}
               </div>
             </div>
           </div>
@@ -804,8 +1299,9 @@ function App() {
 
         {/* --- DIALOGS & PIN UNLOCK --- */}
         {dialog && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/40 backdrop-blur-xl animate-fade-in" onClick={() => setDialog(null)}>
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/40 backdrop-blur-xl animate-fade-in no-print" onClick={() => setDialog(null)}>
             <div className="w-full max-w-sm rounded-[2rem] p-8 text-center shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up" onClick={e => e.stopPropagation()}>
+              {dialog.icon && <Icon name={dialog.icon} size={36} className={`mx-auto mb-4 ${dialog.iconColor || 'text-slate-900 dark:text-white'}`}/>}
               <h3 className="text-xl font-bold mb-3">{dialog.title}</h3>
               <p className="text-sm font-medium opacity-70 mb-6">{dialog.message}</p>
               <button onClick={() => { if(dialog.onConfirm) dialog.onConfirm(); setDialog(null); }} className="w-full py-4 rounded-xl font-bold text-white bg-black dark:bg-white dark:text-black">{dialog.confirmLabel || 'Okay'}</button>
@@ -814,25 +1310,29 @@ function App() {
         )}
 
         {unlockTarget && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-xl animate-fade-in" onClick={() => setUnlockTarget(null)}>
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setUnlockTarget(null)}>
             <div className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up" onClick={e => e.stopPropagation()}>
               <div className="w-16 h-16 bg-slate-100 dark:bg-zinc-800 rounded-full mx-auto flex items-center justify-center mb-4"><Icon name="lock" size={28}/></div>
               <h3 className="text-2xl font-bold tracking-tight mb-2">Tresor entsperren</h3>
               <p className="text-sm font-medium opacity-60 mb-6 truncate">"{unlockTarget.title}"</p>
               <input type="password" inputMode="numeric" autoFocus value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submitPin()} className={`w-full p-4 text-center text-2xl tracking-[1em] rounded-2xl outline-none mb-4 bg-slate-50 dark:bg-zinc-950 border-2 transition-colors ${pinError ? 'border-rose-500' : 'border-transparent focus:border-slate-300 dark:focus:border-zinc-700'}`} placeholder="••••" />
-              <button onClick={submitPin} className="w-full py-4 rounded-xl font-bold text-white bg-black dark:bg-white dark:text-black">Öffnen</button>
+              <button onClick={submitPin} className="w-full py-4 rounded-xl font-bold text-white bg-black dark:bg-white dark:text-black mb-3">Öffnen</button>
+              {safeStorageGet('legacy_bio_pin') && (
+                <button onClick={handleBiometricUnlock} className="w-full py-3 font-bold rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] transition-all flex items-center justify-center gap-2"><Icon name="fingerprint" size={18}/> Biometrisch entsperren</button>
+              )}
             </div>
           </div>
         )}
 
         {/* --- SETTINGS VIEW --- */}
         {view === 'settings' && (
-           <div className="max-w-md mx-auto p-6 animate-slide-up space-y-6 pb-32">
+           <div className="max-w-md mx-auto p-6 animate-slide-up space-y-6 pb-32 no-print">
               <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
                  <h2 className="text-base font-bold mb-4 flex items-center gap-2"><Icon name="user" size={18}/> Profil</h2>
                  <input type="text" value={user.name} onChange={e=>setUser({...user, name: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-lg mb-4" placeholder="Dein Name" />
                  <textarea value={user.motto} onChange={e=>setUser({...user, motto: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-medium text-sm resize-none h-24" placeholder="Lebensmotto..." />
               </div>
+
               <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
                  <h2 className="text-base font-bold mb-4 flex items-center gap-2"><Icon name="moon" size={18}/> Design</h2>
                  <div className="flex p-1 bg-slate-100 dark:bg-zinc-950 rounded-2xl">
@@ -840,8 +1340,63 @@ function App() {
                     <button onClick={() => setUser({...user, isDark: true})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${user.isDark ? 'bg-zinc-800 shadow-sm text-white' : 'text-slate-500'}`}>Dunkel</button>
                  </div>
               </div>
+              
+              <div className="p-6 rounded-[2rem] bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 shadow-sm">
+                 <h2 className="text-base font-bold mb-2 flex items-center gap-2 text-blue-600 dark:text-blue-400"><Icon name="cloud" size={18}/> Verschlüsselter Cloud-Tresor</h2>
+                 <p className="text-xs font-medium opacity-70 mb-4">Deine Daten werden AES-GCM verschlüsselt gesichert.</p>
+                 <button onClick={() => {
+                    if (!user.pin) { showDialog({title:'PIN fehlt', message:'Bitte lege zuerst eine PIN fest.'}); return; }
+                    setUser({...user, cloudSync: !user.cloudSync});
+                    if (!user.cloudSync) { entries.forEach(e=>syncSingleEntryToCloud(e)); syncProfileToCloud({...user, cloudSync:true}); }
+                 }} className={`w-full p-4 rounded-2xl font-bold text-sm transition-transform hover:scale-[1.02] shadow-sm mb-3 ${user.cloudSync ? 'bg-blue-600 text-white' : 'bg-white dark:bg-zinc-900 text-slate-700 dark:text-white'}`}>{user.cloudSync ? 'Cloud Sync ist Aktiv' : 'Cloud Sync aktivieren'}</button>
+                 <button onClick={performCloudSync} className="w-full p-4 rounded-2xl font-bold text-sm bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 hover:scale-[1.02] shadow-sm transition-transform flex items-center justify-center gap-2">{syncingCloud ? 'Lädt...' : <><Icon name="download-cloud" size={18}/> Aus der Cloud wiederherstellen</>}</button>
+              </div>
+
+              {/* ZIP EXPORT */}
+              <div className="p-6 rounded-[2rem] bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 shadow-sm">
+                 <h2 className="text-base font-bold mb-2 flex items-center gap-2 text-indigo-600 dark:text-indigo-400"><Icon name="archive" size={18}/> Ewigkeits-Archiv (ZIP)</h2>
+                 <p className="text-xs font-medium opacity-70 mb-4">Exportiert alle deine Einträge als simple, für immer lesbare Textdateien (.md) und extrahiert alle Bilder.</p>
+                 <button onClick={exportEternityArchive} className="w-full p-4 rounded-2xl font-bold text-sm bg-indigo-600 text-white hover:scale-[1.02] shadow-sm transition-transform flex items-center justify-center gap-2 mb-3"><Icon name="folder-down" size={18}/> Als ZIP speichern</button>
+              </div>
+
+              <div className="p-6 rounded-[2rem] bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 shadow-sm">
+                 <h2 className="text-base font-bold mb-2 flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><Icon name="smartphone" size={18}/> P2P Transfer (Ohne Cloud)</h2>
+                 <p className="text-xs font-medium opacity-70 mb-4">Scanne einen QR Code mit deinem neuen Handy, um Daten direkt zu senden.</p>
+                 {!peerId ? (
+                    <button onClick={() => {
+                       const peer = new window.Peer(); setSyncStatus('WebRTC wird vorbereitet...');
+                       peer.on('open', (id) => { setPeerId(id); setSyncStatus('Scanne den Code mit dem neuen Gerät.'); });
+                       peer.on('connection', (c) => { setSyncStatus('Verbunden! Sende...'); c.on('data', (d) => { if(d==='request_data'){c.send(JSON.stringify({user,entries})); setSyncStatus('Erledigt!'); setTimeout(()=>{setPeerId(null);}, 4000);} }); });
+                       setPeerInstance(peer);
+                    }} className="w-full p-4 rounded-2xl font-bold text-sm bg-emerald-600 text-white hover:scale-[1.02] shadow-sm transition-transform flex items-center justify-center gap-2"><Icon name="qr-code" size={18}/> QR-Code generieren</button>
+                 ) : (
+                    <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl flex flex-col items-center">
+                       <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin + window.location.pathname + '?import=' + peerId)}`} className="w-40 h-40 mb-3 rounded-lg" />
+                       <p className="text-xs font-bold text-emerald-600 mb-3 animate-pulse">{syncStatus}</p>
+                       <button onClick={()=>{peerInstance?.destroy(); setPeerId(null); setSyncStatus('');}} className="text-xs font-bold opacity-50">Abbrechen</button>
+                    </div>
+                 )}
+              </div>
+
               <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
                  <h2 className="text-base font-bold mb-4 flex items-center gap-2"><Icon name="key" size={18}/> Sicherheit</h2>
+                 
+                 {/* Biometric Toggle */}
+                 {window.PublicKeyCredential && (
+                     <div className="flex justify-between items-center mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800">
+                         <div className="flex items-center gap-3">
+                             <Icon name="fingerprint" size={20} className={user.biometric ? 'text-indigo-500' : 'text-slate-400'}/>
+                             <div>
+                                 <div className="font-bold text-sm">Biometrie</div>
+                                 <div className="text-[10px] opacity-60">TouchID / FaceID</div>
+                             </div>
+                         </div>
+                         <button onClick={toggleBiometric} className={`w-12 h-6 rounded-full transition-colors relative ${user.biometric ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-zinc-700'}`}>
+                             <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${user.biometric ? 'left-7' : 'left-1'}`} />
+                         </button>
+                     </div>
+                 )}
+
                  <input type="password" inputMode="numeric" value={user.pin} onChange={e=>setUser({...user, pin: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em] mb-4" placeholder="Tresor-PIN" />
               </div>
               <button onClick={handleLogout} className="w-full p-4 rounded-2xl font-bold text-rose-500 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-900/30 active:scale-95 transition-transform flex items-center justify-center gap-2"><Icon name="log-out" size={18}/> Abmelden</button>
