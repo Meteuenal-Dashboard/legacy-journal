@@ -328,6 +328,7 @@ const initDB = () => {
 function App() {
   const [db, setDb] = useState(null);
   const [fb, setFb] = useState(null);
+  const [authUser, setAuthUser] = useState(null);
   
   const [entries, setEntries] = useState([]);
   const [user, setUser] = useState({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', isDark: true, appBgColor: null, cloudSync: false, biometric: false });
@@ -389,10 +390,13 @@ function App() {
   const [text, setText] = useState(''); 
   const [selectedColor, setSelectedColor] = useState(COLORS[8]);
   const [selectedImages, setSelectedImages] = useState([]); 
+  const [selectedVideo, setSelectedVideo] = useState(null);
   const [isLocked, setIsLocked] = useState(false);
   const [audioUrl, setAudioUrl] = useState(null);
   const [isManifested, setIsManifested] = useState(false);
   const [unlockDate, setUnlockDate] = useState('');
+  const [unlockLocation, setUnlockLocation] = useState(null);
+  const [entryType, setEntryType] = useState('vision');
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [mood, setMood] = useState(null);
   const [location, setLocation] = useState(null);
@@ -701,6 +705,21 @@ function App() {
   }, [entries, searchQuery, activeCategory, view]);
 
   const renderEntries = visibleEntries; const now = new Date();
+  
+  // HINZUGEFÜGT: Helper-Funktion zum Hervorheben von Suchtexten
+  const highlightText = (text, query) => {
+      if (!text) return { __html: '' };
+      let safeText = text.replace(/<img[^>]*>/g, '[Bild]');
+      safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3'], ALLOWED_ATTR: ['style', 'class', 'dir'] }) : safeText;
+      if (!query) return { __html: safeText };
+      const plainText = safeText.replace(/<[^>]*>?/gm, '');
+      const parts = plainText.split(new RegExp(`(${query})`, 'gi'));
+      const highlighted = parts.map((part, i) =>
+          part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part
+      ).join('');
+      return { __html: highlighted };
+  };
+
   const allQuotes = useMemo(() => { if (view !== 'quotes') return []; let quotes = []; entries.filter(e => !e.archived).forEach(entry => { if(!entry.text) return; const blockquoteRegex = /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi; let match; while ((match = blockquoteRegex.exec(entry.text)) !== null) { const rawText = match[1].replace(/<[^>]*>?/gm, '').trim(); if(rawText) quotes.push({ text: rawText, date: entry.date, title: entry.title, id: entry.id + match.index, entryId: entry.id }); } }); return quotes.sort((a,b) => new Date(b.date) - new Date(a.date)); }, [entries, view]);
   const heatmapData = useMemo(() => { return Array.from({ length: 30 }).map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (29 - i)); const dateStr = d.toDateString(); return { date: dateStr, count: entries.filter(e => new Date(e.date).toDateString() === dateStr).length }; }); }, [entries]);
   const { completedPillars, totalPillars, progressPercent } = useMemo(() => { const completed = PILLARS.filter(p => entries.some(e => e.title === p.title)).length; return { completedPillars: completed, totalPillars: PILLARS.length, progressPercent: Math.round((completed / PILLARS.length) * 100) }; }, [entries]);
