@@ -433,6 +433,13 @@ function App() {
   const currentEntryRef = useRef({});
   const editingIdRef = useRef(null);
 
+  // Add auto-saving user settings to localStorage
+  useEffect(() => {
+    if (isLoaded) {
+      safeStorageSet('legacy_user', JSON.stringify(user));
+    }
+  }, [user, isLoaded]);
+
   // Initialize Firebase & Auth
   useEffect(() => {
     const initFB = async () => {
@@ -524,15 +531,16 @@ function App() {
       if(fb) { await fb.signOut(fb.auth); setUser({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', isDark: true, appBgColor: null, cloudSync: false, biometric: false }); localStorage.removeItem('legacy_user'); setEntries([]); setView('auth'); }
   };
 
-  // --- IDEA 1: Biometric WebAuthn ---
+  // --- IDEA 1: Biometric WebAuthn (Optimized for Mobile Support) ---
   const toggleBiometric = async () => {
       if (!user.biometric) {
           try {
               const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
               const userId = new Uint8Array(16); window.crypto.getRandomValues(userId);
+              const rpId = window.location.hostname || "localhost";
               const cred = await navigator.credentials.create({
                   publicKey: {
-                      challenge, rp: { name: "Legacy Journal" }, user: { id: userId, name: user.name || 'User', displayName: user.name || 'User' },
+                      challenge, rp: { name: "Legacy Journal", id: rpId }, user: { id: userId, name: user.name || 'User', displayName: user.name || 'User' },
                       pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
                       authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" }, timeout: 60000
                   }
@@ -540,18 +548,33 @@ function App() {
               if (cred) {
                   setUser({...user, biometric: true});
                   safeStorageSet('legacy_bio_pin', btoa(user.pin)); 
+                  safeStorageSet('legacy_bio_id', btoa(String.fromCharCode(...new Uint8Array(cred.rawId))));
                   showDialog({title: 'Aktiviert', message: 'Biometrisches Entsperren ist nun aktiv.', icon: 'fingerprint'});
               }
           } catch(e) { showDialog({title: 'Fehler', message: 'Biometrie konnte nicht aktiviert werden oder wurde abgebrochen.', icon: 'x'}); }
       } else {
-          setUser({...user, biometric: false}); localStorage.removeItem('legacy_bio_pin');
+          setUser({...user, biometric: false}); localStorage.removeItem('legacy_bio_pin'); localStorage.removeItem('legacy_bio_id');
       }
   };
 
   const handleBiometricUnlock = async () => {
       try {
           const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
-          const cred = await navigator.credentials.get({ publicKey: { challenge, userVerification: "required" } });
+          const rpId = window.location.hostname || "localhost";
+          const savedIdStr = safeStorageGet('legacy_bio_id');
+          let allowCredentials = undefined;
+          if (savedIdStr) {
+              const rawId = Uint8Array.from(atob(savedIdStr), c => c.charCodeAt(0));
+              allowCredentials = [{ id: rawId, type: "public-key" }];
+          }
+          const cred = await navigator.credentials.get({ 
+              publicKey: { 
+                  challenge, 
+                  rpId,
+                  allowCredentials,
+                  userVerification: "required" 
+              } 
+          });
           if (cred) {
               const savedPin = atob(safeStorageGet('legacy_bio_pin'));
               if (savedPin) {
@@ -1208,7 +1231,7 @@ function App() {
           {['dashboard', 'vault', 'archive'].includes(view) && !searchQuery && (
             <div className="flex overflow-x-auto gap-2 pb-2 mb-6 custom-scrollbar hide-scrollbar">
               {['Alle', ...CATEGORIES].map(cat => (
-                <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-5 py-2 rounded-full whitespace-nowrap text-sm font-semibold transition-all ${activeCategory === cat ? 'bg-black dark:bg-white text-white dark:text-black shadow-md' : 'bg-slate-100 dark:bg-zinc-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-zinc-800'}`}>
+                <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-5 py-2 rounded-full whitespace-nowrap text-sm font-semibold transition-all ${activeCategory === cat ? 'text-white dark:text-black shadow-md' : 'bg-slate-100 dark:bg-zinc-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-zinc-800'}`} style={activeCategory === cat ? { backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') } : {}}>
                   {cat}
                 </button>
               ))}
@@ -1220,7 +1243,7 @@ function App() {
                 <div className="flex justify-between items-center mb-4"><span className="font-bold text-xs uppercase tracking-widest opacity-50">30-Tage Aktivität</span><Icon name="activity" size={16} className="opacity-30" /></div>
                 <div className="flex gap-1 justify-between items-end h-10">
                    {heatmapData.map((d, i) => (
-                      <div key={i} className="flex-1 rounded-sm transition-all" style={{ height: d.count===0?'20%':`${Math.min(100, 20+(d.count*40))}%`, backgroundColor: d.count===0 ? (user.isDark?'#27272a':'#f1f5f9') : '#f59e0b' }} />
+                      <div key={i} className="flex-1 rounded-sm transition-all" style={{ height: d.count===0?'20%':`${Math.min(100, 20+(d.count*40))}%`, backgroundColor: d.count===0 ? (user.isDark?'#27272a':'#f1f5f9') : (user.nameColor || '#f59e0b') }} />
                    ))}
                 </div>
              </div>
@@ -1319,11 +1342,29 @@ function App() {
                </div>
              </div>
 
-             {/* Single Entry View for Screen */}
-             <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-32 screen-only">
+             {/* Print Title & TOC (Only visible in print media) */}
+             <div className="print-only">
+                 <div className="print-title-page">
+                    <h1 style={{fontSize: '56px', marginBottom: '20px', fontFamily: 'Georgia, serif'}}>{user.appName || 'Legacy Vision Journal'}</h1>
+                    <h3 style={{fontSize: '24px', opacity: 0.6}}>Verfasst von {user.name}</h3>
+                    <p style={{marginTop: '40px', fontStyle: 'italic'}}>{user.motto}</p>
+                    <p style={{position: 'absolute', bottom: '40px'}}>Generiert am {new Date().toLocaleDateString('de-DE')}</p>
+                 </div>
+                 <div className="print-toc">
+                    <h2 style={{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px'}}>Inhaltsverzeichnis</h2>
+                    <ul style={{listStyle: 'none', padding: 0}}>
+                        {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
+                            <li key={idx} style={{marginBottom: '15px', fontSize: '18px'}}><strong>{idx+1}.</strong> {e.title}</li>
+                        ))}
+                    </ul>
+                 </div>
+             </div>
+
+             {/* Single Entry View */}
+             <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-32">
                 {viewingEntry.images && viewingEntry.images.length > 0 && (
                   <div className="relative w-full aspect-video rounded-3xl overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-8 group">
-                      <img src={viewingEntry.images[currentViewerImgIdx]} loading="lazy" className="w-full h-full object-cover transition-transform duration-700" alt="Cover" />
+                      <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-cover transition-transform duration-700" alt="Cover" />
                       {viewingEntry.images.length > 1 && (
                           <>
                               <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p - 1 + viewingEntry.images.length) % viewingEntry.images.length); }} className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print"><Icon name="chevron-left" size={24}/></button>
@@ -1350,46 +1391,6 @@ function App() {
                 </div>
              </div>
            </div>
-        )}
-
-        {/* --- PRINT VIEW ONLY --- */}
-        {viewingEntry && !showEditor && (
-             <div className="print-only w-full max-w-4xl mx-auto p-8">
-                 <div className="print-title-page page-break-after">
-                    <h1 style={{fontSize: '56px', marginBottom: '20px', fontFamily: 'Georgia, serif'}}>{user.appName || 'Legacy Vision Journal'}</h1>
-                    <h3 style={{fontSize: '24px', opacity: 0.6}}>Verfasst von {user.name}</h3>
-                    {user.motto && <p style={{marginTop: '40px', fontStyle: 'italic'}}>{user.motto}</p>}
-                    <p style={{position: 'absolute', bottom: '40px', left: '0', right: '0', textAlign: 'center'}}>Generiert am {new Date().toLocaleDateString('de-DE')}</p>
-                 </div>
-                 
-                 <div className="print-toc page-break-after">
-                    <h2 style={{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px', fontFamily: 'Georgia, serif'}}>Inhaltsverzeichnis</h2>
-                    <ul style={{listStyle: 'none', padding: 0}}>
-                        {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
-                            <li key={idx} style={{marginBottom: '15px', fontSize: '18px'}}><strong>{idx+1}.</strong> {e.title}</li>
-                        ))}
-                    </ul>
-                 </div>
-
-                 <div className="print-book-content">
-                    {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
-                        <div key={e.id} className="page-break-after" style={{ marginBottom: '60px', paddingTop: '20px' }}>
-                            <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
-                                <h1 style={{ fontSize: '36px', fontFamily: 'Georgia, serif', fontWeight: 'bold', marginBottom: '10px' }}>{e.title}</h1>
-                                <p style={{ opacity: 0.6, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '12px' }}>
-                                    {new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category}
-                                </p>
-                            </div>
-                            
-                            {e.images && e.images.length > 0 && (
-                                <img src={e.images[0]} style={{ width: '100%', maxHeight: '500px', objectFit: 'contain', marginBottom: '30px', borderRadius: '16px' }} alt="Cover" />
-                            )}
-                            
-                            <div className="text-lg leading-relaxed legacy-content" dangerouslySetInnerHTML={createSafeHtml(e.text)}></div>
-                        </div>
-                    ))}
-                 </div>
-             </div>
         )}
 
         {/* --- TIMELINE / ZEITREISE (Calendar Style) --- */}
