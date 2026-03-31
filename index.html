@@ -1304,7 +1304,7 @@ function App() {
 
         {/* --- VIEWER --- */}
         {viewingEntry && !showEditor && (
-           <div className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-black animate-fade-in custom-scrollbar flex flex-col" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+           <div className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-black animate-fade-in custom-scrollbar flex flex-col screen-only" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
              <div className="sticky top-0 z-40 flex justify-between items-center py-4 px-6 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-slate-100 dark:border-zinc-900 shrink-0 no-print">
                <div className="flex gap-2">
                  <button onClick={() => {setViewingEntry(null); setCurrentViewerImgIdx(0);}} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform"><Icon name="arrow-left" size={20}/></button>
@@ -1319,26 +1319,8 @@ function App() {
                </div>
              </div>
 
-             {/* Print Title & TOC */}
-             <div className="print-only">
-                 <div className="print-title-page">
-                    <h1 style={{fontSize: '56px', marginBottom: '20px', fontFamily: 'Georgia, serif'}}>{user.appName || 'Legacy Vision Journal'}</h1>
-                    <h3 style={{fontSize: '24px', opacity: 0.6}}>Verfasst von {user.name}</h3>
-                    <p style={{marginTop: '40px', fontStyle: 'italic'}}>{user.motto}</p>
-                    <p style={{position: 'absolute', bottom: '40px'}}>Generiert am {new Date().toLocaleDateString('de-DE')}</p>
-                 </div>
-                 <div className="print-toc">
-                    <h2 style={{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px'}}>Inhaltsverzeichnis</h2>
-                    <ul style={{listStyle: 'none', padding: 0}}>
-                        {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
-                            <li key={idx} style={{marginBottom: '15px', fontSize: '18px'}}><strong>{idx+1}.</strong> {e.title}</li>
-                        ))}
-                    </ul>
-                 </div>
-             </div>
-
-             {/* Single Entry View */}
-             <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-32">
+             {/* Single Entry View for Screen */}
+             <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-32 screen-only">
                 {viewingEntry.images && viewingEntry.images.length > 0 && (
                   <div className="relative w-full aspect-video rounded-3xl overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-8 group">
                       <img src={viewingEntry.images[currentViewerImgIdx]} loading="lazy" className="w-full h-full object-cover transition-transform duration-700" alt="Cover" />
@@ -1368,6 +1350,46 @@ function App() {
                 </div>
              </div>
            </div>
+        )}
+
+        {/* --- PRINT VIEW ONLY --- */}
+        {viewingEntry && !showEditor && (
+             <div className="print-only w-full max-w-4xl mx-auto p-8">
+                 <div className="print-title-page page-break-after">
+                    <h1 style={{fontSize: '56px', marginBottom: '20px', fontFamily: 'Georgia, serif'}}>{user.appName || 'Legacy Vision Journal'}</h1>
+                    <h3 style={{fontSize: '24px', opacity: 0.6}}>Verfasst von {user.name}</h3>
+                    {user.motto && <p style={{marginTop: '40px', fontStyle: 'italic'}}>{user.motto}</p>}
+                    <p style={{position: 'absolute', bottom: '40px', left: '0', right: '0', textAlign: 'center'}}>Generiert am {new Date().toLocaleDateString('de-DE')}</p>
+                 </div>
+                 
+                 <div className="print-toc page-break-after">
+                    <h2 style={{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px', fontFamily: 'Georgia, serif'}}>Inhaltsverzeichnis</h2>
+                    <ul style={{listStyle: 'none', padding: 0}}>
+                        {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
+                            <li key={idx} style={{marginBottom: '15px', fontSize: '18px'}}><strong>{idx+1}.</strong> {e.title}</li>
+                        ))}
+                    </ul>
+                 </div>
+
+                 <div className="print-book-content">
+                    {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
+                        <div key={e.id} className="page-break-after" style={{ marginBottom: '60px', paddingTop: '20px' }}>
+                            <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+                                <h1 style={{ fontSize: '36px', fontFamily: 'Georgia, serif', fontWeight: 'bold', marginBottom: '10px' }}>{e.title}</h1>
+                                <p style={{ opacity: 0.6, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '12px' }}>
+                                    {new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category}
+                                </p>
+                            </div>
+                            
+                            {e.images && e.images.length > 0 && (
+                                <img src={e.images[0]} style={{ width: '100%', maxHeight: '500px', objectFit: 'contain', marginBottom: '30px', borderRadius: '16px' }} alt="Cover" />
+                            )}
+                            
+                            <div className="text-lg leading-relaxed legacy-content" dangerouslySetInnerHTML={createSafeHtml(e.text)}></div>
+                        </div>
+                    ))}
+                 </div>
+             </div>
         )}
 
         {/* --- TIMELINE / ZEITREISE (Calendar Style) --- */}
