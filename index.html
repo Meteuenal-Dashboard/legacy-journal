@@ -162,11 +162,10 @@
   html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
   .search-highlight { background-color: rgba(245, 158, 11, 0.3); padding: 0 2px; border-radius: 3px; border-bottom: 1px solid #f59e0b; }
 
-  /* Map Container */
+  /* Map Container & Fix Leaflet Attribution/Markers */
   .map-container { height: 100%; width: 100%; border-radius: 1.5rem; z-index: 1; }
-  
-  /* Fix Leaflet Avatar Markers */
   .leaflet-marker-icon.avatar-marker { border: none !important; background: transparent !important; }
+  .leaflet-control-attribution { display: none !important; }
 
   /* --- BUCHDRUCK-MODUS --- */
   .print-only { display: none; }
@@ -368,20 +367,8 @@ const initDB = () => {
   });
 };
 
-const highlightText = (text, query) => {
-  if (!text) return { __html: '' };
-  let safeText = text.replace(/<img[^>]*>/g, '[Bild]');
-  safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] }) : safeText;
-  if (!query) return { __html: safeText };
-  const plainText = safeText.replace(/<[^>]*>?/gm, '');
-  const parts = plainText.split(new RegExp(`(${query})`, 'gi'));
-  const highlighted = parts.map((part, i) =>
-      part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part
-  ).join('');
-  return { __html: highlighted };
-};
-
 // --- EntryCard Component: Verhindert Bild-Ruckeln ---
+// Das React.memo verhindert strikt Neuladungen, wenn sich die Basis-Einträge nicht ändern.
 const EntryCard = memo(({ entry, onClick, isGridView, userColor, isDarkTheme, searchQuery }) => {
     const hasImages = entry.images && entry.images.length > 0;
     const cardBgClass = isDarkTheme ? 'bg-zinc-900' : 'bg-white shadow-md';
@@ -404,14 +391,22 @@ const EntryCard = memo(({ entry, onClick, isGridView, userColor, isDarkTheme, se
           <div className="flex items-center gap-2 mb-3 text-[10px] font-bold uppercase tracking-widest opacity-50 flex-wrap">
             <span>{new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
             {!isGridView && <><span>•</span><span>{entry.category}</span></>}
-            {entry.tags && <span className="text-blue-500 flex items-center gap-0.5 ml-1"><Icon name="tag" size={10}/>{entry.tags.split(',').filter(x=>x.trim()).length}</span>}
-            {entry.people && <span className="text-indigo-500 flex items-center gap-0.5 ml-1"><Icon name="user" size={10}/>{entry.people.split(',').filter(x=>x.trim()).length}</span>}
             {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE')}</span></>}
             {entry.locked && !isCapsuleLocked && <><span className="text-rose-500 flex items-center gap-1 ml-auto"><Icon name="lock" size={12}/> Tresor</span></>}
             {entry.audio && <><span className="text-emerald-500 flex items-center ml-1"><Icon name="mic" size={12}/></span></>}
             {entry.location && <span className="text-amber-500 flex items-center ml-1"><Icon name="map-pin" size={12}/></span>}
           </div>
+          
           <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-2 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : ''}`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
+          
+          {/* Tags & People on Dashboard */}
+          {!isGridView && (entry.tags || entry.people) && (
+             <div className="flex flex-wrap gap-1.5 mb-3">
+                {entry.tags && entry.tags.split(',').filter(x=>x.trim()).map((t, i) => <span key={i} className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded text-[10px] font-bold">#{t.trim()}</span>)}
+                {entry.people && entry.people.split(',').filter(x=>x.trim()).map((p, i) => <span key={i} className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded text-[10px] font-bold">@{p.trim()}</span>)}
+             </div>
+          )}
+
           {!entry.locked && !isCapsuleLocked && entry.text && !isGridView && (
             <div className="text-sm font-medium leading-relaxed opacity-70 line-clamp-3 mb-4" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
           )}
@@ -423,12 +418,11 @@ const EntryCard = memo(({ entry, onClick, isGridView, userColor, isDarkTheme, se
         </div>
       </div>
     );
-});
+}, (prev, next) => prev.entry.orderTimestamp === next.entry.orderTimestamp && prev.entry.id === next.entry.id && prev.isGridView === next.isGridView);
 
 function App() {
   const [db, setDb] = useState(null);
   const [fb, setFb] = useState(null);
-  const [authUser, setAuthUser] = useState(null);
   
   const [entries, setEntries] = useState([]);
   const [user, setUser] = useState({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: false, biometric: false });
@@ -507,7 +501,6 @@ function App() {
   const [weather, setWeather] = useState('');
   
   const [parentId, setParentId] = useState('');
-  const [zenMode, setZenMode] = useState(false);
   const [inheritedFrom, setInheritedFrom] = useState(null);
   const [pillarGuidance, setPillarGuidance] = useState(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState('');
@@ -665,7 +658,7 @@ function App() {
                       authenticatorSelection: { 
                           authenticatorAttachment: "platform", 
                           residentKey: "required", 
-                          userVerification: "required" 
+                          userVerification: "discouraged" 
                       }, 
                       timeout: 60000
                   }
@@ -699,14 +692,16 @@ function App() {
                   challenge, 
                   rpId,
                   allowCredentials, 
-                  userVerification: "required" 
+                  userVerification: "discouraged" 
               } 
           });
 
           if (cred) {
               const savedPin = atob(safeStorageGet('legacy_bio_pin'));
               if (savedPin) {
-                  const newUserObj = {...user, pin: savedPin}; setUser(newUserObj); safeStorageSet('legacy_user', JSON.stringify(newUserObj));
+                  const newUserObj = {...user, pin: savedPin}; 
+                  setUser(newUserObj); 
+                  safeStorageSet('legacy_user', JSON.stringify(newUserObj));
                   
                   if (unlockTarget) {
                       setViewingEntry(unlockTarget);
@@ -899,10 +894,10 @@ function App() {
     } else {
       setEditingId(null); editingIdRef.current = null; setTitle(pillar ? pillar.title : ''); setText(''); setSelectedColor(user.isDark ? COLORS[8] : COLORS[0]); setSelectedImages([]); setIsLocked(view === 'vault'); setIsManifested(false); setCategory(pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory)); setMood(null); setAudioUrl(null); setUnlockDate(''); setLocation(null); setParentId(''); setInheritedFrom(null); setRating(0); setTags(''); setPeople(''); setWeather(''); setPillarGuidance(pillar ? pillar.desc : null);
     }
-    setZenMode(false); setShowEditor(true);
+    setShowEditor(true);
   };
 
-  const startNewChapter = (parent) => { isDirtyRef.current = false; setViewingEntry(null); setEditingId(null); editingIdRef.current = null; setTitle(parent.title || ''); setText(''); setSelectedColor(user.isDark ? COLORS[8] : COLORS[0]); setSelectedImages([]); setIsLocked(parent.locked || false); setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setLocation(null); setCategory(parent.category || CATEGORIES[0]); setMood(null); setParentId(parent.id); setInheritedFrom(null); setRating(0); setTags(''); setPeople(''); setWeather(''); setZenMode(false); setShowEditor(true); };
+  const startNewChapter = (parent) => { isDirtyRef.current = false; setViewingEntry(null); setEditingId(null); editingIdRef.current = null; setTitle(parent.title || ''); setText(''); setSelectedColor(user.isDark ? COLORS[8] : COLORS[0]); setSelectedImages([]); setIsLocked(parent.locked || false); setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setLocation(null); setCategory(parent.category || CATEGORIES[0]); setMood(null); setParentId(parent.id); setInheritedFrom(null); setRating(0); setTags(''); setPeople(''); setWeather(''); setShowEditor(true); };
 
   const showDialog = (options) => { setDialog({ type: 'alert', confirmLabel: 'Okay', ...options }); };
 
@@ -1140,7 +1135,7 @@ function App() {
               if (e.location) {
                   hasMarkers = true;
                   bounds.extend([e.location.lat, e.location.lng]);
-                  const key = `${e.location.lat.toFixed(3)}_${e.location.lng.toFixed(3)}`;
+                  const key = `${Number(e.location.lat).toFixed(3)}_${Number(e.location.lng).toFixed(3)}`;
                   if (!locationGroups[key]) locationGroups[key] = { lat: e.location.lat, lng: e.location.lng, entries: [] };
                   locationGroups[key].entries.push(e);
               }
@@ -1336,7 +1331,7 @@ function App() {
                            </div>
                        </div>
                        <label className="w-full sm:flex-1 py-3 px-4 rounded-xl cursor-pointer shadow-sm font-bold text-sm text-center border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:scale-[1.02] transition-transform">
-                           Profilbild ändern <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                           Profilbild ändern <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'image')} className="hidden" />
                        </label>
                    </div>
                    <input type="text" value={user.name} onChange={e=>setUser({...user, name: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-lg mb-4 focus:ring-2 focus:ring-slate-200 dark:focus:ring-zinc-700" placeholder="Dein Name" />
@@ -1586,6 +1581,24 @@ function App() {
                </div>
              </div>
 
+             {/* Print Title & TOC */}
+             <div className="print-only">
+                 <div className="print-title-page">
+                    <h1 style={{fontSize: '56px', marginBottom: '20px', fontFamily: 'Georgia, serif'}}>{user.appName || 'Legacy Vision Journal'}</h1>
+                    <h3 style={{fontSize: '24px', opacity: 0.6}}>Verfasst von {user.name}</h3>
+                    <p style={{marginTop: '40px', fontStyle: 'italic'}}>{user.motto}</p>
+                    <p style={{position: 'absolute', bottom: '40px'}}>Generiert am {new Date().toLocaleDateString('de-DE')}</p>
+                 </div>
+                 <div className="print-toc">
+                    <h2 style={{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px'}}>Inhaltsverzeichnis</h2>
+                    <ul style={{listStyle: 'none', padding: 0}}>
+                        {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
+                            <li key={idx} style={{marginBottom: '15px', fontSize: '18px'}}><strong>{idx+1}.</strong> {e.title}</li>
+                        ))}
+                    </ul>
+                 </div>
+             </div>
+
              {/* Single Entry View */}
              <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-32">
                 {viewingEntry.images && viewingEntry.images.length > 0 && (
@@ -1785,7 +1798,10 @@ function App() {
                                       else if(code >= 51 && code <= 67) desc = "Regen";
                                       else if(code >= 71 && code <= 77) desc = "Schnee";
                                       else if(code >= 95) desc = "Gewitter";
-                                      setWeather(`${temp}°C, ${desc}`);
+                                      
+                                      const wStr = `${temp}°C, ${desc}`;
+                                      setWeather(wStr);
+                                      currentEntryRef.current.weather = wStr; // Update ref immediately
                                   }
                                } catch(e) {}
                                
@@ -1817,9 +1833,9 @@ function App() {
                     <div className="w-px h-6 bg-slate-300 dark:bg-zinc-700 mx-1"></div>
                     
                     {/* Inline Image Upload (Resizable with pure CSS Handles) */}
-                    <label className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 cursor-pointer text-indigo-500 transition-colors shrink-0" title="Bild in Text">
+                    <label htmlFor="inline-image-upload" className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 cursor-pointer text-indigo-500 transition-colors shrink-0" title="Bild in Text">
                        <Icon name="image" size={18}/>
-                       <input type="file" accept="image/*" onChange={handleInlineImage} className="hidden"/>
+                       <input id="inline-image-upload" type="file" accept="image/*" onChange={handleInlineImage} className="hidden"/>
                     </label>
 
                     <div className="flex gap-1.5 ml-2 shrink-0">
@@ -1883,7 +1899,10 @@ function App() {
               {/* Bottom Control Bar */}
               <div className="shrink-0 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 p-4 flex justify-between items-center pb-[env(safe-area-inset-bottom,16px)] z-30">
                  <div className="flex gap-2">
-                    <label className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm cursor-pointer hover:scale-105 transition-transform" title="Galerie-Bild"><Icon name="images" size={20}/><input type="file" accept="image/*" multiple onChange={(e) => handleFileUpload(e, 'image')} className="hidden" /></label>
+                    <label htmlFor="cover-upload" className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm cursor-pointer hover:scale-105 transition-transform" title="Galerie-Bild">
+                       <Icon name="images" size={20}/>
+                       <input id="cover-upload" type="file" accept="image/*" multiple onChange={(e) => handleFileUpload(e, 'image')} className="hidden" />
+                    </label>
                     <button onClick={()=>setIsDrawing(true)} className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm hover:scale-105 transition-transform"><Icon name="pen-tool" size={20}/></button>
                     <button onClick={isRecording?stopRecording:startRecording} className={`p-3.5 rounded-full shadow-sm transition-transform hover:scale-105 ${isRecording?'bg-rose-500 text-white animate-pulse':'bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700'}`}>{isRecording?<Icon name="square" size={20}/>:<Icon name="mic" size={20}/>}</button>
                     
