@@ -142,17 +142,23 @@
   .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
   .legacy-editor-content p, .legacy-content p { line-height: 1.7; margin-bottom: 1rem; }
+  .legacy-editor-content h1, .legacy-content h1 { font-size: 2.25rem; font-weight: 800; margin-top: 1.5rem; margin-bottom: 1rem; line-height: 1.2; }
+  .legacy-editor-content h2, .legacy-content h2 { font-size: 1.75rem; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.75rem; line-height: 1.3; }
   .legacy-editor-content b, .legacy-content b, .legacy-editor-content strong, .legacy-content strong { font-weight: 700; color: inherit; }
   .legacy-editor-content ul, .legacy-content ul { list-style-type: disc; padding-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.5rem; }
   .legacy-editor-content li, .legacy-content li { margin-bottom: 0.25rem; }
   .legacy-editor-content blockquote, .legacy-content blockquote { border-left: 4px solid currentColor; padding-left: 1.5rem; font-style: normal; font-weight: 600; opacity: 0.9; background: transparent; margin: 1.5rem 0; font-size: 1.1em; }
-  .legacy-editor-content img, .legacy-content img { max-width: 100%; border-radius: 12px; margin: 10px 0; }
+  .legacy-editor-content img, .legacy-content img { max-width: 100%; border-radius: 16px; margin: 16px 0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
   
   [contenteditable="true"]:empty:before { content: attr(data-placeholder); opacity: 0.3; pointer-events: none; display: block; font-weight: 400; }
   html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
   .search-highlight { background-color: rgba(245, 158, 11, 0.3); padding: 0 2px; border-radius: 3px; border-bottom: 1px solid #f59e0b; }
 
+  /* Map Container */
   .map-container { height: 100%; width: 100%; border-radius: 1.5rem; z-index: 1; }
+  
+  /* Fix Leaflet Avatar Markers */
+  .leaflet-marker-icon.avatar-marker { border: none !important; background: transparent !important; }
 
   /* --- BUCHDRUCK-MODUS --- */
   .print-only { display: none; }
@@ -186,7 +192,7 @@ const createSafeHtml = (htmlStr) => {
   return { __html: window.DOMPurify ? window.DOMPurify.sanitize(htmlStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height'] }) : htmlStr };
 };
 
-// --- Web Crypto API Helper ---
+// --- Web Crypto API Helper (100% untouched) ---
 const encHelper = new TextEncoder();
 const decHelper = new TextDecoder();
 const cryptoKeyCache = {}; 
@@ -356,6 +362,7 @@ function App() {
   const [user, setUser] = useState({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', isDark: true, appBgColor: null, cloudSync: false, biometric: false });
   const [view, setView] = useState('loading'); 
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isGridView, setIsGridView] = useState(false); // Toggle Grid View
   
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -377,15 +384,11 @@ function App() {
   
   const [showTimeline, setShowTimeline] = useState(false); 
   const [timelineMonth, setTimelineMonth] = useState(() => new Date()); 
-  const [timelineSearchQuery, setTimelineSearchQuery] = useState(''); 
   const [timelineSelectedDate, setTimelineSelectedDate] = useState(null); 
 
   const [unlockTarget, setUnlockTarget] = useState(null);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
-  const [isChangingPin, setIsChangingPin] = useState(false);
-  const [oldPinInput, setOldPinInput] = useState('');
-  const [newPinInput, setNewPinInput] = useState('');
 
   const [isSpeaking, setIsSpeaking] = useState(false);
   const audioPlayerRef = useRef(new Audio());
@@ -417,7 +420,6 @@ function App() {
   const [isManifested, setIsManifested] = useState(false);
   const [unlockDate, setUnlockDate] = useState('');
   const [unlockLocation, setUnlockLocation] = useState(null);
-  const [entryType, setEntryType] = useState('vision');
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [mood, setMood] = useState(null);
   const [location, setLocation] = useState(null);
@@ -429,15 +431,27 @@ function App() {
 
   const editorRef = useRef(null);
   const isDirtyRef = useRef(false);
-  const currentEntryRef = useRef({});
-  const editingIdRef = useRef(null);
 
-  // Add auto-saving user settings to localStorage
+  // Auto-save user to localStorage
   useEffect(() => {
-    if (isLoaded) {
-      safeStorageSet('legacy_user', JSON.stringify(user));
-    }
+    if (isLoaded) safeStorageSet('legacy_user', JSON.stringify(user));
   }, [user, isLoaded]);
+
+  // Handle Hardware Back Button
+  useEffect(() => {
+    const handlePopState = (e) => {
+      if (isDrawing) { setIsDrawing(false); }
+      else if (showEditor) { checkSaveEntry(true); } 
+      else if (viewingEntry) { setViewingEntry(null); setCurrentViewerImgIdx(0); }
+      else if (showTimeline) { setShowTimeline(false); }
+      else if (view !== 'dashboard') { setView('dashboard'); }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [showEditor, viewingEntry, view, isDrawing, showTimeline]);
+
+  // Trap back button
+  useEffect(() => { window.history.pushState(null, '', window.location.href); }, [showEditor, viewingEntry, view, isDrawing, showTimeline]);
 
   // Initialize Firebase & Auth
   useEffect(() => {
@@ -540,36 +554,25 @@ function App() {
                   publicKey: {
                       challenge, rp: { name: "Legacy Journal" }, user: { id: userId, name: user.name || 'User', displayName: user.name || 'User' },
                       pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
-                      authenticatorSelection: { userVerification: "preferred" }, timeout: 60000
+                      authenticatorSelection: { userVerification: "discouraged" }, timeout: 60000
                   }
               });
               if (cred) {
                   setUser({...user, biometric: true});
                   safeStorageSet('legacy_bio_pin', btoa(user.pin)); 
-                  safeStorageSet('legacy_bio_id', btoa(String.fromCharCode(...new Uint8Array(cred.rawId))));
                   showDialog({title: 'Aktiviert', message: 'Biometrisches Entsperren ist nun aktiv.', icon: 'fingerprint'});
               }
           } catch(e) { showDialog({title: 'Fehler', message: 'Biometrie konnte nicht aktiviert werden oder wurde abgebrochen.', icon: 'x'}); }
       } else {
-          setUser({...user, biometric: false}); localStorage.removeItem('legacy_bio_pin'); localStorage.removeItem('legacy_bio_id');
+          setUser({...user, biometric: false}); localStorage.removeItem('legacy_bio_pin');
       }
   };
 
   const handleBiometricUnlock = async () => {
       try {
           const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
-          const savedIdStr = safeStorageGet('legacy_bio_id');
-          let allowCredentials = undefined;
-          if (savedIdStr) {
-              const rawId = Uint8Array.from(atob(savedIdStr), c => c.charCodeAt(0));
-              allowCredentials = [{ id: rawId, type: "public-key" }];
-          }
           const cred = await navigator.credentials.get({ 
-              publicKey: { 
-                  challenge, 
-                  allowCredentials,
-                  userVerification: "preferred" 
-              } 
+              publicKey: { challenge, userVerification: "discouraged" } 
           });
           if (cred) {
               const savedPin = atob(safeStorageGet('legacy_bio_pin'));
@@ -581,7 +584,7 @@ function App() {
       } catch(e) { showDialog({title: 'Fehler', message: 'Biometrische Prüfung fehlgeschlagen.', icon: 'x'}); }
   };
 
-  // Theme Sync - Forces background colors deeply
+  // Theme Sync
   useEffect(() => {
     const metaThemeColor = document.getElementById("meta-theme-color");
     if (user.appBgColor) {
@@ -681,17 +684,23 @@ function App() {
     }
   }, [importId, isLoaded, db]);
 
-  // Robust Save Logic Update (Fixes missing entries bug)
-  useEffect(() => {
-     editingIdRef.current = editingId;
-     currentEntryRef.current = { title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom };
-  }, [editingId, title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom]);
-
+  // Speichert explizit den aktuellen Inhalt, entkoppelt von der React-Render-Loop
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; let dbEntry = { ...entry };
     try { if (dbEntry.locked && activePin) { const payload = JSON.stringify({ text: dbEntry.text || '', title: dbEntry.title || '' }); dbEntry.encryptedData = await encryptData(payload, activePin); dbEntry.text = ''; dbEntry.title = 'Verschlüsselter Eintrag'; } else if (!dbEntry.locked) { dbEntry.encryptedData = null; } } catch(e) {}
     try {
-      if (db) { const tx = db.transaction('entries', 'readwrite'); tx.objectStore('entries').put(dbEntry); tx.oncomplete = () => { setEntries(prev => { const exists = prev.find(e => e.id === entry.id); if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); }); syncSingleEntryToCloud(entry); }; }
+      if (db) { 
+        const tx = db.transaction('entries', 'readwrite'); 
+        tx.objectStore('entries').put(dbEntry); 
+        tx.oncomplete = () => { 
+            setEntries(prev => { 
+                const exists = prev.find(e => e.id === entry.id); 
+                if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); 
+                return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); 
+            }); 
+            syncSingleEntryToCloud(entry); 
+        }; 
+      }
     } catch (e) {}
   };
 
@@ -699,27 +708,28 @@ function App() {
 
   const checkSaveEntry = (closeAndRead = false) => {
     try {
-        const state = currentEntryRef.current;
-        const entryId = editingIdRef.current || generateId(); 
-        const currentText = editorRef.current ? editorRef.current.innerHTML : (state.text || ''); 
-        const titleSafe = state.title || '';
+        const entryId = editingId || generateId(); 
+        const currentText = editorRef.current ? editorRef.current.innerHTML : (text || ''); 
+        const titleSafe = title || '';
         
-        if (!titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && (!state.selectedImages || state.selectedImages.length === 0) && !state.audioUrl && closeAndRead) { closeEditor(entries.find(e => e.id === editingIdRef.current) || null); return; }
-        const newEntry = { id: entryId, title: titleSafe || 'Ohne Titel', text: currentText, color: state.selectedColor, images: state.selectedImages, audio: state.audioUrl, locked: state.isLocked, archived: false, manifested: state.isManifested, category: state.category, mood: state.mood, unlockDate: state.unlockDate, location: state.location, parentId: state.parentId, inheritedFrom: state.inheritedFrom, date: editingIdRef.current ? (entries.find(e => e.id === editingIdRef.current)?.date || new Date().toISOString()) : new Date().toISOString(), orderTimestamp: editingIdRef.current ? (entries.find(e => e.id === editingIdRef.current)?.orderTimestamp || new Date().toISOString()) : new Date().toISOString() };
+        if (!titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && (!selectedImages || selectedImages.length === 0) && !audioUrl && closeAndRead) { closeEditor(entries.find(e => e.id === entryId) || null); return; }
         
-        if (!editingIdRef.current) { setEditingId(entryId); editingIdRef.current = entryId; }
+        const newEntry = { id: entryId, title: titleSafe || 'Ohne Titel', text: currentText, color: selectedColor, images: selectedImages, audio: audioUrl, locked: isLocked, archived: false, manifested: isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, date: editingId ? (entries.find(e => e.id === editingId)?.date || new Date().toISOString()) : new Date().toISOString(), orderTimestamp: editingId ? (entries.find(e => e.id === editingId)?.orderTimestamp || new Date().toISOString()) : new Date().toISOString() };
+        
+        if (!editingId) { setEditingId(entryId); }
         saveToDB(newEntry);
         isDirtyRef.current = false;
         
         if (closeAndRead) closeEditor(newEntry); else { setAutoSaveStatus('Gespeichert'); setTimeout(()=>setAutoSaveStatus(''), 2000); }
-    } catch (err) { if (closeAndRead) closeEditor(entries.find(e => e.id === editingIdRef.current) || null); }
+    } catch (err) { if (closeAndRead) closeEditor(entries.find(e => e.id === editingId) || null); }
   };
 
   const confirmDelete = (id) => {
     showDialog({ type: 'confirm', title: 'Seite löschen?', message: 'Bist du sicher, dass du diese Seite endgültig entfernen möchtest?', icon: 'trash-2', iconColor: 'text-rose-500', onConfirm: () => { deleteFromDB(id); closeEditor(null); } });
   };
 
-  useEffect(() => { if (!showEditor || view === 'burn') return; const timer = setTimeout(() => { if (isDirtyRef.current) checkSaveEntry(false); }, 3000); return () => clearTimeout(timer); }, [title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, showEditor]);
+  // AutoSave every 3 seconds if dirty
+  useEffect(() => { if (!showEditor || view === 'burn') return; const timer = setTimeout(() => { if (isDirtyRef.current) checkSaveEntry(false); }, 3000); return () => clearTimeout(timer); }, [title, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, showEditor]);
 
   const closeEditor = (savedEntry = null) => { setShowEditor(false); if(isRecording) stopRecording(); setViewingEntry(savedEntry); };
 
@@ -765,10 +775,11 @@ function App() {
           setUnlockTarget(entry); setPinInput(''); setPinError(false);
       } else {
           setViewingEntry(entry);
+          setCurrentViewerImgIdx(0);
       }
   };
 
-  const submitPin = () => { if (pinInput === user.pin) { setViewingEntry(unlockTarget); setUnlockTarget(null); setPinInput(''); } else { setPinError(true); setTimeout(() => setPinError(false), 800); setPinInput(''); } };
+  const submitPin = () => { if (pinInput === user.pin) { setViewingEntry(unlockTarget); setCurrentViewerImgIdx(0); setUnlockTarget(null); setPinInput(''); } else { setPinError(true); setTimeout(() => setPinError(false), 800); setPinInput(''); } };
 
   const visibleEntries = useMemo(() => {
     return entries.filter(e => {
@@ -833,7 +844,24 @@ function App() {
   const startDrawing = (e) => { if (!canvasRef.current) return; const {x, y} = getCanvasCoordinates(e); const ctx = canvasRef.current.getContext('2d'); ctx.beginPath(); ctx.moveTo(x, y); canvasRef.current.isPainting = true; };
   const draw = (e) => { if (!canvasRef.current?.isPainting) return; const {x, y} = getCanvasCoordinates(e); const ctx = canvasRef.current.getContext('2d'); ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.strokeStyle = user.isDark ? '#ffffff' : '#000000'; ctx.lineTo(x, y); ctx.stroke(); };
   const stopDrawing = () => { if (canvasRef.current) canvasRef.current.isPainting = false; };
-  useEffect(() => { let canvasEl = canvasRef.current; const preventScroll = (e) => e.preventDefault(); if (isDrawing && canvasEl) { canvasEl.addEventListener('touchstart', preventScroll, { passive: false }); canvasEl.addEventListener('touchmove', preventScroll, { passive: false }); setTimeout(() => { if (!canvasEl) return; const rect = canvasEl.parentElement.getBoundingClientRect(); canvasEl.width = rect.width; canvasEl.height = rect.height; const ctx = canvasEl.getContext('2d'); ctx.fillStyle = user.isDark ? '#18181b' : '#ffffff'; ctx.fillRect(0, 0, rect.width, rect.height); }, 50); } return () => { if (canvasEl) { canvasEl.removeEventListener('touchstart', preventScroll); canvasEl.removeEventListener('touchmove', preventScroll); } }; }, [isDrawing, user.isDark]);
+  useEffect(() => { 
+      let canvasEl = canvasRef.current; 
+      const preventScroll = (e) => e.preventDefault(); 
+      if (isDrawing && canvasEl) { 
+          canvasEl.addEventListener('touchstart', preventScroll, { passive: false }); 
+          canvasEl.addEventListener('touchmove', preventScroll, { passive: false }); 
+          setTimeout(() => { 
+              if (!canvasEl) return; 
+              const rect = canvasEl.parentElement.getBoundingClientRect(); 
+              const dpr = window.devicePixelRatio || 1;
+              canvasEl.width = rect.width * dpr; canvasEl.height = rect.height * dpr; 
+              const ctx = canvasEl.getContext('2d'); 
+              ctx.scale(dpr, dpr);
+              ctx.fillStyle = user.isDark ? '#18181b' : '#ffffff'; ctx.fillRect(0, 0, rect.width, rect.height); 
+          }, 50); 
+      } 
+      return () => { if (canvasEl) { canvasEl.removeEventListener('touchstart', preventScroll); canvasEl.removeEventListener('touchmove', preventScroll); } }; 
+  }, [isDrawing, user.isDark]);
 
   // Audio
   const startRecording = async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); mediaRecorderRef.current = new MediaRecorder(stream); audioChunksRef.current = []; mediaRecorderRef.current.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); }; mediaRecorderRef.current.onstop = () => { const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); const reader = new FileReader(); reader.readAsDataURL(blob); reader.onloadend = () => { setAudioUrl(reader.result); isDirtyRef.current = true; }; }; mediaRecorderRef.current.start(); setIsRecording(true); } catch (err) { showDialog({ title: 'Fehler', message: 'Mikrofon verweigert.', icon: 'mic-off' }); } };
@@ -890,8 +918,11 @@ function App() {
               canvas.width = w; canvas.height = h;
               canvas.getContext('2d').drawImage(img, 0, 0, w, h);
               const base64 = canvas.toDataURL('image/jpeg', 0.7);
-              document.execCommand('insertImage', false, base64);
-              isDirtyRef.current = true;
+              if (editorRef.current) {
+                  editorRef.current.focus();
+                  document.execCommand('insertHTML', false, `<img src="${base64}" style="max-width:100%; border-radius:16px; margin:10px 0;" />`);
+                  isDirtyRef.current = true;
+              }
           };
           img.src = evt.target.result;
       };
@@ -942,11 +973,12 @@ function App() {
 
   // --- IDEA 3: Geografische Lebenskarte (Leaflet) ---
   useEffect(() => {
-      if (view === 'map' && mapRef.current && !mapInstance.current && window.L) {
-          const map = window.L.map(mapRef.current).setView([51.1657, 10.4515], 3); // Center Germany/World
-          window.L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-              attribution: '© OpenStreetMap contributors, © CARTO'
-          }).addTo(map);
+      if (view === 'map' && mapRef.current && window.L) {
+          if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; }
+
+          const map = window.L.map(mapRef.current).setView([51.1657, 10.4515], 3);
+          const tileUrl = user.isDark ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+          window.L.tileLayer(tileUrl, { attribution: '© OpenStreetMap, © CARTO' }).addTo(map);
           
           let hasMarkers = false;
           const bounds = window.L.latLngBounds();
@@ -955,11 +987,18 @@ function App() {
               if (e.location) {
                   hasMarkers = true;
                   bounds.extend([e.location.lat, e.location.lng]);
-                  const marker = window.L.circleMarker([e.location.lat, e.location.lng], { 
-                      color: user.nameColor || '#f59e0b', fillColor: user.nameColor || '#f59e0b', fillOpacity: 0.8, radius: 6 
-                  }).addTo(map);
-                  marker.bindPopup(`<b style="color:black;">${e.title}</b><br/><span style="color:black;">${new Date(e.date).toLocaleDateString('de-DE')}</span>`);
-                  marker.on('click', () => { setView('dashboard'); handleOpenEntry(e); });
+                  
+                  if (e.images && e.images.length > 0) {
+                      const iconHtml = `<div style="width: 54px; height: 54px; border-radius: 50%; overflow: hidden; border: 3px solid ${user.nameColor || '#f59e0b'}; box-shadow: 0 4px 10px rgba(0,0,0,0.4); background-color: #000;"><img src="${e.images[0]}" style="width: 100%; height: 100%; object-fit: cover;" /></div>`;
+                      const icon = window.L.divIcon({ html: iconHtml, className: 'avatar-marker', iconSize: [54, 54], iconAnchor: [27, 27] });
+                      const marker = window.L.marker([e.location.lat, e.location.lng], { icon }).addTo(map);
+                      marker.bindPopup(`<b style="color:#000;">${e.title}</b><br/><span style="color:#000;">${new Date(e.date).toLocaleDateString('de-DE')}</span>`);
+                      marker.on('click', () => { setView('dashboard'); handleOpenEntry(e); });
+                  } else {
+                      const marker = window.L.circleMarker([e.location.lat, e.location.lng], { color: user.nameColor || '#f59e0b', fillColor: user.nameColor || '#f59e0b', fillOpacity: 0.8, radius: 8 }).addTo(map);
+                      marker.bindPopup(`<b style="color:#000;">${e.title}</b><br/><span style="color:#000;">${new Date(e.date).toLocaleDateString('de-DE')}</span>`);
+                      marker.on('click', () => { setView('dashboard'); handleOpenEntry(e); });
+                  }
               }
           });
 
@@ -967,12 +1006,7 @@ function App() {
           mapInstance.current = map;
           setTimeout(() => map.invalidateSize(), 200);
       }
-      
-      if (view !== 'map' && mapInstance.current) {
-          mapInstance.current.remove();
-          mapInstance.current = null;
-      }
-  }, [view, entries, user.nameColor]);
+  }, [view, entries, user.nameColor, user.isDark]);
 
   // --- UI RENDERERS ---
 
@@ -1031,7 +1065,6 @@ function App() {
              <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { const newUserObj = {...user, pin: newPinInput}; setUser(newUserObj); safeStorageSet('legacy_user', JSON.stringify(newUserObj)); setView(newUserObj.name ? 'dashboard' : 'onboarding'); } }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none mb-6 bg-slate-100 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-zinc-600 transition-all placeholder:opacity-30" placeholder="••••" />
              <button onClick={() => { const newUserObj = {...user, pin: newPinInput}; setUser(newUserObj); safeStorageSet('legacy_user', JSON.stringify(newUserObj)); setView(newUserObj.name ? 'dashboard' : 'onboarding'); }} className="w-full py-4 font-bold rounded-2xl bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-all shadow-md mb-3">Entsperren</button>
              
-             {/* Biometric Fallback UI in PIN view if enabled */}
              {safeStorageGet('legacy_bio_pin') && (
                 <button onClick={handleBiometricUnlock} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2 mb-3"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
              )}
@@ -1104,7 +1137,7 @@ function App() {
         </header>
 
         {/* --- MAIN FEED & VIEWS --- */}
-        <main className={`p-4 sm:p-6 max-w-2xl mx-auto min-h-[70vh] relative z-10 no-print ${view === 'map' ? 'h-[85vh] flex flex-col' : ''}`}>
+        <main className={`p-4 sm:p-6 max-w-2xl mx-auto min-h-[70vh] relative z-10 no-print ${view === 'map' ? 'h-[85vh] floating-nav-spacing flex flex-col' : 'floating-nav-spacing'}`}>
           
           {view === 'menu' && (
             <div className="grid grid-cols-2 gap-4 sm:gap-6 animate-slide-up">
@@ -1296,7 +1329,7 @@ function App() {
           )}
 
           {['dashboard', 'vault', 'archive'].includes(view) && (
-            <div className="flex flex-col gap-6 pb-24">
+            <div className={`grid gap-6 pb-24 ${isGridView && view === 'dashboard' ? 'grid-cols-2' : 'grid-cols-1'}`}>
               {renderEntries.map(entry => {
                 const hasImages = entry.images && entry.images.length > 0;
                 const isDarkTheme = user.isDark;
@@ -1304,7 +1337,7 @@ function App() {
                 const isCapsuleLocked = entry.unlockDate;
 
                 return (
-                  <div key={entry.id} onClick={() => handleOpenEntry(entry)} className={`group relative rounded-3xl overflow-hidden cursor-pointer border transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-2xl active:scale-[0.98] ${cardBgClass}`} style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
+                  <div key={entry.id} onClick={() => handleOpenEntry(entry)} className={`group relative rounded-3xl overflow-hidden cursor-pointer border transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-2xl active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col' : ''}`} style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
                     
                     {entry.manifested && (
                       <div className="absolute top-4 right-4 z-20 bg-amber-400 text-amber-950 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
@@ -1314,29 +1347,28 @@ function App() {
 
                     {hasImages && (
                       <div className="w-full aspect-video relative overflow-hidden bg-slate-100 dark:bg-zinc-800">
-                        <img src={entry.images[0]} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" style={{ willChange: 'transform' }} alt="Cover" />
+                        <img src={entry.images[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="Cover" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
                       </div>
                     )}
 
-                    <div className="p-6 relative z-10">
+                    <div className="p-6 relative z-10 flex-1 flex flex-col">
                       <div className="flex items-center gap-2 mb-3 text-[10px] font-bold uppercase tracking-widest opacity-50">
                         <span>{new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                        <span>•</span>
-                        <span>{entry.category}</span>
+                        {!isGridView && <><span>•</span><span>{entry.category}</span></>}
                         {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE')}</span></>}
                         {entry.locked && !isCapsuleLocked && <><span className="text-rose-500 flex items-center gap-1 ml-auto"><Icon name="lock" size={12}/> Tresor</span></>}
                         {entry.audio && <><span className="text-emerald-500 flex items-center ml-1"><Icon name="mic" size={12}/></span></>}
                         {entry.location && <><span className="text-amber-500 flex items-center ml-1"><Icon name="map-pin" size={12}/></span></>}
                       </div>
 
-                      <h3 className={`font-extrabold text-2xl leading-tight tracking-tight mb-2 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : ''}`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
+                      <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-2 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : ''}`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
                       
-                      {!entry.locked && !isCapsuleLocked && entry.text && (
+                      {!entry.locked && !isCapsuleLocked && entry.text && !isGridView && (
                         <div className="text-sm font-medium leading-relaxed opacity-70 line-clamp-3 mb-4" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
                       )}
 
-                      {(entry.locked || isCapsuleLocked) && (
+                      {(entry.locked || isCapsuleLocked) && !isGridView && (
                          <div className="text-sm font-medium leading-relaxed opacity-40 italic mb-4">
                             {isCapsuleLocked ? 'Inhalt durch Zeitsiegel geschützt.' : 'Inhalt durch Tresor-PIN geschützt.'}
                          </div>
@@ -1352,8 +1384,8 @@ function App() {
         {/* --- FLOATING BOTTOM NAV --- */}
         {!showEditor && !viewingEntry && (
           <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-xs backdrop-blur-2xl bg-white/90 dark:bg-zinc-900/90 border border-slate-200/50 dark:border-zinc-700/50 rounded-[2rem] shadow-2xl flex justify-between items-center px-2 py-2 z-40 transition-all duration-500 no-print">
-            <button onClick={() => setView('dashboard')} className={`flex-1 flex flex-col items-center justify-center py-2 transition-all rounded-2xl ${view === 'dashboard' ? 'bg-slate-100 dark:bg-zinc-800 shadow-inner' : 'opacity-60 hover:opacity-100'}`} style={view === 'dashboard' ? { color: user.nameColor || '#000000' } : { color: 'inherit' }}>
-              <Icon name="layout-grid" size={22} />
+            <button onClick={() => { if(view==='dashboard') setIsGridView(!isGridView); else setView('dashboard'); }} className={`flex-1 flex flex-col items-center justify-center py-2 transition-all rounded-2xl ${view === 'dashboard' ? 'bg-slate-100 dark:bg-zinc-800 shadow-inner' : 'opacity-60 hover:opacity-100'}`} style={view === 'dashboard' ? { color: user.nameColor || '#000000' } : { color: 'inherit' }}>
+              <Icon name={isGridView && view === 'dashboard' ? "list" : "layout-grid"} size={22} />
             </button>
             <button onClick={() => openEditor()} className="flex-none mx-2 w-14 h-14 rounded-full text-white dark:text-black shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shrink-0" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') }}>
               <Icon name="plus" size={28} />
@@ -1403,7 +1435,7 @@ function App() {
              <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-32">
                 {viewingEntry.images && viewingEntry.images.length > 0 && (
                   <div className="relative w-full aspect-video rounded-3xl overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-8 group">
-                      <img src={viewingEntry.images[currentViewerImgIdx]} loading="lazy" className="w-full h-full object-cover transition-transform duration-700" alt="Cover" />
+                      <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-cover transition-transform duration-700" alt="Cover" />
                       {viewingEntry.images.length > 1 && (
                           <>
                               <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p - 1 + viewingEntry.images.length) % viewingEntry.images.length); }} className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print"><Icon name="chevron-left" size={24}/></button>
@@ -1489,7 +1521,7 @@ function App() {
                                <div className="space-y-3">
                                    {entriesOnSelectedDate.map((e) => (
                                        <button key={e.id} onClick={() => { setViewingEntry(e); setShowTimeline(false); }} className={`w-full text-left p-4 rounded-2xl flex items-center gap-4 transition-colors ${viewingEntry.id === e.id ? 'border' : 'bg-slate-50 dark:bg-zinc-900 border border-transparent'}`} style={viewingEntry.id === e.id ? { backgroundColor: `${user.nameColor}20`, borderColor: `${user.nameColor}50` } : {}}>
-                                           {e.images && e.images.length > 0 && <img src={e.images[0]} loading="lazy" className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0" />}
+                                           {e.images && e.images.length > 0 && <img src={e.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0" />}
                                            <div className="flex-1 overflow-hidden">
                                                <span className="font-bold text-sm truncate block">{e.title}</span>
                                                <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">{new Date(e.date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
@@ -1510,13 +1542,12 @@ function App() {
           <div className="fixed inset-0 z-[150] flex flex-col bg-white dark:bg-black animate-fade-in sm:p-6 no-print">
             <div className="relative w-full h-full max-w-3xl mx-auto flex flex-col bg-white dark:bg-zinc-950 sm:rounded-[2.5rem] sm:border border-slate-200 dark:border-zinc-800 overflow-hidden shadow-2xl">
               
-              <div className="flex justify-between items-center px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 dark:border-zinc-900 shrink-0 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md z-20">
+              <div className="flex justify-between items-center px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 dark:border-zinc-900 shrink-0 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md z-30">
                 <button onClick={() => checkSaveEntry(true)} className="p-3 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"><Icon name="arrow-left" size={24}/></button>
                 <div className="flex gap-2 items-center">
                    {editingId && <button onClick={() => confirmDelete(editingId)} className="p-3 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10"><Icon name="trash-2" size={20}/></button>}
                    <button onClick={() => { setIsLocked(!isLocked); isDirtyRef.current = true; }} className={`p-3 rounded-full transition-colors ${isLocked ? 'bg-rose-500/10 text-rose-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`} title="Tresor-Schutz"><Icon name="lock" size={20}/></button>
                    
-                   {/* Geolocation Button */}
                    <button onClick={() => {
                        if(navigator.geolocation) {
                            showDialog({title:'Orte', message:'Position wird ermittelt...', icon:'loader'});
@@ -1533,39 +1564,42 @@ function App() {
                 </div>
               </div>
 
-              <div className="flex flex-col shrink-0 px-6 sm:px-10 pt-6 pb-2 z-10">
-                 {pillarGuidance && <div className="mb-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-400 text-sm font-medium flex gap-3"><Icon name="book-open" size={20} className="shrink-0"/>{pillarGuidance}</div>}
-                 <input type="text" placeholder="Ein brillianter Gedanke..." value={title} onChange={(e) => { setTitle(e.target.value); isDirtyRef.current = true; }} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tight outline-none placeholder:opacity-30 mb-4" />
-                 
-                 {/* Format Toolbar */}
-                 <div className="flex gap-2 mb-4 overflow-x-auto hide-scrollbar items-center bg-slate-100 dark:bg-zinc-900 p-2 rounded-2xl">
-                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'H1'); isDirtyRef.current = true; }} className="px-3 py-1 font-bold text-lg hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl">H1</button>
-                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'H2'); isDirtyRef.current = true; }} className="px-3 py-1 font-bold text-md hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl">H2</button>
-                    <div className="w-px h-6 bg-slate-300 dark:bg-zinc-700 mx-1"></div>
-                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800"><Icon name="bold" size={18}/></button>
-                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800"><Icon name="italic" size={18}/></button>
-                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800"><Icon name="list-todo" size={18}/></button>
-                    <div className="w-px h-6 bg-slate-300 dark:bg-zinc-700 mx-1"></div>
-                    <label className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 cursor-pointer text-indigo-500" title="Bild in Text">
-                       <Icon name="image" size={18}/>
-                       <input type="file" accept="image/*" onChange={handleInlineImage} className="hidden"/>
-                    </label>
-                    <div className="flex gap-1.5 ml-2">
-                       {['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'].map(c => (
-                          <button key={c} onMouseDown={(e) => { e.preventDefault(); document.execCommand('foreColor', false, c); isDirtyRef.current = true; }} className="w-5 h-5 rounded-full hover:scale-110 transition-transform" style={{backgroundColor: c}}></button>
-                       ))}
-                    </div>
-                    
-                    <button onClick={() => setPicker({ title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c,value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;} })} className="px-4 py-2 rounded-xl bg-white dark:bg-zinc-800 shadow-sm font-bold text-[10px] uppercase tracking-widest ml-auto shrink-0" style={{ color: user.nameColor }}>{category}</button>
-                 </div>
-              </div>
+              <div className="flex-1 overflow-y-auto px-6 sm:px-10 pb-32 overscroll-contain relative">
+                 <div className="sticky top-0 z-20 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md pt-6 pb-2 -mx-2 px-2 border-b border-slate-100 dark:border-zinc-900 mb-6">
+                     {pillarGuidance && <div className="mb-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-400 text-sm font-medium flex gap-3"><Icon name="book-open" size={20} className="shrink-0"/>{pillarGuidance}</div>}
+                     <input type="text" placeholder="Ein brillianter Gedanke..." value={title} onChange={(e) => { setTitle(e.target.value); isDirtyRef.current = true; }} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tight outline-none placeholder:opacity-30 mb-4" />
+                     
+                     <div className="flex gap-2 overflow-x-auto hide-scrollbar items-center bg-slate-100 dark:bg-zinc-900 p-2 rounded-2xl">
+                        <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, '<h1>'); isDirtyRef.current = true; }} className="px-3 py-1 font-bold text-lg hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl transition-colors">H1</button>
+                        <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, '<h2>'); isDirtyRef.current = true; }} className="px-3 py-1 font-bold text-md hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl transition-colors">H2</button>
+                        <div className="w-px h-6 bg-slate-300 dark:bg-zinc-700 mx-1"></div>
+                        <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="bold" size={18}/></button>
+                        <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="italic" size={18}/></button>
+                        <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="list-todo" size={18}/></button>
+                        <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, '<blockquote>'); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="quote" size={18}/></button>
+                        <div className="w-px h-6 bg-slate-300 dark:bg-zinc-700 mx-1"></div>
+                        
+                        {/* Inline Image Upload */}
+                        <label className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 cursor-pointer text-indigo-500 transition-colors" title="Bild in Text">
+                           <Icon name="image" size={18}/>
+                           <input type="file" accept="image/*" onChange={handleInlineImage} className="hidden"/>
+                        </label>
 
-              <div className="flex-1 overflow-y-auto px-6 sm:px-10 pb-32 overscroll-contain">
+                        <div className="flex gap-1.5 ml-2">
+                           {['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'].map(c => (
+                              <button key={c} onMouseDown={(e) => { e.preventDefault(); document.execCommand('foreColor', false, c); isDirtyRef.current = true; }} className="w-5 h-5 rounded-full hover:scale-110 transition-transform" style={{backgroundColor: c}}></button>
+                           ))}
+                        </div>
+                        
+                        <button onClick={() => setPicker({ title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c,value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;} })} className="px-4 py-2 rounded-xl bg-white dark:bg-zinc-800 shadow-sm font-bold text-[10px] uppercase tracking-widest ml-auto shrink-0" style={{ color: user.nameColor }}>{category}</button>
+                     </div>
+                 </div>
+
                 {selectedImages.length > 0 && (
                    <div className="flex overflow-x-auto hide-scrollbar gap-3 mb-6 snap-x">
                       {selectedImages.map((imgSrc, i) => (
                          <div key={i} className="relative w-48 h-48 rounded-3xl overflow-hidden border border-slate-100 dark:border-zinc-800 shrink-0 snap-center">
-                            <img src={imgSrc} loading="lazy" className="w-full h-full object-cover"/>
+                            <img src={imgSrc} className="w-full h-full object-cover"/>
                             <button onClick={() => setSelectedImages(prev => prev.filter((_,idx) => idx !== i))} className="absolute top-2 right-2 bg-black/60 p-2 rounded-full text-white backdrop-blur-md"><Icon name="x" size={14}/></button>
                          </div>
                       ))}
@@ -1580,7 +1614,7 @@ function App() {
                 <div ref={editorRef} contentEditable suppressContentEditableWarning data-placeholder="Lass es fließen..." onInput={() => { isDirtyRef.current = true; }} className="w-full min-h-[50vh] bg-transparent text-lg leading-relaxed font-medium outline-none empty:before:content-[attr(data-placeholder)] legacy-editor-content opacity-90 pb-20" />
               </div>
 
-              <div className="absolute bottom-0 left-0 right-0 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 p-4 flex justify-between items-center pb-[env(safe-area-inset-bottom,16px)] z-20">
+              <div className="absolute bottom-0 left-0 right-0 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 p-4 flex justify-between items-center pb-[env(safe-area-inset-bottom,16px)] z-30">
                  <div className="flex gap-2">
                     <label className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm cursor-pointer hover:scale-105 transition-transform" title="Galerie-Bild"><Icon name="images" size={20}/><input type="file" accept="image/*" multiple onChange={handleFileUpload} className="hidden" /></label>
                     <button onClick={()=>setIsDrawing(true)} className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm hover:scale-105 transition-transform"><Icon name="pen-tool" size={20}/></button>
