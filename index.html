@@ -148,7 +148,9 @@
   .legacy-editor-content ul, .legacy-content ul { list-style-type: disc; padding-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.5rem; }
   .legacy-editor-content li, .legacy-content li { margin-bottom: 0.25rem; }
   .legacy-editor-content blockquote, .legacy-content blockquote { border-left: 4px solid currentColor; padding-left: 1.5rem; font-style: normal; font-weight: 600; opacity: 0.9; background: transparent; margin: 1.5rem 0; font-size: 1.1em; }
-  .legacy-editor-content img, .legacy-content img { border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
+  
+  /* Inline Image Resizing (Native) */
+  .legacy-editor-content img, .legacy-content img { border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: inline-block; vertical-align: middle; }
   
   [contenteditable="true"]:empty:before { content: attr(data-placeholder); opacity: 0.3; pointer-events: none; display: block; font-weight: 400; }
   html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
@@ -183,16 +185,16 @@
 <div id="root"></div>
 
 <script type="text/babel">
-const { useState, useEffect, useRef, useMemo } = React;
+const { useState, useEffect, useRef, useMemo, memo } = React;
 
 const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
 const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
 
 const createSafeHtml = (htmlStr) => {
-  return { __html: window.DOMPurify ? window.DOMPurify.sanitize(htmlStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'onclick'] }) : htmlStr };
+  return { __html: window.DOMPurify ? window.DOMPurify.sanitize(htmlStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height'] }) : htmlStr };
 };
 
-// --- Web Crypto API Helper (100% untouched) ---
+// --- Web Crypto API Helper ---
 const encHelper = new TextEncoder();
 const decHelper = new TextDecoder();
 const cryptoKeyCache = {}; 
@@ -227,18 +229,6 @@ const decryptData = async (encryptedObj, pin) => {
         const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, cipher);
         return decHelper.decode(decrypted);
     } catch(e) { return null; }
-};
-
-const pcmToWav = (pcmBase64, sampleRate = 24000) => {
-  const pcmData = Uint8Array.from(atob(pcmBase64), c => c.charCodeAt(0)).buffer;
-  const wavHeader = new ArrayBuffer(44); const view = new DataView(wavHeader);
-  view.setUint32(0, 0x52494646, false); view.setUint32(4, 36 + pcmData.byteLength, true); 
-  view.setUint32(8, 0x57415645, false); view.setUint32(12, 0x666d7420, false); 
-  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true); 
-  view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true); 
-  view.setUint16(32, 2, true); view.setUint16(34, 16, true); 
-  view.setUint32(36, 0x64617461, false); view.setUint32(40, pcmData.byteLength, true); 
-  return URL.createObjectURL(new Blob([wavHeader, pcmData], { type: 'audio/wav' }));
 };
 
 class ErrorBoundary extends React.Component {
@@ -352,6 +342,61 @@ const initDB = () => {
   });
 };
 
+const highlightText = (text, query) => {
+  if (!text) return { __html: '' };
+  let safeText = text.replace(/<img[^>]*>/g, '[Bild]');
+  safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height'] }) : safeText;
+  if (!query) return { __html: safeText };
+  const plainText = safeText.replace(/<[^>]*>?/gm, '');
+  const parts = plainText.split(new RegExp(`(${query})`, 'gi'));
+  const highlighted = parts.map((part, i) =>
+      part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part
+  ).join('');
+  return { __html: highlighted };
+};
+
+// --- EntryCard Component: Verhindert Bild-Ruckeln ---
+const EntryCard = memo(({ entry, onClick, isGridView, userColor, isDarkTheme, searchQuery }) => {
+    const hasImages = entry.images && entry.images.length > 0;
+    const cardBgClass = isDarkTheme ? 'bg-zinc-900' : 'bg-white shadow-md';
+    const isCapsuleLocked = entry.unlockDate;
+
+    return (
+      <div onClick={() => onClick(entry)} className={`group relative rounded-3xl overflow-hidden cursor-pointer border transition-transform active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col' : ''}`} style={{ borderColor: getSubtleBorderColor(userColor, isDarkTheme) }}>
+        {entry.manifested && (
+          <div className="absolute top-4 right-4 z-20 bg-amber-400 text-amber-950 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
+            <Icon name="sparkles" size={12}/> Highlight
+          </div>
+        )}
+        {hasImages && (
+          <div className="w-full aspect-video relative overflow-hidden bg-slate-100 dark:bg-zinc-800">
+            <img src={entry.images[0]} className="w-full h-full object-cover" alt="Cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+          </div>
+        )}
+        <div className="p-6 relative z-10 flex-1 flex flex-col">
+          <div className="flex items-center gap-2 mb-3 text-[10px] font-bold uppercase tracking-widest opacity-50">
+            <span>{new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+            {!isGridView && <><span>•</span><span>{entry.category}</span></>}
+            {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE')}</span></>}
+            {entry.locked && !isCapsuleLocked && <><span className="text-rose-500 flex items-center gap-1 ml-auto"><Icon name="lock" size={12}/> Tresor</span></>}
+            {entry.audio && <><span className="text-emerald-500 flex items-center ml-1"><Icon name="mic" size={12}/></span></>}
+            {entry.location && <><span className="text-amber-500 flex items-center ml-1"><Icon name="map-pin" size={12}/></span></>}
+          </div>
+          <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-2 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : ''}`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
+          {!entry.locked && !isCapsuleLocked && entry.text && !isGridView && (
+            <div className="text-sm font-medium leading-relaxed opacity-70 line-clamp-3 mb-4" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
+          )}
+          {(entry.locked || isCapsuleLocked) && !isGridView && (
+             <div className="text-sm font-medium leading-relaxed opacity-40 italic mb-4">
+                {isCapsuleLocked ? 'Inhalt durch Zeitsiegel geschützt.' : 'Inhalt durch Tresor-PIN geschützt.'}
+             </div>
+          )}
+        </div>
+      </div>
+    );
+});
+
 function App() {
   const [db, setDb] = useState(null);
   const [fb, setFb] = useState(null);
@@ -434,7 +479,6 @@ function App() {
   const [weather, setWeather] = useState('');
   
   const [parentId, setParentId] = useState('');
-  const [zenMode, setZenMode] = useState(false);
   const [inheritedFrom, setInheritedFrom] = useState(null);
   const [pillarGuidance, setPillarGuidance] = useState(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState('');
@@ -633,14 +677,24 @@ function App() {
           if (cred) {
               const savedPin = atob(safeStorageGet('legacy_bio_pin'));
               if (savedPin) {
-                  const newUserObj = {...user, pin: savedPin}; setUser(newUserObj); safeStorageSet('legacy_user', JSON.stringify(newUserObj));
-                  setView(newUserObj.name ? 'dashboard' : 'onboarding');
+                  const newUserObj = {...user, pin: savedPin}; 
+                  setUser(newUserObj); 
+                  safeStorageSet('legacy_user', JSON.stringify(newUserObj));
+                  
+                  if (unlockTarget) {
+                      setViewingEntry(unlockTarget);
+                      setCurrentViewerImgIdx(0);
+                      setUnlockTarget(null);
+                      setPinInput('');
+                  } else {
+                      setView(newUserObj.name ? 'dashboard' : 'onboarding');
+                  }
               }
           }
       } catch(e) { showDialog({title: 'Fehler', message: 'Biometrische Prüfung fehlgeschlagen.', icon: 'x'}); }
   };
 
-  // Theme Sync - Separates Background & Text Color
+  // Theme Sync
   useEffect(() => {
     const metaThemeColor = document.getElementById("meta-theme-color");
     
@@ -749,12 +803,6 @@ function App() {
     }
   }, [importId, isLoaded, db]);
 
-  // Robust Save Logic Update
-  useEffect(() => {
-     editingIdRef.current = editingId;
-     currentEntryRef.current = { title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, rating, tags, people, weather };
-  }, [editingId, title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, rating, tags, people, weather]);
-
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; let dbEntry = { ...entry };
     try { if (dbEntry.locked && activePin) { const payload = JSON.stringify({ text: dbEntry.text || '', title: dbEntry.title || '' }); dbEntry.encryptedData = await encryptData(payload, activePin); dbEntry.text = ''; dbEntry.title = 'Verschlüsselter Eintrag'; } else if (!dbEntry.locked) { dbEntry.encryptedData = null; } } catch(e) {}
@@ -807,10 +855,10 @@ function App() {
     } else {
       setEditingId(null); editingIdRef.current = null; setTitle(pillar ? pillar.title : ''); setText(''); setSelectedColor(user.isDark ? COLORS[8] : COLORS[0]); setSelectedImages([]); setIsLocked(view === 'vault'); setIsManifested(false); setCategory(pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory)); setMood(null); setAudioUrl(null); setUnlockDate(''); setLocation(null); setParentId(''); setInheritedFrom(null); setRating(0); setTags(''); setPeople(''); setWeather(''); setPillarGuidance(pillar ? pillar.desc : null);
     }
-    setZenMode(false); setShowEditor(true);
+    setShowEditor(true);
   };
 
-  const startNewChapter = (parent) => { isDirtyRef.current = false; setViewingEntry(null); setEditingId(null); editingIdRef.current = null; setTitle(parent.title || ''); setText(''); setSelectedColor(user.isDark ? COLORS[8] : COLORS[0]); setSelectedImages([]); setIsLocked(parent.locked || false); setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setLocation(null); setCategory(parent.category || CATEGORIES[0]); setMood(null); setParentId(parent.id); setInheritedFrom(null); setRating(0); setTags(''); setPeople(''); setWeather(''); setZenMode(false); setShowEditor(true); };
+  const startNewChapter = (parent) => { isDirtyRef.current = false; setViewingEntry(null); setEditingId(null); editingIdRef.current = null; setTitle(parent.title || ''); setText(''); setSelectedColor(user.isDark ? COLORS[8] : COLORS[0]); setSelectedImages([]); setIsLocked(parent.locked || false); setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setLocation(null); setCategory(parent.category || CATEGORIES[0]); setMood(null); setParentId(parent.id); setInheritedFrom(null); setRating(0); setTags(''); setPeople(''); setWeather(''); setShowEditor(true); };
 
   const showDialog = (options) => { setDialog({ type: 'alert', confirmLabel: 'Okay', ...options }); };
 
@@ -858,19 +906,6 @@ function App() {
 
   const renderEntries = visibleEntries; const now = new Date();
   
-  const highlightText = (text, query) => {
-      if (!text) return { __html: '' };
-      let safeText = text.replace(/<img[^>]*>/g, '[Bild]');
-      safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height'] }) : safeText;
-      if (!query) return { __html: safeText };
-      const plainText = safeText.replace(/<[^>]*>?/gm, '');
-      const parts = plainText.split(new RegExp(`(${query})`, 'gi'));
-      const highlighted = parts.map((part, i) =>
-          part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part
-      ).join('');
-      return { __html: highlighted };
-  };
-
   const allQuotes = useMemo(() => { if (view !== 'quotes') return []; let quotes = []; entries.filter(e => !e.archived).forEach(entry => { if(!entry.text) return; const blockquoteRegex = /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi; let match; while ((match = blockquoteRegex.exec(entry.text)) !== null) { const rawText = match[1].replace(/<[^>]*>?/gm, '').trim(); if(rawText) quotes.push({ text: rawText, date: entry.date, title: entry.title, id: entry.id + match.index, entryId: entry.id }); } }); return quotes.sort((a,b) => new Date(b.date) - new Date(a.date)); }, [entries, view]);
   const heatmapData = useMemo(() => { return Array.from({ length: 30 }).map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (29 - i)); const dateStr = d.toDateString(); return { date: dateStr, count: entries.filter(e => new Date(e.date).toDateString() === dateStr).length }; }); }, [entries]);
   const { completedPillars, totalPillars, progressPercent } = useMemo(() => { const completed = PILLARS.filter(p => entries.some(e => e.title === p.title)).length; return { completedPillars: completed, totalPillars: PILLARS.length, progressPercent: Math.round((completed / PILLARS.length) * 100) }; }, [entries]);
@@ -988,7 +1023,7 @@ function App() {
               const base64 = canvas.toDataURL('image/jpeg', 0.6);
               if (editorRef.current) {
                   editorRef.current.focus();
-                  document.execCommand('insertHTML', false, `<img src="${base64}" style="max-width: 150px; border-radius: 8px; margin: 5px; display: inline-block; vertical-align: middle; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer;" />`);
+                  document.execCommand('insertHTML', false, `<img src="${base64}" style="max-width: 150px; border-radius: 8px; margin: 5px; display: inline-block; vertical-align: middle; box-shadow: 0 2px 8px rgba(0,0,0,0.1); resize: both; overflow: hidden;" />`);
                   isDirtyRef.current = true;
               }
           };
@@ -1217,7 +1252,7 @@ function App() {
         </header>
 
         {/* --- MAIN FEED & VIEWS --- */}
-        <main className={`p-4 sm:p-6 max-w-2xl mx-auto min-h-[70vh] relative z-10 no-print ${view === 'map' ? 'h-[85vh] flex flex-col' : 'floating-nav-spacing'}`}>
+        <main className={`p-4 sm:p-6 max-w-2xl mx-auto min-h-[70vh] relative z-10 no-print ${view === 'map' ? 'h-[85vh] floating-nav-spacing flex flex-col' : 'floating-nav-spacing'}`}>
           
           {view === 'menu' && (
             <div className="grid grid-cols-2 gap-4 sm:gap-6 animate-slide-up">
@@ -1453,53 +1488,9 @@ function App() {
 
           {['dashboard', 'vault', 'archive'].includes(view) && (
             <div className={`grid gap-6 pb-24 ${isGridView && view === 'dashboard' ? 'grid-cols-2' : 'grid-cols-1'}`}>
-              {renderEntries.map(entry => {
-                const hasImages = entry.images && entry.images.length > 0;
-                const isDarkTheme = user.isDark;
-                const cardBgClass = isDarkTheme ? 'bg-zinc-900' : 'bg-white shadow-md';
-                const isCapsuleLocked = entry.unlockDate;
-
-                return (
-                  <div key={entry.id} onClick={() => handleOpenEntry(entry)} className={`group relative rounded-3xl overflow-hidden cursor-pointer border transition-transform active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col' : ''}`} style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
-                    
-                    {entry.manifested && (
-                      <div className="absolute top-4 right-4 z-20 bg-amber-400 text-amber-950 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
-                        <Icon name="sparkles" size={12}/> Highlight
-                      </div>
-                    )}
-
-                    {hasImages && (
-                      <div className="w-full aspect-video relative overflow-hidden bg-slate-100 dark:bg-zinc-800">
-                        <img src={entry.images[0]} className="w-full h-full object-cover" alt="Cover" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-                      </div>
-                    )}
-
-                    <div className="p-6 relative z-10 flex-1 flex flex-col">
-                      <div className="flex items-center gap-2 mb-3 text-[10px] font-bold uppercase tracking-widest opacity-50">
-                        <span>{new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                        {!isGridView && <><span>•</span><span>{entry.category}</span></>}
-                        {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE')}</span></>}
-                        {entry.locked && !isCapsuleLocked && <><span className="text-rose-500 flex items-center gap-1 ml-auto"><Icon name="lock" size={12}/> Tresor</span></>}
-                        {entry.audio && <><span className="text-emerald-500 flex items-center ml-1"><Icon name="mic" size={12}/></span></>}
-                        {entry.location && <><span className="text-amber-500 flex items-center ml-1"><Icon name="map-pin" size={12}/></span></>}
-                      </div>
-
-                      <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-2 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : ''}`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
-                      
-                      {!entry.locked && !isCapsuleLocked && entry.text && !isGridView && (
-                        <div className="text-sm font-medium leading-relaxed opacity-70 line-clamp-3 mb-4" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
-                      )}
-
-                      {(entry.locked || isCapsuleLocked) && !isGridView && (
-                         <div className="text-sm font-medium leading-relaxed opacity-40 italic mb-4">
-                            {isCapsuleLocked ? 'Inhalt durch Zeitsiegel geschützt.' : 'Inhalt durch Tresor-PIN geschützt.'}
-                         </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+              {renderEntries.map(entry => (
+                 <EntryCard key={entry.id} entry={entry} onClick={handleOpenEntry} isGridView={isGridView && view === 'dashboard'} userColor={user.nameColor} isDarkTheme={user.isDark} searchQuery={searchQuery} />
+              ))}
             </div>
           )}
         </main>
@@ -1534,24 +1525,6 @@ function App() {
                  <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-full transition-transform ${isSpeaking ? 'text-white animate-pulse' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={20}/></button>
                  <button onClick={() => { const e = viewingEntry; setViewingEntry(null); setTimeout(() => openEditor(e), 10); }} className="px-5 py-2.5 rounded-full font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
                </div>
-             </div>
-
-             {/* Print Title & TOC */}
-             <div className="print-only">
-                 <div className="print-title-page">
-                    <h1 style={{fontSize: '56px', marginBottom: '20px', fontFamily: 'Georgia, serif'}}>{user.appName || 'Legacy Vision Journal'}</h1>
-                    <h3 style={{fontSize: '24px', opacity: 0.6}}>Verfasst von {user.name}</h3>
-                    <p style={{marginTop: '40px', fontStyle: 'italic'}}>{user.motto}</p>
-                    <p style={{position: 'absolute', bottom: '40px'}}>Generiert am {new Date().toLocaleDateString('de-DE')}</p>
-                 </div>
-                 <div className="print-toc">
-                    <h2 style={{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px'}}>Inhaltsverzeichnis</h2>
-                    <ul style={{listStyle: 'none', padding: 0}}>
-                        {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
-                            <li key={idx} style={{marginBottom: '15px', fontSize: '18px'}}><strong>{idx+1}.</strong> {e.title}</li>
-                        ))}
-                    </ul>
-                 </div>
              </div>
 
              {/* Single Entry View */}
@@ -1604,6 +1577,46 @@ function App() {
                 </div>
              </div>
            </div>
+        )}
+
+        {/* --- PRINT VIEW ONLY --- */}
+        {viewingEntry && !showEditor && (
+             <div className="print-only w-full max-w-4xl mx-auto p-8">
+                 <div className="print-title-page page-break-after">
+                    <h1 style={{fontSize: '56px', marginBottom: '20px', fontFamily: 'Georgia, serif'}}>{user.appName || 'Legacy Vision Journal'}</h1>
+                    <h3 style={{fontSize: '24px', opacity: 0.6}}>Verfasst von {user.name}</h3>
+                    <p style={{marginTop: '40px', fontStyle: 'italic'}}>{user.motto}</p>
+                    <p style={{position: 'absolute', bottom: '40px'}}>Generiert am {new Date().toLocaleDateString('de-DE')}</p>
+                 </div>
+                 
+                 <div className="print-toc page-break-after">
+                    <h2 style={{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px', fontFamily: 'Georgia, serif'}}>Inhaltsverzeichnis</h2>
+                    <ul style={{listStyle: 'none', padding: 0}}>
+                        {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
+                            <li key={idx} style={{marginBottom: '15px', fontSize: '18px'}}><strong>{idx+1}.</strong> {e.title}</li>
+                        ))}
+                    </ul>
+                 </div>
+
+                 <div className="print-book-content">
+                    {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
+                        <div key={e.id} className="page-break-after" style={{ marginBottom: '60px', paddingTop: '20px' }}>
+                            <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+                                <h1 style={{ fontSize: '36px', fontFamily: 'Georgia, serif', fontWeight: 'bold', marginBottom: '10px' }}>{e.title}</h1>
+                                <p style={{ opacity: 0.6, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '12px' }}>
+                                    {new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category}
+                                </p>
+                            </div>
+                            
+                            {e.images && e.images.length > 0 && (
+                                <img src={e.images[0]} style={{ width: '100%', maxHeight: '500px', objectFit: 'contain', marginBottom: '30px', borderRadius: '16px' }} alt="Cover" />
+                            )}
+                            
+                            <div className="text-lg leading-relaxed legacy-content" dangerouslySetInnerHTML={createSafeHtml(e.text)}></div>
+                        </div>
+                    ))}
+                 </div>
+             </div>
         )}
 
         {/* --- TIMELINE / ZEITREISE (Calendar Style) --- */}
@@ -1663,7 +1676,7 @@ function App() {
                                <div className="space-y-3">
                                    {entriesOnSelectedDate.map((e) => (
                                        <button key={e.id} onClick={() => { setViewingEntry(e); setShowTimeline(false); }} className={`w-full text-left p-4 rounded-2xl flex items-center gap-4 transition-colors ${viewingEntry.id === e.id ? 'border' : 'bg-slate-50 dark:bg-zinc-900 border border-transparent'}`} style={viewingEntry.id === e.id ? { backgroundColor: `${user.nameColor}20`, borderColor: `${user.nameColor}50` } : {}}>
-                                           {e.images && e.images.length > 0 && <img src={e.images[0]} loading="lazy" className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0" />}
+                                           {e.images && e.images.length > 0 && <img src={e.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0" />}
                                            <div className="flex-1 overflow-hidden">
                                                <span className="font-bold text-sm truncate block">{e.title}</span>
                                                <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">{new Date(e.date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
@@ -1713,7 +1726,7 @@ function App() {
                  {pillarGuidance && <div className="mb-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-400 text-sm font-medium flex gap-3"><Icon name="book-open" size={20} className="shrink-0"/>{pillarGuidance}</div>}
                  <input type="text" placeholder="Ein brillianter Gedanke..." value={title} onChange={(e) => { setTitle(e.target.value); isDirtyRef.current = true; }} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tight outline-none placeholder:opacity-30 mb-4" />
                  
-                 <div className="sticky top-0 z-50 flex gap-2 mb-2 overflow-x-auto hide-scrollbar items-center bg-slate-100 dark:bg-zinc-900 p-2 rounded-2xl shadow-sm">
+                 <div className="flex gap-2 mb-2 overflow-x-auto hide-scrollbar items-center bg-slate-100 dark:bg-zinc-900 p-2 rounded-2xl">
                     <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, '<h1>'); isDirtyRef.current = true; }} className="px-3 py-1 font-bold text-lg hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl transition-colors">H1</button>
                     <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, '<h2>'); isDirtyRef.current = true; }} className="px-3 py-1 font-bold text-md hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl transition-colors">H2</button>
                     <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, '<p>'); isDirtyRef.current = true; }} className="px-3 py-1 font-bold text-sm hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl transition-colors" title="Normaler Text">Text</button>
@@ -1735,6 +1748,8 @@ function App() {
                           <button key={c} onMouseDown={(e) => { e.preventDefault(); document.execCommand('foreColor', false, c); isDirtyRef.current = true; }} className="w-5 h-5 rounded-full hover:scale-110 transition-transform shadow-sm" style={{backgroundColor: c}}></button>
                        ))}
                     </div>
+                    
+                    <button onClick={() => setPicker({ title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c,value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;} })} className="px-4 py-2 rounded-xl bg-white dark:bg-zinc-800 shadow-sm font-bold text-[10px] uppercase tracking-widest ml-auto shrink-0" style={{ color: user.nameColor }}>{category}</button>
                  </div>
               </div>
 
