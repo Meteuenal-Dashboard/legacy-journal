@@ -151,8 +151,8 @@
   
   /* Inline Image Resizing Magic (Native Browser Resizing & Drag/Drop) */
   .inline-img-wrapper { display: inline-block; vertical-align: text-bottom; margin: 4px; max-width: 100%; cursor: move; }
-  .legacy-editor-content .inline-img-wrapper { resize: both; overflow: hidden; border: 2px dashed #cbd5e1; padding: 2px; border-radius: 8px; }
-  .legacy-content .inline-img-wrapper { border: 2px solid transparent; padding: 2px; overflow: hidden; border-radius: 8px; }
+  .legacy-editor-content .inline-img-wrapper { resize: both; overflow: hidden; border: 2px dashed #cbd5e1; padding: 2px; border-radius: 8px; width: 150px; min-width: 50px; min-height: 50px; }
+  .legacy-content .inline-img-wrapper { border: 2px solid transparent; padding: 2px; overflow: hidden; border-radius: 8px; width: auto; }
   .inline-img-wrapper img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; border-radius: 6px; }
   
   /* Standard Images Overview */
@@ -405,6 +405,8 @@ const EntryCard = memo(({ entry, onClick, isGridView, userColor, isDarkTheme, se
           <div className="flex items-center gap-2 mb-3 text-[10px] font-bold uppercase tracking-widest opacity-50 flex-wrap">
             <span>{new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
             {!isGridView && <><span>•</span><span>{entry.category}</span></>}
+            {entry.tags && <span className="text-blue-500 flex items-center gap-0.5 ml-1"><Icon name="tag" size={10}/>{entry.tags.split(',').filter(x=>x.trim()).length}</span>}
+            {entry.people && <span className="text-indigo-500 flex items-center gap-0.5 ml-1"><Icon name="user" size={10}/>{entry.people.split(',').filter(x=>x.trim()).length}</span>}
             {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE')}</span></>}
             {entry.locked && !isCapsuleLocked && <><span className="text-rose-500 flex items-center gap-1 ml-auto"><Icon name="lock" size={12}/> Tresor</span></>}
             {entry.audio && <><span className="text-emerald-500 flex items-center ml-1"><Icon name="mic" size={12}/></span></>}
@@ -462,7 +464,6 @@ function App() {
   const [viewingEntry, setViewingEntry] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
   const [currentViewerImgIdx, setCurrentViewerImgIdx] = useState(0);
-  const [touchStart, setTouchStart] = useState(null);
   
   const [showTimeline, setShowTimeline] = useState(false); 
   const [timelineMonth, setTimelineMonth] = useState(() => new Date()); 
@@ -546,7 +547,7 @@ function App() {
     if (isLoaded) safeStorageSet('legacy_user', JSON.stringify(user));
   }, [user, isLoaded]);
 
-  // Hardware Back Button Logik (Repariert & Sicher)
+  // Hardware Back Button Logik
   useEffect(() => {
     try { window.history.pushState({ isApp: true }, ''); } catch(e) {}
     const handlePopState = (e) => {
@@ -657,7 +658,6 @@ function App() {
       if(fb) { await fb.signOut(fb.auth); setUser({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: false, biometric: false }); localStorage.removeItem('legacy_user'); setEntries([]); setView('auth'); }
   };
 
-  // --- WebAuthn Biometrie Fix (Platform required) ---
   const toggleBiometric = async () => {
       if (!user.biometric) {
           try {
@@ -674,7 +674,7 @@ function App() {
                       authenticatorSelection: { 
                           authenticatorAttachment: "platform", 
                           residentKey: "required", 
-                          userVerification: "discouraged" 
+                          userVerification: "required" 
                       }, 
                       timeout: 60000
                   }
@@ -708,7 +708,7 @@ function App() {
                   challenge, 
                   rpId,
                   allowCredentials, 
-                  userVerification: "discouraged" 
+                  userVerification: "required" 
               } 
           });
 
@@ -840,12 +840,6 @@ function App() {
   }, [importId, isLoaded, db]);
 
   // Robust Save Logic Update (Fehlerhafte Speicherung behoben)
-  useEffect(() => {
-     editingIdRef.current = editingId;
-     // Synchronisiere alle Zustände in einer festen Referenz, damit das Speichern immer die aktuellen Daten hat
-     currentEntryRef.current = { title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, rating, tags, people, weather };
-  }, [editingId, title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, rating, tags, people, weather]);
-
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; let dbEntry = { ...entry };
     try { if (dbEntry.locked && activePin) { const payload = JSON.stringify({ text: dbEntry.text || '', title: dbEntry.title || '' }); dbEntry.encryptedData = await encryptData(payload, activePin); dbEntry.text = ''; dbEntry.title = 'Verschlüsselter Eintrag'; } else if (!dbEntry.locked) { dbEntry.encryptedData = null; } } catch(e) {}
@@ -879,7 +873,14 @@ function App() {
     } catch (err) { if (closeAndRead) closeEditor(entries.find(e => e.id === editingIdRef.current) || null); }
   };
 
-  useEffect(() => { if (!showEditor || view === 'burn') return; const timer = setTimeout(() => { if (isDirtyRef.current) checkSaveEntry(false); }, 3000); return () => clearTimeout(timer); }, [title, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, rating, tags, people, weather, showEditor]);
+  // AutoSave every 3 seconds if dirty
+  useEffect(() => { 
+      if (!showEditor || view === 'burn') return; 
+      const timer = setInterval(() => { 
+          if (isDirtyRef.current) checkSaveEntry(false); 
+      }, 3000); 
+      return () => clearInterval(timer); 
+  }, [showEditor, view]);
 
   const confirmDelete = (id) => {
     showDialog({ type: 'confirm', title: 'Seite löschen?', message: 'Bist du sicher, dass du diese Seite endgültig entfernen möchtest?', icon: 'trash-2', iconColor: 'text-rose-500', onConfirm: () => { deleteFromDB(id); closeEditor(null); } });
@@ -898,15 +899,119 @@ function App() {
 
   const openEditor = (entry = null, pillar = null) => {
     isDirtyRef.current = false;
-    if (entry && entry.id) {
-      setEditingId(entry.id); editingIdRef.current = entry.id; setTitle(entry.title || ''); setText(entry.text || ''); setSelectedColor(entry.color); setSelectedImages(entry.images || []); setIsLocked(entry.locked || false); setIsManifested(entry.manifested || false); setCategory(entry.category || CATEGORIES[0]); setMood(entry.mood || null); setAudioUrl(entry.audio || null); setUnlockDate(entry.unlockDate || ''); setLocation(entry.location || null); setParentId(entry.parentId || ''); setInheritedFrom(entry.inheritedFrom || null); setRating(entry.rating || 0); setTags(entry.tags || ''); setPeople(entry.people || ''); setWeather(entry.weather || ''); setPillarGuidance(null);
-    } else {
-      setEditingId(null); editingIdRef.current = null; setTitle(pillar ? pillar.title : ''); setText(''); setSelectedColor(user.isDark ? COLORS[8] : COLORS[0]); setSelectedImages([]); setIsLocked(view === 'vault'); setIsManifested(false); setCategory(pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory)); setMood(null); setAudioUrl(null); setUnlockDate(''); setLocation(null); setParentId(''); setInheritedFrom(null); setRating(0); setTags(''); setPeople(''); setWeather(''); setPillarGuidance(pillar ? pillar.desc : null);
-    }
+    const newEntryState = entry && entry.id ? {
+        title: entry.title || '',
+        text: entry.text || '',
+        selectedColor: entry.color || (user.isDark ? COLORS[8] : COLORS[0]),
+        selectedImages: entry.images || [],
+        isLocked: entry.locked || false,
+        isManifested: entry.manifested || false,
+        category: entry.category || CATEGORIES[0],
+        mood: entry.mood || null,
+        audioUrl: entry.audio || null,
+        unlockDate: entry.unlockDate || '',
+        location: entry.location || null,
+        parentId: entry.parentId || '',
+        inheritedFrom: entry.inheritedFrom || null,
+        rating: entry.rating || 0,
+        tags: entry.tags || '',
+        people: entry.people || '',
+        weather: entry.weather || ''
+    } : {
+        title: pillar ? pillar.title : '',
+        text: '',
+        selectedColor: user.isDark ? COLORS[8] : COLORS[0],
+        selectedImages: [],
+        isLocked: view === 'vault',
+        isManifested: false,
+        category: pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory),
+        mood: null,
+        audioUrl: null,
+        unlockDate: '',
+        location: null,
+        parentId: '',
+        inheritedFrom: null,
+        rating: 0,
+        tags: '',
+        people: '',
+        weather: ''
+    };
+
+    currentEntryRef.current = newEntryState;
+    editingIdRef.current = entry && entry.id ? entry.id : null;
+    
+    setEditingId(editingIdRef.current);
+    setTitle(newEntryState.title);
+    setText(newEntryState.text);
+    setSelectedColor(newEntryState.selectedColor);
+    setSelectedImages(newEntryState.selectedImages);
+    setIsLocked(newEntryState.isLocked);
+    setIsManifested(newEntryState.isManifested);
+    setCategory(newEntryState.category);
+    setMood(newEntryState.mood);
+    setAudioUrl(newEntryState.audioUrl);
+    setUnlockDate(newEntryState.unlockDate);
+    setLocation(newEntryState.location);
+    setParentId(newEntryState.parentId);
+    setInheritedFrom(newEntryState.inheritedFrom);
+    setRating(newEntryState.rating);
+    setTags(newEntryState.tags);
+    setPeople(newEntryState.people);
+    setWeather(newEntryState.weather);
+    setPillarGuidance(pillar ? pillar.desc : null);
+    
     setShowEditor(true);
   };
 
-  const startNewChapter = (parent) => { isDirtyRef.current = false; setViewingEntry(null); setEditingId(null); editingIdRef.current = null; setTitle(parent.title || ''); setText(''); setSelectedColor(user.isDark ? COLORS[8] : COLORS[0]); setSelectedImages([]); setIsLocked(parent.locked || false); setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setLocation(null); setCategory(parent.category || CATEGORIES[0]); setMood(null); setParentId(parent.id); setInheritedFrom(null); setRating(0); setTags(''); setPeople(''); setWeather(''); setShowEditor(true); };
+  const startNewChapter = (parent) => { 
+    isDirtyRef.current = false; 
+    setViewingEntry(null); 
+    
+    const newEntryState = {
+        title: parent.title || '',
+        text: '',
+        selectedColor: user.isDark ? COLORS[8] : COLORS[0],
+        selectedImages: [],
+        isLocked: parent.locked || false,
+        isManifested: false,
+        category: parent.category || CATEGORIES[0],
+        mood: null,
+        audioUrl: null,
+        unlockDate: '',
+        location: null,
+        parentId: parent.id,
+        inheritedFrom: null,
+        rating: 0,
+        tags: '',
+        people: '',
+        weather: ''
+    };
+
+    currentEntryRef.current = newEntryState;
+    editingIdRef.current = null;
+    
+    setEditingId(null); 
+    setTitle(newEntryState.title); 
+    setText(newEntryState.text); 
+    setSelectedColor(newEntryState.selectedColor); 
+    setSelectedImages(newEntryState.selectedImages); 
+    setIsLocked(newEntryState.isLocked); 
+    setAudioUrl(newEntryState.audioUrl); 
+    setIsManifested(newEntryState.isManifested); 
+    setUnlockDate(newEntryState.unlockDate); 
+    setLocation(newEntryState.location); 
+    setCategory(newEntryState.category); 
+    setMood(newEntryState.mood); 
+    setParentId(newEntryState.parentId); 
+    setInheritedFrom(newEntryState.inheritedFrom); 
+    setRating(newEntryState.rating); 
+    setTags(newEntryState.tags); 
+    setPeople(newEntryState.people); 
+    setWeather(newEntryState.weather); 
+    setPillarGuidance(null);
+    
+    setShowEditor(true); 
+  };
 
   const showDialog = (options) => { setDialog({ type: 'alert', confirmLabel: 'Okay', ...options }); };
 
@@ -981,7 +1086,6 @@ function App() {
   const getCanvasCoordinates = (e) => {
       if (!canvasRef.current) return { x: 0, y: 0 };
       const rect = canvasRef.current.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
       if (e.touches && e.touches.length > 0) return { x: (e.touches[0].clientX - rect.left), y: (e.touches[0].clientY - rect.top) };
       return { x: (e.clientX - rect.left), y: (e.clientY - rect.top) };
   };
@@ -1047,7 +1151,7 @@ function App() {
               return newImgs;
           });
           isDirtyRef.current = true;
-          setTimeout(() => checkSaveEntry(false), 100); // Sofort Speichern triggern, damit kein Bild verloren geht
+          checkSaveEntry(false); // Sofort Speichern triggern
       });
     }
     e.target.value = null; 
@@ -1070,7 +1174,7 @@ function App() {
               const base64 = canvas.toDataURL('image/jpeg', 0.6);
               if (editorRef.current) {
                   editorRef.current.focus();
-                  document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false" style="width: 150px; height: 150px;"><img src="${base64}" /></span><br><br>`);
+                  document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false"><img src="${base64}" /></span><br><br>`);
                   isDirtyRef.current = true;
               }
           };
@@ -1583,70 +1687,94 @@ function App() {
         )}
 
         {/* --- VIEWER --- */}
-        {viewingEntry && !showEditor && (
-           <div className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-black animate-fade-in custom-scrollbar flex flex-col screen-only" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-             <div className="sticky top-0 z-40 flex justify-between items-center py-4 px-6 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-slate-100 dark:border-zinc-900 shrink-0 no-print">
-               <div className="flex gap-2">
-                 <button onClick={() => {setViewingEntry(null); setCurrentViewerImgIdx(0);}} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform"><Icon name="arrow-left" size={20}/></button>
-               </div>
-               <div className="flex gap-2">
-                 <button onClick={() => window.print()} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform text-slate-500"><Icon name="printer" size={20}/></button>
-                 <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-full transition-transform ${isSpeaking ? 'text-white animate-pulse' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={20}/></button>
-                 <button onClick={() => { const e = viewingEntry; setViewingEntry(null); setTimeout(() => openEditor(e), 10); }} className="px-5 py-2.5 rounded-full font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
-               </div>
-             </div>
+        {viewingEntry && !showEditor && (() => {
+           const bookRoot = getBookRoot(viewingEntry.id);
+           const allBookEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
+           const cIdx = allBookEntries.findIndex(ex => ex.id === viewingEntry.id);
+           const prevPage = cIdx > 0 ? allBookEntries[cIdx - 1] : null;
+           const nextPage = cIdx < allBookEntries.length - 1 ? allBookEntries[cIdx + 1] : null;
 
-             {/* Single Entry View for Screen */}
-             <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-32 screen-only">
-                {viewingEntry.images && viewingEntry.images.length > 0 && (
-                  <div className="relative w-full aspect-video rounded-3xl overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-8 group bg-slate-100 dark:bg-zinc-900">
-                      <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-cover transition-transform duration-700" alt="Cover" />
-                      {viewingEntry.images.length > 1 && (
-                          <>
-                              <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p - 1 + viewingEntry.images.length) % viewingEntry.images.length); }} className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print"><Icon name="chevron-left" size={24}/></button>
-                              <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p + 1) % viewingEntry.images.length); }} className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print"><Icon name="chevron-right" size={24}/></button>
-                              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/30 px-3 py-1.5 rounded-full backdrop-blur-sm no-print">
-                                  {viewingEntry.images.map((_, i) => <div key={i} className={`w-2 h-2 rounded-full transition-colors ${i === currentViewerImgIdx ? 'bg-white' : 'bg-white/40'}`} />)}
-                              </div>
-                          </>
+           return (
+             <div className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-black animate-fade-in custom-scrollbar flex flex-col screen-only" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+               <div className="sticky top-0 z-40 flex justify-between items-center py-4 px-6 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-slate-100 dark:border-zinc-900 shrink-0 no-print">
+                 <div className="flex gap-2">
+                   <button onClick={() => {setViewingEntry(null); setCurrentViewerImgIdx(0);}} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform"><Icon name="arrow-left" size={20}/></button>
+                   {allBookEntries.length > 1 && (
+                       <button onClick={() => setShowTimeline(true)} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform" style={{ color: user.nameColor }}><Icon name="calendar-days" size={20}/></button>
+                   )}
+                 </div>
+                 <div className="flex gap-2">
+                   <button onClick={() => window.print()} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform text-slate-500"><Icon name="printer" size={20}/></button>
+                   <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-full transition-transform ${isSpeaking ? 'text-white animate-pulse' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={20}/></button>
+                   <button onClick={() => { const e = viewingEntry; setViewingEntry(null); setTimeout(() => openEditor(e), 10); }} className="px-5 py-2.5 rounded-full font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
+                 </div>
+               </div>
+
+               {/* Single Entry View for Screen */}
+               <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-32 screen-only">
+                  {viewingEntry.images && viewingEntry.images.length > 0 && (
+                    <div className="relative w-full aspect-video rounded-3xl overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-8 group bg-slate-100 dark:bg-zinc-900">
+                        <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-cover transition-transform duration-700" alt="Cover" />
+                        {viewingEntry.images.length > 1 && (
+                            <>
+                                <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p - 1 + viewingEntry.images.length) % viewingEntry.images.length); }} className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print"><Icon name="chevron-left" size={24}/></button>
+                                <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p + 1) % viewingEntry.images.length); }} className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print"><Icon name="chevron-right" size={24}/></button>
+                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/30 px-3 py-1.5 rounded-full backdrop-blur-sm no-print">
+                                    {viewingEntry.images.map((_, i) => <div key={i} className={`w-2 h-2 rounded-full transition-colors ${i === currentViewerImgIdx ? 'bg-white' : 'bg-white/40'}`} />)}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                  )}
+
+                  <h1 className="text-4xl sm:text-5xl font-extrabold mb-6 tracking-tight leading-tight">{viewingEntry.title}</h1>
+                  <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
+                    <span>{new Date(viewingEntry.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                    <span>•</span><span>{viewingEntry.category}</span>
+                    {viewingEntry.location && <span className="flex items-center gap-1 text-amber-500"><Icon name="map-pin" size={14}/> GPS-Siegel</span>}
+                  </div>
+                  
+                  {/* Meta-Data Pills */}
+                  <div className="flex flex-wrap gap-2 mb-10 no-print">
+                      {viewingEntry.tags && viewingEntry.tags.split(',').map(t => t.trim()).filter(t=>t).map((t, i) => (
+                          <span key={i} className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-bold flex items-center gap-1"><Icon name="tag" size={12}/> {t}</span>
+                      ))}
+                      {viewingEntry.people && viewingEntry.people.split(',').map(p => p.trim()).filter(p=>p).map((p, i) => (
+                          <span key={i} className="px-3 py-1 bg-indigo-600 text-white rounded-lg text-xs font-bold flex items-center gap-1"><Icon name="user" size={12}/> {p}</span>
+                      ))}
+                      {viewingEntry.weather && (
+                          <span className="px-3 py-1 bg-orange-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 w-full sm:w-auto"><Icon name="sun" size={12}/> {viewingEntry.weather}</span>
+                      )}
+                      {viewingEntry.rating > 0 && (
+                          <div className="flex items-center gap-1 ml-auto">
+                              {[1,2,3,4,5].map(star => <Icon key={star} name="star" size={16} className={viewingEntry.rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300'} />)}
+                          </div>
                       )}
                   </div>
-                )}
 
-                <h1 className="text-4xl sm:text-5xl font-extrabold mb-6 tracking-tight leading-tight">{viewingEntry.title}</h1>
-                <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
-                  <span>{new Date(viewingEntry.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
-                  <span>•</span><span>{viewingEntry.category}</span>
-                  {viewingEntry.location && <span className="flex items-center gap-1 text-amber-500"><Icon name="map-pin" size={14}/> GPS-Siegel</span>}
-                </div>
-                
-                {/* Meta-Data Pills */}
-                <div className="flex flex-wrap gap-2 mb-10 no-print">
-                    {viewingEntry.tags && viewingEntry.tags.split(',').map(t => t.trim()).filter(t=>t).map((t, i) => (
-                        <span key={i} className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-bold flex items-center gap-1"><Icon name="tag" size={12}/> {t}</span>
-                    ))}
-                    {viewingEntry.people && viewingEntry.people.split(',').map(p => p.trim()).filter(p=>p).map((p, i) => (
-                        <span key={i} className="px-3 py-1 bg-indigo-600 text-white rounded-lg text-xs font-bold flex items-center gap-1"><Icon name="user" size={12}/> {p}</span>
-                    ))}
-                    {viewingEntry.weather && (
-                        <span className="px-3 py-1 bg-orange-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 w-full sm:w-auto"><Icon name="sun" size={12}/> {viewingEntry.weather}</span>
-                    )}
-                    {viewingEntry.rating > 0 && (
-                        <div className="flex items-center gap-1 ml-auto">
-                            {[1,2,3,4,5].map(star => <Icon key={star} name="star" size={16} className={viewingEntry.rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300'} />)}
-                        </div>
-                    )}
-                </div>
+                  <div className="text-lg leading-relaxed font-medium opacity-90 legacy-content" dangerouslySetInnerHTML={createSafeHtml(viewingEntry.text)} />
+                  {viewingEntry.audio && <div className="mt-8 p-4 rounded-2xl bg-slate-100 dark:bg-zinc-900 no-print"><audio src={viewingEntry.audio} controls className="w-full" /></div>}
+                  
+                  <div className="mt-16 pt-8 border-t border-slate-200 dark:border-zinc-800 flex justify-center no-print">
+                      <button onClick={() => startNewChapter(viewingEntry)} className="px-6 py-3 font-bold rounded-2xl flex items-center gap-2 hover:scale-105 transition-transform shadow-md" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}><Icon name="plus" size={20}/> Neue Seite anfügen</button>
+                  </div>
 
-                <div className="text-lg leading-relaxed font-medium opacity-90 legacy-content" dangerouslySetInnerHTML={createSafeHtml(viewingEntry.text)} />
-                {viewingEntry.audio && <div className="mt-8 p-4 rounded-2xl bg-slate-100 dark:bg-zinc-900 no-print"><audio src={viewingEntry.audio} controls className="w-full" /></div>}
-                
-                <div className="mt-16 pt-8 border-t border-slate-200 dark:border-zinc-800 flex justify-center no-print">
-                    <button onClick={() => startNewChapter(viewingEntry)} className="px-6 py-3 font-bold rounded-2xl flex items-center gap-2 hover:scale-105 transition-transform shadow-md" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}><Icon name="plus" size={20}/> Neue Seite anfügen</button>
-                </div>
+                  {/* Navigation für Buch-Seiten */}
+                  {allBookEntries.length > 1 && (
+                      <div className="flex justify-between items-center mt-12 pt-8 border-t border-slate-200 dark:border-zinc-800 no-print">
+                          {prevPage ? (
+                              <button onClick={() => setViewingEntry(prevPage)} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100 transition-colors" style={{ color: user.nameColor }}><Icon name="arrow-left" size={16}/> Vorherige Seite</button>
+                          ) : <div/>}
+                          <span className="text-xs font-bold opacity-30">Seite {cIdx + 1} von {allBookEntries.length}</span>
+                          {nextPage ? (
+                              <button onClick={() => setViewingEntry(nextPage)} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100 transition-colors" style={{ color: user.nameColor }}>Nächste Seite <Icon name="arrow-right" size={16}/></button>
+                          ) : <div/>}
+                      </div>
+                  )}
+               </div>
              </div>
-           </div>
-        )}
+           );
+        })}
 
         {/* --- PRINT VIEW ONLY --- */}
         {viewingEntry && !showEditor && (
@@ -1770,9 +1898,9 @@ function App() {
               <div className="flex justify-between items-center px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 dark:border-zinc-900 shrink-0 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md z-40 relative">
                 <button onClick={() => checkSaveEntry(true)} className="p-3 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"><Icon name="arrow-left" size={24}/></button>
                 <div className="flex gap-2 items-center">
-                   {autoSaveStatus === 'Gespeichert' && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-sm shadow-emerald-500/50 mr-1" title="Gespeichert"></div>}
+                   {autoSaveStatus === 'Gespeichert' && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-sm shadow-emerald-500/50 mr-2" title="Gespeichert"></div>}
                    {editingIdRef.current && <button onClick={() => confirmDelete(editingIdRef.current)} className="p-3 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10"><Icon name="trash-2" size={20}/></button>}
-                   <button onClick={() => { setIsLocked(!isLocked); currentEntryRef.current.isLocked = !isLocked; isDirtyRef.current = true; }} className={`p-3 rounded-full transition-colors ${isLocked ? 'bg-rose-500/10 text-rose-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`} title="Tresor-Schutz"><Icon name="lock" size={20}/></button>
+                   <button onClick={() => { setIsLocked(!isLocked); currentEntryRef.current.isLocked = !isLocked; isDirtyRef.current = true; checkSaveEntry(false); }} className={`p-3 rounded-full transition-colors ${isLocked ? 'bg-rose-500/10 text-rose-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`} title="Tresor-Schutz"><Icon name="lock" size={20}/></button>
                    
                    {/* Geolocation & Weather Auto-Fetch Button */}
                    <button onClick={() => {
@@ -1805,12 +1933,12 @@ function App() {
                                } catch(e) {}
                                
                                setDialog(null);
-                               setTimeout(()=>showDialog({title:'Orts-Siegel', message:'Dein Standort und Live-Wetter wurden verewigt.', icon:'map-pin', iconColor:'text-amber-500'}), 300);
+                               checkSaveEntry(false);
                            }, () => { setDialog(null); showDialog({title:'Fehler', message:'Ortung fehlgeschlagen.', icon:'x'}); });
                        }
                    }} className={`p-3 rounded-full transition-colors ${location ? 'bg-emerald-500/10 text-emerald-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`} title="Standort verewigen"><Icon name="map-pin" size={20}/></button>
 
-                   <button onClick={() => { setIsManifested(!isManifested); currentEntryRef.current.isManifested = !isManifested; isDirtyRef.current = true; }} className={`p-3 rounded-full transition-colors ${isManifested ? 'bg-amber-400/10 text-amber-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`} title="Manifestieren"><Icon name="sparkles" size={20}/></button>
+                   <button onClick={() => { setIsManifested(!isManifested); currentEntryRef.current.isManifested = !isManifested; isDirtyRef.current = true; checkSaveEntry(false); }} className={`p-3 rounded-full transition-colors ${isManifested ? 'bg-amber-400/10 text-amber-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`} title="Manifestieren"><Icon name="sparkles" size={20}/></button>
                    <button onClick={() => checkSaveEntry(false)} className="px-6 py-2.5 rounded-full font-bold shadow-sm text-sm ml-2 hover:scale-105 transition-transform" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>Sichern</button>
                 </div>
               </div>
@@ -1843,12 +1971,12 @@ function App() {
                        ))}
                     </div>
                     
-                    <button onClick={() => setPicker({ title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c,value:c})), onSelect: (v)=>{setCategory(v); currentEntryRef.current.category = v; isDirtyRef.current=true;} })} className="px-4 py-2 rounded-xl bg-white dark:bg-zinc-800 shadow-sm font-bold text-[10px] uppercase tracking-widest ml-auto shrink-0" style={{ color: user.nameColor }}>{category}</button>
+                    <button onClick={() => setPicker({ title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c,value:c})), onSelect: (v)=>{setCategory(v); currentEntryRef.current.category = v; isDirtyRef.current=true; checkSaveEntry(false);} })} className="px-4 py-2 rounded-xl bg-white dark:bg-zinc-800 shadow-sm font-bold text-[10px] uppercase tracking-widest ml-auto shrink-0" style={{ color: user.nameColor }}>{category}</button>
                  </div>
               </div>
 
-              {/* Editor Content Area - Scrollbar hierhin verlagert */}
-              <div className="flex-1 overflow-y-auto px-6 sm:px-10 pt-4 pb-48 overscroll-contain flex flex-col relative z-10">
+              {/* Editor Content Area - Normal Block Flow */}
+              <div className="flex-1 overflow-y-auto px-6 sm:px-10 pt-4 pb-12 relative z-10 block">
                 {selectedImages.length > 0 && (
                    <div className="flex overflow-x-auto hide-scrollbar gap-3 mb-6 snap-x shrink-0">
                       {selectedImages.map((imgSrc, i) => (
@@ -1860,6 +1988,8 @@ function App() {
                                     currentEntryRef.current.selectedImages = filtered;
                                     return filtered;
                                 });
+                                isDirtyRef.current = true;
+                                checkSaveEntry(false);
                             }} className="absolute top-2 right-2 bg-black/60 p-2 rounded-full text-white backdrop-blur-md"><Icon name="x" size={14}/></button>
                          </div>
                       ))}
@@ -1868,18 +1998,18 @@ function App() {
                 {audioUrl && (
                     <div className="mb-6 p-4 rounded-2xl bg-slate-100 dark:bg-zinc-900 relative mt-4 shrink-0">
                         <audio src={audioUrl} controls className="w-full"/>
-                        <button onClick={()=>{setAudioUrl(null); currentEntryRef.current.audioUrl = null;}} className="absolute -top-2 -right-2 bg-rose-500 text-white p-1 rounded-full shadow-lg"><Icon name="x" size={14}/></button>
+                        <button onClick={()=>{setAudioUrl(null); currentEntryRef.current.audioUrl = null; isDirtyRef.current = true; checkSaveEntry(false);}} className="absolute -top-2 -right-2 bg-rose-500 text-white p-1 rounded-full shadow-lg"><Icon name="x" size={14}/></button>
                     </div>
                 )}
                 
                 {/* Main Text Editor */}
-                <div ref={editorRef} contentEditable suppressContentEditableWarning data-placeholder="Lass es fließen..." onInput={(e) => { currentEntryRef.current.text = e.currentTarget.innerHTML; isDirtyRef.current = true; }} className="w-full min-h-[50vh] bg-transparent text-lg leading-relaxed font-medium outline-none empty:before:content-[attr(data-placeholder)] legacy-editor-content opacity-90 pt-4" />
+                <div ref={editorRef} contentEditable suppressContentEditableWarning data-placeholder="Lass es fließen..." onInput={(e) => { currentEntryRef.current.text = e.currentTarget.innerHTML; isDirtyRef.current = true; }} className="w-full min-h-[250px] bg-transparent text-lg leading-relaxed font-medium outline-none empty:before:content-[attr(data-placeholder)] legacy-editor-content opacity-90 pt-4 pb-12" />
 
                 {/* Metadata Inputs (Tags, People, Weather, Rating) */}
-                <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800 pb-10 shrink-0">
+                <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800 pb-10">
                    <div className="flex items-center gap-2">
                        {[1,2,3,4,5].map(star => (
-                           <button key={star} type="button" onClick={() => { setRating(star); currentEntryRef.current.rating = star; isDirtyRef.current=true; }}>
+                           <button key={star} type="button" onClick={() => { setRating(star); currentEntryRef.current.rating = star; isDirtyRef.current=true; checkSaveEntry(false); }}>
                                <Icon name="star" size={24} className={rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-zinc-700'} />
                            </button>
                        ))}
@@ -1887,15 +2017,15 @@ function App() {
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                        <div className="flex flex-col">
                            <label className="text-[10px] font-bold uppercase opacity-50 mb-1">Tags (Komma getrennt)</label>
-                           <input type="text" placeholder="z.B. Urlaub, Sommer" value={tags} onChange={e => {setTags(e.target.value); currentEntryRef.current.tags = e.target.value; isDirtyRef.current=true;}} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none" style={{ color: user.textColor || 'inherit' }} />
+                           <input type="text" placeholder="z.B. Urlaub, Sommer" value={tags} onChange={e => {setTags(e.target.value); currentEntryRef.current.tags = e.target.value; isDirtyRef.current=true;}} onBlur={() => checkSaveEntry(false)} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none" style={{ color: user.textColor || 'inherit' }} />
                        </div>
                        <div className="flex flex-col">
                            <label className="text-[10px] font-bold uppercase opacity-50 mb-1">Personen (Komma getrennt)</label>
-                           <input type="text" placeholder="z.B. Thomas, Sarah" value={people} onChange={e => {setPeople(e.target.value); currentEntryRef.current.people = e.target.value; isDirtyRef.current=true;}} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none" style={{ color: user.textColor || 'inherit' }} />
+                           <input type="text" placeholder="z.B. Thomas, Sarah" value={people} onChange={e => {setPeople(e.target.value); currentEntryRef.current.people = e.target.value; isDirtyRef.current=true;}} onBlur={() => checkSaveEntry(false)} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none" style={{ color: user.textColor || 'inherit' }} />
                        </div>
                        <div className="flex flex-col sm:col-span-2">
                            <label className="text-[10px] font-bold uppercase opacity-50 mb-1">Wetter (wird bei GPS-Siegel automatisch befüllt)</label>
-                           <input type="text" placeholder="z.B. 27°C, Sonnig" value={weather} onChange={e => {setWeather(e.target.value); currentEntryRef.current.weather = e.target.value; isDirtyRef.current=true;}} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none" style={{ color: user.textColor || 'inherit' }} />
+                           <input type="text" placeholder="z.B. 27°C, Sonnig" value={weather} onChange={e => {setWeather(e.target.value); currentEntryRef.current.weather = e.target.value; isDirtyRef.current=true;}} onBlur={() => checkSaveEntry(false)} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none" style={{ color: user.textColor || 'inherit' }} />
                        </div>
                    </div>
                 </div>
@@ -1915,13 +2045,13 @@ function App() {
                     <div className="relative pl-2 ml-2 border-l border-slate-200 dark:border-zinc-700 flex">
                         <label className={`relative p-3.5 rounded-full shadow-sm flex items-center justify-center cursor-pointer transition-transform hover:scale-105 ${unlockDate ? 'text-white border-transparent' : 'bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700'}`} style={unlockDate ? { backgroundColor: user.nameColor } : {}} title="Kryptografische Zeitkapsel">
                            <Icon name="clock" size={20}/>
-                           <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); currentEntryRef.current.unlockDate = e.target.value; isDirtyRef.current = true;}} className="absolute opacity-0 w-full h-full cursor-pointer" />
+                           <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); currentEntryRef.current.unlockDate = e.target.value; isDirtyRef.current = true; checkSaveEntry(false);}} className="absolute opacity-0 w-full h-full cursor-pointer" />
                         </label>
                     </div>
                  </div>
                  <div className="flex gap-2">
                     {MOODS.slice(0,3).map(m => (
-                       <button key={m.id} onClick={()=>{setMood(mood===m.label?null:m.label); currentEntryRef.current.mood = mood===m.label?null:m.label; isDirtyRef.current=true;}} className={`p-2.5 rounded-full transition-all ${mood===m.label ? 'bg-white shadow-md scale-110 ' + m.color : 'opacity-40 hover:opacity-100'}`}><Icon name={m.iconName} size={20}/></button>
+                       <button key={m.id} onClick={()=>{setMood(mood===m.label?null:m.label); currentEntryRef.current.mood = mood===m.label?null:m.label; isDirtyRef.current=true; checkSaveEntry(false);}} className={`p-2.5 rounded-full transition-all ${mood===m.label ? 'bg-white shadow-md scale-110 ' + m.color : 'opacity-40 hover:opacity-100'}`}><Icon name={m.iconName} size={20}/></button>
                     ))}
                  </div>
               </div>
@@ -1941,7 +2071,7 @@ function App() {
                          currentEntryRef.current.selectedImages = newImgs;
                          return newImgs;
                      }); 
-                     setIsDrawing(false); isDirtyRef.current=true;
+                     setIsDrawing(false); isDirtyRef.current=true; checkSaveEntry(false);
                  }}} className="px-6 py-2 rounded-full font-bold shadow-md text-sm" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>Fertig</button>
               </div>
               <div className="flex-1 relative touch-none bg-white dark:bg-black">
