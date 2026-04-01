@@ -427,6 +427,7 @@ function App() {
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [mood, setMood] = useState(null);
   const [parentId, setParentId] = useState('');
+  const [zenMode, setZenMode] = useState(false);
   const [inheritedFrom, setInheritedFrom] = useState(null);
   const [pillarGuidance, setPillarGuidance] = useState(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState('');
@@ -1143,7 +1144,7 @@ function App() {
           <p className="opacity-60 font-medium">Wie möchtest du in deinem Journal genannt werden?</p>
           <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-zinc-800">
             <input type="text" value={user.name} onChange={(e) => setUser({...user, name: e.target.value})} className="w-full p-4 rounded-2xl outline-none text-lg font-bold text-center bg-slate-100 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-zinc-600 transition-colors mb-6 placeholder:opacity-30" placeholder="Dein Name" />
-            <button type="button" onClick={() => { if(user.name.trim()) { safeStorageSet('legacy_user', JSON.stringify(user)); setView('dashboard'); } }} className="w-full py-4 rounded-2xl font-bold text-base bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-transform shadow-md">Journal beginnen</button>
+            <button type="button" onClick={() => { if(user.name.trim()) { safeStorageSet('legacy_user', JSON.stringify(user)); setView('dashboard'); } }} className="w-full py-4 rounded-2xl font-bold text-base bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-all shadow-md">Journal beginnen</button>
           </div>
         </div>
       </div>
@@ -1289,39 +1290,8 @@ function App() {
 
                 <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
                    <h2 className="text-base font-bold mb-4 flex items-center gap-2"><Icon name="key" size={18}/> Sicherheit & PIN</h2>
-                   
-                   {!user.pin ? (
-                       <div className="space-y-4">
-                           <p className="text-sm font-medium opacity-70">Lege eine PIN fest, um den Tresor zu nutzen.</p>
-                           <input type="password" inputMode="numeric" value={newPinInput} onChange={e=>setNewPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em]" placeholder="Neue PIN" />
-                           <input type="password" inputMode="numeric" value={confirmPinInput} onChange={e=>setConfirmPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em]" placeholder="Wiederholen" />
-                           <button onClick={handleSavePin} className="w-full py-4 rounded-xl font-bold" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>PIN speichern</button>
-                       </div>
-                   ) : (
-                       isChangingPin ? (
-                           <div className="space-y-4">
-                               <input type="password" inputMode="numeric" value={oldPinInput} onChange={e=>setOldPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em]" placeholder="Alte PIN" />
-                               <input type="password" inputMode="numeric" value={newPinInput} onChange={e=>setNewPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em]" placeholder="Neue PIN" />
-                               <input type="password" inputMode="numeric" value={confirmPinInput} onChange={e=>setConfirmPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em]" placeholder="Wiederholen" />
-                               <div className="flex gap-2">
-                                   <button onClick={() => setIsChangingPin(false)} className="flex-1 py-4 rounded-xl font-bold bg-slate-100 dark:bg-zinc-800">Abbrechen</button>
-                                   <button onClick={handleSavePin} className="flex-1 py-4 rounded-xl font-bold" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>Speichern</button>
-                               </div>
-                           </div>
-                       ) : (
-                           <div className="flex justify-between items-center p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950">
-                               <div className="flex items-center gap-3">
-                                   <Icon name="check-circle" size={20} className="text-emerald-500" />
-                                   <span className="font-bold text-sm">PIN Aktiv</span>
-                               </div>
-                               <button onClick={() => setIsChangingPin(true)} className="px-4 py-2 rounded-lg font-bold text-xs bg-white dark:bg-zinc-800 shadow-sm" style={{ color: user.nameColor }}>Ändern</button>
-                           </div>
-                       )
-                   )}
-
-                   {/* Biometric Toggle */}
-                   {window.PublicKeyCredential && user.pin && !isChangingPin && (
-                       <div className="flex justify-between items-center mt-6 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800">
+                   {window.PublicKeyCredential && (
+                       <div className="flex justify-between items-center mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800">
                            <div className="flex items-center gap-3">
                                <Icon name="fingerprint" size={20} className={user.biometric ? 'text-indigo-500' : 'text-slate-400'}/>
                                <div>
@@ -1334,6 +1304,7 @@ function App() {
                            </button>
                        </div>
                    )}
+                   <input type="password" inputMode="numeric" value={user.pin} onChange={e=>setUser({...user, pin: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em] mb-4 focus:ring-2 focus:ring-slate-200 dark:focus:ring-zinc-700" placeholder="Tresor-PIN" />
                 </div>
                 <button onClick={handleLogout} className="w-full p-4 rounded-2xl font-bold text-rose-500 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-900/30 active:scale-95 transition-transform flex items-center justify-center gap-2"><Icon name="log-out" size={18}/> Abmelden</button>
              </div>
@@ -1438,7 +1409,7 @@ function App() {
                 const isCapsuleLocked = entry.unlockDate;
 
                 return (
-                  <div key={entry.id} onClick={() => handleOpenEntry(entry)} className={`group relative rounded-3xl overflow-hidden cursor-pointer border transition-transform hover:-translate-y-1.5 active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col' : ''}`} style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
+                  <div key={entry.id} onClick={() => handleOpenEntry(entry)} className={`group relative rounded-3xl overflow-hidden cursor-pointer border transition-transform active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col' : ''}`} style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
                     
                     {entry.manifested && (
                       <div className="absolute top-4 right-4 z-20 bg-amber-400 text-amber-950 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
@@ -1644,7 +1615,7 @@ function App() {
                                <div className="space-y-3">
                                    {entriesOnSelectedDate.map((e) => (
                                        <button key={e.id} onClick={() => { setViewingEntry(e); setShowTimeline(false); }} className={`w-full text-left p-4 rounded-2xl flex items-center gap-4 transition-colors ${viewingEntry.id === e.id ? 'border' : 'bg-slate-50 dark:bg-zinc-900 border border-transparent'}`} style={viewingEntry.id === e.id ? { backgroundColor: `${user.nameColor}20`, borderColor: `${user.nameColor}50` } : {}}>
-                                           {e.images && e.images.length > 0 && <img src={e.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0" />}
+                                           {e.images && e.images.length > 0 && <img src={e.images[0]} loading="lazy" className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0" />}
                                            <div className="flex-1 overflow-hidden">
                                                <span className="font-bold text-sm truncate block">{e.title}</span>
                                                <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">{new Date(e.date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
@@ -1672,6 +1643,7 @@ function App() {
                    {editingIdRef.current && <button onClick={() => confirmDelete(editingIdRef.current)} className="p-3 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10"><Icon name="trash-2" size={20}/></button>}
                    <button onClick={() => { setIsLocked(!isLocked); isDirtyRef.current = true; }} className={`p-3 rounded-full transition-colors ${isLocked ? 'bg-rose-500/10 text-rose-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`} title="Tresor-Schutz"><Icon name="lock" size={20}/></button>
                    
+                   {/* Geolocation Button */}
                    <button onClick={() => {
                        if(navigator.geolocation) {
                            showDialog({title:'Orte', message:'Position wird ermittelt...', icon:'loader'});
@@ -1720,10 +1692,9 @@ function App() {
                  </div>
               </div>
 
-              {/* Scrolling Content Area */}
-              <div className="flex-1 overflow-y-auto px-6 sm:px-10 pt-4 pb-32 overscroll-contain relative z-10">
+              <div className="flex-1 overflow-y-auto px-6 sm:px-10 pb-32 overscroll-contain">
                 {selectedImages.length > 0 && (
-                   <div className="flex overflow-x-auto hide-scrollbar gap-3 mb-6 snap-x">
+                   <div className="flex overflow-x-auto hide-scrollbar gap-3 mb-6 snap-x pt-4">
                       {selectedImages.map((imgSrc, i) => (
                          <div key={i} className="relative w-48 h-48 rounded-3xl overflow-hidden border border-slate-100 dark:border-zinc-800 shrink-0 snap-center">
                             <img src={imgSrc} className="w-full h-full object-cover"/>
@@ -1733,15 +1704,15 @@ function App() {
                    </div>
                 )}
                 {audioUrl && (
-                    <div className="mb-6 p-4 rounded-2xl bg-slate-100 dark:bg-zinc-900 relative">
+                    <div className="mb-6 p-4 rounded-2xl bg-slate-100 dark:bg-zinc-900 relative mt-4">
                         <audio src={audioUrl} controls className="w-full"/>
                         <button onClick={()=>setAudioUrl(null)} className="absolute -top-2 -right-2 bg-rose-500 text-white p-1 rounded-full shadow-lg"><Icon name="x" size={14}/></button>
                     </div>
                 )}
-                <div ref={editorRef} contentEditable suppressContentEditableWarning data-placeholder="Lass es fließen..." onInput={() => { isDirtyRef.current = true; }} className="w-full min-h-[50vh] bg-transparent text-lg leading-relaxed font-medium outline-none empty:before:content-[attr(data-placeholder)] legacy-editor-content opacity-90 pb-20" />
+                <div ref={editorRef} contentEditable suppressContentEditableWarning data-placeholder="Lass es fließen..." onInput={() => { isDirtyRef.current = true; }} className="w-full min-h-[50vh] bg-transparent text-lg leading-relaxed font-medium outline-none empty:before:content-[attr(data-placeholder)] legacy-editor-content opacity-90 pb-20 mt-4" />
               </div>
 
-              <div className="absolute bottom-0 left-0 right-0 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 p-4 flex justify-between items-center pb-[env(safe-area-inset-bottom,16px)] z-30">
+              <div className="absolute bottom-0 left-0 right-0 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 p-4 flex justify-between items-center pb-[env(safe-area-inset-bottom,16px)] z-20">
                  <div className="flex gap-2">
                     <label className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm cursor-pointer hover:scale-105 transition-transform" title="Galerie-Bild"><Icon name="images" size={20}/><input type="file" accept="image/*" multiple onChange={handleFileUpload} className="hidden" /></label>
                     <button onClick={()=>setIsDrawing(true)} className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm hover:scale-105 transition-transform"><Icon name="pen-tool" size={20}/></button>
