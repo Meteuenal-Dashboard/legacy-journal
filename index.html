@@ -154,9 +154,6 @@
   html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
   .search-highlight { background-color: rgba(245, 158, 11, 0.3); padding: 0 2px; border-radius: 3px; border-bottom: 1px solid #f59e0b; }
 
-  /* Map Container */
-  .map-container { height: 100%; width: 100%; border-radius: 1.5rem; z-index: 1; }
-  
   /* Fix Leaflet Avatar Markers */
   .leaflet-marker-icon.avatar-marker { border: none !important; background: transparent !important; }
 
@@ -192,7 +189,7 @@ const createSafeHtml = (htmlStr) => {
   return { __html: window.DOMPurify ? window.DOMPurify.sanitize(htmlStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height'] }) : htmlStr };
 };
 
-// --- Web Crypto API Helper ---
+// --- Web Crypto API Helper (100% untouched) ---
 const encHelper = new TextEncoder();
 const decHelper = new TextDecoder();
 const cryptoKeyCache = {}; 
@@ -1249,55 +1246,6 @@ function App() {
                       ))}
                    </div>
                 </div>
-
-                <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
-                   <h2 className="text-base font-bold mb-4 flex items-center gap-2"><Icon name="key" size={18}/> Sicherheit & PIN</h2>
-                   
-                   {!user.pin ? (
-                       <div className="space-y-4">
-                           <p className="text-sm font-medium opacity-70">Lege eine PIN fest, um den Tresor zu nutzen.</p>
-                           <input type="password" inputMode="numeric" value={newPinInput} onChange={e=>setNewPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em]" placeholder="Neue PIN" />
-                           <input type="password" inputMode="numeric" value={confirmPinInput} onChange={e=>setConfirmPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em]" placeholder="Wiederholen" />
-                           <button onClick={handleSavePin} className="w-full py-4 rounded-xl font-bold" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>PIN speichern</button>
-                       </div>
-                   ) : (
-                       isChangingPin ? (
-                           <div className="space-y-4">
-                               <input type="password" inputMode="numeric" value={oldPinInput} onChange={e=>setOldPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em]" placeholder="Alte PIN" />
-                               <input type="password" inputMode="numeric" value={newPinInput} onChange={e=>setNewPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em]" placeholder="Neue PIN" />
-                               <input type="password" inputMode="numeric" value={confirmPinInput} onChange={e=>setConfirmPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em]" placeholder="Wiederholen" />
-                               <div className="flex gap-2">
-                                   <button onClick={() => setIsChangingPin(false)} className="flex-1 py-4 rounded-xl font-bold bg-slate-100 dark:bg-zinc-800">Abbrechen</button>
-                                   <button onClick={handleSavePin} className="flex-1 py-4 rounded-xl font-bold" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>Speichern</button>
-                               </div>
-                           </div>
-                       ) : (
-                           <div className="flex justify-between items-center p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950">
-                               <div className="flex items-center gap-3">
-                                   <Icon name="check-circle" size={20} className="text-emerald-500" />
-                                   <span className="font-bold text-sm">PIN Aktiv</span>
-                               </div>
-                               <button onClick={() => setIsChangingPin(true)} className="px-4 py-2 rounded-lg font-bold text-xs bg-white dark:bg-zinc-800 shadow-sm" style={{ color: user.nameColor }}>Ändern</button>
-                           </div>
-                       )
-                   )}
-
-                   {/* Biometric Toggle */}
-                   {window.PublicKeyCredential && user.pin && !isChangingPin && (
-                       <div className="flex justify-between items-center mt-6 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800">
-                           <div className="flex items-center gap-3">
-                               <Icon name="fingerprint" size={20} className={user.biometric ? 'text-indigo-500' : 'text-slate-400'}/>
-                               <div>
-                                   <div className="font-bold text-sm">Biometrie</div>
-                                   <div className="text-[10px] opacity-60">TouchID / FaceID</div>
-                               </div>
-                           </div>
-                           <button onClick={toggleBiometric} className={`w-12 h-6 rounded-full transition-colors relative ${user.biometric ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-zinc-700'}`}>
-                               <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${user.biometric ? 'left-7' : 'left-1'}`} />
-                           </button>
-                       </div>
-                   )}
-                </div>
                 
                 <div className="p-6 rounded-[2rem] bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 shadow-sm">
                    <h2 className="text-base font-bold mb-2 flex items-center gap-2 text-blue-600 dark:text-blue-400"><Icon name="cloud" size={18}/> Verschlüsselter Cloud-Tresor</h2>
@@ -1335,14 +1283,32 @@ function App() {
                    )}
                 </div>
 
+                <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
+                   <h2 className="text-base font-bold mb-4 flex items-center gap-2"><Icon name="key" size={18}/> Sicherheit</h2>
+                   {window.PublicKeyCredential && (
+                       <div className="flex justify-between items-center mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800">
+                           <div className="flex items-center gap-3">
+                               <Icon name="fingerprint" size={20} className={user.biometric ? 'text-indigo-500' : 'text-slate-400'}/>
+                               <div>
+                                   <div className="font-bold text-sm">Biometrie</div>
+                                   <div className="text-[10px] opacity-60">TouchID / FaceID</div>
+                               </div>
+                           </div>
+                           <button onClick={toggleBiometric} className={`w-12 h-6 rounded-full transition-colors relative ${user.biometric ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-zinc-700'}`}>
+                               <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${user.biometric ? 'left-7' : 'left-1'}`} />
+                           </button>
+                       </div>
+                   )}
+                   <input type="password" inputMode="numeric" value={user.pin} onChange={e=>setUser({...user, pin: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em] mb-4 focus:ring-2 focus:ring-slate-200 dark:focus:ring-zinc-700" placeholder="Tresor-PIN" />
+                </div>
                 <button onClick={handleLogout} className="w-full p-4 rounded-2xl font-bold text-rose-500 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-900/30 active:scale-95 transition-transform flex items-center justify-center gap-2"><Icon name="log-out" size={18}/> Abmelden</button>
              </div>
           )}
 
           {view === 'map' && (
-             <div className="flex-1 flex flex-col gap-4 animate-fade-in pb-24">
+             <div className="flex-1 flex flex-col gap-4 animate-fade-in pb-24 h-full">
                 <div className="flex-1 relative rounded-[2rem] overflow-hidden shadow-lg border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900">
-                    <div ref={mapRef} className="map-container absolute inset-0 w-full h-full"></div>
+                    <div ref={mapRef} className="absolute inset-0 w-full h-full"></div>
                 </div>
                 <div className="p-4 bg-white/90 dark:bg-black/90 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200 dark:border-zinc-800 flex justify-between items-center shrink-0">
                     <div className="font-bold text-sm">Orte deines Lebens</div>
@@ -1416,7 +1382,7 @@ function App() {
                 <div className="flex justify-between items-center mb-4"><span className="font-bold text-xs uppercase tracking-widest opacity-50">30-Tage Aktivität</span><Icon name="activity" size={16} className="opacity-30" /></div>
                 <div className="flex gap-1 justify-between items-end h-10">
                    {heatmapData.map((d, i) => (
-                      <div key={i} className="flex-1 rounded-sm transition-all" style={{ height: d.count===0?'20%':`${Math.min(100, 20+(d.count*40))}%`, backgroundColor: d.count===0 ? (user.isDark?'#27272a':'#f1f5f9') : (user.nameColor || '#f59e0b') }} />
+                      <div key={i} className="flex-1 rounded-sm transition-colors" style={{ height: d.count===0?'20%':`${Math.min(100, 20+(d.count*40))}%`, backgroundColor: d.count===0 ? (user.isDark?'#27272a':'#f1f5f9') : (user.nameColor || '#f59e0b') }} />
                    ))}
                 </div>
              </div>
@@ -1438,7 +1404,7 @@ function App() {
                 const isCapsuleLocked = entry.unlockDate;
 
                 return (
-                  <div key={entry.id} onClick={() => handleOpenEntry(entry)} className={`group relative rounded-3xl overflow-hidden cursor-pointer border transition-transform hover:-translate-y-1.5 active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col' : ''}`} style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
+                  <div key={entry.id} onClick={() => handleOpenEntry(entry)} className={`group relative rounded-3xl overflow-hidden cursor-pointer border transition-transform active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col' : ''}`} style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
                     
                     {entry.manifested && (
                       <div className="absolute top-4 right-4 z-20 bg-amber-400 text-amber-950 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
@@ -1510,30 +1476,12 @@ function App() {
                <div className="flex gap-2">
                  <button onClick={() => window.print()} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform text-slate-500"><Icon name="printer" size={20}/></button>
                  <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-full transition-transform ${isSpeaking ? 'text-white animate-pulse' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={20}/></button>
-                 <button onClick={() => openEditor(viewingEntry)} className="px-5 py-2.5 rounded-full font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
+                 <button onClick={() => { const e = viewingEntry; setViewingEntry(null); setTimeout(() => openEditor(e), 10); }} className="px-5 py-2.5 rounded-full font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
                </div>
              </div>
 
-             {/* Print Title & TOC */}
-             <div className="print-only">
-                 <div className="print-title-page">
-                    <h1 style={{fontSize: '56px', marginBottom: '20px', fontFamily: 'Georgia, serif'}}>{user.appName || 'Legacy Vision Journal'}</h1>
-                    <h3 style={{fontSize: '24px', opacity: 0.6}}>Verfasst von {user.name}</h3>
-                    <p style={{marginTop: '40px', fontStyle: 'italic'}}>{user.motto}</p>
-                    <p style={{position: 'absolute', bottom: '40px'}}>Generiert am {new Date().toLocaleDateString('de-DE')}</p>
-                 </div>
-                 <div className="print-toc">
-                    <h2 style={{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px'}}>Inhaltsverzeichnis</h2>
-                    <ul style={{listStyle: 'none', padding: 0}}>
-                        {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
-                            <li key={idx} style={{marginBottom: '15px', fontSize: '18px'}}><strong>{idx+1}.</strong> {e.title}</li>
-                        ))}
-                    </ul>
-                 </div>
-             </div>
-
-             {/* Single Entry View */}
-             <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-32">
+             {/* Single Entry View for Screen */}
+             <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-32 screen-only">
                 {viewingEntry.images && viewingEntry.images.length > 0 && (
                   <div className="relative w-full aspect-video rounded-3xl overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-8 group bg-slate-100 dark:bg-zinc-900">
                       <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-cover transition-transform duration-700" alt="Cover" />
@@ -1563,6 +1511,46 @@ function App() {
                 </div>
              </div>
            </div>
+        )}
+
+        {/* --- PRINT VIEW ONLY --- */}
+        {viewingEntry && !showEditor && (
+             <div className="print-only w-full max-w-4xl mx-auto p-8">
+                 <div className="print-title-page page-break-after">
+                    <h1 style={{fontSize: '56px', marginBottom: '20px', fontFamily: 'Georgia, serif'}}>{user.appName || 'Legacy Vision Journal'}</h1>
+                    <h3 style={{fontSize: '24px', opacity: 0.6}}>Verfasst von {user.name}</h3>
+                    {user.motto && <p style={{marginTop: '40px', fontStyle: 'italic'}}>{user.motto}</p>}
+                    <p style={{position: 'absolute', bottom: '40px', left: '0', right: '0', textAlign: 'center'}}>Generiert am {new Date().toLocaleDateString('de-DE')}</p>
+                 </div>
+                 
+                 <div className="print-toc page-break-after">
+                    <h2 style={{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px', fontFamily: 'Georgia, serif'}}>Inhaltsverzeichnis</h2>
+                    <ul style={{listStyle: 'none', padding: 0}}>
+                        {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
+                            <li key={idx} style={{marginBottom: '15px', fontSize: '18px'}}><strong>{idx+1}.</strong> {e.title}</li>
+                        ))}
+                    </ul>
+                 </div>
+
+                 <div className="print-book-content">
+                    {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
+                        <div key={e.id} className="page-break-after" style={{ marginBottom: '60px', paddingTop: '20px' }}>
+                            <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+                                <h1 style={{ fontSize: '36px', fontFamily: 'Georgia, serif', fontWeight: 'bold', marginBottom: '10px' }}>{e.title}</h1>
+                                <p style={{ opacity: 0.6, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '12px' }}>
+                                    {new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category}
+                                </p>
+                            </div>
+                            
+                            {e.images && e.images.length > 0 && (
+                                <img src={e.images[0]} style={{ width: '100%', maxHeight: '500px', objectFit: 'contain', marginBottom: '30px', borderRadius: '16px' }} alt="Cover" />
+                            )}
+                            
+                            <div className="text-lg leading-relaxed legacy-content" dangerouslySetInnerHTML={createSafeHtml(e.text)}></div>
+                        </div>
+                    ))}
+                 </div>
+             </div>
         )}
 
         {/* --- TIMELINE / ZEITREISE (Calendar Style) --- */}
@@ -1622,7 +1610,7 @@ function App() {
                                <div className="space-y-3">
                                    {entriesOnSelectedDate.map((e) => (
                                        <button key={e.id} onClick={() => { setViewingEntry(e); setShowTimeline(false); }} className={`w-full text-left p-4 rounded-2xl flex items-center gap-4 transition-colors ${viewingEntry.id === e.id ? 'border' : 'bg-slate-50 dark:bg-zinc-900 border border-transparent'}`} style={viewingEntry.id === e.id ? { backgroundColor: `${user.nameColor}20`, borderColor: `${user.nameColor}50` } : {}}>
-                                           {e.images && e.images.length > 0 && <img src={e.images[0]} loading="lazy" className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0" />}
+                                           {e.images && e.images.length > 0 && <img src={e.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0" />}
                                            <div className="flex-1 overflow-hidden">
                                                <span className="font-bold text-sm truncate block">{e.title}</span>
                                                <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">{new Date(e.date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
