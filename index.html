@@ -154,9 +154,11 @@
   html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
   .search-highlight { background-color: rgba(245, 158, 11, 0.3); padding: 0 2px; border-radius: 3px; border-bottom: 1px solid #f59e0b; }
 
+  /* Map Container */
+  .map-container { height: 100%; width: 100%; border-radius: 1.5rem; z-index: 1; }
+  
   /* Fix Leaflet Avatar Markers */
   .leaflet-marker-icon.avatar-marker { border: none !important; background: transparent !important; }
-  .map-container { height: 100%; width: 100%; border-radius: 1.5rem; z-index: 1; }
 
   /* --- BUCHDRUCK-MODUS --- */
   .print-only { display: none; }
@@ -421,10 +423,9 @@ function App() {
   const [audioUrl, setAudioUrl] = useState(null);
   const [isManifested, setIsManifested] = useState(false);
   const [unlockDate, setUnlockDate] = useState('');
-  const [unlockLocation, setUnlockLocation] = useState(null);
+  const [location, setLocation] = useState(null);
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [mood, setMood] = useState(null);
-  const [location, setLocation] = useState(null);
   const [parentId, setParentId] = useState('');
   const [inheritedFrom, setInheritedFrom] = useState(null);
   const [pillarGuidance, setPillarGuidance] = useState(null);
@@ -432,6 +433,8 @@ function App() {
 
   const editorRef = useRef(null);
   const isDirtyRef = useRef(false);
+  const currentEntryRef = useRef({});
+  const editingIdRef = useRef(null);
 
   const isDrawingRef = useRef(isDrawing);
   const showEditorRef = useRef(showEditor);
@@ -742,18 +745,7 @@ function App() {
     const activePin = forcePin || user.pin; let dbEntry = { ...entry };
     try { if (dbEntry.locked && activePin) { const payload = JSON.stringify({ text: dbEntry.text || '', title: dbEntry.title || '' }); dbEntry.encryptedData = await encryptData(payload, activePin); dbEntry.text = ''; dbEntry.title = 'Verschlüsselter Eintrag'; } else if (!dbEntry.locked) { dbEntry.encryptedData = null; } } catch(e) {}
     try {
-      if (db) { 
-        const tx = db.transaction('entries', 'readwrite'); 
-        tx.objectStore('entries').put(dbEntry); 
-        tx.oncomplete = () => { 
-            setEntries(prev => { 
-                const exists = prev.find(e => e.id === entry.id); 
-                if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); 
-                return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); 
-            }); 
-            syncSingleEntryToCloud(entry); 
-        }; 
-      }
+      if (db) { const tx = db.transaction('entries', 'readwrite'); tx.objectStore('entries').put(dbEntry); tx.oncomplete = () => { setEntries(prev => { const exists = prev.find(e => e.id === entry.id); if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); }); syncSingleEntryToCloud(entry); }; }
     } catch (e) {}
   };
 
@@ -761,20 +753,20 @@ function App() {
 
   const checkSaveEntry = (closeAndRead = false) => {
     try {
-        const entryId = editingId || generateId(); 
-        const currentText = editorRef.current ? editorRef.current.innerHTML : (text || ''); 
-        const titleSafe = title || '';
+        const state = currentEntryRef.current;
+        const entryId = editingIdRef.current || generateId(); 
+        const currentText = editorRef.current ? editorRef.current.innerHTML : (state.text || ''); 
+        const titleSafe = state.title || '';
         
-        if (!titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && (!selectedImages || selectedImages.length === 0) && !audioUrl && closeAndRead) { closeEditor(entries.find(e => e.id === entryId) || null); return; }
+        if (!titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && (!state.selectedImages || state.selectedImages.length === 0) && !state.audioUrl && closeAndRead) { closeEditor(entries.find(e => e.id === editingIdRef.current) || null); return; }
+        const newEntry = { id: entryId, title: titleSafe || 'Ohne Titel', text: currentText, color: state.selectedColor, images: state.selectedImages, audio: state.audioUrl, locked: state.isLocked, archived: false, manifested: state.isManifested, category: state.category, mood: state.mood, unlockDate: state.unlockDate, location: state.location, parentId: state.parentId, inheritedFrom: state.inheritedFrom, date: editingIdRef.current ? (entries.find(e => e.id === editingIdRef.current)?.date || new Date().toISOString()) : new Date().toISOString(), orderTimestamp: editingIdRef.current ? (entries.find(e => e.id === editingIdRef.current)?.orderTimestamp || new Date().toISOString()) : new Date().toISOString() };
         
-        const newEntry = { id: entryId, title: titleSafe || 'Ohne Titel', text: currentText, color: selectedColor, images: selectedImages, audio: audioUrl, locked: isLocked, archived: false, manifested: isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, date: editingId ? (entries.find(e => e.id === editingId)?.date || new Date().toISOString()) : new Date().toISOString(), orderTimestamp: editingId ? (entries.find(e => e.id === editingId)?.orderTimestamp || new Date().toISOString()) : new Date().toISOString() };
-        
-        if (!editingId) { setEditingId(entryId); }
+        if (!editingIdRef.current) { setEditingId(entryId); editingIdRef.current = entryId; }
         saveToDB(newEntry);
         isDirtyRef.current = false;
         
         if (closeAndRead) closeEditor(newEntry); else { setAutoSaveStatus('Gespeichert'); setTimeout(()=>setAutoSaveStatus(''), 2000); }
-    } catch (err) { if (closeAndRead) closeEditor(entries.find(e => e.id === editingId) || null); }
+    } catch (err) { if (closeAndRead) closeEditor(entries.find(e => e.id === editingIdRef.current) || null); }
   };
 
   const confirmDelete = (id) => {
@@ -789,22 +781,19 @@ function App() {
       showDialog({title: 'Erfolg', message: 'Deine PIN wurde erfolgreich gespeichert.', icon: 'check'});
   };
 
-  // AutoSave every 3 seconds if dirty
-  useEffect(() => { if (!showEditor || view === 'burn') return; const timer = setTimeout(() => { if (isDirtyRef.current) checkSaveEntry(false); }, 3000); return () => clearTimeout(timer); }, [title, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, showEditor]);
-
   const closeEditor = (savedEntry = null) => { setShowEditor(false); if(isRecording) stopRecording(); setViewingEntry(savedEntry); };
 
   const openEditor = (entry = null, pillar = null) => {
     isDirtyRef.current = false;
     if (entry && entry.id) {
-      setEditingId(entry.id); setTitle(entry.title || ''); setText(entry.text || ''); setSelectedColor(entry.color); setSelectedImages(entry.images || []); setIsLocked(entry.locked || false); setIsManifested(entry.manifested || false); setCategory(entry.category || CATEGORIES[0]); setMood(entry.mood || null); setAudioUrl(entry.audio || null); setUnlockDate(entry.unlockDate || ''); setLocation(entry.location || null); setParentId(entry.parentId || ''); setInheritedFrom(entry.inheritedFrom || null); setPillarGuidance(null);
+      setEditingId(entry.id); editingIdRef.current = entry.id; setTitle(entry.title || ''); setText(entry.text || ''); setSelectedColor(entry.color); setSelectedImages(entry.images || []); setIsLocked(entry.locked || false); setIsManifested(entry.manifested || false); setCategory(entry.category || CATEGORIES[0]); setMood(entry.mood || null); setAudioUrl(entry.audio || null); setUnlockDate(entry.unlockDate || ''); setLocation(entry.location || null); setParentId(entry.parentId || ''); setInheritedFrom(entry.inheritedFrom || null); setPillarGuidance(null);
     } else {
-      setEditingId(null); setTitle(pillar ? pillar.title : ''); setText(''); setSelectedColor(user.isDark ? COLORS[8] : COLORS[0]); setSelectedImages([]); setIsLocked(view === 'vault'); setIsManifested(false); setCategory(pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory)); setMood(null); setAudioUrl(null); setUnlockDate(''); setLocation(null); setParentId(''); setInheritedFrom(null); setPillarGuidance(pillar ? pillar.desc : null);
+      setEditingId(null); editingIdRef.current = null; setTitle(pillar ? pillar.title : ''); setText(''); setSelectedColor(user.isDark ? COLORS[8] : COLORS[0]); setSelectedImages([]); setIsLocked(view === 'vault'); setIsManifested(false); setCategory(pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory)); setMood(null); setAudioUrl(null); setUnlockDate(''); setLocation(null); setParentId(''); setInheritedFrom(null); setPillarGuidance(pillar ? pillar.desc : null);
     }
     setZenMode(false); setShowEditor(true);
   };
 
-  const startNewChapter = (parent) => { isDirtyRef.current = false; setViewingEntry(null); setEditingId(null); setTitle(parent.title || ''); setText(''); setSelectedColor(user.isDark ? COLORS[8] : COLORS[0]); setSelectedImages([]); setIsLocked(parent.locked || false); setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setLocation(null); setCategory(parent.category || CATEGORIES[0]); setMood(null); setParentId(parent.id); setInheritedFrom(null); setZenMode(false); setShowEditor(true); };
+  const startNewChapter = (parent) => { isDirtyRef.current = false; setViewingEntry(null); setEditingId(null); editingIdRef.current = null; setTitle(parent.title || ''); setText(''); setSelectedColor(user.isDark ? COLORS[8] : COLORS[0]); setSelectedImages([]); setIsLocked(parent.locked || false); setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setLocation(null); setCategory(parent.category || CATEGORIES[0]); setMood(null); setParentId(parent.id); setInheritedFrom(null); setZenMode(false); setShowEditor(true); };
 
   const showDialog = (options) => { setDialog({ type: 'alert', confirmLabel: 'Okay', ...options }); };
 
@@ -1031,12 +1020,7 @@ function App() {
 
   const importBackup = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async (e) => { try { let data = null; if (file.name.toLowerCase().endsWith('.html')) { const doc = new DOMParser().parseFromString(e.target.result, 'text/html'); const script = doc.getElementById('legacy-injected-data'); if (script && script.textContent && script.textContent !== 'null') data = JSON.parse(script.textContent); else throw new Error("Keine Daten"); } else data = JSON.parse(e.target.result); if (data && data.entries && db) { const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); let mergedCount = 0; const pinToUse = data.user ? data.user.pin : user.pin; const entriesToSave = await Promise.all(data.entries.map(async (en) => { let dbE = { ...en }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []); if (dbE.locked && pinToUse) { const payload = JSON.stringify({ text: dbE.text||'', title: dbE.title||'' }); dbE.encryptedData = await encryptData(payload, pinToUse); dbE.text = ''; dbE.title = 'Verschlüsselt'; } return dbE; })); entriesToSave.forEach(en => { if (!entries.find(ex => ex.id === en.id)) { if (data.user && data.user.name !== user.name) en.inheritedFrom = data.user.name; store.put(en); mergedCount++; } }); const req = store.getAll(); req.onsuccess = async () => { let loadedEntries = req.result || []; if (user.pin) loadedEntries = await Promise.all(loadedEntries.map(async (en) => { if (en.locked && en.encryptedData) { const decStr = await decryptData(en.encryptedData, user.pin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...en, text: parsed.text, title: parsed.title }; } catch(err){} } } return en; })); setEntries(loadedEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date))); showDialog({ title: 'Erfolg', message: `${mergedCount} neue Seiten importiert.`, icon: 'check' }); }; } } catch (err) { showDialog({ title: 'Fehler', message: 'Ungültige Datei.', icon: 'x' }); } }; reader.readAsText(file); };
 
-  // Sync editor content only ONCE when opened
-  useEffect(() => { 
-      if (showEditor && editorRef.current) { 
-          editorRef.current.innerHTML = text || ''; 
-      } 
-  }, [showEditor]); 
+  useEffect(() => { if (showEditor && editorRef.current && editorRef.current.innerHTML !== text) { editorRef.current.innerHTML = text || ''; } }, [showEditor, editingId]); 
 
   // --- IDEA 3: Geografische Lebenskarte (Leaflet) mit Auto-Theme (Uhrzeit) ---
   useEffect(() => {
@@ -1113,7 +1097,7 @@ function App() {
             {authMsg && <div className="p-4 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl text-sm font-semibold text-center border border-emerald-100 dark:border-emerald-500/20">{authMsg}</div>}
             <input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} className="w-full p-4 rounded-2xl outline-none text-base font-medium bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-slate-400 dark:focus:border-zinc-600 transition-colors placeholder:opacity-40" placeholder="E-Mail Adresse" />
             {authMode !== 'reset' && <input type="password" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} className="w-full p-4 rounded-2xl outline-none text-base font-medium bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-slate-400 dark:focus:border-zinc-600 transition-colors placeholder:opacity-40" placeholder="Passwort" />}
-            <button onClick={handleAuth} className="w-full py-4 rounded-2xl font-bold text-base bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-transform shadow-md mt-2">{authMode === 'login' ? 'Einloggen' : authMode === 'register' ? 'Account erstellen' : 'Link anfordern'}</button>
+            <button onClick={handleAuth} className="w-full py-4 rounded-2xl font-bold text-base bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-all shadow-md mt-2">{authMode === 'login' ? 'Einloggen' : authMode === 'register' ? 'Account erstellen' : 'Link anfordern'}</button>
             <div className="flex flex-col gap-2 pt-4">
                 {authMode === 'login' ? (
                     <><button onClick={() => { setAuthMode('register'); setAuthError(''); setAuthMsg(''); }} className="text-sm font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">Neuen Account erstellen</button><button onClick={() => { setAuthMode('reset'); setAuthError(''); setAuthMsg(''); }} className="text-xs font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">Passwort vergessen?</button></>
@@ -1211,7 +1195,7 @@ function App() {
         </header>
 
         {/* --- MAIN FEED & VIEWS --- */}
-        <main className={`p-4 sm:p-6 max-w-2xl mx-auto min-h-[70vh] relative z-10 no-print ${view === 'map' ? 'h-[85vh] floating-nav-spacing flex flex-col' : 'floating-nav-spacing'}`}>
+        <main className={`p-4 sm:p-6 max-w-2xl mx-auto min-h-[70vh] relative z-10 no-print ${view === 'map' ? 'h-[85vh] flex flex-col' : 'floating-nav-spacing'}`}>
           
           {view === 'menu' && (
             <div className="grid grid-cols-2 gap-4 sm:gap-6 animate-slide-up">
@@ -1246,8 +1230,8 @@ function App() {
                 <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
                    <h2 className="text-base font-bold mb-4 flex items-center gap-2"><Icon name="moon" size={18}/> Design & Farben</h2>
                    <div className="flex p-1 bg-slate-100 dark:bg-zinc-950 rounded-2xl mb-6">
-                      <button onClick={() => setUser({...user, isDark: false})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${!user.isDark ? 'bg-white shadow-sm text-black' : 'text-slate-500'}`}>Hell</button>
-                      <button onClick={() => setUser({...user, isDark: true})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${user.isDark ? 'bg-zinc-800 shadow-sm text-white' : 'text-slate-500'}`}>Dunkel</button>
+                      <button onClick={() => setUser({...user, isDark: false})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${!user.isDark ? 'bg-white shadow-sm text-black' : 'text-slate-500'}`}>Hell</button>
+                      <button onClick={() => setUser({...user, isDark: true})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${user.isDark ? 'bg-zinc-800 shadow-sm text-white' : 'text-slate-500'}`}>Dunkel</button>
                    </div>
                    
                    <span className="text-xs font-bold uppercase tracking-widest opacity-60 mb-2 block">Hintergrund (App)</span>
@@ -1362,7 +1346,7 @@ function App() {
                 </div>
                 <div className="p-4 bg-white/90 dark:bg-black/90 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200 dark:border-zinc-800 flex justify-between items-center shrink-0">
                     <div className="font-bold text-sm">Orte deines Lebens</div>
-                    <div className="text-xs opacity-70">{entries.filter(e => e.location).length} Markierungen</div>
+                    <div className="text-xs opacity-70 font-bold">{entries.filter(e => e.location).length} Markierungen</div>
                 </div>
              </div>
           )}
@@ -1454,7 +1438,7 @@ function App() {
                 const isCapsuleLocked = entry.unlockDate;
 
                 return (
-                  <div key={entry.id} onClick={() => handleOpenEntry(entry)} className={`group relative rounded-3xl overflow-hidden cursor-pointer border transition-transform active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col' : ''}`} style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
+                  <div key={entry.id} onClick={() => handleOpenEntry(entry)} className={`group relative rounded-3xl overflow-hidden cursor-pointer border transition-transform hover:-translate-y-1.5 active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col' : ''}`} style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
                     
                     {entry.manifested && (
                       <div className="absolute top-4 right-4 z-20 bg-amber-400 text-amber-950 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
@@ -1530,26 +1514,8 @@ function App() {
                </div>
              </div>
 
-             {/* Print Title & TOC */}
-             <div className="print-only">
-                 <div className="print-title-page">
-                    <h1 style={{fontSize: '56px', marginBottom: '20px', fontFamily: 'Georgia, serif'}}>{user.appName || 'Legacy Vision Journal'}</h1>
-                    <h3 style={{fontSize: '24px', opacity: 0.6}}>Verfasst von {user.name}</h3>
-                    <p style={{marginTop: '40px', fontStyle: 'italic'}}>{user.motto}</p>
-                    <p style={{position: 'absolute', bottom: '40px'}}>Generiert am {new Date().toLocaleDateString('de-DE')}</p>
-                 </div>
-                 <div className="print-toc">
-                    <h2 style={{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px'}}>Inhaltsverzeichnis</h2>
-                    <ul style={{listStyle: 'none', padding: 0}}>
-                        {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
-                            <li key={idx} style={{marginBottom: '15px', fontSize: '18px'}}><strong>{idx+1}.</strong> {e.title}</li>
-                        ))}
-                    </ul>
-                 </div>
-             </div>
-
-             {/* Single Entry View */}
-             <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-32">
+             {/* Single Entry View for Screen */}
+             <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-32 screen-only">
                 {viewingEntry.images && viewingEntry.images.length > 0 && (
                   <div className="relative w-full aspect-video rounded-3xl overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-8 group bg-slate-100 dark:bg-zinc-900">
                       <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-cover transition-transform duration-700" alt="Cover" />
@@ -1579,6 +1545,46 @@ function App() {
                 </div>
              </div>
            </div>
+        )}
+
+        {/* --- PRINT VIEW ONLY --- */}
+        {viewingEntry && !showEditor && (
+             <div className="print-only w-full max-w-4xl mx-auto p-8">
+                 <div className="print-title-page page-break-after">
+                    <h1 style={{fontSize: '56px', marginBottom: '20px', fontFamily: 'Georgia, serif'}}>{user.appName || 'Legacy Vision Journal'}</h1>
+                    <h3 style={{fontSize: '24px', opacity: 0.6}}>Verfasst von {user.name}</h3>
+                    {user.motto && <p style={{marginTop: '40px', fontStyle: 'italic'}}>{user.motto}</p>}
+                    <p style={{position: 'absolute', bottom: '40px', left: '0', right: '0', textAlign: 'center'}}>Generiert am {new Date().toLocaleDateString('de-DE')}</p>
+                 </div>
+                 
+                 <div className="print-toc page-break-after">
+                    <h2 style={{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px', fontFamily: 'Georgia, serif'}}>Inhaltsverzeichnis</h2>
+                    <ul style={{listStyle: 'none', padding: 0}}>
+                        {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
+                            <li key={idx} style={{marginBottom: '15px', fontSize: '18px'}}><strong>{idx+1}.</strong> {e.title}</li>
+                        ))}
+                    </ul>
+                 </div>
+
+                 <div className="print-book-content">
+                    {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
+                        <div key={e.id} className="page-break-after" style={{ marginBottom: '60px', paddingTop: '20px' }}>
+                            <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+                                <h1 style={{ fontSize: '36px', fontFamily: 'Georgia, serif', fontWeight: 'bold', marginBottom: '10px' }}>{e.title}</h1>
+                                <p style={{ opacity: 0.6, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '12px' }}>
+                                    {new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category}
+                                </p>
+                            </div>
+                            
+                            {e.images && e.images.length > 0 && (
+                                <img src={e.images[0]} style={{ width: '100%', maxHeight: '500px', objectFit: 'contain', marginBottom: '30px', borderRadius: '16px' }} alt="Cover" />
+                            )}
+                            
+                            <div className="text-lg leading-relaxed legacy-content" dangerouslySetInnerHTML={createSafeHtml(e.text)}></div>
+                        </div>
+                    ))}
+                 </div>
+             </div>
         )}
 
         {/* --- TIMELINE / ZEITREISE (Calendar Style) --- */}
@@ -1666,7 +1672,6 @@ function App() {
                    {editingIdRef.current && <button onClick={() => confirmDelete(editingIdRef.current)} className="p-3 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10"><Icon name="trash-2" size={20}/></button>}
                    <button onClick={() => { setIsLocked(!isLocked); isDirtyRef.current = true; }} className={`p-3 rounded-full transition-colors ${isLocked ? 'bg-rose-500/10 text-rose-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`} title="Tresor-Schutz"><Icon name="lock" size={20}/></button>
                    
-                   {/* Geolocation Button */}
                    <button onClick={() => {
                        if(navigator.geolocation) {
                            showDialog({title:'Orte', message:'Position wird ermittelt...', icon:'loader'});
