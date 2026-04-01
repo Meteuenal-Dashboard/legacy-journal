@@ -149,8 +149,14 @@
   .legacy-editor-content li, .legacy-content li { margin-bottom: 0.25rem; }
   .legacy-editor-content blockquote, .legacy-content blockquote { border-left: 4px solid currentColor; padding-left: 1.5rem; font-style: normal; font-weight: 600; opacity: 0.9; background: transparent; margin: 1.5rem 0; font-size: 1.1em; }
   
-  /* Standard Images */
-  .legacy-editor-content img, .legacy-content img { border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: inline-block; vertical-align: middle; }
+  /* Inline Image Resizing Magic */
+  .inline-img-wrapper { display: inline-block; vertical-align: middle; margin: 4px; position: relative; max-width: 100%; cursor: move; }
+  .legacy-editor-content .inline-img-wrapper { resize: both; overflow: hidden; border: 2px dashed #cbd5e1; padding: 2px; border-radius: 8px; min-width: 50px; min-height: 50px; }
+  .legacy-content .inline-img-wrapper { resize: none; border: none; padding: 0; overflow: visible; }
+  .inline-img-wrapper img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; border-radius: 6px; display: block; }
+  
+  /* Standard Images Overview */
+  .legacy-editor-content > img, .legacy-content > img { border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: inline-block; vertical-align: middle; max-width: 100%; }
   
   [contenteditable="true"]:empty:before { content: attr(data-placeholder); opacity: 0.3; pointer-events: none; display: block; font-weight: 400; }
   html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
@@ -189,6 +195,13 @@ const { useState, useEffect, useRef, useMemo, memo } = React;
 
 const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
 const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
+
+// Lokale Zeit für Speicherung sichern (UTC Offset fix)
+const getLocalISO = () => {
+    const now = new Date();
+    const tzOffset = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - tzOffset).toISOString().slice(0, -1); 
+};
 
 const createSafeHtml = (htmlStr) => {
   return { __html: window.DOMPurify ? window.DOMPurify.sanitize(htmlStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height'] }) : htmlStr };
@@ -354,19 +367,6 @@ const initDB = () => {
   });
 };
 
-const highlightText = (text, query) => {
-  if (!text) return { __html: '' };
-  let safeText = text.replace(/<img[^>]*>/g, '[Bild]');
-  safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height'] }) : safeText;
-  if (!query) return { __html: safeText };
-  const plainText = safeText.replace(/<[^>]*>?/gm, '');
-  const parts = plainText.split(new RegExp(`(${query})`, 'gi'));
-  const highlighted = parts.map((part, i) =>
-      part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part
-  ).join('');
-  return { __html: highlighted };
-};
-
 // --- EntryCard Component: Verhindert Bild-Ruckeln ---
 const EntryCard = memo(({ entry, onClick, isGridView, userColor, isDarkTheme, searchQuery }) => {
     const hasImages = entry.images && entry.images.length > 0;
@@ -387,9 +387,11 @@ const EntryCard = memo(({ entry, onClick, isGridView, userColor, isDarkTheme, se
           </div>
         )}
         <div className="p-6 relative z-10 flex-1 flex flex-col">
-          <div className="flex items-center gap-2 mb-3 text-[10px] font-bold uppercase tracking-widest opacity-50">
+          <div className="flex items-center gap-2 mb-3 text-[10px] font-bold uppercase tracking-widest opacity-50 flex-wrap">
             <span>{new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
             {!isGridView && <><span>•</span><span>{entry.category}</span></>}
+            {entry.tags && <span className="text-blue-500 flex items-center gap-0.5 ml-1"><Icon name="tag" size={10}/>{entry.tags.split(',').filter(x=>x.trim()).length}</span>}
+            {entry.people && <span className="text-indigo-500 flex items-center gap-0.5 ml-1"><Icon name="user" size={10}/>{entry.people.split(',').filter(x=>x.trim()).length}</span>}
             {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE')}</span></>}
             {entry.locked && !isCapsuleLocked && <><span className="text-rose-500 flex items-center gap-1 ml-auto"><Icon name="lock" size={12}/> Tresor</span></>}
             {entry.audio && <><span className="text-emerald-500 flex items-center ml-1"><Icon name="mic" size={12}/></span></>}
@@ -520,7 +522,7 @@ function App() {
     if (isLoaded) safeStorageSet('legacy_user', JSON.stringify(user));
   }, [user, isLoaded]);
 
-  // Hardware Back Button Logik (Repariert & Sicher)
+  // Hardware Back Button Logik (Sicher für Apps)
   useEffect(() => {
     try { window.history.pushState({ isApp: true }, ''); } catch(e) {}
     const handlePopState = (e) => {
@@ -631,7 +633,7 @@ function App() {
       if(fb) { await fb.signOut(fb.auth); setUser({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: false, biometric: false }); localStorage.removeItem('legacy_user'); setEntries([]); setView('auth'); }
   };
 
-  // --- WebAuthn Biometrie Fix für Mobile ---
+  // --- WebAuthn Biometrie Fix (Native Mobile Integration) ---
   const toggleBiometric = async () => {
       if (!user.biometric) {
           try {
@@ -648,7 +650,7 @@ function App() {
                       authenticatorSelection: { 
                           authenticatorAttachment: "platform", 
                           residentKey: "required", 
-                          userVerification: "discouraged" 
+                          userVerification: "required" 
                       }, 
                       timeout: 60000
                   }
@@ -682,7 +684,7 @@ function App() {
                   challenge, 
                   rpId,
                   allowCredentials, 
-                  userVerification: "discouraged" 
+                  userVerification: "required" 
               } 
           });
 
@@ -706,11 +708,10 @@ function App() {
       } catch(e) { showDialog({title: 'Fehler', message: 'Biometrische Prüfung fehlgeschlagen.', icon: 'x'}); }
   };
 
-  // Theme Sync - Separates Background & Text Color
+  // Theme Sync
   useEffect(() => {
     const metaThemeColor = document.getElementById("meta-theme-color");
     
-    // Background
     if (user.appBgColor) {
         document.body.style.setProperty('background-color', user.appBgColor, 'important');
         if (metaThemeColor) metaThemeColor.setAttribute("content", user.appBgColor);
@@ -723,7 +724,6 @@ function App() {
         else { document.documentElement.classList.remove('dark'); if (metaThemeColor) metaThemeColor.setAttribute("content", "#f8fafc"); }
     }
 
-    // Text Color
     if (user.textColor) {
         document.body.style.setProperty('color', user.textColor, 'important');
     } else {
@@ -792,46 +792,17 @@ function App() {
       finally { setSyncingCloud(false); }
   };
 
+  // Robust Save Logic Update (Fehlerhafte Speicherung behoben)
   useEffect(() => {
-    if (importId && isLoaded) {
-      setSyncStatus('Bereite Datenübertragung vor...'); const peer = new window.Peer();
-      peer.on('open', () => { setSyncStatus(`Verbinde mit altem Gerät...`); const conn = peer.connect(importId); conn.on('open', () => { setSyncStatus('Verbunden! Empfange Daten...'); conn.send('request_data'); }); conn.on('data', async (data) => {
-          try {
-            const parsed = JSON.parse(data);
-            if (parsed.entries) {
-               setSyncStatus('Daten werden verarbeitet...');
-               if (db) {
-                 const pinToUse = parsed.user ? parsed.user.pin : user.pin;
-                 const entriesToSave = await Promise.all(parsed.entries.map(async (e) => {
-                     let dbE = { ...e }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []);
-                     if (dbE.locked && pinToUse) { const payload = JSON.stringify({ text: dbE.text || '', title: dbE.title || '' }); dbE.encryptedData = await encryptData(payload, pinToUse); dbE.text = ''; dbE.title = 'Verschlüsselter Eintrag'; return dbE; } return dbE;
-                 }));
-                 const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); entriesToSave.forEach(e => store.put(e));
-                 tx.oncomplete = () => { if (parsed.user) safeStorageSet('legacy_user', JSON.stringify(parsed.user)); setSyncStatus('Erfolgreich übertragen!'); setTimeout(() => { window.location.href = window.location.origin + window.location.pathname; }, 2000); };
-               }
-            }
-          } catch(e) { setSyncStatus('Fehler beim Lesen.'); }
-        }); conn.on('error', (err) => setSyncStatus('Verbindungsfehler: ' + err)); }); peer.on('error', (err) => setSyncStatus('Gerät nicht bereit.'));
-    }
-  }, [importId, isLoaded, db]);
+     editingIdRef.current = editingId;
+     currentEntryRef.current = { title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, rating, tags, people, weather };
+  }, [editingId, title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, rating, tags, people, weather]);
 
-  // Robust Save Logic Update
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; let dbEntry = { ...entry };
     try { if (dbEntry.locked && activePin) { const payload = JSON.stringify({ text: dbEntry.text || '', title: dbEntry.title || '' }); dbEntry.encryptedData = await encryptData(payload, activePin); dbEntry.text = ''; dbEntry.title = 'Verschlüsselter Eintrag'; } else if (!dbEntry.locked) { dbEntry.encryptedData = null; } } catch(e) {}
     try {
-      if (db) { 
-        const tx = db.transaction('entries', 'readwrite'); 
-        tx.objectStore('entries').put(dbEntry); 
-        tx.oncomplete = () => { 
-            setEntries(prev => { 
-                const exists = prev.find(e => e.id === entry.id); 
-                if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); 
-                return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); 
-            }); 
-            syncSingleEntryToCloud(entry); 
-        }; 
-      }
+      if (db) { const tx = db.transaction('entries', 'readwrite'); tx.objectStore('entries').put(dbEntry); tx.oncomplete = () => { setEntries(prev => { const exists = prev.find(e => e.id === entry.id); if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); }); syncSingleEntryToCloud(entry); }; }
     } catch (e) {}
   };
 
@@ -845,7 +816,12 @@ function App() {
         const titleSafe = state.title || '';
         
         if (!titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && (!state.selectedImages || state.selectedImages.length === 0) && !state.audioUrl && closeAndRead) { closeEditor(entries.find(e => e.id === editingIdRef.current) || null); return; }
-        const newEntry = { id: entryId, title: titleSafe || 'Ohne Titel', text: currentText, color: state.selectedColor, images: state.selectedImages, audio: state.audioUrl, locked: state.isLocked, archived: false, manifested: state.isManifested, category: state.category, mood: state.mood, unlockDate: state.unlockDate, location: state.location, parentId: state.parentId, inheritedFrom: state.inheritedFrom, rating: state.rating, tags: state.tags, people: state.people, weather: state.weather, date: editingIdRef.current ? (entries.find(e => e.id === editingIdRef.current)?.date || new Date().toISOString()) : new Date().toISOString(), orderTimestamp: editingIdRef.current ? (entries.find(e => e.id === editingIdRef.current)?.orderTimestamp || new Date().toISOString()) : new Date().toISOString() };
+        
+        const newEntry = { 
+            id: entryId, title: titleSafe || 'Ohne Titel', text: currentText, color: state.selectedColor, images: state.selectedImages, audio: state.audioUrl, locked: state.isLocked, archived: false, manifested: state.isManifested, category: state.category, mood: state.mood, unlockDate: state.unlockDate, location: state.location, parentId: state.parentId, inheritedFrom: state.inheritedFrom, rating: state.rating, tags: state.tags, people: state.people, weather: state.weather, 
+            date: editingIdRef.current ? (entries.find(e => e.id === editingIdRef.current)?.date || getLocalISO()) : getLocalISO(), 
+            orderTimestamp: editingIdRef.current ? (entries.find(e => e.id === editingIdRef.current)?.orderTimestamp || getLocalISO()) : getLocalISO() 
+        };
         
         if (!editingIdRef.current) { setEditingId(entryId); editingIdRef.current = entryId; }
         saveToDB(newEntry);
@@ -936,24 +912,17 @@ function App() {
   const getAllBookEntries = (rootId) => { const result = []; const traverse = (id, depth=0) => { if (depth > 1000) return; const entry = entries.find(e => e.id === id); if (entry && !result.find(r => r.id === entry.id)) { result.push(entry); entries.filter(e => e.parentId === id).sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(c => traverse(c.id, depth+1)); } }; traverse(rootId); return result; };
   const getBookRoot = (entryId) => { let current = entries.find(e => e.id === entryId); let safeGuard = 0; while (current && current.parentId && safeGuard < 1000) { const p = entries.find(e => e.id === current.parentId); if (p) current = p; else break; safeGuard++; } return current; };
 
-  // Swipe Navigation in Viewer
+  // Swipe Navigation in Viewer (Category specific)
   const handleTouchStart = (e) => { setTouchStart(e.touches[0].clientX); };
   const handleTouchEnd = (e) => {
       if (!touchStart || !viewingEntry) return;
       const touchEnd = e.changedTouches[0].clientX; const distance = touchStart - touchEnd;
       
       let swipeNext = null, swipePrev = null;
-      const allBookEntries = getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id);
-      if (allBookEntries.length > 1) {
-          const cIdx = allBookEntries.findIndex(ex => ex.id === viewingEntry.id);
-          if (cIdx > 0) swipePrev = allBookEntries[cIdx - 1]; 
-          if (cIdx < allBookEntries.length - 1) swipeNext = allBookEntries[cIdx + 1]; 
-      } else {
-          const sorted = visibleEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
-          const cIdx = sorted.findIndex(ex => ex.id === viewingEntry.id);
-          if (cIdx > 0) swipePrev = sorted[cIdx - 1]; 
-          if (cIdx < sorted.length - 1) swipeNext = sorted[cIdx + 1]; 
-      }
+      const sorted = visibleEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
+      const cIdx = sorted.findIndex(ex => ex.id === viewingEntry.id);
+      if (cIdx > 0) swipePrev = sorted[cIdx - 1]; 
+      if (cIdx < sorted.length - 1) swipeNext = sorted[cIdx + 1]; 
 
       if (distance > 50 && swipeNext) { setViewingEntry(swipeNext); setCurrentViewerImgIdx(0); } // Swipe left
       if (distance < -50 && swipePrev) { setViewingEntry(swipePrev); setCurrentViewerImgIdx(0); } // Swipe right
@@ -1047,7 +1016,7 @@ function App() {
               const base64 = canvas.toDataURL('image/jpeg', 0.6);
               if (editorRef.current) {
                   editorRef.current.focus();
-                  document.execCommand('insertHTML', false, `<span style="display: inline-block; resize: both; overflow: hidden; width: 150px; min-width: 50px; max-width: 100%; border: 2px dashed #cbd5e1; padding: 2px; border-radius: 8px; vertical-align: middle; margin: 4px;"><img src="${base64}" style="width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block;" /></span>&nbsp;`);
+                  document.execCommand('insertHTML', false, `<span class="inline-img-wrapper"><img src="${base64}" /></span>&nbsp;`);
                   isDirtyRef.current = true;
               }
           };
@@ -1121,22 +1090,44 @@ function App() {
           let hasMarkers = false;
           const bounds = window.L.latLngBounds();
 
+          // Standorte gruppieren (Clustering) für Badges
+          const locationGroups = {};
           entries.forEach(e => {
               if (e.location) {
                   hasMarkers = true;
                   bounds.extend([e.location.lat, e.location.lng]);
-                  
-                  if (e.images && e.images.length > 0) {
-                      const iconHtml = `<div style="width: 54px; height: 54px; border-radius: 50%; overflow: hidden; border: 3px solid ${user.nameColor || '#f59e0b'}; box-shadow: 0 4px 10px rgba(0,0,0,0.4); background-color: #000;"><img src="${e.images[0]}" style="width: 100%; height: 100%; object-fit: cover;" /></div>`;
-                      const icon = window.L.divIcon({ html: iconHtml, className: 'avatar-marker', iconSize: [54, 54], iconAnchor: [27, 27] });
-                      const marker = window.L.marker([e.location.lat, e.location.lng], { icon }).addTo(map);
-                      marker.bindPopup(`<b style="color:#000;">${e.title}</b><br/><span style="color:#000;">${new Date(e.date).toLocaleDateString('de-DE')}</span>`);
-                      marker.on('click', () => { setView('dashboard'); handleOpenEntry(e); });
-                  } else {
-                      const marker = window.L.circleMarker([e.location.lat, e.location.lng], { color: user.nameColor || '#f59e0b', fillColor: user.nameColor || '#f59e0b', fillOpacity: 0.8, radius: 8 }).addTo(map);
-                      marker.bindPopup(`<b style="color:#000;">${e.title}</b><br/><span style="color:#000;">${new Date(e.date).toLocaleDateString('de-DE')}</span>`);
-                      marker.on('click', () => { setView('dashboard'); handleOpenEntry(e); });
-                  }
+                  const key = `${e.location.lat.toFixed(3)}_${e.location.lng.toFixed(3)}`;
+                  if (!locationGroups[key]) locationGroups[key] = { lat: e.location.lat, lng: e.location.lng, entries: [] };
+                  locationGroups[key].entries.push(e);
+              }
+          });
+
+          Object.values(locationGroups).forEach(group => {
+              const e = group.entries[0];
+              const count = group.entries.length;
+              
+              if (e.images && e.images.length > 0) {
+                  const iconHtml = `
+                    <div style="position: relative; width: 54px; height: 54px;">
+                        <div style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; border: 3px solid ${user.nameColor || '#f59e0b'}; background-color: #000;">
+                            <img src="${e.images[0]}" style="width: 100%; height: 100%; object-fit: cover;" />
+                        </div>
+                        ${count > 1 ? `<div style="position: absolute; top: -4px; right: -4px; background: #ef4444; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 10;">${count}</div>` : ''}
+                    </div>`;
+                  const icon = window.L.divIcon({ html: iconHtml, className: 'avatar-marker', iconSize: [54, 54], iconAnchor: [27, 27] });
+                  const marker = window.L.marker([group.lat, group.lng], { icon }).addTo(map);
+                  marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b><br/><span style="color:#000;">Letzter: ${new Date(e.date).toLocaleDateString('de-DE')}</span>`);
+                  marker.on('click', () => { setView('dashboard'); handleOpenEntry(e); });
+              } else {
+                  const iconHtml = `
+                    <div style="position: relative; width: 16px; height: 16px;">
+                        <div style="width: 100%; height: 100%; border-radius: 50%; background-color: ${user.nameColor || '#f59e0b'}; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>
+                        ${count > 1 ? `<div style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 10;">${count}</div>` : ''}
+                    </div>`;
+                  const icon = window.L.divIcon({ html: iconHtml, className: 'avatar-marker', iconSize: [16, 16], iconAnchor: [8, 8] });
+                  const marker = window.L.marker([group.lat, group.lng], { icon }).addTo(map);
+                  marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b><br/><span style="color:#000;">Letzter: ${new Date(e.date).toLocaleDateString('de-DE')}</span>`);
+                  marker.on('click', () => { setView('dashboard'); handleOpenEntry(e); });
               }
           });
 
@@ -1301,7 +1292,7 @@ function App() {
                            </div>
                        </div>
                        <label className="w-full sm:flex-1 py-3 px-4 rounded-xl cursor-pointer shadow-sm font-bold text-sm text-center border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:scale-[1.02] transition-transform">
-                           Profilbild ändern <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                           Profilbild ändern <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'image')} className="hidden" />
                        </label>
                    </div>
                    <input type="text" value={user.name} onChange={e=>setUser({...user, name: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-lg mb-4 focus:ring-2 focus:ring-slate-200 dark:focus:ring-zinc-700" placeholder="Dein Name" />
@@ -1569,7 +1560,7 @@ function App() {
                 )}
 
                 <h1 className="text-4xl sm:text-5xl font-extrabold mb-6 tracking-tight leading-tight">{viewingEntry.title}</h1>
-                <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50">
+                <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
                   <span>{new Date(viewingEntry.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                   <span>•</span><span>{viewingEntry.category}</span>
                   {viewingEntry.location && <span className="flex items-center gap-1 text-amber-500"><Icon name="map-pin" size={14}/> GPS-Siegel</span>}
@@ -1700,7 +1691,7 @@ function App() {
                                <div className="space-y-3">
                                    {entriesOnSelectedDate.map((e) => (
                                        <button key={e.id} onClick={() => { setViewingEntry(e); setShowTimeline(false); }} className={`w-full text-left p-4 rounded-2xl flex items-center gap-4 transition-colors ${viewingEntry.id === e.id ? 'border' : 'bg-slate-50 dark:bg-zinc-900 border border-transparent'}`} style={viewingEntry.id === e.id ? { backgroundColor: `${user.nameColor}20`, borderColor: `${user.nameColor}50` } : {}}>
-                                           {e.images && e.images.length > 0 && <img src={e.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0" />}
+                                           {e.images && e.images.length > 0 && <img src={e.images[0]} loading="lazy" className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0" />}
                                            <div className="flex-1 overflow-hidden">
                                                <span className="font-bold text-sm truncate block">{e.title}</span>
                                                <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">{new Date(e.date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
@@ -1718,7 +1709,7 @@ function App() {
 
         {/* --- EDITOR --- */}
         {showEditor && (
-          <div className="fixed inset-0 z-[150] flex flex-col bg-white dark:bg-black animate-fade-in no-print">
+          <div className="fixed inset-0 z-[150] flex flex-col bg-white dark:bg-black animate-fade-in no-print h-[100dvh]">
             <div className="w-full h-full max-w-3xl mx-auto flex flex-col bg-white dark:bg-zinc-950 overflow-hidden shadow-2xl relative">
               
               {/* Toolbar Top - ABSOLUTELY FIXED AT TOP */}
@@ -1798,7 +1789,7 @@ function App() {
               </div>
 
               {/* Editor Content Area - Scrollbar hierhin verlagert */}
-              <div className="flex-1 overflow-y-auto px-6 sm:px-10 pt-4 pb-32 overscroll-contain relative z-10">
+              <div className="flex-1 overflow-y-auto px-6 sm:px-10 pt-4 pb-48 overscroll-contain relative z-10">
                 {selectedImages.length > 0 && (
                    <div className="flex overflow-x-auto hide-scrollbar gap-3 mb-6 snap-x shrink-0">
                       {selectedImages.map((imgSrc, i) => (
@@ -1817,7 +1808,7 @@ function App() {
                 )}
                 
                 {/* Main Text Editor */}
-                <div ref={editorRef} contentEditable suppressContentEditableWarning data-placeholder="Lass es fließen..." onInput={() => { isDirtyRef.current = true; }} className="w-full min-h-[50vh] flex-1 bg-transparent text-lg leading-relaxed font-medium outline-none empty:before:content-[attr(data-placeholder)] legacy-editor-content opacity-90" />
+                <div ref={editorRef} contentEditable suppressContentEditableWarning data-placeholder="Lass es fließen..." onInput={() => { isDirtyRef.current = true; }} className="w-full min-h-[50vh] flex-1 bg-transparent text-lg leading-relaxed font-medium outline-none empty:before:content-[attr(data-placeholder)] legacy-editor-content opacity-90 pt-4" />
 
                 {/* Metadata Inputs (Tags, People, Weather, Rating) */}
                 <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800 pb-10 shrink-0">
@@ -1846,9 +1837,9 @@ function App() {
               </div>
 
               {/* Bottom Control Bar */}
-              <div className="absolute bottom-0 left-0 right-0 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 p-4 flex justify-between items-center pb-[env(safe-area-inset-bottom,16px)] z-30">
+              <div className="shrink-0 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 p-4 flex justify-between items-center pb-[env(safe-area-inset-bottom,16px)] z-30">
                  <div className="flex gap-2">
-                    <label className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm cursor-pointer hover:scale-105 transition-transform" title="Galerie-Bild"><Icon name="images" size={20}/><input type="file" accept="image/*" multiple onChange={handleFileUpload} className="hidden" /></label>
+                    <label className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm cursor-pointer hover:scale-105 transition-transform" title="Galerie-Bild"><Icon name="images" size={20}/><input type="file" accept="image/*" multiple onChange={(e) => handleFileUpload(e, 'image')} className="hidden" /></label>
                     <button onClick={()=>setIsDrawing(true)} className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm hover:scale-105 transition-transform"><Icon name="pen-tool" size={20}/></button>
                     <button onClick={isRecording?stopRecording:startRecording} className={`p-3.5 rounded-full shadow-sm transition-transform hover:scale-105 ${isRecording?'bg-rose-500 text-white animate-pulse':'bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700'}`}>{isRecording?<Icon name="square" size={20}/>:<Icon name="mic" size={20}/>}</button>
                     
