@@ -112,7 +112,7 @@
       navigator.serviceWorker.register('./sw.js').then(reg => console.log('SW registriert:', reg.scope)).catch(err => console.warn('SW Fehler:', err));
     });
   } else {
-    console.log('Service Worker erfordert HTTP/HTTPS (aktuell: ' + window.location.protocol + '). Registrierung übersprungen.');
+    console.log('Service Worker erfordert HTTP/HTTPS. Registrierung übersprungen.');
   }
 </script>
 
@@ -134,8 +134,8 @@
 
   h1, h2, h3, h4, h5, h6 { font-weight: 800; letter-spacing: -0.03em; }
 
-  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } } .animate-fade-in { animation: fade-in 0.4s ease-out forwards; }
-  @keyframes slide-up { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } .animate-slide-up { animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } } .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
+  @keyframes slide-up { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } .animate-slide-up { animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
   @keyframes pulse-flame { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.05); } } .animate-flame { animation: pulse-flame 2s infinite ease-in-out; }
 
   .custom-scrollbar::-webkit-scrollbar { display: none; }
@@ -146,14 +146,15 @@
   .legacy-editor-content ul, .legacy-content ul { list-style-type: disc; padding-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.5rem; }
   .legacy-editor-content li, .legacy-content li { margin-bottom: 0.25rem; }
   .legacy-editor-content blockquote, .legacy-content blockquote { border-left: 4px solid currentColor; padding-left: 1.5rem; font-style: normal; font-weight: 600; opacity: 0.9; background: transparent; margin: 1.5rem 0; font-size: 1.1em; }
+  .legacy-editor-content img, .legacy-content img { max-width: 100%; border-radius: 12px; margin: 10px 0; }
+  
   [contenteditable="true"]:empty:before { content: attr(data-placeholder); opacity: 0.3; pointer-events: none; display: block; font-weight: 400; }
   html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
   .search-highlight { background-color: rgba(245, 158, 11, 0.3); padding: 0 2px; border-radius: 3px; border-bottom: 1px solid #f59e0b; }
 
-  /* Map Container */
   .map-container { height: 100%; width: 100%; border-radius: 1.5rem; z-index: 1; }
 
-  /* --- BUCHDRUCK-MODUS (CSS Paged Media) --- */
+  /* --- BUCHDRUCK-MODUS --- */
   .print-only { display: none; }
   @media print {
     @page { margin: 2cm; @bottom-center { content: counter(page); font-family: 'Inter', sans-serif; font-size: 12px; color: #888; } }
@@ -166,7 +167,6 @@
     * { color: #000000 !important; } 
     h1, h2, h3 { page-break-after: avoid; }
     
-    /* Echte Buch-Typografie */
     .print-title-page { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; text-align: center; }
     .legacy-content { text-align: justify; hyphens: auto; font-family: 'Georgia', serif; }
     .legacy-content p:first-of-type::first-letter { font-size: 3.5em; float: left; line-height: 0.9; padding-right: 8px; font-weight: bold; color: #111; }
@@ -183,10 +183,10 @@ const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catc
 const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
 
 const createSafeHtml = (htmlStr) => {
-  return { __html: window.DOMPurify ? window.DOMPurify.sanitize(htmlStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3'], ALLOWED_ATTR: ['style', 'class', 'dir'] }) : htmlStr };
+  return { __html: window.DOMPurify ? window.DOMPurify.sanitize(htmlStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height'] }) : htmlStr };
 };
 
-// --- Web Crypto API Helper (100% untouched) ---
+// --- Web Crypto API Helper ---
 const encHelper = new TextEncoder();
 const decHelper = new TextDecoder();
 const cryptoKeyCache = {}; 
@@ -196,12 +196,8 @@ const getCryptoKey = async (pin, saltStr) => {
     if (cryptoKeyCache[cacheKey]) return cryptoKeyCache[cacheKey];
     const keyMaterial = await window.crypto.subtle.importKey("raw", encHelper.encode(pin), { name: "PBKDF2" }, false, ["deriveBits", "deriveKey"]);
     const salt = Uint8Array.from(atob(saltStr), c => c.charCodeAt(0));
-    const key = await window.crypto.subtle.deriveKey(
-        { name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" },
-        keyMaterial, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]
-    );
-    cryptoKeyCache[cacheKey] = key;
-    return key;
+    const key = await window.crypto.subtle.deriveKey({ name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" }, keyMaterial, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+    cryptoKeyCache[cacheKey] = key; return key;
 };
 
 const encryptData = async (text, pin) => {
@@ -229,23 +225,14 @@ const decryptData = async (encryptedObj, pin) => {
 
 const pcmToWav = (pcmBase64, sampleRate = 24000) => {
   const pcmData = Uint8Array.from(atob(pcmBase64), c => c.charCodeAt(0)).buffer;
-  const wavHeader = new ArrayBuffer(44);
-  const view = new DataView(wavHeader);
-  view.setUint32(0, 0x52494646, false); 
-  view.setUint32(4, 36 + pcmData.byteLength, true); 
-  view.setUint32(8, 0x57415645, false); 
-  view.setUint32(12, 0x666d7420, false); 
-  view.setUint32(16, 16, true); 
-  view.setUint16(20, 1, true); 
-  view.setUint16(22, 1, true); 
-  view.setUint32(24, sampleRate, true); 
-  view.setUint32(28, sampleRate * 2, true); 
-  view.setUint16(32, 2, true); 
-  view.setUint16(34, 16, true); 
-  view.setUint32(36, 0x64617461, false); 
-  view.setUint32(40, pcmData.byteLength, true); 
-  const blob = new Blob([wavHeader, pcmData], { type: 'audio/wav' });
-  return URL.createObjectURL(blob);
+  const wavHeader = new ArrayBuffer(44); const view = new DataView(wavHeader);
+  view.setUint32(0, 0x52494646, false); view.setUint32(4, 36 + pcmData.byteLength, true); 
+  view.setUint32(8, 0x57415645, false); view.setUint32(12, 0x666d7420, false); 
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true); 
+  view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true); 
+  view.setUint16(32, 2, true); view.setUint16(34, 16, true); 
+  view.setUint32(36, 0x64617461, false); view.setUint32(40, pcmData.byteLength, true); 
+  return URL.createObjectURL(new Blob([wavHeader, pcmData], { type: 'audio/wav' }));
 };
 
 class ErrorBoundary extends React.Component {
@@ -255,11 +242,7 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-black text-white p-8 text-center">
-          <div>
-            <h1 className="text-2xl font-bold mb-4">Ein Moment bitte...</h1>
-            <p className="opacity-70 mb-8">Die App hat sich verschluckt. Bitte lade die Seite neu.</p>
-            <button type="button" onClick={() => window.location.reload()} className="px-6 py-3 bg-white text-black font-bold rounded-full shadow-lg">Neu laden</button>
-          </div>
+          <div><h1 className="text-2xl font-bold mb-4">Ein Moment bitte...</h1><p className="opacity-70 mb-8">Die App hat sich verschluckt.</p><button type="button" onClick={() => window.location.reload()} className="px-6 py-3 bg-white text-black font-bold rounded-full">Neu laden</button></div>
         </div>
       );
     }
@@ -283,7 +266,7 @@ const Icon = ({ name, size = 24, className = '', ...props }) => {
   return <span ref={spanRef} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} {...props}></span>;
 };
 
-// 25 COLORS added for maximum personalization
+// 25 Custom Colors
 const COLORS = [
   '#ffffff', '#f8fafc', '#e4e4e7', '#a1a1aa', '#52525b', 
   '#27272a', '#18181b', '#09090b', '#fef08a', '#fbbf24', 
@@ -302,15 +285,12 @@ const isDarkColor = (color) => {
   return true; 
 };
 
-// Hilfsfunktion für sanfte, getönte Ränder in den Einträgen
 const getSubtleBorderColor = (hexColor, isDark) => {
     if (!hexColor) return isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
     const cleanHex = hexColor.replace('#', '');
     if (cleanHex.length === 6) {
-        const r = parseInt(cleanHex.slice(0, 2), 16);
-        const g = parseInt(cleanHex.slice(2, 4), 16);
-        const b = parseInt(cleanHex.slice(4, 6), 16);
-        return `rgba(${r}, ${g}, ${b}, ${isDark ? 0.25 : 0.35})`;
+        const r = parseInt(cleanHex.slice(0, 2), 16), g = parseInt(cleanHex.slice(2, 4), 16), b = parseInt(cleanHex.slice(4, 6), 16);
+        return `rgba(${r}, ${g}, ${b}, ${isDark ? 0.15 : 0.25})`;
     }
     return isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
 };
@@ -324,13 +304,33 @@ const MOODS = [
   { id: 'frown', label: 'Nachdenklich', color: 'text-slate-500', iconName: 'frown' }
 ];
 
+// Vollständige 25 Weisheiten
 const PILLARS = [
-  { id: 'm1', phase: 'Fundament', title: '1. Das Nordstern-Manifest', desc: 'Definiere deine absoluten, unverhandelbaren Grundwerte.' },
-  { id: 'm2', phase: 'Fundament', title: '2. Der Zeitgeist-Stempel', desc: 'Historischer Kontext: Was passiert gerade auf der Welt?' },
-  { id: 'm3', phase: 'Fundament', title: '3. Das Geistige Testament', desc: 'Vererbe deinen Charakter. Welche Lebensweisheiten möchtest du weitergeben?' },
-  { id: 'm6', phase: 'Kommunikation', title: '6. Die Zeitkapsel', desc: 'Eine Botschaft an die Zukunft. Nutze das Datumssiegel.' },
-  { id: 'm12', phase: 'Struktur', title: '12. Matroschka-Ziele', desc: 'Bricht deine große Vision herunter.' },
-  { id: 'm24', phase: 'Anpassung', title: '24. Stimme & Akzent', desc: 'Nutze das Mikrofon, um eine Audio-Nachricht zu hinterlassen.' }
+  { id: 'm1', phase: 'Fundament', title: '1. Das Nordstern-Manifest', desc: 'Definiere deine absoluten, unverhandelbaren Grundwerte. Welche Prinzipien leiten dich?' },
+  { id: 'm2', phase: 'Fundament', title: '2. Der Zeitgeist-Stempel', desc: 'Historischer Kontext: Was passiert gerade auf der Welt? Politik, Technik, Alltag.' },
+  { id: 'm3', phase: 'Fundament', title: '3. Das Geistige Testament', desc: 'Vererbe deinen Charakter. Welche Überzeugungen möchtest du weitergeben?' },
+  { id: 'm4', phase: 'Fundament', title: '4. Die Anti-Vision', desc: 'Definiere glasklar, wer du niemals werden willst und welche Pfade du vermeidest.' },
+  { id: 'm5', phase: 'Fundament', title: '5. Das Narben-Register', desc: 'Eine ehrliche Dokumentation deines größten Fehlschlags und deines Comebacks.' },
+  { id: 'm6', phase: 'Kommunikation', title: '6. Die Zeitkapsel', desc: 'Eine Botschaft an die Zukunft. Nutze die Datums-Siegelfunktion.' },
+  { id: 'm7', phase: 'Kommunikation', title: '7. Der Enkel-Dialog', desc: 'Stelle Fragen, die der zukünftige Leser für sich selbst beantworten soll.' },
+  { id: 'm8', phase: 'Kommunikation', title: '8. Stammbaum der Fähigkeiten', desc: 'Dokumentiere, wie du dir über Jahrzehnte bestimmte Fähigkeiten angeeignet hast.' },
+  { id: 'm9', phase: 'Kommunikation', title: '9. Schicksals-Tagebuch', desc: 'Ein Ort für unglaubliche Zufälle und unerklärliche Momente deines Lebens.' },
+  { id: 'm10', phase: 'Kommunikation', title: '10. Das Dankbarkeits-Echo', desc: 'Wem verdankst du etwas? Wer waren deine Mentoren, Lehrer, Wegbegleiter?' },
+  { id: 'm11', phase: 'Struktur', title: '11. Purer Text (Agnostisch)', desc: 'Schreibe in einfachen Sätzen rohe Fakten auf, völlig ohne Emotionen.' },
+  { id: 'm12', phase: 'Struktur', title: '12. Matroschka-Ziele', desc: 'Bricht deine 50-Jahres-Vision auf ein 10-Jahres-Ziel und das Heute herunter.' },
+  { id: 'm13', phase: 'Struktur', title: '13. Die Essenz-Filterung', desc: 'Fasse das vergangene Jahr in drei Sätzen zusammen: Triumph, Schmerz, Lektion.' },
+  { id: 'm14', phase: 'Struktur', title: '14. Offene Fragen', desc: 'Dinge im Leben, die du noch nicht verstehst. Zeige intellektuelle Demut.' },
+  { id: 'm15', phase: 'Struktur', title: '15. Denkwerkzeuge', desc: 'Notiere die mentalen Modelle, die dir in schweren Situationen helfen.' },
+  { id: 'm16', phase: 'Tiefe', title: '16. Emotionaler Farb-Code', desc: 'Vergib deiner aktuellen Lebensphase eine Farbe und erkläre, warum.' },
+  { id: 'm17', phase: 'Tiefe', title: '17. Die Friedens-Akte', desc: 'Aufzeichnungen darüber, wie du einen schweren Konflikt gelöst hast.' },
+  { id: 'm18', phase: 'Tiefe', title: '18. Das Alltags-Fossil', desc: 'Dokumentiere einen extrem banalen, minutengenauen Ablauf eines normalen Dienstags.' },
+  { id: 'm19', phase: 'Tiefe', title: '19. Rhythmus-Tracker', desc: 'Beobachte deine eigenen Lebensenergie-Zyklen. Wann musstest du loslassen?' },
+  { id: 'm20', phase: 'Tiefe', title: '20. Ideen-Gewächshaus', desc: 'Ideen, die du heute hast, für die du oder die Welt noch nicht bereit sind.' },
+  { id: 'm21', phase: 'Anpassung', title: '21. Der Pivot-Tracker', desc: 'Hebe Momente hervor, in denen du dein Leben radikal in eine neue Richtung gelenkt hast.' },
+  { id: 'm22', phase: 'Anpassung', title: '22. Umwelt-Resonanz', desc: 'Beobachtungen über die Natur und Umwelt an deinem Wohnort im Wandel der Zeit.' },
+  { id: 'm23', phase: 'Anpassung', title: '23. Die Loslass-Liste', desc: 'Träume, Ziele oder Menschen, die du bewusst (und in Frieden) aufgegeben hast.' },
+  { id: 'm24', phase: 'Anpassung', title: '24. Stimme & Akzent', desc: 'Nutze die Mikrofon-Funktion, um eine Audio-Nachricht mit deiner echten Stimme zu hinterlassen.' },
+  { id: 'm25', phase: 'Anpassung', title: '25. Raum für Unbegreifliches', desc: 'Platz für Konzepte und Lebensrealitäten, die es heute noch gar nicht gibt.' }
 ];
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -412,7 +412,6 @@ function App() {
   const [text, setText] = useState(''); 
   const [selectedColor, setSelectedColor] = useState(COLORS[8]);
   const [selectedImages, setSelectedImages] = useState([]); 
-  const [selectedVideo, setSelectedVideo] = useState(null);
   const [isLocked, setIsLocked] = useState(false);
   const [audioUrl, setAudioUrl] = useState(null);
   const [isManifested, setIsManifested] = useState(false);
@@ -531,18 +530,17 @@ function App() {
       if(fb) { await fb.signOut(fb.auth); setUser({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', isDark: true, appBgColor: null, cloudSync: false, biometric: false }); localStorage.removeItem('legacy_user'); setEntries([]); setView('auth'); }
   };
 
-  // --- IDEA 1: Biometric WebAuthn (Optimized for Mobile Support) ---
+  // --- IDEA 1: Biometric WebAuthn (Fix for Mobile) ---
   const toggleBiometric = async () => {
       if (!user.biometric) {
           try {
               const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
               const userId = new Uint8Array(16); window.crypto.getRandomValues(userId);
-              const rpId = window.location.hostname || "localhost";
               const cred = await navigator.credentials.create({
                   publicKey: {
-                      challenge, rp: { name: "Legacy Journal", id: rpId }, user: { id: userId, name: user.name || 'User', displayName: user.name || 'User' },
+                      challenge, rp: { name: "Legacy Journal" }, user: { id: userId, name: user.name || 'User', displayName: user.name || 'User' },
                       pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
-                      authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" }, timeout: 60000
+                      authenticatorSelection: { userVerification: "preferred" }, timeout: 60000
                   }
               });
               if (cred) {
@@ -560,7 +558,6 @@ function App() {
   const handleBiometricUnlock = async () => {
       try {
           const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
-          const rpId = window.location.hostname || "localhost";
           const savedIdStr = safeStorageGet('legacy_bio_id');
           let allowCredentials = undefined;
           if (savedIdStr) {
@@ -570,9 +567,8 @@ function App() {
           const cred = await navigator.credentials.get({ 
               publicKey: { 
                   challenge, 
-                  rpId,
                   allowCredentials,
-                  userVerification: "required" 
+                  userVerification: "preferred" 
               } 
           });
           if (cred) {
@@ -585,11 +581,23 @@ function App() {
       } catch(e) { showDialog({title: 'Fehler', message: 'Biometrische Prüfung fehlgeschlagen.', icon: 'x'}); }
   };
 
+  // Theme Sync - Forces background colors deeply
   useEffect(() => {
     const metaThemeColor = document.getElementById("meta-theme-color");
-    if (user.isDark) { document.documentElement.classList.add('dark'); if (metaThemeColor) metaThemeColor.setAttribute("content", user.nameColor || "#000000"); } 
-    else { document.documentElement.classList.remove('dark'); if (metaThemeColor) metaThemeColor.setAttribute("content", user.nameColor || "#f8fafc"); }
-  }, [user.isDark, user.nameColor]);
+    if (user.appBgColor) {
+        document.body.style.setProperty('background-color', user.appBgColor, 'important');
+        const isBgDark = isDarkColor(user.appBgColor);
+        document.body.style.setProperty('color', isBgDark ? '#ffffff' : '#18181b', 'important');
+        if (metaThemeColor) metaThemeColor.setAttribute("content", user.appBgColor);
+        if(isBgDark) document.documentElement.classList.add('dark');
+        else document.documentElement.classList.remove('dark');
+    } else {
+        document.body.style.removeProperty('background-color');
+        document.body.style.removeProperty('color');
+        if (user.isDark) { document.documentElement.classList.add('dark'); if (metaThemeColor) metaThemeColor.setAttribute("content", "#000000"); } 
+        else { document.documentElement.classList.remove('dark'); if (metaThemeColor) metaThemeColor.setAttribute("content", "#f8fafc"); }
+    }
+  }, [user.appBgColor, user.isDark]);
 
   const syncSingleEntryToCloud = async (entry) => {
       if (!fb || !fb.auth.currentUser || !user.cloudSync || !user.pin) return;
@@ -673,7 +681,7 @@ function App() {
     }
   }, [importId, isLoaded, db]);
 
-  // Robust Save Logic Update
+  // Robust Save Logic Update (Fixes missing entries bug)
   useEffect(() => {
      editingIdRef.current = editingId;
      currentEntryRef.current = { title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom };
@@ -698,9 +706,17 @@ function App() {
         
         if (!titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && (!state.selectedImages || state.selectedImages.length === 0) && !state.audioUrl && closeAndRead) { closeEditor(entries.find(e => e.id === editingIdRef.current) || null); return; }
         const newEntry = { id: entryId, title: titleSafe || 'Ohne Titel', text: currentText, color: state.selectedColor, images: state.selectedImages, audio: state.audioUrl, locked: state.isLocked, archived: false, manifested: state.isManifested, category: state.category, mood: state.mood, unlockDate: state.unlockDate, location: state.location, parentId: state.parentId, inheritedFrom: state.inheritedFrom, date: editingIdRef.current ? (entries.find(e => e.id === editingIdRef.current)?.date || new Date().toISOString()) : new Date().toISOString(), orderTimestamp: editingIdRef.current ? (entries.find(e => e.id === editingIdRef.current)?.orderTimestamp || new Date().toISOString()) : new Date().toISOString() };
+        
+        if (!editingIdRef.current) { setEditingId(entryId); editingIdRef.current = entryId; }
         saveToDB(newEntry);
-        if (closeAndRead) closeEditor(newEntry); else { setEditingId(entryId); isDirtyRef.current = false; setAutoSaveStatus('Gespeichert'); setTimeout(()=>setAutoSaveStatus(''), 2000); }
+        isDirtyRef.current = false;
+        
+        if (closeAndRead) closeEditor(newEntry); else { setAutoSaveStatus('Gespeichert'); setTimeout(()=>setAutoSaveStatus(''), 2000); }
     } catch (err) { if (closeAndRead) closeEditor(entries.find(e => e.id === editingIdRef.current) || null); }
+  };
+
+  const confirmDelete = (id) => {
+    showDialog({ type: 'confirm', title: 'Seite löschen?', message: 'Bist du sicher, dass du diese Seite endgültig entfernen möchtest?', icon: 'trash-2', iconColor: 'text-rose-500', onConfirm: () => { deleteFromDB(id); closeEditor(null); } });
   };
 
   useEffect(() => { if (!showEditor || view === 'burn') return; const timer = setTimeout(() => { if (isDirtyRef.current) checkSaveEntry(false); }, 3000); return () => clearTimeout(timer); }, [title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, showEditor]);
@@ -767,7 +783,7 @@ function App() {
   const highlightText = (text, query) => {
       if (!text) return { __html: '' };
       let safeText = text.replace(/<img[^>]*>/g, '[Bild]');
-      safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3'], ALLOWED_ATTR: ['style', 'class', 'dir'] }) : safeText;
+      safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height'] }) : safeText;
       if (!query) return { __html: safeText };
       const plainText = safeText.replace(/<[^>]*>?/gm, '');
       const parts = plainText.split(new RegExp(`(${query})`, 'gi'));
@@ -858,6 +874,29 @@ function App() {
       });
     }
     e.target.value = null; 
+  };
+
+  const handleInlineImage = (e) => {
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+          const img = new Image();
+          img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const MAX_WIDTH = 600;
+              let w = img.width, h = img.height;
+              if (w > MAX_WIDTH) { h *= MAX_WIDTH / w; w = MAX_WIDTH; }
+              canvas.width = w; canvas.height = h;
+              canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+              const base64 = canvas.toDataURL('image/jpeg', 0.7);
+              document.execCommand('insertImage', false, base64);
+              isDirtyRef.current = true;
+          };
+          img.src = evt.target.result;
+      };
+      reader.readAsDataURL(file);
+      e.target.value = null;
   };
 
   // --- IDEA 2: Ewigkeits-Export (JSZip) ---
@@ -1065,7 +1104,7 @@ function App() {
         </header>
 
         {/* --- MAIN FEED & VIEWS --- */}
-        <main className={`p-4 sm:p-6 max-w-2xl mx-auto min-h-[70vh] relative z-10 no-print ${view === 'map' ? 'h-[85vh] floating-nav-spacing flex flex-col' : 'floating-nav-spacing'}`}>
+        <main className={`p-4 sm:p-6 max-w-2xl mx-auto min-h-[70vh] relative z-10 no-print ${view === 'map' ? 'h-[85vh] flex flex-col' : ''}`}>
           
           {view === 'menu' && (
             <div className="grid grid-cols-2 gap-4 sm:gap-6 animate-slide-up">
@@ -1080,7 +1119,7 @@ function App() {
 
           {/* --- SETTINGS VIEW --- */}
           {view === 'settings' && (
-             <div className="animate-slide-up space-y-6">
+             <div className="animate-slide-up space-y-6 pb-48">
                 <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
                    <h2 className="text-base font-bold mb-4 flex items-center gap-2"><Icon name="user" size={18}/> Profil</h2>
                    <div className="flex flex-col sm:flex-row items-center gap-5 mb-6">
@@ -1105,7 +1144,7 @@ function App() {
                    </div>
                    <div className="flex flex-wrap gap-2">
                       {COLORS.map(color => (
-                          <button key={color} onClick={() => setUser({...user, nameColor: color})} className={`w-8 h-8 rounded-full border-2 transition-transform ${user.nameColor === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
+                          <button key={color} onClick={() => setUser({...user, nameColor: color, appBgColor: color})} className={`w-8 h-8 rounded-full border-2 transition-transform ${user.nameColor === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
                       ))}
                    </div>
                 </div>
@@ -1169,7 +1208,7 @@ function App() {
           )}
 
           {view === 'map' && (
-             <div className="flex-1 relative rounded-[2rem] overflow-hidden shadow-lg border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 animate-fade-in flex flex-col">
+             <div className="flex-1 relative rounded-[2rem] overflow-hidden shadow-lg border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 animate-fade-in flex flex-col pb-24">
                 <div ref={mapRef} className="map-container flex-1"></div>
                 <div className="absolute top-4 left-4 right-4 z-[1000] p-4 bg-white/90 dark:bg-black/90 backdrop-blur-md rounded-2xl shadow-lg border border-slate-200 dark:border-zinc-800 flex justify-between items-center pointer-events-auto">
                     <div className="font-bold text-sm">Orte deines Lebens</div>
@@ -1189,11 +1228,11 @@ function App() {
           )}
 
           {view === 'wisdom' && (
-             <div className="animate-slide-up space-y-6">
-                <div className="p-6 rounded-3xl bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 text-center">
-                   <h3 className="font-bold text-amber-600 dark:text-amber-400 mb-2">Fortschritt deines Vermächtnisses</h3>
-                   <div className="flex justify-between text-sm font-bold opacity-70 mb-2 text-amber-700 dark:text-amber-500"><span>{completedPillars} von {totalPillars}</span><span>{progressPercent}%</span></div>
-                   <div className="w-full h-2 bg-amber-200 dark:bg-amber-900/50 rounded-full overflow-hidden"><div className="h-full bg-amber-500" style={{width:`${progressPercent}%`}}></div></div>
+             <div className="animate-slide-up space-y-6 pb-24">
+                <div className="p-6 rounded-3xl border text-center" style={{ backgroundColor: `${user.nameColor}15`, borderColor: `${user.nameColor}30` }}>
+                   <h3 className="font-bold mb-2" style={{ color: user.nameColor }}>Fortschritt deines Vermächtnisses</h3>
+                   <div className="flex justify-between text-sm font-bold opacity-70 mb-2" style={{ color: user.nameColor }}><span>{completedPillars} von {totalPillars}</span><span>{progressPercent}%</span></div>
+                   <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: `${user.nameColor}30` }}><div className="h-full transition-all duration-1000" style={{width:`${progressPercent}%`, backgroundColor: user.nameColor }}></div></div>
                 </div>
                 {['Fundament', 'Kommunikation', 'Struktur', 'Tiefe', 'Anpassung'].map(phase => (
                    <div key={phase} className="space-y-3">
@@ -1201,8 +1240,8 @@ function App() {
                       {PILLARS.filter(p=>p.phase===phase).map(pillar => {
                          const isCompleted = entries.some(e => e.title === pillar.title);
                          return (
-                           <button key={pillar.id} onClick={() => openEditor(null, pillar)} className="w-full text-left p-5 rounded-3xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm flex gap-4 hover:scale-[1.02] transition-transform">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isCompleted ? 'bg-amber-500 text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`}><Icon name={isCompleted?"check":"pen-tool"} size={16}/></div>
+                           <button key={pillar.id} onClick={() => openEditor(null, pillar)} className="w-full text-left p-5 rounded-3xl bg-white dark:bg-zinc-900 border shadow-sm flex gap-4 hover:scale-[1.02] transition-transform" style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isCompleted ? 'text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`} style={isCompleted ? { backgroundColor: user.nameColor } : {}}><Icon name={isCompleted?"check":"pen-tool"} size={16}/></div>
                               <div><div className="font-bold text-sm mb-1">{pillar.title}</div><div className="text-xs opacity-60 line-clamp-2 leading-relaxed">{pillar.desc}</div></div>
                            </button>
                          )
@@ -1213,13 +1252,13 @@ function App() {
           )}
 
           {view === 'quotes' && (
-             <div className="animate-slide-up space-y-4">
+             <div className="animate-slide-up space-y-4 pb-24">
                 {allQuotes.length === 0 ? (
                    <div className="text-center py-20 opacity-40"><Icon name="quote" size={48} className="mx-auto mb-4"/><p className="font-bold">Noch keine Erkenntnisse zitiert.</p></div>
                 ) : (
                    allQuotes.map(q => (
-                      <div key={q.id} onClick={()=>{const e=entries.find(x=>x.id===q.entryId); if(e){setView('dashboard'); handleOpenEntry(e);}}} className="p-6 rounded-3xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm cursor-pointer hover:scale-[1.02] transition-transform">
-                         <Icon name="quote" size={20} className="mb-4 text-amber-500 opacity-50" />
+                      <div key={q.id} onClick={()=>{const e=entries.find(x=>x.id===q.entryId); if(e){setView('dashboard'); handleOpenEntry(e);}}} className="p-6 rounded-3xl bg-white dark:bg-zinc-900 border shadow-sm cursor-pointer hover:scale-[1.02] transition-transform" style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
+                         <Icon name="quote" size={20} className="mb-4 opacity-50" style={{ color: user.nameColor }} />
                          <p className="text-lg font-serif italic font-medium leading-relaxed mb-4">"{q.text}"</p>
                          <div className="text-xs font-bold uppercase tracking-widest opacity-40">{q.title} • {new Date(q.date).toLocaleDateString('de-DE')}</div>
                       </div>
@@ -1257,7 +1296,7 @@ function App() {
           )}
 
           {['dashboard', 'vault', 'archive'].includes(view) && (
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-6 pb-24">
               {renderEntries.map(entry => {
                 const hasImages = entry.images && entry.images.length > 0;
                 const isDarkTheme = user.isDark;
@@ -1342,7 +1381,7 @@ function App() {
                </div>
              </div>
 
-             {/* Print Title & TOC (Only visible in print media) */}
+             {/* Print Title & TOC */}
              <div className="print-only">
                  <div className="print-title-page">
                     <h1 style={{fontSize: '56px', marginBottom: '20px', fontFamily: 'Georgia, serif'}}>{user.appName || 'Legacy Vision Journal'}</h1>
@@ -1364,7 +1403,7 @@ function App() {
              <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-32">
                 {viewingEntry.images && viewingEntry.images.length > 0 && (
                   <div className="relative w-full aspect-video rounded-3xl overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-8 group">
-                      <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-cover transition-transform duration-700" alt="Cover" />
+                      <img src={viewingEntry.images[currentViewerImgIdx]} loading="lazy" className="w-full h-full object-cover transition-transform duration-700" alt="Cover" />
                       {viewingEntry.images.length > 1 && (
                           <>
                               <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p - 1 + viewingEntry.images.length) % viewingEntry.images.length); }} className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print"><Icon name="chevron-left" size={24}/></button>
@@ -1426,13 +1465,15 @@ function App() {
                               {Array(emptySlots).fill(null).map((_, i) => <div key={`empty-${i}`} />)}
                               {daysArray.map(day => {
                                   const dateStr = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth(), day).toDateString();
-                                  const hasEntry = bookEntries.some(e => new Date(e.date).toDateString() === dateStr);
+                                  const dayEntry = bookEntries.find(e => new Date(e.date).toDateString() === dateStr);
+                                  const hasEntry = !!dayEntry;
+                                  const bgImg = dayEntry?.images?.[0] || null;
                                   const isSelected = timelineSelectedDate === dateStr;
                                   
                                   return (
-                                      <button key={day} onClick={() => setTimelineSelectedDate(isSelected ? null : dateStr)} className={`relative p-2 text-sm rounded-full transition-all flex items-center justify-center aspect-square ${isSelected ? 'shadow-md font-bold' : ''}`} style={isSelected ? { backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000' } : { backgroundColor: 'transparent' }}>
-                                          <span>{day}</span>
-                                          {hasEntry && !isSelected && <div className="absolute bottom-1 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: user.nameColor }}></div>}
+                                      <button key={day} onClick={() => setTimelineSelectedDate(isSelected ? null : dateStr)} className={`relative p-2 text-sm rounded-xl transition-all flex items-center justify-center aspect-square overflow-hidden ${isSelected ? 'shadow-md font-bold scale-110' : ''}`} style={bgImg ? { backgroundImage: `url(${bgImg})`, backgroundSize: 'cover', backgroundPosition: 'center', border: isSelected ? `2px solid ${user.nameColor}` : 'none' } : (isSelected ? { backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000' } : { backgroundColor: 'transparent' })}>
+                                          {!bgImg && <span>{day}</span>}
+                                          {hasEntry && !isSelected && !bgImg && <div className="absolute bottom-1 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: user.nameColor }}></div>}
                                       </button>
                                   );
                               })}
@@ -1496,21 +1537,34 @@ function App() {
                  {pillarGuidance && <div className="mb-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-400 text-sm font-medium flex gap-3"><Icon name="book-open" size={20} className="shrink-0"/>{pillarGuidance}</div>}
                  <input type="text" placeholder="Ein brillianter Gedanke..." value={title} onChange={(e) => { setTitle(e.target.value); isDirtyRef.current = true; }} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tight outline-none placeholder:opacity-30 mb-4" />
                  
-                 <div className="flex gap-2 mb-4 overflow-x-auto hide-scrollbar">
-                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); isDirtyRef.current = true; }} className="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200"><Icon name="bold" size={18}/></button>
-                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); isDirtyRef.current = true; }} className="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200"><Icon name="italic" size={18}/></button>
-                    <button onMouseDown={(e) => { e.preventDefault(); setTimeout(() => document.execCommand('insertUnorderedList', false, null), 10); isDirtyRef.current = true; }} className="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200"><Icon name="list-todo" size={18}/></button>
-                    <button onMouseDown={(e) => { e.preventDefault(); setTimeout(() => document.execCommand('formatBlock', false, 'blockquote'), 10); isDirtyRef.current = true; }} className="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200"><Icon name="quote" size={18}/></button>
+                 {/* Format Toolbar */}
+                 <div className="flex gap-2 mb-4 overflow-x-auto hide-scrollbar items-center bg-slate-100 dark:bg-zinc-900 p-2 rounded-2xl">
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'H1'); isDirtyRef.current = true; }} className="px-3 py-1 font-bold text-lg hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl">H1</button>
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'H2'); isDirtyRef.current = true; }} className="px-3 py-1 font-bold text-md hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl">H2</button>
+                    <div className="w-px h-6 bg-slate-300 dark:bg-zinc-700 mx-1"></div>
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800"><Icon name="bold" size={18}/></button>
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800"><Icon name="italic" size={18}/></button>
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800"><Icon name="list-todo" size={18}/></button>
+                    <div className="w-px h-6 bg-slate-300 dark:bg-zinc-700 mx-1"></div>
+                    <label className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 cursor-pointer text-indigo-500" title="Bild in Text">
+                       <Icon name="image" size={18}/>
+                       <input type="file" accept="image/*" onChange={handleInlineImage} className="hidden"/>
+                    </label>
+                    <div className="flex gap-1.5 ml-2">
+                       {['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'].map(c => (
+                          <button key={c} onMouseDown={(e) => { e.preventDefault(); document.execCommand('foreColor', false, c); isDirtyRef.current = true; }} className="w-5 h-5 rounded-full hover:scale-110 transition-transform" style={{backgroundColor: c}}></button>
+                       ))}
+                    </div>
                     
-                    <button onClick={() => setPicker({ title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c,value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;} })} className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-zinc-900 font-bold text-xs uppercase tracking-widest ml-auto" style={{ color: user.nameColor }}>{category}</button>
+                    <button onClick={() => setPicker({ title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c,value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;} })} className="px-4 py-2 rounded-xl bg-white dark:bg-zinc-800 shadow-sm font-bold text-[10px] uppercase tracking-widest ml-auto shrink-0" style={{ color: user.nameColor }}>{category}</button>
                  </div>
               </div>
 
               <div className="flex-1 overflow-y-auto px-6 sm:px-10 pb-32 overscroll-contain">
                 {selectedImages.length > 0 && (
-                   <div className="grid grid-cols-2 gap-3 mb-6">
+                   <div className="flex overflow-x-auto hide-scrollbar gap-3 mb-6 snap-x">
                       {selectedImages.map((imgSrc, i) => (
-                         <div key={i} className="relative w-full aspect-square rounded-3xl overflow-hidden border border-slate-100 dark:border-zinc-800">
+                         <div key={i} className="relative w-48 h-48 rounded-3xl overflow-hidden border border-slate-100 dark:border-zinc-800 shrink-0 snap-center">
                             <img src={imgSrc} loading="lazy" className="w-full h-full object-cover"/>
                             <button onClick={() => setSelectedImages(prev => prev.filter((_,idx) => idx !== i))} className="absolute top-2 right-2 bg-black/60 p-2 rounded-full text-white backdrop-blur-md"><Icon name="x" size={14}/></button>
                          </div>
@@ -1523,12 +1577,12 @@ function App() {
                         <button onClick={()=>setAudioUrl(null)} className="absolute -top-2 -right-2 bg-rose-500 text-white p-1 rounded-full shadow-lg"><Icon name="x" size={14}/></button>
                     </div>
                 )}
-                <div ref={editorRef} contentEditable suppressContentEditableWarning data-placeholder="Lass es fließen..." onInput={(e) => { setText(e.currentTarget.innerHTML); isDirtyRef.current = true; }} className="w-full min-h-[50vh] bg-transparent text-lg leading-relaxed font-medium outline-none empty:before:content-[attr(data-placeholder)] legacy-editor-content opacity-90 pb-20" />
+                <div ref={editorRef} contentEditable suppressContentEditableWarning data-placeholder="Lass es fließen..." onInput={() => { isDirtyRef.current = true; }} className="w-full min-h-[50vh] bg-transparent text-lg leading-relaxed font-medium outline-none empty:before:content-[attr(data-placeholder)] legacy-editor-content opacity-90 pb-20" />
               </div>
 
               <div className="absolute bottom-0 left-0 right-0 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 p-4 flex justify-between items-center pb-[env(safe-area-inset-bottom,16px)] z-20">
                  <div className="flex gap-2">
-                    <label className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm cursor-pointer hover:scale-105 transition-transform"><Icon name="image" size={20}/><input type="file" accept="image/*" multiple onChange={handleFileUpload} className="hidden" /></label>
+                    <label className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm cursor-pointer hover:scale-105 transition-transform" title="Galerie-Bild"><Icon name="images" size={20}/><input type="file" accept="image/*" multiple onChange={handleFileUpload} className="hidden" /></label>
                     <button onClick={()=>setIsDrawing(true)} className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm hover:scale-105 transition-transform"><Icon name="pen-tool" size={20}/></button>
                     <button onClick={isRecording?stopRecording:startRecording} className={`p-3.5 rounded-full shadow-sm transition-transform hover:scale-105 ${isRecording?'bg-rose-500 text-white animate-pulse':'bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700'}`}>{isRecording?<Icon name="square" size={20}/>:<Icon name="mic" size={20}/>}</button>
                     
