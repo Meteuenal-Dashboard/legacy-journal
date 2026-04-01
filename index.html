@@ -195,7 +195,7 @@ const { useState, useEffect, useRef, useMemo, memo } = React;
 const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
 const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
 
-// Lokale Zeit für Speicherung sichern (UTC Offset fix)
+// Lokale Zeit für Speicherung sichern (UTC Offset fix - 01.04. anstatt 31.03.)
 const getLocalISO = () => {
     const now = new Date();
     const tzOffset = now.getTimezoneOffset() * 60000;
@@ -411,28 +411,30 @@ const EntryCard = memo(({ entry, onClick, isGridView, userColor, isDarkTheme, se
             {entry.location && <span className="text-amber-500 flex items-center ml-1"><Icon name="map-pin" size={12}/></span>}
           </div>
           
-          <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-2 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : ''}`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
+          <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : ''}`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
           
-          {/* Tags & People on Dashboard */}
-          {!isGridView && (entry.tags || entry.people) && (
-             <div className="flex flex-wrap gap-1.5 mb-3">
-                {entry.tags && entry.tags.split(',').filter(x=>x.trim()).map((t, i) => <span key={i} className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded text-[10px] font-bold">#{t.trim()}</span>)}
-                {entry.people && entry.people.split(',').filter(x=>x.trim()).map((p, i) => <span key={i} className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded text-[10px] font-bold">@{p.trim()}</span>)}
+          {/* Metadata Pills directly on Dashboard Card */}
+          {!isGridView && (entry.tags || entry.people || entry.weather || entry.rating > 0) && (
+             <div className="flex flex-wrap gap-1.5 mb-4">
+                {entry.tags && entry.tags.split(',').filter(x=>x.trim()).map((t, i) => <span key={`t-${i}`} className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded text-[10px] font-bold flex items-center gap-1"><Icon name="tag" size={10}/> {t.trim()}</span>)}
+                {entry.people && entry.people.split(',').filter(x=>x.trim()).map((p, i) => <span key={`p-${i}`} className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded text-[10px] font-bold flex items-center gap-1"><Icon name="user" size={10}/> {p.trim()}</span>)}
+                {entry.weather && <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded text-[10px] font-bold flex items-center gap-1"><Icon name="sun" size={10}/> {entry.weather}</span>}
+                {entry.rating > 0 && <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded text-[10px] font-bold flex items-center gap-1"><Icon name="star" size={10}/> {entry.rating}</span>}
              </div>
           )}
 
           {!entry.locked && !isCapsuleLocked && entry.text && !isGridView && (
-            <div className="text-sm font-medium leading-relaxed opacity-70 line-clamp-3 mb-4" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
+            <div className="text-sm font-medium leading-relaxed opacity-70 line-clamp-3" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
           )}
           {(entry.locked || isCapsuleLocked) && !isGridView && (
-             <div className="text-sm font-medium leading-relaxed opacity-40 italic mb-4">
+             <div className="text-sm font-medium leading-relaxed opacity-40 italic">
                 {isCapsuleLocked ? 'Inhalt durch Zeitsiegel geschützt.' : 'Inhalt durch Tresor-PIN geschützt.'}
              </div>
           )}
         </div>
       </div>
     );
-}, (prev, next) => prev.entry.orderTimestamp === next.entry.orderTimestamp && prev.entry.id === next.entry.id && prev.isGridView === next.isGridView);
+}, (prev, next) => prev.entry.orderTimestamp === next.entry.orderTimestamp && prev.entry.id === next.entry.id && prev.isGridView === next.isGridView && prev.searchQuery === next.searchQuery);
 
 function App() {
   const [db, setDb] = useState(null);
@@ -734,7 +736,6 @@ function App() {
   useEffect(() => {
     const metaThemeColor = document.getElementById("meta-theme-color");
     
-    // Background
     if (user.appBgColor) {
         document.body.style.setProperty('background-color', user.appBgColor, 'important');
         if (metaThemeColor) metaThemeColor.setAttribute("content", user.appBgColor);
@@ -747,7 +748,6 @@ function App() {
         else { document.documentElement.classList.remove('dark'); if (metaThemeColor) metaThemeColor.setAttribute("content", "#f8fafc"); }
     }
 
-    // Text Color
     if (user.textColor) {
         document.body.style.setProperty('color', user.textColor, 'important');
     } else {
@@ -839,23 +839,18 @@ function App() {
     }
   }, [importId, isLoaded, db]);
 
-  // Robust Save Logic Update
+  // Robust Save Logic Update (Fehlerhafte Speicherung behoben)
+  useEffect(() => {
+     editingIdRef.current = editingId;
+     // Synchronisiere alle Zustände in einer festen Referenz, damit das Speichern immer die aktuellen Daten hat
+     currentEntryRef.current = { title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, rating, tags, people, weather };
+  }, [editingId, title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, rating, tags, people, weather]);
+
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; let dbEntry = { ...entry };
     try { if (dbEntry.locked && activePin) { const payload = JSON.stringify({ text: dbEntry.text || '', title: dbEntry.title || '' }); dbEntry.encryptedData = await encryptData(payload, activePin); dbEntry.text = ''; dbEntry.title = 'Verschlüsselter Eintrag'; } else if (!dbEntry.locked) { dbEntry.encryptedData = null; } } catch(e) {}
     try {
-      if (db) { 
-        const tx = db.transaction('entries', 'readwrite'); 
-        tx.objectStore('entries').put(dbEntry); 
-        tx.oncomplete = () => { 
-            setEntries(prev => { 
-                const exists = prev.find(e => e.id === entry.id); 
-                if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); 
-                return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); 
-            }); 
-            syncSingleEntryToCloud(entry); 
-        }; 
-      }
+      if (db) { const tx = db.transaction('entries', 'readwrite'); tx.objectStore('entries').put(dbEntry); tx.oncomplete = () => { setEntries(prev => { const exists = prev.find(e => e.id === entry.id); if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); }); syncSingleEntryToCloud(entry); }; }
     } catch (e) {}
   };
 
@@ -1013,13 +1008,13 @@ function App() {
   }, [isDrawing, user.isDark]);
 
   // Audio
-  const startRecording = async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); mediaRecorderRef.current = new MediaRecorder(stream); audioChunksRef.current = []; mediaRecorderRef.current.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); }; mediaRecorderRef.current.onstop = () => { const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); const reader = new FileReader(); reader.readAsDataURL(blob); reader.onloadend = () => { setAudioUrl(reader.result); isDirtyRef.current = true; }; }; mediaRecorderRef.current.start(); setIsRecording(true); } catch (err) { showDialog({ title: 'Fehler', message: 'Mikrofon verweigert.', icon: 'mic-off' }); } };
+  const startRecording = async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); mediaRecorderRef.current = new MediaRecorder(stream); audioChunksRef.current = []; mediaRecorderRef.current.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); }; mediaRecorderRef.current.onstop = () => { const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); const reader = new FileReader(); reader.readAsDataURL(blob); reader.onloadend = () => { setAudioUrl(reader.result); currentEntryRef.current.audioUrl = reader.result; isDirtyRef.current = true; }; }; mediaRecorderRef.current.start(); setIsRecording(true); } catch (err) { showDialog({ title: 'Fehler', message: 'Mikrofon verweigert.', icon: 'mic-off' }); } };
   const stopRecording = () => { if (mediaRecorderRef.current) { mediaRecorderRef.current.stop(); setIsRecording(false); } };
   const handleReadAloud = (entry) => { if (isSpeaking) { window.speechSynthesis.cancel(); setIsSpeaking(false); return; } const plainText = (entry.title + ". " + (entry.text || '')).replace(/<[^>]*>?/gm, ''); if (!plainText.trim()) return; setIsSpeaking(true); const utterance = new SpeechSynthesisUtterance(plainText); utterance.lang = 'de-DE'; utterance.onend = () => setIsSpeaking(false); window.speechSynthesis.speak(utterance); };
   const triggerBurn = () => { setIsBurning(true); setTimeout(() => { setBurnText(''); setIsBurning(false); setView('dashboard'); showDialog({ title: 'Katharsis', message: 'Dem Feuer übergeben.', icon: 'flame' }); }, 2500); };
   const handleAvatarUpload = (e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (event) => { const img = new Image(); img.onload = () => { const canvas = document.createElement('canvas'); const SIZE = 512; canvas.width = SIZE; canvas.height = SIZE; const ctx = canvas.getContext('2d'); const minDim = Math.min(img.width, img.height); ctx.drawImage(img, (img.width - minDim) / 2, (img.height - minDim) / 2, minDim, minDim, 0, 0, SIZE, SIZE); setUser(prev => ({ ...prev, avatar: canvas.toDataURL('image/png') })); }; img.src = event.target.result; }; reader.readAsDataURL(file); } };
 
-  // Bild-Upload optimiert
+  // Haupt-Cover-Bild Upload (für Galerie oben im Editor)
   const handleFileUpload = (e, type) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
@@ -1038,7 +1033,7 @@ function App() {
                       canvas.width = width; canvas.height = height;
                       const ctx = canvas.getContext('2d'); 
                       ctx.drawImage(img, 0, 0, width, height);
-                      resolve(canvas.toDataURL('image/jpeg', 0.6)); // Stärkere Kompression
+                      resolve(canvas.toDataURL('image/jpeg', 0.6)); 
                   };
                   img.src = event.target.result;
               };
@@ -1046,13 +1041,19 @@ function App() {
           });
       });
       Promise.all(processedImagesPromises).then(base64Images => {
-          setSelectedImages(prev => [...prev, ...base64Images]);
+          setSelectedImages(prev => {
+              const newImgs = [...prev, ...base64Images];
+              currentEntryRef.current.selectedImages = newImgs; // Synchrones Update für die Datenbank
+              return newImgs;
+          });
           isDirtyRef.current = true;
+          setTimeout(() => checkSaveEntry(false), 100); // Sofort Speichern triggern, damit kein Bild verloren geht
       });
     }
     e.target.value = null; 
   };
 
+  // Inline-Bild im Text
   const handleInlineImage = (e) => {
       const file = e.target.files[0];
       if(!file) return;
@@ -1303,6 +1304,9 @@ function App() {
             )}
           </div>
           <div className="flex gap-2 items-center">
+            {/* Kalender Button GLOBAL zugänglich */}
+            <button type="button" onClick={() => { setViewingEntry(null); setShowTimeline(true); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="calendar-days" size={18}/></button>
+            
             {view === 'dashboard' && (
               <>
                 <button type="button" onClick={() => setIsSearchOpen(!isSearchOpen)} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="search" size={18}/></button>
@@ -1584,9 +1588,6 @@ function App() {
              <div className="sticky top-0 z-40 flex justify-between items-center py-4 px-6 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-slate-100 dark:border-zinc-900 shrink-0 no-print">
                <div className="flex gap-2">
                  <button onClick={() => {setViewingEntry(null); setCurrentViewerImgIdx(0);}} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform"><Icon name="arrow-left" size={20}/></button>
-                 {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).length > 1 && (
-                     <button onClick={() => setShowTimeline(true)} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform" style={{ color: user.nameColor }}><Icon name="calendar-days" size={20}/></button>
-                 )}
                </div>
                <div className="flex gap-2">
                  <button onClick={() => window.print()} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform text-slate-500"><Icon name="printer" size={20}/></button>
@@ -1688,9 +1689,9 @@ function App() {
         )}
 
         {/* --- TIMELINE / ZEITREISE (Calendar Style) --- */}
-        {showTimeline && viewingEntry && !showEditor && (() => {
-           const bookRoot = getBookRoot(viewingEntry.id);
-           const bookEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
+        {showTimeline && !showEditor && (() => {
+           // Im Dashboard alle zeigen, ansonsten verknüpfte Einträge
+           const bookEntries = viewingEntry ? getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id) : entries.filter(e => !e.archived);
            
            const daysInMonth = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth() + 1, 0).getDate();
            const firstDay = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth(), 1).getDay();
@@ -1743,7 +1744,7 @@ function App() {
                            ) : (
                                <div className="space-y-3">
                                    {entriesOnSelectedDate.map((e) => (
-                                       <button key={e.id} onClick={() => { setViewingEntry(e); setShowTimeline(false); }} className={`w-full text-left p-4 rounded-2xl flex items-center gap-4 transition-colors ${viewingEntry.id === e.id ? 'border' : 'bg-slate-50 dark:bg-zinc-900 border border-transparent'}`} style={viewingEntry.id === e.id ? { backgroundColor: `${user.nameColor}20`, borderColor: `${user.nameColor}50` } : {}}>
+                                       <button key={e.id} onClick={() => { setViewingEntry(e); setShowTimeline(false); }} className={`w-full text-left p-4 rounded-2xl flex items-center gap-4 transition-colors ${viewingEntry?.id === e.id ? 'border' : 'bg-slate-50 dark:bg-zinc-900 border border-transparent'}`} style={viewingEntry?.id === e.id ? { backgroundColor: `${user.nameColor}20`, borderColor: `${user.nameColor}50` } : {}}>
                                            {e.images && e.images.length > 0 && <img src={e.images[0]} loading="lazy" className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0" />}
                                            <div className="flex-1 overflow-hidden">
                                                <span className="font-bold text-sm truncate block">{e.title}</span>
@@ -1769,8 +1770,9 @@ function App() {
               <div className="flex justify-between items-center px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 dark:border-zinc-900 shrink-0 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md z-40 relative">
                 <button onClick={() => checkSaveEntry(true)} className="p-3 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"><Icon name="arrow-left" size={24}/></button>
                 <div className="flex gap-2 items-center">
+                   {autoSaveStatus === 'Gespeichert' && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-sm shadow-emerald-500/50 mr-1" title="Gespeichert"></div>}
                    {editingIdRef.current && <button onClick={() => confirmDelete(editingIdRef.current)} className="p-3 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10"><Icon name="trash-2" size={20}/></button>}
-                   <button onClick={() => { setIsLocked(!isLocked); isDirtyRef.current = true; }} className={`p-3 rounded-full transition-colors ${isLocked ? 'bg-rose-500/10 text-rose-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`} title="Tresor-Schutz"><Icon name="lock" size={20}/></button>
+                   <button onClick={() => { setIsLocked(!isLocked); currentEntryRef.current.isLocked = !isLocked; isDirtyRef.current = true; }} className={`p-3 rounded-full transition-colors ${isLocked ? 'bg-rose-500/10 text-rose-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`} title="Tresor-Schutz"><Icon name="lock" size={20}/></button>
                    
                    {/* Geolocation & Weather Auto-Fetch Button */}
                    <button onClick={() => {
@@ -1780,6 +1782,7 @@ function App() {
                                const lat = pos.coords.latitude;
                                const lng = pos.coords.longitude;
                                setLocation({ lat, lng });
+                               currentEntryRef.current.location = { lat, lng };
                                isDirtyRef.current = true; 
                                
                                try {
@@ -1797,7 +1800,7 @@ function App() {
                                       
                                       const wStr = `${temp}°C, ${desc}`;
                                       setWeather(wStr);
-                                      currentEntryRef.current.weather = wStr; // Update ref immediately
+                                      currentEntryRef.current.weather = wStr; 
                                   }
                                } catch(e) {}
                                
@@ -1807,7 +1810,7 @@ function App() {
                        }
                    }} className={`p-3 rounded-full transition-colors ${location ? 'bg-emerald-500/10 text-emerald-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`} title="Standort verewigen"><Icon name="map-pin" size={20}/></button>
 
-                   <button onClick={() => { setIsManifested(!isManifested); isDirtyRef.current = true; }} className={`p-3 rounded-full transition-colors ${isManifested ? 'bg-amber-400/10 text-amber-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`} title="Manifestieren"><Icon name="sparkles" size={20}/></button>
+                   <button onClick={() => { setIsManifested(!isManifested); currentEntryRef.current.isManifested = !isManifested; isDirtyRef.current = true; }} className={`p-3 rounded-full transition-colors ${isManifested ? 'bg-amber-400/10 text-amber-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`} title="Manifestieren"><Icon name="sparkles" size={20}/></button>
                    <button onClick={() => checkSaveEntry(false)} className="px-6 py-2.5 rounded-full font-bold shadow-sm text-sm ml-2 hover:scale-105 transition-transform" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>Sichern</button>
                 </div>
               </div>
@@ -1815,7 +1818,7 @@ function App() {
               {/* Title & Format Toolbar - KOMPLETT ENTKOPPELT UND STICKY */}
               <div className="flex flex-col shrink-0 px-6 sm:px-10 pt-6 pb-2 z-40 bg-white dark:bg-zinc-950 border-b border-slate-100 dark:border-zinc-900 shadow-sm relative">
                  {pillarGuidance && <div className="mb-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-400 text-sm font-medium flex gap-3"><Icon name="book-open" size={20} className="shrink-0"/>{pillarGuidance}</div>}
-                 <input type="text" placeholder="Ein brillianter Gedanke..." value={title} onChange={(e) => { setTitle(e.target.value); isDirtyRef.current = true; }} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tight outline-none placeholder:opacity-30 mb-4" />
+                 <input type="text" placeholder="Ein brillianter Gedanke..." value={title} onChange={(e) => { setTitle(e.target.value); currentEntryRef.current.title = e.target.value; isDirtyRef.current = true; }} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tight outline-none placeholder:opacity-30 mb-4" />
                  
                  <div className="flex gap-2 mb-2 overflow-x-auto hide-scrollbar items-center bg-slate-100 dark:bg-zinc-900 p-2 rounded-2xl">
                     <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, '<h1>'); isDirtyRef.current = true; }} className="px-3 py-1 font-bold text-lg hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl transition-colors">H1</button>
@@ -1840,7 +1843,7 @@ function App() {
                        ))}
                     </div>
                     
-                    <button onClick={() => setPicker({ title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c,value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;} })} className="px-4 py-2 rounded-xl bg-white dark:bg-zinc-800 shadow-sm font-bold text-[10px] uppercase tracking-widest ml-auto shrink-0" style={{ color: user.nameColor }}>{category}</button>
+                    <button onClick={() => setPicker({ title: 'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c,value:c})), onSelect: (v)=>{setCategory(v); currentEntryRef.current.category = v; isDirtyRef.current=true;} })} className="px-4 py-2 rounded-xl bg-white dark:bg-zinc-800 shadow-sm font-bold text-[10px] uppercase tracking-widest ml-auto shrink-0" style={{ color: user.nameColor }}>{category}</button>
                  </div>
               </div>
 
@@ -1851,7 +1854,13 @@ function App() {
                       {selectedImages.map((imgSrc, i) => (
                          <div key={i} className="relative w-48 h-48 rounded-3xl overflow-hidden border border-slate-100 dark:border-zinc-800 shrink-0 snap-center">
                             <img src={imgSrc} className="w-full h-full object-cover"/>
-                            <button onClick={() => setSelectedImages(prev => prev.filter((_,idx) => idx !== i))} className="absolute top-2 right-2 bg-black/60 p-2 rounded-full text-white backdrop-blur-md"><Icon name="x" size={14}/></button>
+                            <button onClick={() => {
+                                setSelectedImages(prev => {
+                                    const filtered = prev.filter((_,idx) => idx !== i);
+                                    currentEntryRef.current.selectedImages = filtered;
+                                    return filtered;
+                                });
+                            }} className="absolute top-2 right-2 bg-black/60 p-2 rounded-full text-white backdrop-blur-md"><Icon name="x" size={14}/></button>
                          </div>
                       ))}
                    </div>
@@ -1859,18 +1868,18 @@ function App() {
                 {audioUrl && (
                     <div className="mb-6 p-4 rounded-2xl bg-slate-100 dark:bg-zinc-900 relative mt-4 shrink-0">
                         <audio src={audioUrl} controls className="w-full"/>
-                        <button onClick={()=>setAudioUrl(null)} className="absolute -top-2 -right-2 bg-rose-500 text-white p-1 rounded-full shadow-lg"><Icon name="x" size={14}/></button>
+                        <button onClick={()=>{setAudioUrl(null); currentEntryRef.current.audioUrl = null;}} className="absolute -top-2 -right-2 bg-rose-500 text-white p-1 rounded-full shadow-lg"><Icon name="x" size={14}/></button>
                     </div>
                 )}
                 
                 {/* Main Text Editor */}
-                <div ref={editorRef} contentEditable suppressContentEditableWarning data-placeholder="Lass es fließen..." onInput={() => { isDirtyRef.current = true; }} className="w-full min-h-[50vh] flex-1 bg-transparent text-lg leading-relaxed font-medium outline-none empty:before:content-[attr(data-placeholder)] legacy-editor-content opacity-90 pt-4" />
+                <div ref={editorRef} contentEditable suppressContentEditableWarning data-placeholder="Lass es fließen..." onInput={(e) => { currentEntryRef.current.text = e.currentTarget.innerHTML; isDirtyRef.current = true; }} className="w-full min-h-[50vh] bg-transparent text-lg leading-relaxed font-medium outline-none empty:before:content-[attr(data-placeholder)] legacy-editor-content opacity-90 pt-4" />
 
                 {/* Metadata Inputs (Tags, People, Weather, Rating) */}
                 <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800 pb-10 shrink-0">
                    <div className="flex items-center gap-2">
                        {[1,2,3,4,5].map(star => (
-                           <button key={star} type="button" onClick={() => { setRating(star); isDirtyRef.current=true; }}>
+                           <button key={star} type="button" onClick={() => { setRating(star); currentEntryRef.current.rating = star; isDirtyRef.current=true; }}>
                                <Icon name="star" size={24} className={rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-zinc-700'} />
                            </button>
                        ))}
@@ -1878,15 +1887,15 @@ function App() {
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                        <div className="flex flex-col">
                            <label className="text-[10px] font-bold uppercase opacity-50 mb-1">Tags (Komma getrennt)</label>
-                           <input type="text" placeholder="z.B. Urlaub, Sommer" value={tags} onChange={e => {setTags(e.target.value); isDirtyRef.current=true;}} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none" style={{ color: user.textColor || 'inherit' }} />
+                           <input type="text" placeholder="z.B. Urlaub, Sommer" value={tags} onChange={e => {setTags(e.target.value); currentEntryRef.current.tags = e.target.value; isDirtyRef.current=true;}} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none" style={{ color: user.textColor || 'inherit' }} />
                        </div>
                        <div className="flex flex-col">
                            <label className="text-[10px] font-bold uppercase opacity-50 mb-1">Personen (Komma getrennt)</label>
-                           <input type="text" placeholder="z.B. Thomas, Sarah" value={people} onChange={e => {setPeople(e.target.value); isDirtyRef.current=true;}} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none" style={{ color: user.textColor || 'inherit' }} />
+                           <input type="text" placeholder="z.B. Thomas, Sarah" value={people} onChange={e => {setPeople(e.target.value); currentEntryRef.current.people = e.target.value; isDirtyRef.current=true;}} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none" style={{ color: user.textColor || 'inherit' }} />
                        </div>
                        <div className="flex flex-col sm:col-span-2">
                            <label className="text-[10px] font-bold uppercase opacity-50 mb-1">Wetter (wird bei GPS-Siegel automatisch befüllt)</label>
-                           <input type="text" placeholder="z.B. 27°C, Sonnig" value={weather} onChange={e => {setWeather(e.target.value); isDirtyRef.current=true;}} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none" style={{ color: user.textColor || 'inherit' }} />
+                           <input type="text" placeholder="z.B. 27°C, Sonnig" value={weather} onChange={e => {setWeather(e.target.value); currentEntryRef.current.weather = e.target.value; isDirtyRef.current=true;}} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none" style={{ color: user.textColor || 'inherit' }} />
                        </div>
                    </div>
                 </div>
@@ -1895,7 +1904,7 @@ function App() {
               {/* Bottom Control Bar */}
               <div className="shrink-0 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 p-4 flex justify-between items-center pb-[env(safe-area-inset-bottom,16px)] z-30">
                  <div className="flex gap-2">
-                    <label htmlFor="cover-upload" className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm cursor-pointer hover:scale-105 transition-transform" title="Galerie-Bild">
+                    <label htmlFor="cover-upload" className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm cursor-pointer hover:scale-105 transition-transform" title="Haupt-Bild hinzufügen">
                        <Icon name="images" size={20}/>
                        <input id="cover-upload" type="file" accept="image/*" multiple onChange={(e) => handleFileUpload(e, 'image')} className="hidden" />
                     </label>
@@ -1906,13 +1915,13 @@ function App() {
                     <div className="relative pl-2 ml-2 border-l border-slate-200 dark:border-zinc-700 flex">
                         <label className={`relative p-3.5 rounded-full shadow-sm flex items-center justify-center cursor-pointer transition-transform hover:scale-105 ${unlockDate ? 'text-white border-transparent' : 'bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700'}`} style={unlockDate ? { backgroundColor: user.nameColor } : {}} title="Kryptografische Zeitkapsel">
                            <Icon name="clock" size={20}/>
-                           <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); isDirtyRef.current = true;}} className="absolute opacity-0 w-full h-full cursor-pointer" />
+                           <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); currentEntryRef.current.unlockDate = e.target.value; isDirtyRef.current = true;}} className="absolute opacity-0 w-full h-full cursor-pointer" />
                         </label>
                     </div>
                  </div>
                  <div className="flex gap-2">
                     {MOODS.slice(0,3).map(m => (
-                       <button key={m.id} onClick={()=>{setMood(mood===m.label?null:m.label); isDirtyRef.current=true;}} className={`p-2.5 rounded-full transition-all ${mood===m.label ? 'bg-white shadow-md scale-110 ' + m.color : 'opacity-40 hover:opacity-100'}`}><Icon name={m.iconName} size={20}/></button>
+                       <button key={m.id} onClick={()=>{setMood(mood===m.label?null:m.label); currentEntryRef.current.mood = mood===m.label?null:m.label; isDirtyRef.current=true;}} className={`p-2.5 rounded-full transition-all ${mood===m.label ? 'bg-white shadow-md scale-110 ' + m.color : 'opacity-40 hover:opacity-100'}`}><Icon name={m.iconName} size={20}/></button>
                     ))}
                  </div>
               </div>
@@ -1926,7 +1935,14 @@ function App() {
               <div className="flex justify-between items-center p-6 border-b border-slate-100 dark:border-zinc-900 bg-slate-50 dark:bg-zinc-950 shrink-0">
                  <button onClick={()=>setIsDrawing(false)} className="p-3 rounded-full bg-slate-200 dark:bg-zinc-800"><Icon name="x" size={20}/></button>
                  <span className="font-bold text-lg">Skizze</span>
-                 <button onClick={()=>{if(canvasRef.current){setSelectedImages(p=>[...p, canvasRef.current.toDataURL()]); setIsDrawing(false); isDirtyRef.current=true;}}} className="px-6 py-2 rounded-full font-bold shadow-md text-sm" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>Fertig</button>
+                 <button onClick={()=>{if(canvasRef.current){
+                     setSelectedImages(p=>{
+                         const newImgs = [...p, canvasRef.current.toDataURL()];
+                         currentEntryRef.current.selectedImages = newImgs;
+                         return newImgs;
+                     }); 
+                     setIsDrawing(false); isDirtyRef.current=true;
+                 }}} className="px-6 py-2 rounded-full font-bold shadow-md text-sm" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>Fertig</button>
               </div>
               <div className="flex-1 relative touch-none bg-white dark:bg-black">
                  <canvas ref={canvasRef} className="absolute inset-0 w-full h-full touch-none" onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing} onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
