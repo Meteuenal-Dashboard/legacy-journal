@@ -134,13 +134,14 @@
 
   h1, h2, h3, h4, h5, h6 { font-weight: 800; letter-spacing: -0.03em; }
 
-  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } } .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
-  @keyframes slide-up { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } .animate-slide-up { animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } } .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
+  @keyframes slide-up { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } .animate-slide-up { animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
   @keyframes pulse-flame { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.05); } } .animate-flame { animation: pulse-flame 2s infinite ease-in-out; }
 
   .custom-scrollbar::-webkit-scrollbar { display: none; }
   .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+  /* Editor Typography Enhancement */
   .legacy-editor-content p, .legacy-content p { line-height: 1.7; margin-bottom: 1rem; }
   .legacy-editor-content h1, .legacy-content h1 { font-size: 2.25rem; font-weight: 800; margin-top: 1.5rem; margin-bottom: 1rem; line-height: 1.2; }
   .legacy-editor-content h2, .legacy-content h2 { font-size: 1.75rem; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.75rem; line-height: 1.3; }
@@ -148,7 +149,7 @@
   .legacy-editor-content ul, .legacy-content ul { list-style-type: disc; padding-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.5rem; }
   .legacy-editor-content li, .legacy-content li { margin-bottom: 0.25rem; }
   .legacy-editor-content blockquote, .legacy-content blockquote { border-left: 4px solid currentColor; padding-left: 1.5rem; font-style: normal; font-weight: 600; opacity: 0.9; background: transparent; margin: 1.5rem 0; font-size: 1.1em; }
-  .legacy-editor-content img, .legacy-content img { max-width: 100%; border-radius: 16px; margin: 16px 0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+  .legacy-editor-content img, .legacy-content img { border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
   
   [contenteditable="true"]:empty:before { content: attr(data-placeholder); opacity: 0.3; pointer-events: none; display: block; font-weight: 400; }
   html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
@@ -310,16 +311,15 @@ const MOODS = [
   { id: 'frown', label: 'Nachdenklich', color: 'text-slate-500', iconName: 'frown' }
 ];
 
-// Vollständige 25 Weisheiten
 const PILLARS = [
-  { id: 'm1', phase: 'Fundament', title: '1. Das Nordstern-Manifest', desc: 'Definiere deine absoluten, unverhandelbaren Grundwerte. Welche Prinzipien leiten dich?' },
-  { id: 'm2', phase: 'Fundament', title: '2. Der Zeitgeist-Stempel', desc: 'Historischer Kontext: Was passiert gerade auf der Welt? Politik, Technik, Alltag.' },
-  { id: 'm3', phase: 'Fundament', title: '3. Das Geistige Testament', desc: 'Vererbe deinen Charakter. Welche Überzeugungen möchtest du weitergeben?' },
+  { id: 'm1', phase: 'Fundament', title: '1. Das Nordstern-Manifest', desc: 'Definiere deine absoluten, unverhandelbaren Grundwerte.' },
+  { id: 'm2', phase: 'Fundament', title: '2. Der Zeitgeist-Stempel', desc: 'Historischer Kontext: Was passiert gerade auf der Welt?' },
+  { id: 'm3', phase: 'Fundament', title: '3. Das Geistige Testament', desc: 'Vererbe deinen Charakter. Welche Lebensweisheiten möchtest du weitergeben?' },
   { id: 'm4', phase: 'Fundament', title: '4. Die Anti-Vision', desc: 'Definiere glasklar, wer du niemals werden willst und welche Pfade du vermeidest.' },
   { id: 'm5', phase: 'Fundament', title: '5. Das Narben-Register', desc: 'Eine ehrliche Dokumentation deines größten Fehlschlags und deines Comebacks.' },
   { id: 'm6', phase: 'Kommunikation', title: '6. Die Zeitkapsel', desc: 'Eine Botschaft an die Zukunft. Nutze die Datums-Siegelfunktion.' },
   { id: 'm7', phase: 'Kommunikation', title: '7. Der Enkel-Dialog', desc: 'Stelle Fragen, die der zukünftige Leser für sich selbst beantworten soll.' },
-  { id: 'm8', phase: 'Kommunikation', title: '8. Stammbaum der Fähigkeiten', desc: 'Dokumentiere, wie du dir über Jahrzehnte bestimmte Fähigkeiten angeeignet hast.' },
+  { id: 'm8', phase: 'Kommunikation', title: '8. Stammbaum der Fähigkeiten', desc: 'Dokumentiere, wie du dir über Jahrzehnte Fähigkeiten angeeignet hast.' },
   { id: 'm9', phase: 'Kommunikation', title: '9. Schicksals-Tagebuch', desc: 'Ein Ort für unglaubliche Zufälle und unerklärliche Momente deines Lebens.' },
   { id: 'm10', phase: 'Kommunikation', title: '10. Das Dankbarkeits-Echo', desc: 'Wem verdankst du etwas? Wer waren deine Mentoren, Lehrer, Wegbegleiter?' },
   { id: 'm11', phase: 'Struktur', title: '11. Purer Text (Agnostisch)', desc: 'Schreibe in einfachen Sätzen rohe Fakten auf, völlig ohne Emotionen.' },
@@ -335,7 +335,7 @@ const PILLARS = [
   { id: 'm21', phase: 'Anpassung', title: '21. Der Pivot-Tracker', desc: 'Hebe Momente hervor, in denen du dein Leben radikal in eine neue Richtung gelenkt hast.' },
   { id: 'm22', phase: 'Anpassung', title: '22. Umwelt-Resonanz', desc: 'Beobachtungen über die Natur und Umwelt an deinem Wohnort im Wandel der Zeit.' },
   { id: 'm23', phase: 'Anpassung', title: '23. Die Loslass-Liste', desc: 'Träume, Ziele oder Menschen, die du bewusst (und in Frieden) aufgegeben hast.' },
-  { id: 'm24', phase: 'Anpassung', title: '24. Stimme & Akzent', desc: 'Nutze die Mikrofon-Funktion, um eine Audio-Nachricht mit deiner echten Stimme zu hinterlassen.' },
+  { id: 'm24', phase: 'Anpassung', title: '24. Stimme & Akzent', desc: 'Nutze die Mikrofon-Funktion, um eine Audio-Nachricht mit deiner Stimme zu hinterlassen.' },
   { id: 'm25', phase: 'Anpassung', title: '25. Raum für Unbegreifliches', desc: 'Platz für Konzepte und Lebensrealitäten, die es heute noch gar nicht gibt.' }
 ];
 
@@ -359,10 +359,10 @@ function App() {
   const [authUser, setAuthUser] = useState(null);
   
   const [entries, setEntries] = useState([]);
-  const [user, setUser] = useState({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', isDark: true, appBgColor: null, cloudSync: false, biometric: false });
+  const [user, setUser] = useState({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: false, biometric: false });
   const [view, setView] = useState('loading'); 
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isGridView, setIsGridView] = useState(false); // Toggle Grid View
+  const [isGridView, setIsGridView] = useState(false); 
   
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -389,6 +389,12 @@ function App() {
   const [unlockTarget, setUnlockTarget] = useState(null);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
+  
+  // Verbesserte PIN Logik states
+  const [isChangingPin, setIsChangingPin] = useState(false);
+  const [oldPinInput, setOldPinInput] = useState('');
+  const [newPinInput, setNewPinInput] = useState('');
+  const [confirmPinInput, setConfirmPinInput] = useState('');
 
   const [isSpeaking, setIsSpeaking] = useState(false);
   const audioPlayerRef = useRef(new Audio());
@@ -424,10 +430,8 @@ function App() {
   const [mood, setMood] = useState(null);
   const [location, setLocation] = useState(null);
   const [parentId, setParentId] = useState('');
-  const [zenMode, setZenMode] = useState(false);
   const [inheritedFrom, setInheritedFrom] = useState(null);
   const [pillarGuidance, setPillarGuidance] = useState(null);
-  const [autoSaveStatus, setAutoSaveStatus] = useState('');
 
   const editorRef = useRef(null);
   const isDirtyRef = useRef(false);
@@ -450,7 +454,6 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [showEditor, viewingEntry, view, isDrawing, showTimeline]);
 
-  // Trap back button
   useEffect(() => { window.history.pushState(null, '', window.location.href); }, [showEditor, viewingEntry, view, isDrawing, showTimeline]);
 
   // Initialize Firebase & Auth
@@ -541,10 +544,9 @@ function App() {
   };
 
   const handleLogout = async () => {
-      if(fb) { await fb.signOut(fb.auth); setUser({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', isDark: true, appBgColor: null, cloudSync: false, biometric: false }); localStorage.removeItem('legacy_user'); setEntries([]); setView('auth'); }
+      if(fb) { await fb.signOut(fb.auth); setUser({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: false, biometric: false }); localStorage.removeItem('legacy_user'); setEntries([]); setView('auth'); }
   };
 
-  // --- IDEA 1: Biometric WebAuthn (Fix for Mobile) ---
   const toggleBiometric = async () => {
       if (!user.biometric) {
           try {
@@ -562,7 +564,7 @@ function App() {
                   safeStorageSet('legacy_bio_pin', btoa(user.pin)); 
                   showDialog({title: 'Aktiviert', message: 'Biometrisches Entsperren ist nun aktiv.', icon: 'fingerprint'});
               }
-          } catch(e) { showDialog({title: 'Fehler', message: 'Biometrie konnte nicht aktiviert werden oder wurde abgebrochen.', icon: 'x'}); }
+          } catch(e) { showDialog({title: 'Fehler', message: 'Biometrie konnte nicht aktiviert werden. Möglicherweise unterstützt dein Gerät dieses Feature nicht.', icon: 'x'}); }
       } else {
           setUser({...user, biometric: false}); localStorage.removeItem('legacy_bio_pin');
       }
@@ -584,23 +586,32 @@ function App() {
       } catch(e) { showDialog({title: 'Fehler', message: 'Biometrische Prüfung fehlgeschlagen.', icon: 'x'}); }
   };
 
-  // Theme Sync
+  // Theme Sync - Separates Background & Text Color
   useEffect(() => {
     const metaThemeColor = document.getElementById("meta-theme-color");
+    
+    // Background
     if (user.appBgColor) {
         document.body.style.setProperty('background-color', user.appBgColor, 'important');
-        const isBgDark = isDarkColor(user.appBgColor);
-        document.body.style.setProperty('color', isBgDark ? '#ffffff' : '#18181b', 'important');
         if (metaThemeColor) metaThemeColor.setAttribute("content", user.appBgColor);
+        const isBgDark = isDarkColor(user.appBgColor);
         if(isBgDark) document.documentElement.classList.add('dark');
         else document.documentElement.classList.remove('dark');
     } else {
         document.body.style.removeProperty('background-color');
-        document.body.style.removeProperty('color');
         if (user.isDark) { document.documentElement.classList.add('dark'); if (metaThemeColor) metaThemeColor.setAttribute("content", "#000000"); } 
         else { document.documentElement.classList.remove('dark'); if (metaThemeColor) metaThemeColor.setAttribute("content", "#f8fafc"); }
     }
-  }, [user.appBgColor, user.isDark]);
+
+    // Text Color
+    if (user.textColor) {
+        document.body.style.setProperty('color', user.textColor, 'important');
+    } else {
+        document.body.style.removeProperty('color');
+        const isBgDark = user.appBgColor ? isDarkColor(user.appBgColor) : user.isDark;
+        document.body.style.setProperty('color', isBgDark ? '#ffffff' : '#18181b', 'important');
+    }
+  }, [user.appBgColor, user.textColor, user.isDark]);
 
   const syncSingleEntryToCloud = async (entry) => {
       if (!fb || !fb.auth.currentUser || !user.cloudSync || !user.pin) return;
@@ -684,7 +695,7 @@ function App() {
     }
   }, [importId, isLoaded, db]);
 
-  // Speichert explizit den aktuellen Inhalt, entkoppelt von der React-Render-Loop
+  // Speichert explizit den aktuellen Inhalt
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; let dbEntry = { ...entry };
     try { if (dbEntry.locked && activePin) { const payload = JSON.stringify({ text: dbEntry.text || '', title: dbEntry.title || '' }); dbEntry.encryptedData = await encryptData(payload, activePin); dbEntry.text = ''; dbEntry.title = 'Verschlüsselter Eintrag'; } else if (!dbEntry.locked) { dbEntry.encryptedData = null; } } catch(e) {}
@@ -728,8 +739,13 @@ function App() {
     showDialog({ type: 'confirm', title: 'Seite löschen?', message: 'Bist du sicher, dass du diese Seite endgültig entfernen möchtest?', icon: 'trash-2', iconColor: 'text-rose-500', onConfirm: () => { deleteFromDB(id); closeEditor(null); } });
   };
 
-  // AutoSave every 3 seconds if dirty
-  useEffect(() => { if (!showEditor || view === 'burn') return; const timer = setTimeout(() => { if (isDirtyRef.current) checkSaveEntry(false); }, 3000); return () => clearTimeout(timer); }, [title, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, showEditor]);
+  const handleSavePin = () => {
+      if (user.pin && oldPinInput !== user.pin) { showDialog({title: 'Fehler', message: 'Die alte PIN ist falsch.', icon: 'x'}); return; }
+      if (newPinInput !== confirmPinInput) { showDialog({title: 'Fehler', message: 'Die neuen PINs stimmen nicht überein.', icon: 'x'}); return; }
+      if (newPinInput.length < 4) { showDialog({title: 'Fehler', message: 'Die neue PIN muss mindestens 4 Zeichen lang sein.', icon: 'x'}); return; }
+      setUser({...user, pin: newPinInput}); setIsChangingPin(false); setOldPinInput(''); setNewPinInput(''); setConfirmPinInput('');
+      showDialog({title: 'Erfolg', message: 'Deine PIN wurde erfolgreich gespeichert.', icon: 'check'});
+  };
 
   const closeEditor = (savedEntry = null) => { setShowEditor(false); if(isRecording) stopRecording(); setViewingEntry(savedEntry); };
 
@@ -834,12 +850,13 @@ function App() {
       setTouchStart(null);
   };
 
-  // Canvas
+  // Canvas Drawing Logic
   const getCanvasCoordinates = (e) => {
       if (!canvasRef.current) return { x: 0, y: 0 };
       const rect = canvasRef.current.getBoundingClientRect();
-      if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
-      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      const dpr = window.devicePixelRatio || 1;
+      if (e.touches && e.touches.length > 0) return { x: (e.touches[0].clientX - rect.left), y: (e.touches[0].clientY - rect.top) };
+      return { x: (e.clientX - rect.left), y: (e.clientY - rect.top) };
   };
   const startDrawing = (e) => { if (!canvasRef.current) return; const {x, y} = getCanvasCoordinates(e); const ctx = canvasRef.current.getContext('2d'); ctx.beginPath(); ctx.moveTo(x, y); canvasRef.current.isPainting = true; };
   const draw = (e) => { if (!canvasRef.current?.isPainting) return; const {x, y} = getCanvasCoordinates(e); const ctx = canvasRef.current.getContext('2d'); ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.strokeStyle = user.isDark ? '#ffffff' : '#000000'; ctx.lineTo(x, y); ctx.stroke(); };
@@ -870,12 +887,12 @@ function App() {
   const triggerBurn = () => { setIsBurning(true); setTimeout(() => { setBurnText(''); setIsBurning(false); setView('dashboard'); showDialog({ title: 'Katharsis', message: 'Dem Feuer übergeben.', icon: 'flame' }); }, 2500); };
   const handleAvatarUpload = (e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (event) => { const img = new Image(); img.onload = () => { const canvas = document.createElement('canvas'); const SIZE = 512; canvas.width = SIZE; canvas.height = SIZE; const ctx = canvas.getContext('2d'); const minDim = Math.min(img.width, img.height); ctx.drawImage(img, (img.width - minDim) / 2, (img.height - minDim) / 2, minDim, minDim, 0, 0, SIZE, SIZE); setUser(prev => ({ ...prev, avatar: canvas.toDataURL('image/png') })); }; img.src = event.target.result; }; reader.readAsDataURL(file); } };
 
-  // Bild-Upload optimiert
+  // Bild-Upload (Verkleinert & Schneller)
   const handleFileUpload = (e, type) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
     if (type === 'image') {
-      const MAX_SIZE = 800; // Verkleinert für Performance
+      const MAX_SIZE = 600; 
       const processedImagesPromises = files.map(file => {
           return new Promise((resolve) => {
               const reader = new FileReader();
@@ -889,7 +906,7 @@ function App() {
                       canvas.width = width; canvas.height = height;
                       const ctx = canvas.getContext('2d'); 
                       ctx.drawImage(img, 0, 0, width, height);
-                      resolve(canvas.toDataURL('image/jpeg', 0.6)); // Stärkere Kompression
+                      resolve(canvas.toDataURL('image/jpeg', 0.5)); 
                   };
                   img.src = event.target.result;
               };
@@ -912,15 +929,15 @@ function App() {
           const img = new Image();
           img.onload = () => {
               const canvas = document.createElement('canvas');
-              const MAX_WIDTH = 600;
+              const MAX_WIDTH = 400;
               let w = img.width, h = img.height;
               if (w > MAX_WIDTH) { h *= MAX_WIDTH / w; w = MAX_WIDTH; }
               canvas.width = w; canvas.height = h;
               canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-              const base64 = canvas.toDataURL('image/jpeg', 0.7);
+              const base64 = canvas.toDataURL('image/jpeg', 0.6);
               if (editorRef.current) {
                   editorRef.current.focus();
-                  document.execCommand('insertHTML', false, `<img src="${base64}" style="max-width:100%; border-radius:16px; margin:10px 0;" />`);
+                  document.execCommand('insertHTML', false, `<img src="${base64}" style="max-width: 150px; border-radius: 8px; margin: 5px; display: inline-block; vertical-align: middle; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" />`);
                   isDirtyRef.current = true;
               }
           };
@@ -971,13 +988,18 @@ function App() {
 
   useEffect(() => { if (showEditor && editorRef.current && editorRef.current.innerHTML !== text) { editorRef.current.innerHTML = text || ''; } }, [showEditor, editingId]); 
 
-  // --- IDEA 3: Geografische Lebenskarte (Leaflet) ---
+  // --- IDEA 3: Geografische Lebenskarte (Leaflet) mit Auto-Theme (Uhrzeit) ---
   useEffect(() => {
       if (view === 'map' && mapRef.current && window.L) {
           if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; }
 
           const map = window.L.map(mapRef.current).setView([51.1657, 10.4515], 3);
-          const tileUrl = user.isDark ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+          
+          // Automatische Kartendarstellung nach Tageszeit
+          const currentHour = new Date().getHours();
+          const mapIsDark = currentHour < 6 || currentHour >= 18;
+          const tileUrl = mapIsDark ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+          
           window.L.tileLayer(tileUrl, { attribution: '© OpenStreetMap, © CARTO' }).addTo(map);
           
           let hasMarkers = false;
@@ -1006,7 +1028,7 @@ function App() {
           mapInstance.current = map;
           setTimeout(() => map.invalidateSize(), 200);
       }
-  }, [view, entries, user.nameColor, user.isDark]);
+  }, [view, entries, user.nameColor]);
 
   // --- UI RENDERERS ---
 
@@ -1175,11 +1197,71 @@ function App() {
                       <button onClick={() => setUser({...user, isDark: false})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${!user.isDark ? 'bg-white shadow-sm text-black' : 'text-slate-500'}`}>Hell</button>
                       <button onClick={() => setUser({...user, isDark: true})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${user.isDark ? 'bg-zinc-800 shadow-sm text-white' : 'text-slate-500'}`}>Dunkel</button>
                    </div>
-                   <div className="flex flex-wrap gap-2">
+                   
+                   <span className="text-xs font-bold uppercase tracking-widest opacity-60 mb-2 block">Hintergrund (App)</span>
+                   <div className="flex flex-wrap gap-2 mb-6">
+                      <button onClick={() => setUser({...user, appBgColor: null})} className={`w-8 h-8 rounded-full border-2 transition-transform flex items-center justify-center ${!user.appBgColor ? 'border-slate-400 dark:border-zinc-500 scale-110 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: user.isDark ? '#000000' : '#f8fafc' }}><Icon name="slash" size={14} className="opacity-50" /></button>
                       {COLORS.map(color => (
-                          <button key={color} onClick={() => setUser({...user, nameColor: color, appBgColor: color})} className={`w-8 h-8 rounded-full border-2 transition-transform ${user.nameColor === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
+                          <button key={color} onClick={() => setUser({...user, appBgColor: color})} className={`w-8 h-8 rounded-full border-2 transition-transform ${user.appBgColor === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
                       ))}
                    </div>
+
+                   <span className="text-xs font-bold uppercase tracking-widest opacity-60 mb-2 block">Schriftfarbe</span>
+                   <div className="flex flex-wrap gap-2">
+                      <button onClick={() => setUser({...user, textColor: null})} className={`w-8 h-8 rounded-full border-2 transition-transform flex items-center justify-center ${!user.textColor ? 'border-slate-400 dark:border-zinc-500 scale-110 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: user.isDark ? '#ffffff' : '#0f172a' }}><Icon name="slash" size={14} className={user.isDark ? 'text-black' : 'text-white'} /></button>
+                      {COLORS.map(color => (
+                          <button key={color} onClick={() => setUser({...user, textColor: color, nameColor: color})} className={`w-8 h-8 rounded-full border-2 transition-transform ${user.textColor === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
+                      ))}
+                   </div>
+                </div>
+
+                <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
+                   <h2 className="text-base font-bold mb-4 flex items-center gap-2"><Icon name="key" size={18}/> Sicherheit & PIN</h2>
+                   
+                   {!user.pin ? (
+                       <div className="space-y-4">
+                           <p className="text-sm font-medium opacity-70">Lege eine PIN fest, um den Tresor zu nutzen.</p>
+                           <input type="password" inputMode="numeric" value={newPinInput} onChange={e=>setNewPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em]" placeholder="Neue PIN" />
+                           <input type="password" inputMode="numeric" value={confirmPinInput} onChange={e=>setConfirmPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em]" placeholder="Wiederholen" />
+                           <button onClick={handleSavePin} className="w-full py-4 rounded-xl font-bold" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>PIN speichern</button>
+                       </div>
+                   ) : (
+                       isChangingPin ? (
+                           <div className="space-y-4">
+                               <input type="password" inputMode="numeric" value={oldPinInput} onChange={e=>setOldPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em]" placeholder="Alte PIN" />
+                               <input type="password" inputMode="numeric" value={newPinInput} onChange={e=>setNewPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em]" placeholder="Neue PIN" />
+                               <input type="password" inputMode="numeric" value={confirmPinInput} onChange={e=>setConfirmPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em]" placeholder="Wiederholen" />
+                               <div className="flex gap-2">
+                                   <button onClick={() => setIsChangingPin(false)} className="flex-1 py-4 rounded-xl font-bold bg-slate-100 dark:bg-zinc-800">Abbrechen</button>
+                                   <button onClick={handleSavePin} className="flex-1 py-4 rounded-xl font-bold" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>Speichern</button>
+                               </div>
+                           </div>
+                       ) : (
+                           <div className="flex justify-between items-center p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950">
+                               <div className="flex items-center gap-3">
+                                   <Icon name="check-circle" size={20} className="text-emerald-500" />
+                                   <span className="font-bold text-sm">PIN Aktiv</span>
+                               </div>
+                               <button onClick={() => setIsChangingPin(true)} className="px-4 py-2 rounded-lg font-bold text-xs bg-white dark:bg-zinc-800 shadow-sm" style={{ color: user.nameColor }}>Ändern</button>
+                           </div>
+                       )
+                   )}
+
+                   {/* Biometric Toggle */}
+                   {window.PublicKeyCredential && user.pin && !isChangingPin && (
+                       <div className="flex justify-between items-center mt-6 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800">
+                           <div className="flex items-center gap-3">
+                               <Icon name="fingerprint" size={20} className={user.biometric ? 'text-indigo-500' : 'text-slate-400'}/>
+                               <div>
+                                   <div className="font-bold text-sm">Biometrie</div>
+                                   <div className="text-[10px] opacity-60">TouchID / FaceID</div>
+                               </div>
+                           </div>
+                           <button onClick={toggleBiometric} className={`w-12 h-6 rounded-full transition-colors relative ${user.biometric ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-zinc-700'}`}>
+                               <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${user.biometric ? 'left-7' : 'left-1'}`} />
+                           </button>
+                       </div>
+                   )}
                 </div>
                 
                 <div className="p-6 rounded-[2rem] bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 shadow-sm">
@@ -1218,24 +1300,6 @@ function App() {
                    )}
                 </div>
 
-                <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
-                   <h2 className="text-base font-bold mb-4 flex items-center gap-2"><Icon name="key" size={18}/> Sicherheit</h2>
-                   {window.PublicKeyCredential && (
-                       <div className="flex justify-between items-center mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800">
-                           <div className="flex items-center gap-3">
-                               <Icon name="fingerprint" size={20} className={user.biometric ? 'text-indigo-500' : 'text-slate-400'}/>
-                               <div>
-                                   <div className="font-bold text-sm">Biometrie</div>
-                                   <div className="text-[10px] opacity-60">TouchID / FaceID</div>
-                               </div>
-                           </div>
-                           <button onClick={toggleBiometric} className={`w-12 h-6 rounded-full transition-colors relative ${user.biometric ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-zinc-700'}`}>
-                               <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${user.biometric ? 'left-7' : 'left-1'}`} />
-                           </button>
-                       </div>
-                   )}
-                   <input type="password" inputMode="numeric" value={user.pin} onChange={e=>setUser({...user, pin: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em] mb-4 focus:ring-2 focus:ring-slate-200 dark:focus:ring-zinc-700" placeholder="Tresor-PIN" />
-                </div>
                 <button onClick={handleLogout} className="w-full p-4 rounded-2xl font-bold text-rose-500 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-900/30 active:scale-95 transition-transform flex items-center justify-center gap-2"><Icon name="log-out" size={18}/> Abmelden</button>
              </div>
           )}
@@ -1521,7 +1585,7 @@ function App() {
                                <div className="space-y-3">
                                    {entriesOnSelectedDate.map((e) => (
                                        <button key={e.id} onClick={() => { setViewingEntry(e); setShowTimeline(false); }} className={`w-full text-left p-4 rounded-2xl flex items-center gap-4 transition-colors ${viewingEntry.id === e.id ? 'border' : 'bg-slate-50 dark:bg-zinc-900 border border-transparent'}`} style={viewingEntry.id === e.id ? { backgroundColor: `${user.nameColor}20`, borderColor: `${user.nameColor}50` } : {}}>
-                                           {e.images && e.images.length > 0 && <img src={e.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0" />}
+                                           {e.images && e.images.length > 0 && <img src={e.images[0]} loading="lazy" className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0" />}
                                            <div className="flex-1 overflow-hidden">
                                                <span className="font-bold text-sm truncate block">{e.title}</span>
                                                <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">{new Date(e.date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
@@ -1572,6 +1636,7 @@ function App() {
                      <div className="flex gap-2 overflow-x-auto hide-scrollbar items-center bg-slate-100 dark:bg-zinc-900 p-2 rounded-2xl">
                         <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, '<h1>'); isDirtyRef.current = true; }} className="px-3 py-1 font-bold text-lg hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl transition-colors">H1</button>
                         <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, '<h2>'); isDirtyRef.current = true; }} className="px-3 py-1 font-bold text-md hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl transition-colors">H2</button>
+                        <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, '<p>'); isDirtyRef.current = true; }} className="px-3 py-1 font-bold text-sm hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl transition-colors" title="Normaler Text">Text</button>
                         <div className="w-px h-6 bg-slate-300 dark:bg-zinc-700 mx-1"></div>
                         <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="bold" size={18}/></button>
                         <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="italic" size={18}/></button>
@@ -1587,7 +1652,7 @@ function App() {
 
                         <div className="flex gap-1.5 ml-2">
                            {['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'].map(c => (
-                              <button key={c} onMouseDown={(e) => { e.preventDefault(); document.execCommand('foreColor', false, c); isDirtyRef.current = true; }} className="w-5 h-5 rounded-full hover:scale-110 transition-transform" style={{backgroundColor: c}}></button>
+                              <button key={c} onMouseDown={(e) => { e.preventDefault(); document.execCommand('foreColor', false, c); isDirtyRef.current = true; }} className="w-5 h-5 rounded-full hover:scale-110 transition-transform shadow-sm" style={{backgroundColor: c}}></button>
                            ))}
                         </div>
                         
@@ -1678,7 +1743,10 @@ function App() {
               {dialog.icon && <Icon name={dialog.icon} size={36} className={`mx-auto mb-4 ${dialog.iconColor || 'text-slate-900 dark:text-white'}`}/>}
               <h3 className="text-xl font-bold mb-3">{dialog.title}</h3>
               <p className="text-sm font-medium opacity-70 mb-6">{dialog.message}</p>
-              <button onClick={() => { if(dialog.onConfirm) dialog.onConfirm(); setDialog(null); }} className="w-full py-4 rounded-xl font-bold" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>{dialog.confirmLabel || 'Okay'}</button>
+              <div className="flex gap-2">
+                  {dialog.onCancel && <button onClick={() => { if(dialog.onCancel) dialog.onCancel(); setDialog(null); }} className="w-full py-4 rounded-xl font-bold bg-slate-100 dark:bg-zinc-800">Abbrechen</button>}
+                  <button onClick={() => { if(dialog.onConfirm) dialog.onConfirm(); setDialog(null); }} className="w-full py-4 rounded-xl font-bold" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>{dialog.confirmLabel || 'Okay'}</button>
+              </div>
             </div>
           </div>
         )}
@@ -1690,7 +1758,7 @@ function App() {
               <h3 className="text-2xl font-bold tracking-tight mb-2">Tresor entsperren</h3>
               <p className="text-sm font-medium opacity-60 mb-6 truncate">"{unlockTarget.title}"</p>
               <input type="password" inputMode="numeric" autoFocus value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submitPin()} className={`w-full p-4 text-center text-2xl tracking-[1em] rounded-2xl outline-none mb-4 bg-slate-50 dark:bg-zinc-950 border-2 transition-colors ${pinError ? 'border-rose-500' : 'border-transparent focus:border-slate-300 dark:focus:border-zinc-700'}`} placeholder="••••" />
-              <button onClick={submitPin} className="w-full py-4 rounded-xl font-bold mb-3" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>Öffnen</button>
+              <button onClick={submitPin} className="w-full py-4 rounded-xl font-bold mb-3 shadow-md transition-transform hover:scale-105" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>Öffnen</button>
               {safeStorageGet('legacy_bio_pin') && (
                 <button onClick={handleBiometricUnlock} className="w-full py-3 font-bold rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] transition-all flex items-center justify-center gap-2"><Icon name="fingerprint" size={18}/> Biometrisch entsperren</button>
               )}
