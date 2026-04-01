@@ -149,7 +149,7 @@
   .legacy-editor-content li, .legacy-content li { margin-bottom: 0.25rem; }
   .legacy-editor-content blockquote, .legacy-content blockquote { border-left: 4px solid currentColor; padding-left: 1.5rem; font-style: normal; font-weight: 600; opacity: 0.9; background: transparent; margin: 1.5rem 0; font-size: 1.1em; }
   
-  /* Inline Image Resizing (Native) */
+  /* Standard Images */
   .legacy-editor-content img, .legacy-content img { border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: inline-block; vertical-align: middle; }
   
   [contenteditable="true"]:empty:before { content: attr(data-placeholder); opacity: 0.3; pointer-events: none; display: block; font-weight: 400; }
@@ -194,7 +194,7 @@ const createSafeHtml = (htmlStr) => {
   return { __html: window.DOMPurify ? window.DOMPurify.sanitize(htmlStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height'] }) : htmlStr };
 };
 
-// --- Web Crypto API Helper ---
+// --- Web Crypto API Helper (100% untouched) ---
 const encHelper = new TextEncoder();
 const decHelper = new TextDecoder();
 const cryptoKeyCache = {}; 
@@ -229,6 +229,18 @@ const decryptData = async (encryptedObj, pin) => {
         const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, cipher);
         return decHelper.decode(decrypted);
     } catch(e) { return null; }
+};
+
+const pcmToWav = (pcmBase64, sampleRate = 24000) => {
+  const pcmData = Uint8Array.from(atob(pcmBase64), c => c.charCodeAt(0)).buffer;
+  const wavHeader = new ArrayBuffer(44); const view = new DataView(wavHeader);
+  view.setUint32(0, 0x52494646, false); view.setUint32(4, 36 + pcmData.byteLength, true); 
+  view.setUint32(8, 0x57415645, false); view.setUint32(12, 0x666d7420, false); 
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true); 
+  view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true); 
+  view.setUint16(32, 2, true); view.setUint16(34, 16, true); 
+  view.setUint32(36, 0x64617461, false); view.setUint32(40, pcmData.byteLength, true); 
+  return URL.createObjectURL(new Blob([wavHeader, pcmData], { type: 'audio/wav' }));
 };
 
 class ErrorBoundary extends React.Component {
@@ -694,7 +706,7 @@ function App() {
       } catch(e) { showDialog({title: 'Fehler', message: 'Biometrische Prüfung fehlgeschlagen.', icon: 'x'}); }
   };
 
-  // Theme Sync
+  // Theme Sync - Separates Background & Text Color
   useEffect(() => {
     const metaThemeColor = document.getElementById("meta-theme-color");
     
@@ -803,11 +815,23 @@ function App() {
     }
   }, [importId, isLoaded, db]);
 
+  // Robust Save Logic Update
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; let dbEntry = { ...entry };
     try { if (dbEntry.locked && activePin) { const payload = JSON.stringify({ text: dbEntry.text || '', title: dbEntry.title || '' }); dbEntry.encryptedData = await encryptData(payload, activePin); dbEntry.text = ''; dbEntry.title = 'Verschlüsselter Eintrag'; } else if (!dbEntry.locked) { dbEntry.encryptedData = null; } } catch(e) {}
     try {
-      if (db) { const tx = db.transaction('entries', 'readwrite'); tx.objectStore('entries').put(dbEntry); tx.oncomplete = () => { setEntries(prev => { const exists = prev.find(e => e.id === entry.id); if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); }); syncSingleEntryToCloud(entry); }; }
+      if (db) { 
+        const tx = db.transaction('entries', 'readwrite'); 
+        tx.objectStore('entries').put(dbEntry); 
+        tx.oncomplete = () => { 
+            setEntries(prev => { 
+                const exists = prev.find(e => e.id === entry.id); 
+                if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); 
+                return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); 
+            }); 
+            syncSingleEntryToCloud(entry); 
+        }; 
+      }
     } catch (e) {}
   };
 
@@ -1023,7 +1047,7 @@ function App() {
               const base64 = canvas.toDataURL('image/jpeg', 0.6);
               if (editorRef.current) {
                   editorRef.current.focus();
-                  document.execCommand('insertHTML', false, `<img src="${base64}" style="max-width: 150px; border-radius: 8px; margin: 5px; display: inline-block; vertical-align: middle; box-shadow: 0 2px 8px rgba(0,0,0,0.1); resize: both; overflow: hidden;" />`);
+                  document.execCommand('insertHTML', false, `<span style="display: inline-block; resize: both; overflow: hidden; width: 150px; min-width: 50px; max-width: 100%; border: 2px dashed #cbd5e1; padding: 2px; border-radius: 8px; vertical-align: middle; margin: 4px;"><img src="${base64}" style="width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block;" /></span>&nbsp;`);
                   isDirtyRef.current = true;
               }
           };
@@ -1084,7 +1108,7 @@ function App() {
       if (view === 'map' && mapRef.current && window.L) {
           if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; }
 
-          const map = window.L.map(mapRef.current, { zoomControl: false }).setView([51.1657, 10.4515], 3);
+          const map = window.L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView([51.1657, 10.4515], 3);
           window.L.control.zoom({ position: 'bottomright' }).addTo(map);
 
           // Automatische Kartendarstellung nach Tageszeit
@@ -1092,7 +1116,7 @@ function App() {
           const mapIsDark = currentHour < 6 || currentHour >= 18;
           const tileUrl = mapIsDark ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
           
-          window.L.tileLayer(tileUrl, { attribution: '© OpenStreetMap, © CARTO' }).addTo(map);
+          window.L.tileLayer(tileUrl).addTo(map);
           
           let hasMarkers = false;
           const bounds = window.L.latLngBounds();
@@ -1527,8 +1551,8 @@ function App() {
                </div>
              </div>
 
-             {/* Single Entry View */}
-             <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-32">
+             {/* Single Entry View for Screen */}
+             <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-32 screen-only">
                 {viewingEntry.images && viewingEntry.images.length > 0 && (
                   <div className="relative w-full aspect-video rounded-3xl overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-8 group bg-slate-100 dark:bg-zinc-900">
                       <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-cover transition-transform duration-700" alt="Cover" />
@@ -1585,8 +1609,8 @@ function App() {
                  <div className="print-title-page page-break-after">
                     <h1 style={{fontSize: '56px', marginBottom: '20px', fontFamily: 'Georgia, serif'}}>{user.appName || 'Legacy Vision Journal'}</h1>
                     <h3 style={{fontSize: '24px', opacity: 0.6}}>Verfasst von {user.name}</h3>
-                    <p style={{marginTop: '40px', fontStyle: 'italic'}}>{user.motto}</p>
-                    <p style={{position: 'absolute', bottom: '40px'}}>Generiert am {new Date().toLocaleDateString('de-DE')}</p>
+                    {user.motto && <p style={{marginTop: '40px', fontStyle: 'italic'}}>{user.motto}</p>}
+                    <p style={{position: 'absolute', bottom: '40px', left: '0', right: '0', textAlign: 'center'}}>Generiert am {new Date().toLocaleDateString('de-DE')}</p>
                  </div>
                  
                  <div className="print-toc page-break-after">
@@ -1694,24 +1718,44 @@ function App() {
 
         {/* --- EDITOR --- */}
         {showEditor && (
-          <div className="fixed inset-0 z-[150] flex flex-col bg-white dark:bg-black animate-fade-in sm:p-6 no-print">
-            <div className="relative w-full h-full max-w-3xl mx-auto flex flex-col bg-white dark:bg-zinc-950 sm:rounded-[2.5rem] sm:border border-slate-200 dark:border-zinc-800 overflow-hidden shadow-2xl">
+          <div className="fixed inset-0 z-[150] flex flex-col bg-white dark:bg-black animate-fade-in no-print">
+            <div className="w-full h-full max-w-3xl mx-auto flex flex-col bg-white dark:bg-zinc-950 overflow-hidden shadow-2xl relative">
               
-              {/* Toolbar Top - Sticky Header Container */}
-              <div className="flex justify-between items-center px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 dark:border-zinc-900 shrink-0 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md z-30">
+              {/* Toolbar Top - ABSOLUTELY FIXED AT TOP */}
+              <div className="flex justify-between items-center px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 dark:border-zinc-900 shrink-0 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md z-40 relative">
                 <button onClick={() => checkSaveEntry(true)} className="p-3 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"><Icon name="arrow-left" size={24}/></button>
                 <div className="flex gap-2 items-center">
                    {editingIdRef.current && <button onClick={() => confirmDelete(editingIdRef.current)} className="p-3 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10"><Icon name="trash-2" size={20}/></button>}
                    <button onClick={() => { setIsLocked(!isLocked); isDirtyRef.current = true; }} className={`p-3 rounded-full transition-colors ${isLocked ? 'bg-rose-500/10 text-rose-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`} title="Tresor-Schutz"><Icon name="lock" size={20}/></button>
                    
-                   {/* Geolocation Button */}
+                   {/* Geolocation & Weather Auto-Fetch Button */}
                    <button onClick={() => {
                        if(navigator.geolocation) {
-                           showDialog({title:'Orte', message:'Position wird ermittelt...', icon:'loader'});
-                           navigator.geolocation.getCurrentPosition(pos => {
-                               setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                               isDirtyRef.current = true; setDialog(null);
-                               setTimeout(()=>showDialog({title:'Orts-Siegel', message:'Dein Standort wurde verewigt.', icon:'map-pin', iconColor:'text-amber-500'}), 300);
+                           showDialog({title:'Orte & Wetter', message:'Lade GPS und Live-Wetter...', icon:'loader'});
+                           navigator.geolocation.getCurrentPosition(async pos => {
+                               const lat = pos.coords.latitude;
+                               const lng = pos.coords.longitude;
+                               setLocation({ lat, lng });
+                               isDirtyRef.current = true; 
+                               
+                               try {
+                                  const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`);
+                                  const data = await res.json();
+                                  if(data && data.current_weather) {
+                                      const temp = Math.round(data.current_weather.temperature);
+                                      const code = data.current_weather.weathercode;
+                                      let desc = "Klar";
+                                      if(code >= 1 && code <= 3) desc = "Bewölkt";
+                                      else if(code >= 45 && code <= 48) desc = "Nebel";
+                                      else if(code >= 51 && code <= 67) desc = "Regen";
+                                      else if(code >= 71 && code <= 77) desc = "Schnee";
+                                      else if(code >= 95) desc = "Gewitter";
+                                      setWeather(`${temp}°C, ${desc}`);
+                                  }
+                               } catch(e) {}
+                               
+                               setDialog(null);
+                               setTimeout(()=>showDialog({title:'Orts-Siegel', message:'Dein Standort und Live-Wetter wurden verewigt.', icon:'map-pin', iconColor:'text-amber-500'}), 300);
                            }, () => { setDialog(null); showDialog({title:'Fehler', message:'Ortung fehlgeschlagen.', icon:'x'}); });
                        }
                    }} className={`p-3 rounded-full transition-colors ${location ? 'bg-emerald-500/10 text-emerald-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`} title="Standort verewigen"><Icon name="map-pin" size={20}/></button>
@@ -1721,23 +1765,23 @@ function App() {
                 </div>
               </div>
 
-              {/* Title & Format Toolbar - Fixiert über dem Text */}
-              <div className="flex flex-col shrink-0 px-6 sm:px-10 pt-6 pb-2 z-20 bg-white dark:bg-zinc-950 border-b border-slate-100 dark:border-zinc-900 shadow-sm">
+              {/* Title & Format Toolbar - KOMPLETT ENTKOPPELT UND STICKY */}
+              <div className="flex flex-col shrink-0 px-6 sm:px-10 pt-6 pb-2 z-40 bg-white dark:bg-zinc-950 border-b border-slate-100 dark:border-zinc-900 shadow-sm relative">
                  {pillarGuidance && <div className="mb-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-400 text-sm font-medium flex gap-3"><Icon name="book-open" size={20} className="shrink-0"/>{pillarGuidance}</div>}
                  <input type="text" placeholder="Ein brillianter Gedanke..." value={title} onChange={(e) => { setTitle(e.target.value); isDirtyRef.current = true; }} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tight outline-none placeholder:opacity-30 mb-4" />
                  
                  <div className="flex gap-2 mb-2 overflow-x-auto hide-scrollbar items-center bg-slate-100 dark:bg-zinc-900 p-2 rounded-2xl">
                     <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, '<h1>'); isDirtyRef.current = true; }} className="px-3 py-1 font-bold text-lg hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl transition-colors">H1</button>
                     <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, '<h2>'); isDirtyRef.current = true; }} className="px-3 py-1 font-bold text-md hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl transition-colors">H2</button>
-                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, '<p>'); isDirtyRef.current = true; }} className="px-3 py-1 font-bold text-sm hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl transition-colors" title="Normaler Text">Text</button>
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'p'); isDirtyRef.current = true; }} className="px-3 py-1 font-bold text-sm hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl transition-colors" title="Normaler Text">Text</button>
                     <div className="w-px h-6 bg-slate-300 dark:bg-zinc-700 mx-1"></div>
                     <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="bold" size={18}/></button>
                     <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="italic" size={18}/></button>
                     <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="list-todo" size={18}/></button>
-                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, '<blockquote>'); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="quote" size={18}/></button>
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="quote" size={18}/></button>
                     <div className="w-px h-6 bg-slate-300 dark:bg-zinc-700 mx-1"></div>
                     
-                    {/* Inline Image Upload */}
+                    {/* Inline Image Upload (Resizable with pure CSS Handles) */}
                     <label className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 cursor-pointer text-indigo-500 transition-colors shrink-0" title="Bild in Text">
                        <Icon name="image" size={18}/>
                        <input type="file" accept="image/*" onChange={handleInlineImage} className="hidden"/>
@@ -1753,9 +1797,10 @@ function App() {
                  </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-6 sm:px-10 pb-32 overscroll-contain flex flex-col relative z-10">
+              {/* Editor Content Area - Scrollbar hierhin verlagert */}
+              <div className="flex-1 overflow-y-auto px-6 sm:px-10 pt-4 pb-32 overscroll-contain relative z-10">
                 {selectedImages.length > 0 && (
-                   <div className="flex overflow-x-auto hide-scrollbar gap-3 mb-6 snap-x pt-4 shrink-0">
+                   <div className="flex overflow-x-auto hide-scrollbar gap-3 mb-6 snap-x shrink-0">
                       {selectedImages.map((imgSrc, i) => (
                          <div key={i} className="relative w-48 h-48 rounded-3xl overflow-hidden border border-slate-100 dark:border-zinc-800 shrink-0 snap-center">
                             <img src={imgSrc} className="w-full h-full object-cover"/>
@@ -1772,18 +1817,10 @@ function App() {
                 )}
                 
                 {/* Main Text Editor */}
-                <div ref={editorRef} onClick={(e) => {
-                    if (e.target.tagName === 'IMG') {
-                        const currentWidth = e.target.style.maxWidth;
-                        if (currentWidth === '150px') e.target.style.maxWidth = '50%';
-                        else if (currentWidth === '50%') e.target.style.maxWidth = '100%';
-                        else e.target.style.maxWidth = '150px';
-                        isDirtyRef.current = true;
-                    }
-                }} contentEditable suppressContentEditableWarning data-placeholder="Lass es fließen... (Tippe auf eingefügte Bilder, um sie zu verkleinern/vergrößern)" onInput={() => { isDirtyRef.current = true; }} className="w-full min-h-[50vh] flex-1 bg-transparent text-lg leading-relaxed font-medium outline-none empty:before:content-[attr(data-placeholder)] legacy-editor-content opacity-90 pt-4" />
+                <div ref={editorRef} contentEditable suppressContentEditableWarning data-placeholder="Lass es fließen..." onInput={() => { isDirtyRef.current = true; }} className="w-full min-h-[50vh] flex-1 bg-transparent text-lg leading-relaxed font-medium outline-none empty:before:content-[attr(data-placeholder)] legacy-editor-content opacity-90" />
 
                 {/* Metadata Inputs (Tags, People, Weather, Rating) */}
-                <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800 pb-10">
+                <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800 pb-10 shrink-0">
                    <div className="flex items-center gap-2">
                        {[1,2,3,4,5].map(star => (
                            <button key={star} type="button" onClick={() => { setRating(star); isDirtyRef.current=true; }}>
@@ -1791,14 +1828,24 @@ function App() {
                            </button>
                        ))}
                    </div>
-                   <div className="grid grid-cols-2 gap-3">
-                       <input type="text" placeholder="Tags (Komma getrennt)" value={tags} onChange={e => {setTags(e.target.value); isDirtyRef.current=true;}} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none" style={{ color: user.textColor || 'inherit' }} />
-                       <input type="text" placeholder="Personen (Komma getrennt)" value={people} onChange={e => {setPeople(e.target.value); isDirtyRef.current=true;}} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none" style={{ color: user.textColor || 'inherit' }} />
-                       <input type="text" placeholder="Wetter (z.B. 27°C, Sonnig)" value={weather} onChange={e => {setWeather(e.target.value); isDirtyRef.current=true;}} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none col-span-2" style={{ color: user.textColor || 'inherit' }} />
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                       <div className="flex flex-col">
+                           <label className="text-[10px] font-bold uppercase opacity-50 mb-1">Tags (Komma getrennt)</label>
+                           <input type="text" placeholder="z.B. Urlaub, Sommer" value={tags} onChange={e => {setTags(e.target.value); isDirtyRef.current=true;}} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none" style={{ color: user.textColor || 'inherit' }} />
+                       </div>
+                       <div className="flex flex-col">
+                           <label className="text-[10px] font-bold uppercase opacity-50 mb-1">Personen (Komma getrennt)</label>
+                           <input type="text" placeholder="z.B. Thomas, Sarah" value={people} onChange={e => {setPeople(e.target.value); isDirtyRef.current=true;}} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none" style={{ color: user.textColor || 'inherit' }} />
+                       </div>
+                       <div className="flex flex-col sm:col-span-2">
+                           <label className="text-[10px] font-bold uppercase opacity-50 mb-1">Wetter (wird bei GPS-Siegel automatisch befüllt)</label>
+                           <input type="text" placeholder="z.B. 27°C, Sonnig" value={weather} onChange={e => {setWeather(e.target.value); isDirtyRef.current=true;}} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none" style={{ color: user.textColor || 'inherit' }} />
+                       </div>
                    </div>
                 </div>
               </div>
 
+              {/* Bottom Control Bar */}
               <div className="absolute bottom-0 left-0 right-0 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 p-4 flex justify-between items-center pb-[env(safe-area-inset-bottom,16px)] z-30">
                  <div className="flex gap-2">
                     <label className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm cursor-pointer hover:scale-105 transition-transform" title="Galerie-Bild"><Icon name="images" size={20}/><input type="file" accept="image/*" multiple onChange={handleFileUpload} className="hidden" /></label>
