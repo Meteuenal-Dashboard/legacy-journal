@@ -149,11 +149,11 @@
   .legacy-editor-content li, .legacy-content li { margin-bottom: 0.25rem; }
   .legacy-editor-content blockquote, .legacy-content blockquote { border-left: 4px solid currentColor; padding-left: 1.5rem; font-style: normal; font-weight: 600; opacity: 0.9; background: transparent; margin: 1.5rem 0; font-size: 1.1em; }
   
-  /* Inline Image Resizing Magic */
-  .inline-img-wrapper { display: inline-block; vertical-align: middle; margin: 4px; position: relative; max-width: 100%; cursor: move; }
-  .legacy-editor-content .inline-img-wrapper { resize: both; overflow: hidden; border: 2px dashed #cbd5e1; padding: 2px; border-radius: 8px; min-width: 50px; min-height: 50px; }
-  .legacy-content .inline-img-wrapper { resize: none; border: none; padding: 0; overflow: visible; }
-  .inline-img-wrapper img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; border-radius: 6px; display: block; }
+  /* Inline Image Resizing Magic (Native Browser Resizing & Drag/Drop) */
+  .inline-img-wrapper { display: inline-block; vertical-align: text-bottom; margin: 4px; max-width: 100%; cursor: move; }
+  .legacy-editor-content .inline-img-wrapper { resize: both; overflow: hidden; border: 2px dashed #cbd5e1; padding: 2px; border-radius: 8px; }
+  .legacy-content .inline-img-wrapper { border: 2px solid transparent; padding: 2px; overflow: hidden; border-radius: 8px; }
+  .inline-img-wrapper img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; border-radius: 6px; }
   
   /* Standard Images Overview */
   .legacy-editor-content > img, .legacy-content > img { border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: inline-block; vertical-align: middle; max-width: 100%; }
@@ -203,8 +203,9 @@ const getLocalISO = () => {
     return new Date(now.getTime() - tzOffset).toISOString().slice(0, -1); 
 };
 
+// Safe HTML mit 'contenteditable' erlaubt (wichtig für Drag&Drop Bilder)
 const createSafeHtml = (htmlStr) => {
-  return { __html: window.DOMPurify ? window.DOMPurify.sanitize(htmlStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height'] }) : htmlStr };
+  return { __html: window.DOMPurify ? window.DOMPurify.sanitize(htmlStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] }) : htmlStr };
 };
 
 // --- Web Crypto API Helper (100% untouched) ---
@@ -370,7 +371,7 @@ const initDB = () => {
 const highlightText = (text, query) => {
   if (!text) return { __html: '' };
   let safeText = text.replace(/<img[^>]*>/g, '[Bild]');
-  safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height'] }) : safeText;
+  safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] }) : safeText;
   if (!query) return { __html: safeText };
   const plainText = safeText.replace(/<[^>]*>?/gm, '');
   const parts = plainText.split(new RegExp(`(${query})`, 'gi'));
@@ -536,7 +537,7 @@ function App() {
     if (isLoaded) safeStorageSet('legacy_user', JSON.stringify(user));
   }, [user, isLoaded]);
 
-  // Hardware Back Button Logik (Sicher für Apps)
+  // Hardware Back Button Logik (Repariert & Sicher)
   useEffect(() => {
     try { window.history.pushState({ isApp: true }, ''); } catch(e) {}
     const handlePopState = (e) => {
@@ -647,7 +648,7 @@ function App() {
       if(fb) { await fb.signOut(fb.auth); setUser({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: false, biometric: false }); localStorage.removeItem('legacy_user'); setEntries([]); setView('auth'); }
   };
 
-  // --- WebAuthn Biometrie Fix (Native Mobile Integration) ---
+  // --- WebAuthn Biometrie Fix (Platform required) ---
   const toggleBiometric = async () => {
       if (!user.biometric) {
           try {
@@ -705,9 +706,7 @@ function App() {
           if (cred) {
               const savedPin = atob(safeStorageGet('legacy_bio_pin'));
               if (savedPin) {
-                  const newUserObj = {...user, pin: savedPin}; 
-                  setUser(newUserObj); 
-                  safeStorageSet('legacy_user', JSON.stringify(newUserObj));
+                  const newUserObj = {...user, pin: savedPin}; setUser(newUserObj); safeStorageSet('legacy_user', JSON.stringify(newUserObj));
                   
                   if (unlockTarget) {
                       setViewingEntry(unlockTarget);
@@ -726,6 +725,7 @@ function App() {
   useEffect(() => {
     const metaThemeColor = document.getElementById("meta-theme-color");
     
+    // Background
     if (user.appBgColor) {
         document.body.style.setProperty('background-color', user.appBgColor, 'important');
         if (metaThemeColor) metaThemeColor.setAttribute("content", user.appBgColor);
@@ -738,6 +738,7 @@ function App() {
         else { document.documentElement.classList.remove('dark'); if (metaThemeColor) metaThemeColor.setAttribute("content", "#f8fafc"); }
     }
 
+    // Text Color
     if (user.textColor) {
         document.body.style.setProperty('color', user.textColor, 'important');
     } else {
@@ -1059,7 +1060,7 @@ function App() {
               const base64 = canvas.toDataURL('image/jpeg', 0.6);
               if (editorRef.current) {
                   editorRef.current.focus();
-                  document.execCommand('insertHTML', false, `<span class="inline-img-wrapper"><img src="${base64}" /></span>&nbsp;`);
+                  document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false" style="width: 150px; height: 150px;"><img src="${base64}" /></span><br><br>`);
                   isDirtyRef.current = true;
               }
           };
@@ -1152,10 +1153,10 @@ function App() {
               if (e.images && e.images.length > 0) {
                   const iconHtml = `
                     <div style="position: relative; width: 54px; height: 54px;">
-                        <div style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; border: 3px solid ${user.nameColor || '#f59e0b'}; background-color: #000;">
+                        <div style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; border: 3px solid ${user.nameColor || '#f59e0b'}; box-shadow: 0 4px 10px rgba(0,0,0,0.4); background-color: #000;">
                             <img src="${e.images[0]}" style="width: 100%; height: 100%; object-fit: cover;" />
                         </div>
-                        ${count > 1 ? `<div style="position: absolute; top: -4px; right: -4px; background: #ef4444; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 10;">${count}</div>` : ''}
+                        ${count > 1 ? `<div style="position: absolute; top: -4px; right: -4px; background: #ef4444; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 10;">${count}x</div>` : ''}
                     </div>`;
                   const icon = window.L.divIcon({ html: iconHtml, className: 'avatar-marker', iconSize: [54, 54], iconAnchor: [27, 27] });
                   const marker = window.L.marker([group.lat, group.lng], { icon }).addTo(map);
@@ -1165,7 +1166,7 @@ function App() {
                   const iconHtml = `
                     <div style="position: relative; width: 16px; height: 16px;">
                         <div style="width: 100%; height: 100%; border-radius: 50%; background-color: ${user.nameColor || '#f59e0b'}; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>
-                        ${count > 1 ? `<div style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 10;">${count}</div>` : ''}
+                        ${count > 1 ? `<div style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 10;">${count}x</div>` : ''}
                     </div>`;
                   const icon = window.L.divIcon({ html: iconHtml, className: 'avatar-marker', iconSize: [16, 16], iconAnchor: [8, 8] });
                   const marker = window.L.marker([group.lat, group.lng], { icon }).addTo(map);
@@ -1585,8 +1586,8 @@ function App() {
                </div>
              </div>
 
-             {/* Single Entry View for Screen */}
-             <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-32 screen-only">
+             {/* Single Entry View */}
+             <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-32">
                 {viewingEntry.images && viewingEntry.images.length > 0 && (
                   <div className="relative w-full aspect-video rounded-3xl overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-8 group bg-slate-100 dark:bg-zinc-900">
                       <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-cover transition-transform duration-700" alt="Cover" />
@@ -1832,7 +1833,7 @@ function App() {
               </div>
 
               {/* Editor Content Area - Scrollbar hierhin verlagert */}
-              <div className="flex-1 overflow-y-auto px-6 sm:px-10 pt-4 pb-48 overscroll-contain relative z-10">
+              <div className="flex-1 overflow-y-auto px-6 sm:px-10 pt-4 pb-48 overscroll-contain flex flex-col relative z-10">
                 {selectedImages.length > 0 && (
                    <div className="flex overflow-x-auto hide-scrollbar gap-3 mb-6 snap-x shrink-0">
                       {selectedImages.map((imgSrc, i) => (
@@ -1880,7 +1881,7 @@ function App() {
               </div>
 
               {/* Bottom Control Bar */}
-              <div className="absolute bottom-0 left-0 right-0 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 p-4 flex justify-between items-center pb-[env(safe-area-inset-bottom,16px)] z-30">
+              <div className="shrink-0 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 p-4 flex justify-between items-center pb-[env(safe-area-inset-bottom,16px)] z-30">
                  <div className="flex gap-2">
                     <label className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm cursor-pointer hover:scale-105 transition-transform" title="Galerie-Bild"><Icon name="images" size={20}/><input type="file" accept="image/*" multiple onChange={(e) => handleFileUpload(e, 'image')} className="hidden" /></label>
                     <button onClick={()=>setIsDrawing(true)} className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm hover:scale-105 transition-transform"><Icon name="pen-tool" size={20}/></button>
