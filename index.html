@@ -367,6 +367,19 @@ const initDB = () => {
   });
 };
 
+const highlightText = (text, query) => {
+  if (!text) return { __html: '' };
+  let safeText = text.replace(/<img[^>]*>/g, '[Bild]');
+  safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height'] }) : safeText;
+  if (!query) return { __html: safeText };
+  const plainText = safeText.replace(/<[^>]*>?/gm, '');
+  const parts = plainText.split(new RegExp(`(${query})`, 'gi'));
+  const highlighted = parts.map((part, i) =>
+      part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part
+  ).join('');
+  return { __html: highlighted };
+};
+
 // --- EntryCard Component: Verhindert Bild-Ruckeln ---
 const EntryCard = memo(({ entry, onClick, isGridView, userColor, isDarkTheme, searchQuery }) => {
     const hasImages = entry.images && entry.images.length > 0;
@@ -395,7 +408,7 @@ const EntryCard = memo(({ entry, onClick, isGridView, userColor, isDarkTheme, se
             {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE')}</span></>}
             {entry.locked && !isCapsuleLocked && <><span className="text-rose-500 flex items-center gap-1 ml-auto"><Icon name="lock" size={12}/> Tresor</span></>}
             {entry.audio && <><span className="text-emerald-500 flex items-center ml-1"><Icon name="mic" size={12}/></span></>}
-            {entry.location && <><span className="text-amber-500 flex items-center ml-1"><Icon name="map-pin" size={12}/></span></>}
+            {entry.location && <span className="text-amber-500 flex items-center ml-1"><Icon name="map-pin" size={12}/></span>}
           </div>
           <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-2 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : ''}`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
           {!entry.locked && !isCapsuleLocked && entry.text && !isGridView && (
@@ -493,6 +506,7 @@ function App() {
   const [weather, setWeather] = useState('');
   
   const [parentId, setParentId] = useState('');
+  const [zenMode, setZenMode] = useState(false);
   const [inheritedFrom, setInheritedFrom] = useState(null);
   const [pillarGuidance, setPillarGuidance] = useState(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState('');
@@ -792,17 +806,46 @@ function App() {
       finally { setSyncingCloud(false); }
   };
 
-  // Robust Save Logic Update (Fehlerhafte Speicherung behoben)
   useEffect(() => {
-     editingIdRef.current = editingId;
-     currentEntryRef.current = { title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, rating, tags, people, weather };
-  }, [editingId, title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, rating, tags, people, weather]);
+    if (importId && isLoaded) {
+      setSyncStatus('Bereite Datenübertragung vor...'); const peer = new window.Peer();
+      peer.on('open', () => { setSyncStatus(`Verbinde mit altem Gerät...`); const conn = peer.connect(importId); conn.on('open', () => { setSyncStatus('Verbunden! Empfange Daten...'); conn.send('request_data'); }); conn.on('data', async (data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.entries) {
+               setSyncStatus('Daten werden verarbeitet...');
+               if (db) {
+                 const pinToUse = parsed.user ? parsed.user.pin : user.pin;
+                 const entriesToSave = await Promise.all(parsed.entries.map(async (e) => {
+                     let dbE = { ...e }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []);
+                     if (dbE.locked && pinToUse) { const payload = JSON.stringify({ text: dbE.text || '', title: dbE.title || '' }); dbE.encryptedData = await encryptData(payload, pinToUse); dbE.text = ''; dbE.title = 'Verschlüsselter Eintrag'; return dbE; } return dbE;
+                 }));
+                 const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); entriesToSave.forEach(e => store.put(e));
+                 tx.oncomplete = () => { if (parsed.user) safeStorageSet('legacy_user', JSON.stringify(parsed.user)); setSyncStatus('Erfolgreich übertragen!'); setTimeout(() => { window.location.href = window.location.origin + window.location.pathname; }, 2000); };
+               }
+            }
+          } catch(e) { setSyncStatus('Fehler beim Lesen.'); }
+        }); conn.on('error', (err) => setSyncStatus('Verbindungsfehler: ' + err)); }); peer.on('error', (err) => setSyncStatus('Gerät nicht bereit.'));
+    }
+  }, [importId, isLoaded, db]);
 
+  // Robust Save Logic Update
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; let dbEntry = { ...entry };
     try { if (dbEntry.locked && activePin) { const payload = JSON.stringify({ text: dbEntry.text || '', title: dbEntry.title || '' }); dbEntry.encryptedData = await encryptData(payload, activePin); dbEntry.text = ''; dbEntry.title = 'Verschlüsselter Eintrag'; } else if (!dbEntry.locked) { dbEntry.encryptedData = null; } } catch(e) {}
     try {
-      if (db) { const tx = db.transaction('entries', 'readwrite'); tx.objectStore('entries').put(dbEntry); tx.oncomplete = () => { setEntries(prev => { const exists = prev.find(e => e.id === entry.id); if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); }); syncSingleEntryToCloud(entry); }; }
+      if (db) { 
+        const tx = db.transaction('entries', 'readwrite'); 
+        tx.objectStore('entries').put(dbEntry); 
+        tx.oncomplete = () => { 
+            setEntries(prev => { 
+                const exists = prev.find(e => e.id === entry.id); 
+                if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); 
+                return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); 
+            }); 
+            syncSingleEntryToCloud(entry); 
+        }; 
+      }
     } catch (e) {}
   };
 
@@ -855,10 +898,10 @@ function App() {
     } else {
       setEditingId(null); editingIdRef.current = null; setTitle(pillar ? pillar.title : ''); setText(''); setSelectedColor(user.isDark ? COLORS[8] : COLORS[0]); setSelectedImages([]); setIsLocked(view === 'vault'); setIsManifested(false); setCategory(pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory)); setMood(null); setAudioUrl(null); setUnlockDate(''); setLocation(null); setParentId(''); setInheritedFrom(null); setRating(0); setTags(''); setPeople(''); setWeather(''); setPillarGuidance(pillar ? pillar.desc : null);
     }
-    setShowEditor(true);
+    setZenMode(false); setShowEditor(true);
   };
 
-  const startNewChapter = (parent) => { isDirtyRef.current = false; setViewingEntry(null); setEditingId(null); editingIdRef.current = null; setTitle(parent.title || ''); setText(''); setSelectedColor(user.isDark ? COLORS[8] : COLORS[0]); setSelectedImages([]); setIsLocked(parent.locked || false); setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setLocation(null); setCategory(parent.category || CATEGORIES[0]); setMood(null); setParentId(parent.id); setInheritedFrom(null); setRating(0); setTags(''); setPeople(''); setWeather(''); setShowEditor(true); };
+  const startNewChapter = (parent) => { isDirtyRef.current = false; setViewingEntry(null); setEditingId(null); editingIdRef.current = null; setTitle(parent.title || ''); setText(''); setSelectedColor(user.isDark ? COLORS[8] : COLORS[0]); setSelectedImages([]); setIsLocked(parent.locked || false); setAudioUrl(null); setIsManifested(false); setUnlockDate(''); setLocation(null); setCategory(parent.category || CATEGORIES[0]); setMood(null); setParentId(parent.id); setInheritedFrom(null); setRating(0); setTags(''); setPeople(''); setWeather(''); setZenMode(false); setShowEditor(true); };
 
   const showDialog = (options) => { setDialog({ type: 'alert', confirmLabel: 'Okay', ...options }); };
 
@@ -1292,7 +1335,7 @@ function App() {
                            </div>
                        </div>
                        <label className="w-full sm:flex-1 py-3 px-4 rounded-xl cursor-pointer shadow-sm font-bold text-sm text-center border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:scale-[1.02] transition-transform">
-                           Profilbild ändern <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'image')} className="hidden" />
+                           Profilbild ändern <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
                        </label>
                    </div>
                    <input type="text" value={user.name} onChange={e=>setUser({...user, name: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-lg mb-4 focus:ring-2 focus:ring-slate-200 dark:focus:ring-zinc-700" placeholder="Dein Name" />
@@ -1837,7 +1880,7 @@ function App() {
               </div>
 
               {/* Bottom Control Bar */}
-              <div className="shrink-0 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 p-4 flex justify-between items-center pb-[env(safe-area-inset-bottom,16px)] z-30">
+              <div className="absolute bottom-0 left-0 right-0 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 p-4 flex justify-between items-center pb-[env(safe-area-inset-bottom,16px)] z-30">
                  <div className="flex gap-2">
                     <label className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm cursor-pointer hover:scale-105 transition-transform" title="Galerie-Bild"><Icon name="images" size={20}/><input type="file" accept="image/*" multiple onChange={(e) => handleFileUpload(e, 'image')} className="hidden" /></label>
                     <button onClick={()=>setIsDrawing(true)} className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-sm hover:scale-105 transition-transform"><Icon name="pen-tool" size={20}/></button>
