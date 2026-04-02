@@ -3,20 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<!-- Content Security Policy (CSP) für Play Store & TWA Compliance -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: wss: blob: data:; img-src 'self' data: blob: https:; connect-src 'self' https: wss:;">
 <title>Legacy Vision Journal - Ultimate Edition</title>
 
+<!-- PWA & iOS Premium Integration -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" id="meta-theme-color" content="#f8fafc">
 <meta name="color-scheme" content="light dark">
 
+<!-- W3C Standard Manifest -->
 <link rel="manifest" id="dynamic-manifest" href="">
 <link rel="apple-touch-icon" href="./icon-192x192.png">
 
+<!-- Container für den App-Klon -->
 <script id="legacy-injected-data" type="application/json">null</script>
 
+<!-- Inter Font & Libraries -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -25,7 +30,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   window.tailwind = {
-    config: { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'], serif: ['Georgia', 'serif'] }, colors: { slate: { 50: '#f8fafc', 100: '#f1f5f9', 900: '#0f172a' }, zinc: { 800: '#27272a', 900: '#18181b', 950: '#09090b' } } } } }
+    config: { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'], serif: ['Georgia', 'serif'] }, colors: { slate: { 50: '#f8fafc', 100: '#f1f5f9', 900: '#0f172a' }, zinc: { 800: '#27272a', 900: '#18181b', 950: '#09090b' }, user: 'var(--user-color)', userBorder: 'var(--user-border)' } } } }
   };
 </script>
 
@@ -36,6 +41,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <style>
+  :root { --user-color: #f59e0b; --user-border: rgba(0,0,0,0.1); }
+  
   html, body {
     overscroll-behavior-y: none;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -226,15 +233,36 @@ const Icon = ({ name, size = 24, className = '', ...props }) => {
 
 const COLORS = ['#ffffff', '#f8fafc', '#e4e4e7', '#a1a1aa', '#52525b', '#27272a', '#18181b', '#09090b', '#fef08a', '#fbbf24', '#f59e0b', '#d97706', '#fecdd3', '#fb7185', '#f43f5e', '#e11d48', '#bfdbfe', '#3b82f6', '#1d4ed8', '#a7f3d0', '#10b981', '#047857', '#e9d5ff', '#8b5cf6', '#6d28d9'];
 const isDarkColor = (color) => { if (!color) return true; const hex = color.replace('#', ''); if (hex.length === 6) { const r = parseInt(hex.substr(0, 2), 16), g = parseInt(hex.substr(2, 2), 16), b = parseInt(hex.substr(4, 2), 16); return ((r * 299 + g * 587 + b * 114) / 1000) < 128; } return true; };
+const getSubtleBorderColor = (hexColor, isDark) => { if (!hexColor) return isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'; const cleanHex = hexColor.replace('#', ''); if (cleanHex.length === 6) { const r = parseInt(cleanHex.slice(0, 2), 16), g = parseInt(cleanHex.slice(2, 4), 16), b = parseInt(cleanHex.slice(4, 6), 16); return `rgba(${r}, ${g}, ${b}, ${isDark ? 0.15 : 0.25})`; } return isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'; };
 
 const CATEGORIES = ['Allgemein', 'Tagebuch', 'Ideen', 'Gesundheit', 'Vision', 'Ziele', 'Bücher', 'Familie'];
 const MOODS = [ { id: 'smile', label: 'Strahlend', color: 'text-amber-500', iconName: 'smile' }, { id: 'heart', label: 'Liebevoll', color: 'text-rose-500', iconName: 'heart' }, { id: 'coffee', label: 'Fokussiert', color: 'text-blue-500', iconName: 'coffee' }, { id: 'cloud-lightning', label: 'Stürmisch', color: 'text-indigo-500', iconName: 'cloud-lightning' }, { id: 'frown', label: 'Nachdenklich', color: 'text-slate-500', iconName: 'frown' } ];
 const PILLARS = [
   { id: 'm1', phase: 'Fundament', title: '1. Das Nordstern-Manifest', desc: 'Definiere deine absoluten, unverhandelbaren Grundwerte.' },
+  { id: 'm2', phase: 'Fundament', title: '2. Der Zeitgeist-Stempel', desc: 'Historischer Kontext: Was passiert gerade auf der Welt?' },
+  { id: 'm3', phase: 'Fundament', title: '3. Das Geistige Testament', desc: 'Vererbe deinen Charakter. Welche Lebensweisheiten möchtest du weitergeben?' },
+  { id: 'm4', phase: 'Fundament', title: '4. Die Anti-Vision', desc: 'Definiere glasklar, wer du niemals werden willst und welche Pfade du vermeidest.' },
+  { id: 'm5', phase: 'Fundament', title: '5. Das Narben-Register', desc: 'Eine ehrliche Dokumentation deines größten Fehlschlags und deines Comebacks.' },
   { id: 'm6', phase: 'Kommunikation', title: '6. Die Zeitkapsel', desc: 'Eine Botschaft an die Zukunft. Nutze die Datums-Siegelfunktion.' },
+  { id: 'm7', phase: 'Kommunikation', title: '7. Der Enkel-Dialog', desc: 'Stelle Fragen, die der zukünftige Leser für sich selbst beantworten soll.' },
+  { id: 'm8', phase: 'Kommunikation', title: '8. Stammbaum der Fähigkeiten', desc: 'Dokumentiere, wie du dir über Jahrzehnte Fähigkeiten angeeignet hast.' },
+  { id: 'm9', phase: 'Kommunikation', title: '9. Schicksals-Tagebuch', desc: 'Ein Ort für unglaubliche Zufälle und unerklärliche Momente deines Lebens.' },
+  { id: 'm10', phase: 'Kommunikation', title: '10. Das Dankbarkeits-Echo', desc: 'Wem verdankst du etwas? Wer waren deine Mentoren, Lehrer, Wegbegleiter?' },
   { id: 'm11', phase: 'Struktur', title: '11. Purer Text (Agnostisch)', desc: 'Schreibe in einfachen Sätzen rohe Fakten auf, völlig ohne Emotionen.' },
+  { id: 'm12', phase: 'Struktur', title: '12. Matroschka-Ziele', desc: 'Bricht deine 50-Jahres-Vision auf ein 10-Jahres-Ziel und das Heute herunter.' },
+  { id: 'm13', phase: 'Struktur', title: '13. Die Essenz-Filterung', desc: 'Fasse das vergangene Jahr in drei Sätzen zusammen: Triumph, Schmerz, Lektion.' },
+  { id: 'm14', phase: 'Struktur', title: '14. Offene Fragen', desc: 'Dinge im Leben, die du noch nicht verstehst. Zeige intellektuelle Demut.' },
+  { id: 'm15', phase: 'Struktur', title: '15. Denkwerkzeuge', desc: 'Notiere die mentalen Modelle, die dir in schweren Situationen helfen.' },
   { id: 'm16', phase: 'Tiefe', title: '16. Emotionaler Farb-Code', desc: 'Vergib deiner aktuellen Lebensphase eine Farbe und erkläre, warum.' },
-  { id: 'm21', phase: 'Anpassung', title: '21. Der Pivot-Tracker', desc: 'Hebe Momente hervor, in denen du dein Leben radikal in eine neue Richtung gelenkt hast.' }
+  { id: 'm17', phase: 'Tiefe', title: '17. Die Friedens-Akte', desc: 'Aufzeichnungen darüber, wie du einen schweren Konflikt gelöst hast.' },
+  { id: 'm18', phase: 'Tiefe', title: '18. Das Alltags-Fossil', desc: 'Dokumentiere einen extrem banalen, minutengenauen Ablauf eines normalen Dienstags.' },
+  { id: 'm19', phase: 'Tiefe', title: '19. Rhythmus-Tracker', desc: 'Beobachte deine eigenen Lebensenergie-Zyklen. Wann musstest du loslassen?' },
+  { id: 'm20', phase: 'Tiefe', title: '20. Ideen-Gewächshaus', desc: 'Ideen, die du heute hast, für die du oder die Welt noch nicht bereit sind.' },
+  { id: 'm21', phase: 'Anpassung', title: '21. Der Pivot-Tracker', desc: 'Hebe Momente hervor, in denen du dein Leben radikal in eine neue Richtung gelenkt hast.' },
+  { id: 'm22', phase: 'Anpassung', title: '22. Umwelt-Resonanz', desc: 'Beobachtungen über die Natur und Umwelt an deinem Wohnort im Wandel der Zeit.' },
+  { id: 'm23', phase: 'Anpassung', title: '23. Die Loslass-Liste', desc: 'Träume, Ziele oder Menschen, die du bewusst (und in Frieden) aufgegeben hast.' },
+  { id: 'm24', phase: 'Anpassung', title: '24. Stimme & Akzent', desc: 'Nutze die Mikrofon-Funktion, um eine Audio-Nachricht mit deiner Stimme zu hinterlassen.' },
+  { id: 'm25', phase: 'Anpassung', title: '25. Raum für Unbegreifliches', desc: 'Platz für Konzepte und Lebensrealitäten, die es heute noch gar nicht gibt.' }
 ];
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
@@ -419,7 +447,7 @@ function App() {
   const isDirtyRef = useRef(false);
   const currentEntryRef = useRef(editingState);
 
-  // Theme Sync (Ränder neutralisiert, Schriftart behält Fokus)
+  // Theme Sync
   useEffect(() => {
     const metaThemeColor = document.getElementById("meta-theme-color");
     const root = document.documentElement;
@@ -724,6 +752,13 @@ function App() {
       return () => clearInterval(timer); 
   }, [showEditor, view]);
 
+  // PROBLEM 3 FIX: Korrektes Laden alter Einträge über useEffect
+  useEffect(() => {
+      if (showEditor && editorRef.current) {
+          editorRef.current.innerHTML = editingState.text || '';
+      }
+  }, [showEditor, editingState.id]);
+
   const openEditor = (entry = null, pillar = null, customDate = null) => {
     isDirtyRef.current = false;
     const targetDate = entry && entry.id ? (entry.date || getLocalISO()) : (customDate ? new Date(customDate).toISOString().slice(0, -1) : getLocalISO());
@@ -782,7 +817,7 @@ function App() {
     const files = Array.from(e.target.files);
     if (!files.length) return;
     if (type === 'image') {
-      const MAX_SIZE = 800; 
+      const MAX_SIZE = 1920; 
       const processedImagesPromises = files.map(file => {
           return new Promise((resolve) => {
               const reader = new FileReader();
@@ -795,7 +830,7 @@ function App() {
                       else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
                       canvas.width = width; canvas.height = height;
                       const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
-                      resolve(canvas.toDataURL('image/jpeg', 0.6)); 
+                      resolve(canvas.toDataURL('image/jpeg', 0.95)); 
                   };
                   img.src = event.target.result;
               };
@@ -820,10 +855,10 @@ function App() {
       reader.onload = (evt) => {
           const img = new Image();
           img.onload = () => {
-              const canvas = document.createElement('canvas'); const MAX_WIDTH = 400; let w = img.width, h = img.height;
+              const canvas = document.createElement('canvas'); const MAX_WIDTH = 1200; let w = img.width, h = img.height;
               if (w > MAX_WIDTH) { h *= MAX_WIDTH / w; w = MAX_WIDTH; }
               canvas.width = w; canvas.height = h; canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-              const base64 = canvas.toDataURL('image/jpeg', 0.6);
+              const base64 = canvas.toDataURL('image/jpeg', 0.95);
               if (editorRef.current) {
                   editorRef.current.focus();
                   document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false"><img src="${base64}" /><button class="delete-img-btn" contenteditable="false">✕</button></span>&nbsp;`);
@@ -1321,11 +1356,18 @@ function App() {
                             ${Array(emptySlots).fill(null).map((_, i) => html`<div key="empty-${i}" />`)}
                             ${daysArray.map(day => {
                                 const dateStr = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth(), day).toDateString();
-                                const dayEntry = bookEntries.find(e => new Date(e.date).toDateString() === dateStr);
-                                const hasEntry = !!dayEntry; const bgImg = dayEntry?.images?.[0] || extractFirstImage(dayEntry?.text) || null; const isSelected = timelineSelectedDate === dateStr;
+                                const entriesOnDay = bookEntries.filter(e => new Date(e.date).toDateString() === dateStr);
+                                const hasEntry = entriesOnDay.length > 0;
+                                let bgImg = null;
+                                for (const e of entriesOnDay) {
+                                    bgImg = e.images?.[0] || extractFirstImage(e.text);
+                                    if (bgImg) break;
+                                }
+                                const isSelected = timelineSelectedDate === dateStr;
                                 return html`
-                                   <button key=${day} onClick=${() => setTimelineSelectedDate(isSelected ? null : dateStr)} className="relative p-2 text-sm rounded-xl transition-all flex items-center justify-center aspect-square overflow-hidden border border-transparent ${isSelected ? 'shadow-md font-bold scale-110' : ''}" style=${bgImg ? { backgroundImage: `url(${bgImg})`, backgroundSize: 'cover', backgroundPosition: 'center', border: isSelected ? `2px solid ${user.nameColor}` : 'none' } : (isSelected ? { backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000' } : { backgroundColor: 'transparent' })}>
-                                      ${!bgImg && html`<span>${day}</span>`}
+                                   <button key=${day} onClick=${() => setTimelineSelectedDate(isSelected ? null : dateStr)} className="relative p-2 text-sm rounded-xl transition-all flex items-center justify-center aspect-square overflow-hidden border border-transparent ${isSelected ? 'shadow-md font-bold scale-110' : ''}" style=${isSelected ? { backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000' } : { backgroundColor: 'transparent' }}>
+                                      ${bgImg && html`<img src=${bgImg} className="absolute inset-0 w-full h-full object-cover opacity-60" style=${{zIndex: 0}} />`}
+                                      <span className="relative z-10 ${bgImg && !isSelected ? 'text-white drop-shadow-md font-bold' : ''}">${day}</span>
                                       ${hasEntry && !isSelected && !bgImg && html`<div className="absolute bottom-1 w-1.5 h-1.5 rounded-full" style=${{ backgroundColor: user.nameColor }}></div>`}
                                    </button>
                                 `;
@@ -1409,7 +1451,6 @@ function App() {
                 </div>
              </div>
              
-             <!-- PRINT VIEW HTML STRUCTURE -->
              <div className="print-only w-full max-w-4xl mx-auto p-8">
                  <div className="print-title-page page-break-after">
                     <h1 style=${{fontSize: '56px', marginBottom: '20px', fontFamily: 'Georgia, serif'}}>${user.appName || 'Legacy Vision Journal'}</h1>
@@ -1526,7 +1567,6 @@ function App() {
                          }
                      }}
                      onInput=${e => { currentEntryRef.current.text = e.currentTarget.innerHTML; isDirtyRef.current = true; }} 
-                     dangerouslySetInnerHTML=${{__html: editingState.text}} 
                      className="w-full min-h-[250px] bg-transparent text-lg leading-relaxed font-medium outline-none empty:before:content-[attr(data-placeholder)] legacy-editor-content pt-4 pb-12 border border-transparent" />
 
                 <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800 pb-10">
