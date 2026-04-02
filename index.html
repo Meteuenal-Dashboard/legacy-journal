@@ -1,1 +1,1577 @@
-JFK260089682 - WEB9OLM9055
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<!-- Content Security Policy (CSP) für Play Store & TWA Compliance -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: wss: blob: data:; img-src 'self' data: blob: https:; connect-src 'self' https: wss:;">
+<title>Legacy Vision Journal - Ultimate Edition</title>
+
+<!-- PWA & iOS Premium Integration -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" id="meta-theme-color" content="#f8fafc">
+<meta name="color-scheme" content="light dark">
+
+<!-- W3C Standard Manifest -->
+<link rel="manifest" id="dynamic-manifest" href="">
+<link rel="apple-touch-icon" href="./icon-192x192.png">
+
+<!-- Container für den App-Klon -->
+<script id="legacy-injected-data" type="application/json">null</script>
+
+<!-- Inter Font & Libraries -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  window.tailwind = {
+    config: { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'], serif: ['Georgia', 'serif'] }, colors: { slate: { 50: '#f8fafc', 100: '#f1f5f9', 900: '#0f172a' }, zinc: { 800: '#27272a', 900: '#18181b', 950: '#09090b' } } } } }
+  };
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+  html, body {
+    overscroll-behavior-y: none;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  body.modal-open { overflow: hidden !important; }
+  html:not(.dark) body { background-color: #f8fafc !important; color: #0f172a !important; }
+  html.dark body { background-color: #000000 !important; color: #f8fafc !important; }
+
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 32px); }
+  .floating-nav-spacing { padding-bottom: calc(100px + env(safe-area-inset-bottom, 20px)); }
+  h1, h2, h3, h4, h5, h6 { font-weight: 800; letter-spacing: -0.03em; }
+
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } } .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
+  @keyframes slide-up { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } .animate-slide-up { animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  @keyframes pulse-flame { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.05); } } .animate-flame { animation: pulse-flame 2s infinite ease-in-out; }
+
+  .custom-scrollbar::-webkit-scrollbar { display: none; }
+  .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .legacy-editor-content p, .legacy-content p { line-height: 1.7; margin-bottom: 1rem; }
+  .legacy-editor-content h1, .legacy-content h1 { font-size: 2.25rem; font-weight: 800; margin-top: 1.5rem; margin-bottom: 1rem; line-height: 1.2; }
+  .legacy-editor-content h2, .legacy-content h2 { font-size: 1.75rem; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.75rem; line-height: 1.3; }
+  .legacy-editor-content blockquote, .legacy-content blockquote { border-left: 4px solid currentColor; padding-left: 1.5rem; font-style: normal; font-weight: 600; opacity: 0.9; background: transparent; margin: 1.5rem 0; font-size: 1.1em; }
+  
+  .inline-img-wrapper { display: inline-block; vertical-align: text-bottom; margin: 4px; max-width: 100%; cursor: move; }
+  .legacy-editor-content .inline-img-wrapper { resize: both; overflow: hidden; border: 2px dashed #cbd5e1; padding: 2px; border-radius: 8px; min-width: 50px; min-height: 50px; }
+  .legacy-content .inline-img-wrapper { border: 2px solid transparent; padding: 2px; overflow: hidden; border-radius: 8px; width: auto; }
+  .inline-img-wrapper img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; border-radius: 6px; }
+  .legacy-editor-content > img, .legacy-content > img { border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: inline-block; max-width: 100%; }
+  
+  [contenteditable="true"]:empty:before { content: attr(data-placeholder); opacity: 0.3; pointer-events: none; display: block; font-weight: 400; }
+  html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
+  .search-highlight { background-color: rgba(245, 158, 11, 0.3); padding: 0 2px; border-radius: 3px; border-bottom: 1px solid #f59e0b; }
+  .map-container { height: 100%; width: 100%; border-radius: 1.5rem; z-index: 1; }
+  .leaflet-marker-icon.avatar-marker { border: none !important; background: transparent !important; }
+  .leaflet-control-attribution { display: none !important; }
+
+  .print-only { display: none; }
+  @media print {
+    @page { margin: 2cm; @bottom-center { content: counter(page); font-family: 'Inter', sans-serif; font-size: 12px; color: #888; } }
+    body, html, #root, .min-h-screen { background: #ffffff !important; color: #000000 !important; height: auto !important; overflow: visible !important; width: 100% !important; }
+    nav, header, button, .no-print, .screen-only, .custom-scrollbar::-webkit-scrollbar { display: none !important; }
+    .print-only { display: block !important; width: 100% !important; max-width: 100% !important; padding: 0 !important; }
+    .page-break-after { page-break-after: always; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- NATIVE ES MODULES (NO BABEL) - HIGH PERFORMANCE -->
+<script type="module">
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'https://esm.sh/react@18.2.0';
+import { createRoot } from 'https://esm.sh/react-dom@18.2.0/client';
+import htm from 'https://esm.sh/htm';
+
+// Firebase sichere ES-Imports
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+import { getFirestore, collection, doc, setDoc, deleteDoc, getDocs, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+
+const html = htm.bind(React.createElement);
+
+// --- Offline Service Worker Injection ---
+const swCode = `
+  const CACHE_NAME = 'legacy-vision-v2';
+  self.addEventListener('install', e => { e.waitUntil(self.skipWaiting()); });
+  self.addEventListener('activate', e => { e.waitUntil(self.clients.claim()); });
+  self.addEventListener('fetch', e => {
+    e.respondWith(caches.match(e.request).then(res => res || fetch(e.request).then(fetchRes => {
+        if(e.request.method === 'GET' && e.request.url.startsWith('http')) {
+            const resClone = fetchRes.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(e.request, resClone));
+        }
+        return fetchRes;
+    }).catch(() => new Response('Offline', {status: 503}))));
+  });
+`;
+const swBlob = new Blob([swCode], { type: 'application/javascript' });
+if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.protocol === 'http:')) {
+    navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(err => console.warn('SW Fehler:', err));
+}
+
+// --- Utils & Crypto ---
+const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
+const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
+const getLocalISO = () => { const now = new Date(); const tzOffset = now.getTimezoneOffset() * 60000; return new Date(now.getTime() - tzOffset).toISOString().slice(0, -1); };
+
+const createSafeHtml = (htmlStr) => {
+  const safeStr = htmlStr || '';
+  return { __html: window.DOMPurify ? window.DOMPurify.sanitize(safeStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] }) : safeStr };
+};
+
+const highlightText = (text, query) => {
+  const safeStr = text || '';
+  if (!safeStr) return { __html: '' };
+  let safeText = safeStr.replace(/<img[^>]*>/g, '[Bild]');
+  safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] }) : safeText;
+  if (!query) return { __html: safeText };
+  const plainText = safeText.replace(/<[^>]*>?/gm, '');
+  const parts = plainText.split(new RegExp(`(${query})`, 'gi'));
+  const highlighted = parts.map((part, i) => part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part).join('');
+  return { __html: highlighted };
+};
+
+const encHelper = new TextEncoder();
+const decHelper = new TextDecoder();
+const cryptoKeyCache = {}; 
+
+const getCryptoKey = async (pin, saltStr) => {
+    const cacheKey = pin + saltStr;
+    if (cryptoKeyCache[cacheKey]) return cryptoKeyCache[cacheKey];
+    const keyMaterial = await window.crypto.subtle.importKey("raw", encHelper.encode(pin), { name: "PBKDF2" }, false, ["deriveBits", "deriveKey"]);
+    const salt = Uint8Array.from(atob(saltStr), c => c.charCodeAt(0));
+    const key = await window.crypto.subtle.deriveKey({ name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" }, keyMaterial, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+    cryptoKeyCache[cacheKey] = key; return key;
+};
+
+const encryptData = async (text, pin) => {
+    try {
+        const salt = window.crypto.getRandomValues(new Uint8Array(16));
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+        const saltStr = btoa(String.fromCharCode(...salt));
+        const ivStr = btoa(String.fromCharCode(...iv));
+        const key = await getCryptoKey(pin, saltStr);
+        const encrypted = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, encHelper.encode(text));
+        return { cipher: btoa(String.fromCharCode(...new Uint8Array(encrypted))), iv: ivStr, salt: saltStr };
+    } catch(e) { return null; }
+};
+
+const decryptData = async (encryptedObj, pin) => {
+    if (!encryptedObj || !pin) return null;
+    try {
+        const key = await getCryptoKey(pin, encryptedObj.salt);
+        const iv = Uint8Array.from(atob(encryptedObj.iv), c => c.charCodeAt(0));
+        const cipher = Uint8Array.from(atob(encryptedObj.cipher), c => c.charCodeAt(0));
+        const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, cipher);
+        return decHelper.decode(decrypted);
+    } catch(e) { return null; }
+};
+
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => { setDebouncedValue(value); }, delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
+// --- Components ---
+const Icon = ({ name, size = 24, className = '', ...props }) => {
+  const spanRef = useRef(null);
+  useEffect(() => {
+    if (spanRef.current && window.lucide) {
+      spanRef.current.innerHTML = `<i data-lucide="${name}"></i>`;
+      window.lucide.createIcons({ root: spanRef.current });
+      const svg = spanRef.current.querySelector('svg');
+      if (svg) { svg.setAttribute('width', size); svg.setAttribute('height', size); if (className) svg.setAttribute('class', `lucide lucide-${name} ${className}`); }
+    }
+  }, [name, size, className]);
+  return html`<span ref=${spanRef} style=${{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} ...${props}></span>`;
+};
+
+const COLORS = ['#ffffff', '#f8fafc', '#e4e4e7', '#a1a1aa', '#52525b', '#27272a', '#18181b', '#09090b', '#fef08a', '#fbbf24', '#f59e0b', '#d97706', '#fecdd3', '#fb7185', '#f43f5e', '#e11d48', '#bfdbfe', '#3b82f6', '#1d4ed8', '#a7f3d0', '#10b981', '#047857', '#e9d5ff', '#8b5cf6', '#6d28d9'];
+const isDarkColor = (color) => { if (!color) return true; const hex = color.replace('#', ''); if (hex.length === 6) { const r = parseInt(hex.substr(0, 2), 16), g = parseInt(hex.substr(2, 2), 16), b = parseInt(hex.substr(4, 2), 16); return ((r * 299 + g * 587 + b * 114) / 1000) < 128; } return true; };
+const getSubtleBorderColor = (hexColor, isDark) => { if (!hexColor) return isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'; const cleanHex = hexColor.replace('#', ''); if (cleanHex.length === 6) { const r = parseInt(cleanHex.slice(0, 2), 16), g = parseInt(cleanHex.slice(2, 4), 16), b = parseInt(cleanHex.slice(4, 6), 16); return `rgba(${r}, ${g}, ${b}, ${isDark ? 0.15 : 0.25})`; } return isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'; };
+
+const CATEGORIES = ['Allgemein', 'Tagebuch', 'Ideen', 'Gesundheit', 'Vision', 'Ziele', 'Bücher', 'Familie'];
+const MOODS = [ { id: 'smile', label: 'Strahlend', color: 'text-amber-500', iconName: 'smile' }, { id: 'heart', label: 'Liebevoll', color: 'text-rose-500', iconName: 'heart' }, { id: 'coffee', label: 'Fokussiert', color: 'text-blue-500', iconName: 'coffee' }, { id: 'cloud-lightning', label: 'Stürmisch', color: 'text-indigo-500', iconName: 'cloud-lightning' }, { id: 'frown', label: 'Nachdenklich', color: 'text-slate-500', iconName: 'frown' } ];
+const PILLARS = [
+  { id: 'm1', phase: 'Fundament', title: '1. Das Nordstern-Manifest', desc: 'Definiere deine absoluten, unverhandelbaren Grundwerte.' },
+  { id: 'm2', phase: 'Fundament', title: '2. Der Zeitgeist-Stempel', desc: 'Historischer Kontext: Was passiert gerade auf der Welt?' },
+  { id: 'm3', phase: 'Fundament', title: '3. Das Geistige Testament', desc: 'Vererbe deinen Charakter. Welche Lebensweisheiten möchtest du weitergeben?' },
+  { id: 'm4', phase: 'Fundament', title: '4. Die Anti-Vision', desc: 'Definiere glasklar, wer du niemals werden willst und welche Pfade du vermeidest.' },
+  { id: 'm5', phase: 'Fundament', title: '5. Das Narben-Register', desc: 'Eine ehrliche Dokumentation deines größten Fehlschlags und deines Comebacks.' },
+  { id: 'm6', phase: 'Kommunikation', title: '6. Die Zeitkapsel', desc: 'Eine Botschaft an die Zukunft. Nutze die Datums-Siegelfunktion.' },
+  { id: 'm7', phase: 'Kommunikation', title: '7. Der Enkel-Dialog', desc: 'Stelle Fragen, die der zukünftige Leser für sich selbst beantworten soll.' },
+  { id: 'm8', phase: 'Kommunikation', title: '8. Stammbaum der Fähigkeiten', desc: 'Dokumentiere, wie du dir über Jahrzehnte Fähigkeiten angeeignet hast.' },
+  { id: 'm9', phase: 'Kommunikation', title: '9. Schicksals-Tagebuch', desc: 'Ein Ort für unglaubliche Zufälle und unerklärliche Momente deines Lebens.' },
+  { id: 'm10', phase: 'Kommunikation', title: '10. Das Dankbarkeits-Echo', desc: 'Wem verdankst du etwas? Wer waren deine Mentoren, Lehrer, Wegbegleiter?' },
+  { id: 'm11', phase: 'Struktur', title: '11. Purer Text (Agnostisch)', desc: 'Schreibe in einfachen Sätzen rohe Fakten auf, völlig ohne Emotionen.' },
+  { id: 'm12', phase: 'Struktur', title: '12. Matroschka-Ziele', desc: 'Bricht deine 50-Jahres-Vision auf ein 10-Jahres-Ziel und das Heute herunter.' },
+  { id: 'm13', phase: 'Struktur', title: '13. Die Essenz-Filterung', desc: 'Fasse das vergangene Jahr in drei Sätzen zusammen: Triumph, Schmerz, Lektion.' },
+  { id: 'm14', phase: 'Struktur', title: '14. Offene Fragen', desc: 'Dinge im Leben, die du noch nicht verstehst. Zeige intellektuelle Demut.' },
+  { id: 'm15', phase: 'Struktur', title: '15. Denkwerkzeuge', desc: 'Notiere die mentalen Modelle, die dir in schweren Situationen helfen.' },
+  { id: 'm16', phase: 'Tiefe', title: '16. Emotionaler Farb-Code', desc: 'Vergib deiner aktuellen Lebensphase eine Farbe und erkläre, warum.' },
+  { id: 'm17', phase: 'Tiefe', title: '17. Die Friedens-Akte', desc: 'Aufzeichnungen darüber, wie du einen schweren Konflikt gelöst hast.' },
+  { id: 'm18', phase: 'Tiefe', title: '18. Das Alltags-Fossil', desc: 'Dokumentiere einen extrem banalen, minutengenauen Ablauf eines normalen Dienstags.' },
+  { id: 'm19', phase: 'Tiefe', title: '19. Rhythmus-Tracker', desc: 'Beobachte deine eigenen Lebensenergie-Zyklen. Wann musstest du loslassen?' },
+  { id: 'm20', phase: 'Tiefe', title: '20. Ideen-Gewächshaus', desc: 'Ideen, die du heute hast, für die du oder die Welt noch nicht bereit sind.' },
+  { id: 'm21', phase: 'Anpassung', title: '21. Der Pivot-Tracker', desc: 'Hebe Momente hervor, in denen du dein Leben radikal in eine neue Richtung gelenkt hast.' },
+  { id: 'm22', phase: 'Anpassung', title: '22. Umwelt-Resonanz', desc: 'Beobachtungen über die Natur und Umwelt an deinem Wohnort im Wandel der Zeit.' },
+  { id: 'm23', phase: 'Anpassung', title: '23. Die Loslass-Liste', desc: 'Träume, Ziele oder Menschen, die du bewusst (und in Frieden) aufgegeben hast.' },
+  { id: 'm24', phase: 'Anpassung', title: '24. Stimme & Akzent', desc: 'Nutze die Mikrofon-Funktion, um eine Audio-Nachricht mit deiner Stimme zu hinterlassen.' },
+  { id: 'm25', phase: 'Anpassung', title: '25. Raum für Unbegreifliches', desc: 'Platz für Konzepte und Lebensrealitäten, die es heute noch gar nicht gibt.' }
+];
+const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+
+const initDB = () => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('LegacyVisionDB', 5);
+    request.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('entries')) {
+        const store = db.createObjectStore('entries', { keyPath: 'id' });
+        store.createIndex('date', 'date', { unique: false });
+        store.createIndex('category', 'category', { unique: false });
+        store.createIndex('trashed', 'trashed', { unique: false });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQuery }) => {
+    const hasImages = entry.images && entry.images.length > 0;
+    const cardBgClass = isDarkTheme ? 'bg-zinc-900' : 'bg-white shadow-md';
+    const isCapsuleLocked = entry.unlockDate;
+
+    return html`
+      <div onClick=${() => onClick(entry)} className="group relative rounded-3xl overflow-hidden cursor-pointer border transition-transform active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col' : ''}" style=${{ borderColor: getSubtleBorderColor(userColor, isDarkTheme) }}>
+        ${entry.manifested && html`
+          <div className="absolute top-4 right-4 z-20 bg-amber-400 text-amber-950 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
+            <${Icon} name="sparkles" size=${12}/> Highlight
+          </div>
+        `}
+        ${hasImages && html`
+          <div className="w-full aspect-video relative overflow-hidden bg-slate-100 dark:bg-zinc-800">
+            <img src=${entry.images[0]} className="w-full h-full object-cover" alt="Cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+          </div>
+        `}
+        <div className="p-6 relative z-10 flex-1 flex flex-col">
+          <div className="flex items-center gap-2 mb-3 text-[10px] font-bold uppercase tracking-widest opacity-50 flex-wrap">
+            <span>${new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+            ${!isGridView && html`<span>•</span><span>${entry.category}</span>`}
+            ${entry.tags && html`<span className="text-blue-500 flex items-center gap-0.5 ml-1"><${Icon} name="tag" size=${10}/>${entry.tags.split(',').filter(x=>x.trim()).length}</span>`}
+            ${entry.people && html`<span className="text-indigo-500 flex items-center gap-0.5 ml-1"><${Icon} name="user" size=${10}/>${entry.people.split(',').filter(x=>x.trim()).length}</span>`}
+            ${isCapsuleLocked && html`<span className="text-indigo-500 flex items-center gap-1 ml-auto"><${Icon} name="clock" size=${12}/> ${new Date(entry.unlockDate).toLocaleDateString('de-DE')}</span>`}
+            ${entry.locked && !isCapsuleLocked && html`<span className="text-rose-500 flex items-center gap-1 ml-auto"><${Icon} name="lock" size=${12}/> Tresor</span>`}
+            ${entry.audio && html`<span className="text-emerald-500 flex items-center ml-1"><${Icon} name="mic" size=${12}/></span>`}
+            ${entry.location && html`<span className="text-amber-500 flex items-center ml-1"><${Icon} name="map-pin" size=${12}/></span>`}
+          </div>
+          
+          <h3 className="font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : ''}" dangerouslySetInnerHTML=${highlightText(entry.title || 'Ohne Titel', searchQuery)} />
+          
+          ${!isGridView && (entry.tags || entry.people || entry.weather || entry.rating > 0) && html`
+             <div className="flex flex-wrap gap-1.5 mb-4">
+                ${entry.tags && entry.tags.split(',').filter(x=>x.trim()).map((t, i) => html`<span key="t-${i}" className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded text-[10px] font-bold flex items-center gap-1"><${Icon} name="tag" size=${10}/> ${t.trim()}</span>`)}
+                ${entry.people && entry.people.split(',').filter(x=>x.trim()).map((p, i) => html`<span key="p-${i}" className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded text-[10px] font-bold flex items-center gap-1"><${Icon} name="user" size=${10}/> ${p.trim()}</span>`)}
+                ${entry.weather && html`<span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded text-[10px] font-bold flex items-center gap-1"><${Icon} name="sun" size=${10}/> ${entry.weather}</span>`}
+                ${entry.rating > 0 && html`<span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded text-[10px] font-bold flex items-center gap-1"><${Icon} name="star" size=${10}/> ${entry.rating}</span>`}
+             </div>
+          `}
+
+          ${!entry.locked && !isCapsuleLocked && entry.text && !isGridView && html`
+            <div className="text-sm font-medium leading-relaxed opacity-70 line-clamp-3" dangerouslySetInnerHTML=${highlightText(entry.text, searchQuery)} />
+          `}
+          ${(entry.locked || isCapsuleLocked) && !isGridView && html`
+             <div className="text-sm font-medium leading-relaxed opacity-40 italic">
+                ${isCapsuleLocked ? 'Inhalt durch Zeitsiegel geschützt.' : 'Inhalt durch Tresor-PIN geschützt.'}
+             </div>
+          `}
+        </div>
+      </div>
+    `;
+};
+
+const SwipeableTimelineEntry = ({ entry, onArchive, onTrash, onClick, showDialog }) => {
+    const [offsetX, setOffsetX] = useState(0);
+    const startX = useRef(null);
+
+    const handleTouchStart = (evt) => { startX.current = evt.touches[0].clientX; };
+    const handleTouchMove = (evt) => {
+        if (startX.current === null) return;
+        const diff = evt.touches[0].clientX - startX.current;
+        if (diff > 120) setOffsetX(120); else if (diff < -120) setOffsetX(-120); else setOffsetX(diff);
+    };
+    const handleTouchEnd = () => {
+        if (offsetX > 60) { onArchive(entry); showDialog({title: 'Archiviert', message: 'Der Eintrag wurde ins Archiv verschoben.', icon: 'archive', iconColor: 'text-emerald-500'}); }
+        else if (offsetX < -60) { onTrash(entry); showDialog({title: 'Papierkorb', message: 'Der Eintrag wurde gelöscht.', icon: 'trash-2', iconColor: 'text-rose-500'}); }
+        setOffsetX(0); startX.current = null;
+    };
+
+    return html`
+        <div className="relative w-full rounded-2xl overflow-hidden bg-slate-200 dark:bg-zinc-800 shrink-0">
+            <div className="absolute inset-0 flex justify-between items-center px-6">
+                <div className="text-emerald-600 font-bold flex items-center gap-2 opacity-80"><${Icon} name="archive" size=${18}/> Archiv</div>
+                <div className="text-rose-600 font-bold flex items-center gap-2 opacity-80">Löschen <${Icon} name="trash-2" size=${18}/></div>
+            </div>
+            <button 
+                onTouchStart=${handleTouchStart} onTouchMove=${handleTouchMove} onTouchEnd=${handleTouchEnd} onClick=${() => onClick(entry)} 
+                style=${{ transform: `translateX(${offsetX}px)`, transition: startX.current === null ? 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)' : 'none' }}
+                className="relative z-10 w-full text-left p-4 rounded-2xl flex items-center gap-4 bg-slate-50 dark:bg-zinc-900 shadow-sm border border-transparent"
+            >
+                ${entry.images && entry.images.length > 0 && html`<img src=${entry.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0 pointer-events-none" />`}
+                <div className="flex-1 overflow-hidden pointer-events-none">
+                    <span className="font-bold text-sm truncate block">${entry.title || 'Ohne Titel'}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">${new Date(entry.date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
+                </div>
+            </button>
+        </div>
+    `;
+};
+
+
+// Main App Component
+function App() {
+  const [db, setDb] = useState(null);
+  const [fb, setFb] = useState(null);
+  
+  const [entries, setEntries] = useState([]);
+  const [user, setUser] = useState({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: false, biometric: false });
+  const [view, setView] = useState('loading'); 
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isGridView, setIsGridView] = useState(false); 
+  
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authMsg, setAuthMsg] = useState('');
+  const [authMode, setAuthMode] = useState('login');
+  const [syncingCloud, setSyncingCloud] = useState(false);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 300); // Debounce für Suche
+  const [activeCategory, setActiveCategory] = useState('Alle');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [dialog, setDialog] = useState(null);
+  const [picker, setPicker] = useState(null);
+
+  const [viewingEntry, setViewingEntry] = useState(null);
+  const [showEditor, setShowEditor] = useState(false);
+  const [currentViewerImgIdx, setCurrentViewerImgIdx] = useState(0);
+  
+  const [showTimeline, setShowTimeline] = useState(false); 
+  const [timelineMonth, setTimelineMonth] = useState(() => new Date()); 
+  const [timelineSelectedDate, setTimelineSelectedDate] = useState(null); 
+
+  const [unlockTarget, setUnlockTarget] = useState(null);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+  
+  const [isChangingPin, setIsChangingPin] = useState(false);
+  const [oldPinInput, setOldPinInput] = useState('');
+  const [newPinInput, setNewPinInput] = useState('');
+  const [confirmPinInput, setConfirmPinInput] = useState('');
+
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+
+  const [burnText, setBurnText] = useState('');
+  const [isBurning, setIsBurning] = useState(false);
+
+  const [isDrawing, setIsDrawing] = useState(false);
+  const canvasRef = useRef(null);
+  
+  const mapRef = useRef(null);
+  const mapInstance = useRef(null);
+
+  const [peerId, setPeerId] = useState(null);
+  const [peerInstance, setPeerInstance] = useState(null);
+  const [syncStatus, setSyncStatus] = useState('');
+  const [importId, setImportId] = useState(() => new URLSearchParams(window.location.search).get('import'));
+
+  const [editingState, setEditingState] = useState({ id: null, title: '', text: '', selectedColor: COLORS[8], selectedImages: [], isLocked: false, audioUrl: null, isManifested: false, category: CATEGORIES[0], mood: null, unlockDate: '', location: null, parentId: '', inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: '', pillarGuidance: null });
+  const editorRef = useRef(null);
+  const isDirtyRef = useRef(false);
+  const currentEntryRef = useRef(editingState);
+
+  // Theme Sync
+  useEffect(() => {
+    const metaThemeColor = document.getElementById("meta-theme-color");
+    if (user.appBgColor) {
+        document.body.style.setProperty('background-color', user.appBgColor, 'important');
+        if (metaThemeColor) metaThemeColor.setAttribute("content", user.appBgColor);
+        if(isDarkColor(user.appBgColor)) document.documentElement.classList.add('dark');
+        else document.documentElement.classList.remove('dark');
+    } else {
+        document.body.style.removeProperty('background-color');
+        if (user.isDark) { document.documentElement.classList.add('dark'); if (metaThemeColor) metaThemeColor.setAttribute("content", "#000000"); } 
+        else { document.documentElement.classList.remove('dark'); if (metaThemeColor) metaThemeColor.setAttribute("content", "#f8fafc"); }
+    }
+    if (user.textColor) document.body.style.setProperty('color', user.textColor, 'important');
+    else {
+        document.body.style.removeProperty('color');
+        const isBgDark = user.appBgColor ? isDarkColor(user.appBgColor) : user.isDark;
+        document.body.style.setProperty('color', isBgDark ? '#ffffff' : '#18181b', 'important');
+    }
+  }, [user.appBgColor, user.textColor, user.isDark]);
+
+  // Stack Manager für Hardware Back-Button
+  useEffect(() => {
+    const handlePopState = (e) => {
+      e.preventDefault();
+      let trapped = false;
+      if (isDrawing) { setIsDrawing(false); trapped = true; }
+      else if (showEditor) { checkSaveEntry(true); trapped = true; } 
+      else if (viewingEntry) { setViewingEntry(null); setCurrentViewerImgIdx(0); trapped = true; }
+      else if (showTimeline) { setShowTimeline(false); trapped = true; }
+      else if (view !== 'dashboard' && view !== 'loading' && view !== 'auth' && view !== 'pin_entry' && view !== 'onboarding') { setView('dashboard'); trapped = true; }
+      if (trapped) { try { window.history.pushState({ isApp: true }, ''); } catch(e) {} }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isDrawing, showEditor, viewingEntry, showTimeline, view]);
+
+  useEffect(() => {
+    if (isLoaded) safeStorageSet('legacy_user', JSON.stringify(user));
+  }, [user, isLoaded]);
+
+  // Firebase Setup (Native ES Modules)
+  useEffect(() => {
+    const initFB = async () => {
+       try {
+          const firebaseConfig = { apiKey: "AIzaSyBs7DoO5z8cuIc3DtdArgorKRx_FX7JX-U", authDomain: "tagebuch-og.firebaseapp.com", projectId: "tagebuch-og" };
+          const app = initializeApp(firebaseConfig); 
+          const auth = getAuth(app); 
+          const firestoreDb = getFirestore(app);
+          setFb({ db: firestoreDb, auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, collection, doc, setDoc, deleteDoc, getDocs, getDoc });
+
+          onAuthStateChanged(auth, (u) => {
+             if (u && u.emailVerified) {
+                 const savedStr = localStorage.getItem('legacy_user');
+                 if (savedStr) {
+                     const parsed = JSON.parse(savedStr);
+                     if (parsed.pin) { setUser(parsed); setView(parsed.name ? 'dashboard' : 'onboarding'); } 
+                     else setView('pin_entry');
+                 } else setView('pin_entry');
+             } else { setView('auth'); }
+          });
+       } catch(e) { console.error(e); }
+    };
+    initFB();
+  }, []);
+
+  // IndexedDB Init
+  useEffect(() => {
+    const loadApp = async () => {
+      try {
+        const database = await initDB(); setDb(database);
+        const transaction = database.transaction('entries', 'readonly'); const request = transaction.objectStore('entries').getAll();
+
+        request.onsuccess = async () => {
+          let loadedEntries = request.result || [];
+          const savedUser = safeStorageGet('legacy_user');
+          let currentUser = user;
+          if (savedUser) { currentUser = { ...user, ...JSON.parse(savedUser) }; setUser(currentUser); }
+
+          if (currentUser.pin) {
+            loadedEntries = await Promise.all(loadedEntries.map(async (e) => {
+              if (e.locked && e.encryptedData) {
+                const decStr = await decryptData(e.encryptedData, currentUser.pin);
+                if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, text: parsed.text, title: parsed.title }; } catch(err){} }
+              }
+              return e;
+            }));
+          }
+          setEntries(loadedEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)));
+          setIsLoaded(true);
+        };
+      } catch (e) { setIsLoaded(true); }
+    };
+    loadApp();
+  }, []);
+
+  const showDialog = (options) => { setDialog({ type: 'alert', confirmLabel: 'Okay', ...options }); };
+
+  const handleAuth = async () => {
+      setAuthError(''); setAuthMsg('');
+      if (!fb || !authEmail) return;
+      try {
+          if (authMode === 'login') {
+              if (!authPassword) { setAuthError('Passwort fehlt.'); return; }
+              const cred = await fb.signInWithEmailAndPassword(fb.auth, authEmail, authPassword);
+              if (!cred.user.emailVerified) { setAuthError('Bitte bestätige zuerst deine E-Mail.'); await fb.signOut(fb.auth); }
+          } else if (authMode === 'register') {
+              if (!authPassword) { setAuthError('Passwort fehlt.'); return; }
+              const cred = await fb.createUserWithEmailAndPassword(fb.auth, authEmail, authPassword);
+              await fb.sendEmailVerification(cred.user);
+              setAuthMsg('Erfolg! Bitte prüfe deine E-Mails.'); await fb.signOut(fb.auth); setAuthMode('login');
+          } else if (authMode === 'reset') {
+              await fb.sendPasswordResetEmail(fb.auth, authEmail);
+              setAuthMsg('Passwort-Reset-Link gesendet!'); setTimeout(() => setAuthMode('login'), 3000);
+          }
+      } catch (e) { setAuthError('Authentifizierung fehlgeschlagen.'); }
+  };
+
+  const handleLogout = async () => {
+      if(fb) { await fb.signOut(fb.auth); setUser({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: false, biometric: false }); localStorage.removeItem('legacy_user'); setEntries([]); setView('auth'); }
+  };
+
+  const toggleBiometric = async () => {
+      if (!user.biometric) {
+          try {
+              const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
+              const cred = await navigator.credentials.create({
+                  publicKey: { challenge, rp: { name: "Legacy Journal" }, user: { id: new Uint8Array(16), name: "User", displayName: "User" }, pubKeyCredParams: [{ type: "public-key", alg: -7 }], timeout: 60000 }
+              });
+              if (cred) {
+                  setUser({...user, biometric: true});
+                  safeStorageSet('legacy_bio_enabled', 'true'); 
+                  showDialog({title: 'Aktiviert', message: 'Biometrie schützt nun die Session. Nach Neustart der App wird weiterhin die PIN benötigt (Kryptografie).', icon: 'fingerprint'});
+              }
+          } catch(e) { showDialog({title: 'Fehler', message: 'Biometrie abgebrochen.', icon: 'x'}); }
+      } else {
+          setUser({...user, biometric: false}); localStorage.removeItem('legacy_bio_enabled');
+      }
+  };
+
+  const handleBiometricUnlock = async () => {
+      try {
+          const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
+          const cred = await navigator.credentials.get({ publicKey: { challenge, userVerification: "discouraged" } });
+          if (cred) {
+              if (user.pin) {
+                  if (unlockTarget) { setViewingEntry(unlockTarget); setUnlockTarget(null); setPinInput(''); }
+                  else setView(user.name ? 'dashboard' : 'onboarding');
+              } else {
+                  showDialog({title: 'Kaltstart', message: 'Aus Sicherheitsgründen muss die PIN einmalig nach Neustart eingegeben werden.', icon: 'shield'});
+              }
+          }
+      } catch(e) {}
+  };
+
+  const handleSavePin = () => {
+      if (newPinInput.length < 4) { showDialog({title: 'Fehler', message: 'PIN min. 4 Zeichen.', icon: 'x'}); return; }
+      if (newPinInput !== confirmPinInput) { showDialog({title: 'Fehler', message: 'PINs stimmen nicht überein.', icon: 'x'}); return; }
+      if (user.pin && oldPinInput !== user.pin) { showDialog({title: 'Fehler', message: 'Alte PIN falsch.', icon: 'x'}); return; }
+      
+      setUser({...user, pin: newPinInput}); setIsChangingPin(false); setOldPinInput(''); setNewPinInput(''); setConfirmPinInput('');
+      showDialog({title: 'Erfolg', message: 'Deine PIN wurde erfolgreich gespeichert.', icon: 'check'});
+  };
+
+  const syncSingleEntryToCloud = async (entry) => {
+      if (!fb || !fb.auth.currentUser || !user.cloudSync || !user.pin) return;
+      const appId = 'legacy-vision'; const userId = fb.auth.currentUser.uid;
+      try { const payload = JSON.stringify(entry); const encrypted = await encryptData(payload, user.pin); if (encrypted) { const docRef = fb.doc(fb.db, 'artifacts', appId, 'users', userId, 'entries', entry.id); await fb.setDoc(docRef, { id: entry.id, encryptedData: encrypted, timestamp: Date.now() }); } } catch(e) {}
+  };
+  const deleteSingleEntryFromCloud = async (id) => {
+      if (!fb || !fb.auth.currentUser || !user.cloudSync) return;
+      try { await fb.deleteDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', fb.auth.currentUser.uid, 'entries', id)); } catch(e) {}
+  };
+  const syncProfileToCloud = async (userData) => {
+      if (!fb || !fb.auth.currentUser || !userData.cloudSync || !userData.pin) return;
+      try { const encrypted = await encryptData(JSON.stringify(userData), userData.pin); if (encrypted) await fb.setDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', fb.auth.currentUser.uid, 'profile', 'data'), { encryptedData: encrypted, timestamp: Date.now() }); } catch(e) {}
+  };
+
+  const performCloudSync = async () => {
+      if (!fb || !fb.auth.currentUser) return;
+      if (!user.pin) { showDialog({ title: 'PIN fehlt', message: 'Bitte lege eine PIN fest.', icon: 'lock' }); return; }
+      setSyncingCloud(true); const appId = 'legacy-vision'; const userId = fb.auth.currentUser.uid;
+      try {
+          try {
+              const profileSnap = await fb.getDoc(fb.doc(fb.db, 'artifacts', appId, 'users', userId, 'profile', 'data'));
+              if (profileSnap.exists() && profileSnap.data().encryptedData) {
+                  const decProfile = await decryptData(profileSnap.data().encryptedData, user.pin);
+                  if (decProfile) setUser({ ...user, ...JSON.parse(decProfile), cloudSync: true });
+              }
+          } catch(e) {}
+
+          const cloudSnap = await fb.getDocs(fb.collection(fb.db, 'artifacts', appId, 'users', userId, 'entries'));
+          const cloudEntries = []; cloudSnap.forEach(doc => cloudEntries.push(doc.data()));
+          if (cloudEntries.length === 0) { showDialog({ title: 'Cloud leer', message: 'Keine Cloud-Einträge gefunden.', icon: 'cloud-off' }); setSyncingCloud(false); return; }
+
+          let recoveredCount = 0; let failedDecrypt = 0; const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries');
+          for (let cloudDoc of cloudEntries) {
+              if (cloudDoc.encryptedData) {
+                  try {
+                      const decryptedStr = await decryptData(cloudDoc.encryptedData, user.pin);
+                      if (decryptedStr) {
+                          let dbItem = { ...JSON.parse(decryptedStr) };
+                          if (dbItem.locked) { const payload = JSON.stringify({ text: dbItem.text || '', title: dbItem.title || '' }); dbItem.encryptedData = await encryptData(payload, user.pin); dbItem.text = ''; dbItem.title = 'Verschlüsselt'; }
+                          store.put(dbItem); recoveredCount++;
+                      } else failedDecrypt++;
+                  } catch(e) { failedDecrypt++; }
+              }
+          }
+          tx.oncomplete = () => {
+              const req = db.transaction('entries', 'readonly').objectStore('entries').getAll();
+              req.onsuccess = async () => {
+                  let loadedEntries = req.result || [];
+                  loadedEntries = loadedEntries.map(e => ({ ...e, images: e.images || (e.image ? [e.image] : []) }));
+                  if (user.pin) loadedEntries = await Promise.all(loadedEntries.map(async (e) => { if (e.locked && e.encryptedData) { const decStr = await decryptData(e.encryptedData, user.pin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, text: parsed.text, title: parsed.title }; } catch(err){} } } return e; }));
+                  setEntries(loadedEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)));
+                  if (failedDecrypt > 0) showDialog({ title: 'Entschlüsselung unvollständig', message: `${failedDecrypt} Einträge fehlgeschlagen. PIN falsch?`, icon: 'shield-alert' });
+                  else showDialog({ title: 'Wiederhergestellt', message: `${recoveredCount} Einträge geladen.`, icon: 'check' });
+              };
+          };
+      } catch(e) { showDialog({ title: 'Verbindungsfehler', message: 'Cloud nicht erreichbar.', icon: 'wifi-off' }); }
+      finally { setSyncingCloud(false); }
+  };
+
+  useEffect(() => {
+    if (importId && isLoaded) {
+      setSyncStatus('Bereite Datenübertragung vor...'); const peer = new window.Peer();
+      peer.on('open', () => { setSyncStatus(`Verbinde mit altem Gerät...`); const conn = peer.connect(importId); conn.on('open', () => { setSyncStatus('Verbunden! Empfange Daten...'); conn.send('request_data'); }); conn.on('data', async (data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.entries) {
+               setSyncStatus('Daten werden verarbeitet...');
+               if (db) {
+                 const pinToUse = parsed.user ? parsed.user.pin : user.pin;
+                 const entriesToSave = await Promise.all(parsed.entries.map(async (e) => {
+                     let dbE = { ...e }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []);
+                     if (dbE.locked && pinToUse) { const payload = JSON.stringify({ text: dbE.text || '', title: dbE.title || '' }); dbE.encryptedData = await encryptData(payload, pinToUse); dbE.text = ''; dbE.title = 'Verschlüsselt'; return dbE; } return dbE;
+                 }));
+                 const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); entriesToSave.forEach(e => store.put(e));
+                 tx.oncomplete = () => { if (parsed.user) safeStorageSet('legacy_user', JSON.stringify(parsed.user)); setSyncStatus('Erfolgreich übertragen!'); setTimeout(() => { window.location.href = window.location.origin + window.location.pathname; }, 2000); };
+               }
+            }
+          } catch(e) { setSyncStatus('Fehler beim Lesen.'); }
+        }); conn.on('error', (err) => setSyncStatus('Verbindungsfehler: ' + err)); }); peer.on('error', (err) => setSyncStatus('Gerät nicht bereit.'));
+    }
+  }, [importId, isLoaded, db]);
+
+  const saveToDB = async (entry, forcePin = null) => {
+    const activePin = forcePin || user.pin; let dbEntry = { ...entry };
+    try { if (dbEntry.locked && activePin) { const payload = JSON.stringify({ text: dbEntry.text || '', title: dbEntry.title || '' }); dbEntry.encryptedData = await encryptData(payload, activePin); dbEntry.text = ''; dbEntry.title = 'Verschlüsselt'; } else if (!dbEntry.locked) { dbEntry.encryptedData = null; } } catch(e) {}
+    try {
+      if (db) { 
+          const tx = db.transaction('entries', 'readwrite'); 
+          tx.objectStore('entries').put(dbEntry); 
+          tx.oncomplete = () => { 
+              setEntries(prev => { 
+                  const exists = prev.find(e => e.id === entry.id); 
+                  if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); 
+                  return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); 
+              }); 
+              syncSingleEntryToCloud(entry);
+          }; 
+      }
+    } catch (e) {}
+  };
+
+  const deleteFromDB = async (id) => { 
+      if (!db) return; 
+      const tx = db.transaction('entries', 'readwrite'); 
+      tx.objectStore('entries').delete(id); 
+      tx.oncomplete = () => { 
+          setEntries(prev => prev.filter(e => e.id !== id)); 
+          deleteSingleEntryFromCloud(id); 
+      }; 
+  };
+
+  // State Overwrite Fix: Update state indirectly through refs for fast typing
+  const checkSaveEntry = (closeAndRead = false) => {
+    try {
+        const state = currentEntryRef.current;
+        const entryId = state.id || generateId(); 
+        const currentText = editorRef.current ? editorRef.current.innerHTML : (state.text || ''); 
+        const titleSafe = state.title || '';
+
+        const isEmpty = !titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && (!state.selectedImages || state.selectedImages.length === 0) && !state.audioUrl && !state.weather && !state.tags && !state.people;
+        if (isEmpty && closeAndRead) { setShowEditor(false); setViewingEntry(entries.find(e => e.id === state.id) || null); return; }
+        
+        const newEntry = { ...state, id: entryId, text: currentText, title: titleSafe, archived: false, trashed: false };
+        if (!state.id) { setEditingState(prev => ({...prev, id: entryId})); currentEntryRef.current.id = entryId; }
+        saveToDB(newEntry);
+        isDirtyRef.current = false;
+        
+        if (closeAndRead) { setShowEditor(false); setViewingEntry(entries.find(e => e.id === state.id) || newEntry); }
+    } catch (err) { if (closeAndRead) setShowEditor(false); }
+  };
+
+  // AutoSave Debouncing Fix
+  useEffect(() => { 
+      if (!showEditor || view === 'burn') return; 
+      const timer = setInterval(() => { if (isDirtyRef.current) checkSaveEntry(false); }, 3000); 
+      return () => clearInterval(timer); 
+  }, [showEditor, view]);
+
+  const openEditor = (entry = null, pillar = null, customDate = null) => {
+    isDirtyRef.current = false;
+    const targetDate = entry && entry.id ? (entry.date || getLocalISO()) : (customDate ? new Date(customDate).toISOString().slice(0, -1) : getLocalISO());
+    
+    const newState = entry && entry.id ? { ...entry, date: targetDate, pillarGuidance: null } : { 
+        id: null, title: pillar ? pillar.title : '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isLocked: view === 'vault', audioUrl: null, isManifested: false, category: pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory), mood: null, unlockDate: '', location: null, parentId: '', inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: targetDate, pillarGuidance: pillar ? pillar.desc : null 
+    };
+    
+    setEditingState(newState);
+    currentEntryRef.current = newState;
+    setShowEditor(true);
+  };
+
+  const startNewChapter = (parent) => { 
+    isDirtyRef.current = false; setViewingEntry(null); 
+    const newState = { id: null, title: parent.title || '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isLocked: parent.locked || false, isManifested: false, category: parent.category || CATEGORIES[0], mood: null, audioUrl: null, unlockDate: '', location: null, parentId: parent.id, inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: getLocalISO(), pillarGuidance: null };
+    setEditingState(newState);
+    currentEntryRef.current = newState;
+    setShowEditor(true); 
+  };
+
+  const handleOpenEntry = async (entry) => {
+      if (entry.unlockDate) {
+          try {
+              showDialog({title: 'Kryptografische Zeit-Sperre', message: 'Prüfe globales Zeitsiegel...', icon: 'clock'});
+              const res = await fetch('https://worldtimeapi.org/api/timezone/Etc/UTC');
+              const data = await res.json();
+              if (new Date(data.datetime) < new Date(entry.unlockDate)) {
+                  setDialog(null); setTimeout(() => showDialog({title: 'Zeitkapsel versiegelt', message: `Öffnet erst am ${new Date(entry.unlockDate).toLocaleDateString('de-DE')}.`, icon: 'lock', iconColor: 'text-indigo-500'}), 300);
+                  return;
+              }
+              setDialog(null);
+          } catch(e) {
+              if (new Date() < new Date(entry.unlockDate)) { showDialog({title: 'Zeitkapsel versiegelt', message: `Öffnet erst am ${new Date(entry.unlockDate).toLocaleDateString('de-DE')}.`, icon: 'lock', iconColor: 'text-indigo-500'}); return; }
+              setDialog(null);
+          }
+      }
+
+      if (entry.locked) {
+          if (!user.pin) { showDialog({ title: 'PIN fehlt', message: 'Bitte richte zuerst eine PIN in den Einstellungen ein.', icon: 'key' }); setView('settings'); return; }
+          setUnlockTarget(entry); setPinInput(''); setPinError(false);
+          return;
+      } 
+      
+      setViewingEntry(entry); setCurrentViewerImgIdx(0);
+  };
+
+  const submitPin = () => { if (pinInput === user.pin) { setViewingEntry(unlockTarget); setCurrentViewerImgIdx(0); setUnlockTarget(null); setPinInput(''); } else { setPinError(true); setTimeout(() => setPinError(false), 800); setPinInput(''); } };
+
+  const startRecording = async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); mediaRecorderRef.current = new MediaRecorder(stream); audioChunksRef.current = []; mediaRecorderRef.current.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); }; mediaRecorderRef.current.onstop = () => { const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); const reader = new FileReader(); reader.readAsDataURL(blob); reader.onloadend = () => { setEditingState(p=>({...p, audioUrl: reader.result})); currentEntryRef.current.audioUrl = reader.result; isDirtyRef.current = true; checkSaveEntry(false); }; }; mediaRecorderRef.current.start(); setIsRecording(true); } catch (err) { showDialog({ title: 'Fehler', message: 'Mikrofon verweigert.', icon: 'mic-off' }); } };
+  const stopRecording = () => { if (mediaRecorderRef.current) { mediaRecorderRef.current.stop(); setIsRecording(false); } };
+  const handleReadAloud = (entry) => { if (isSpeaking) { window.speechSynthesis.cancel(); setIsSpeaking(false); return; } const plainText = ((entry.title || '') + ". " + (entry.text || '')).replace(/<[^>]*>?/gm, ''); if (!plainText.trim()) return; setIsSpeaking(true); const utterance = new SpeechSynthesisUtterance(plainText); utterance.lang = 'de-DE'; utterance.onend = () => setIsSpeaking(false); window.speechSynthesis.speak(utterance); };
+  const triggerBurn = () => { setIsBurning(true); setTimeout(() => { setBurnText(''); setIsBurning(false); setView('dashboard'); showDialog({ title: 'Katharsis', message: 'Dem Feuer übergeben.', icon: 'flame' }); }, 2500); };
+  
+  const handleFileUpload = (e, type) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    if (type === 'image') {
+      const MAX_SIZE = 800; 
+      const processedImagesPromises = files.map(file => {
+          return new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onload = (event) => {
+                  const img = new Image();
+                  img.onload = () => {
+                      const canvas = document.createElement('canvas');
+                      let width = img.width; let height = img.height;
+                      if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } 
+                      else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
+                      canvas.width = width; canvas.height = height;
+                      const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
+                      resolve(canvas.toDataURL('image/jpeg', 0.6)); 
+                  };
+                  img.src = event.target.result;
+              };
+              reader.readAsDataURL(file);
+          });
+      });
+      Promise.all(processedImagesPromises).then(base64Images => {
+          setEditingState(prev => {
+              const newImgs = [...prev.selectedImages, ...base64Images];
+              currentEntryRef.current.selectedImages = newImgs; 
+              return {...prev, selectedImages: newImgs};
+          });
+          isDirtyRef.current = true; checkSaveEntry(false); 
+      });
+    }
+    e.target.value = null; 
+  };
+
+  const handleInlineImage = (e) => {
+      const file = e.target.files[0]; if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+          const img = new Image();
+          img.onload = () => {
+              const canvas = document.createElement('canvas'); const MAX_WIDTH = 400; let w = img.width, h = img.height;
+              if (w > MAX_WIDTH) { h *= MAX_WIDTH / w; w = MAX_WIDTH; }
+              canvas.width = w; canvas.height = h; canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+              const base64 = canvas.toDataURL('image/jpeg', 0.6);
+              if (editorRef.current) {
+                  editorRef.current.focus();
+                  document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false" style="width: 150px; height: 150px;"><img src="${base64}" /></span><br><br>`);
+                  isDirtyRef.current = true; checkSaveEntry(false);
+              }
+          };
+          img.src = evt.target.result;
+      };
+      reader.readAsDataURL(file); e.target.value = null;
+  };
+
+  const exportEternityArchive = async () => {
+      if (!window.JSZip) { showDialog({title: 'Fehler', message: 'JSZip Modul nicht geladen.'}); return; }
+      showDialog({title: 'Archiv wird erstellt', message: 'Deine Gedanken werden als reiner Text (.md) verpackt...', icon: 'loader'});
+      try {
+          const zip = new window.JSZip(); const textsFolder = zip.folder("Eintraege"); const imagesFolder = zip.folder("Bilder");
+          let imgCounter = 1;
+          entries.filter(e => !e.trashed).forEach(e => {
+              let mdContent = `# ${e.title || 'Ohne Titel'}\n\nDatum: ${new Date(e.date).toLocaleDateString('de-DE')}\nKategorie: ${e.category}\n\n${(e.text || '').replace(/<[^>]*>?/gm, '')}`;
+              if (e.images && e.images.length > 0) {
+                  e.images.forEach(imgBase64 => {
+                      const base64Data = imgBase64.split(',')[1]; const imgName = `Bild_${imgCounter}.jpg`;
+                      imagesFolder.file(imgName, base64Data, {base64: true}); mdContent += `\n\n[Bild: ${imgName}]`; imgCounter++;
+                  });
+              }
+              const safeTitle = (e.title || 'Eintrag').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+              textsFolder.file(`${new Date(e.date).toISOString().split('T')[0]}_${safeTitle}.md`, mdContent);
+          });
+          const content = await zip.generateAsync({type:"blob"});
+          const url = URL.createObjectURL(content); const a = document.createElement('a'); a.href = url; a.download = `Legacy_Ewigkeits_Archiv_${new Date().toISOString().split('T')[0]}.zip`; a.click(); URL.revokeObjectURL(url);
+          setDialog(null);
+      } catch(err) { showDialog({title: 'Fehler', message: 'ZIP Erstellung fehlgeschlagen.'}); }
+  };
+
+  // Canvas Logic
+  const getCanvasCoordinates = (e) => {
+      if (!canvasRef.current) return { x: 0, y: 0 };
+      const rect = canvasRef.current.getBoundingClientRect();
+      if (e.touches && e.touches.length > 0) return { x: (e.touches[0].clientX - rect.left), y: (e.touches[0].clientY - rect.top) };
+      return { x: (e.clientX - rect.left), y: (e.clientY - rect.top) };
+  };
+  const startDrawing = (e) => { if (!canvasRef.current) return; const {x, y} = getCanvasCoordinates(e); const ctx = canvasRef.current.getContext('2d'); ctx.beginPath(); ctx.moveTo(x, y); canvasRef.current.isPainting = true; };
+  const draw = (e) => { if (!canvasRef.current?.isPainting) return; const {x, y} = getCanvasCoordinates(e); const ctx = canvasRef.current.getContext('2d'); ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.strokeStyle = user.isDark ? '#ffffff' : '#000000'; ctx.lineTo(x, y); ctx.stroke(); };
+  const stopDrawing = () => { if (canvasRef.current) canvasRef.current.isPainting = false; };
+  useEffect(() => { 
+      let canvasEl = canvasRef.current; const preventScroll = (e) => e.preventDefault(); 
+      if (isDrawing && canvasEl) { 
+          canvasEl.addEventListener('touchstart', preventScroll, { passive: false }); canvasEl.addEventListener('touchmove', preventScroll, { passive: false }); 
+          setTimeout(() => { 
+              if (!canvasEl) return; 
+              const rect = canvasEl.parentElement.getBoundingClientRect(); const dpr = window.devicePixelRatio || 1;
+              canvasEl.width = rect.width * dpr; canvasEl.height = rect.height * dpr; 
+              const ctx = canvasEl.getContext('2d'); ctx.scale(dpr, dpr);
+              ctx.fillStyle = user.isDark ? '#18181b' : '#ffffff'; ctx.fillRect(0, 0, rect.width, rect.height); 
+          }, 50); 
+      } 
+      return () => { if (canvasEl) { canvasEl.removeEventListener('touchstart', preventScroll); canvasEl.removeEventListener('touchmove', preventScroll); } }; 
+  }, [isDrawing, user.isDark]);
+
+  // Leaflet Cleanup & Map Initialization
+  useEffect(() => {
+      if (view === 'map' && mapRef.current && window.L) {
+          if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; }
+          const map = window.L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView([51.1657, 10.4515], 3);
+          window.L.control.zoom({ position: 'bottomright' }).addTo(map);
+          const currentHour = new Date().getHours(); const mapIsDark = currentHour < 6 || currentHour >= 18;
+          window.L.tileLayer(mapIsDark ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+          
+          let hasMarkers = false; const bounds = window.L.latLngBounds(); const locationGroups = {};
+          entries.filter(e => !e.trashed).forEach(e => {
+              if (e.location) {
+                  hasMarkers = true; bounds.extend([e.location.lat, e.location.lng]);
+                  const key = `${Number(e.location.lat).toFixed(3)}_${Number(e.location.lng).toFixed(3)}`;
+                  if (!locationGroups[key]) locationGroups[key] = { lat: e.location.lat, lng: e.location.lng, entries: [] };
+                  locationGroups[key].entries.push(e);
+              }
+          });
+
+          Object.values(locationGroups).forEach(group => {
+              const e = group.entries[0]; const count = group.entries.length;
+              let iconHtml = e.images && e.images.length > 0 ? `
+                  <div style="position: relative; width: 54px; height: 54px;">
+                      <div style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; border: 3px solid ${user.nameColor || '#f59e0b'}; box-shadow: 0 4px 10px rgba(0,0,0,0.4); background-color: #000;">
+                          <img src="${e.images[0]}" style="width: 100%; height: 100%; object-fit: cover;" />
+                      </div>
+                      ${count > 1 ? `<div style="position: absolute; top: -4px; right: -4px; background: #ef4444; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 10;">${count}x</div>` : ''}
+                  </div>` : `
+                  <div style="position: relative; width: 16px; height: 16px;">
+                      <div style="width: 100%; height: 100%; border-radius: 50%; background-color: ${user.nameColor || '#f59e0b'}; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>
+                      ${count > 1 ? `<div style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 10;">${count}x</div>` : ''}
+                  </div>`;
+              const icon = window.L.divIcon({ html: iconHtml, className: 'avatar-marker', iconSize: e.images && e.images.length > 0 ? [54, 54] : [16, 16] });
+              const marker = window.L.marker([group.lat, group.lng], { icon }).addTo(map);
+              marker.on('click', () => { setView('dashboard'); handleOpenEntry(e); });
+          });
+
+          if (hasMarkers) map.fitBounds(bounds, { padding: [50, 50] });
+          mapInstance.current = map; setTimeout(() => map.invalidateSize(), 200);
+          return () => { if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; } };
+      }
+  }, [view, entries, user.nameColor]);
+
+  // View Helpers
+  const getAllBookEntries = (rootId) => { 
+      const result = []; const visited = new Set(); 
+      const traverse = (id, depth=0) => { 
+          if (depth > 1000 || visited.has(id)) return; visited.add(id); 
+          const entry = entries.find(e => e.id === id && !e.trashed); 
+          if (entry && !result.find(r => r.id === entry.id)) { 
+              result.push(entry); entries.filter(e => e.parentId === id && !e.trashed).sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(c => traverse(c.id, depth+1)); 
+          } 
+      }; traverse(rootId); return result; 
+  };
+  const getBookRoot = (entryId) => { 
+      let current = entries.find(e => e.id === entryId && !e.trashed); let safeGuard = 0; const visited = new Set(); 
+      while (current && current.parentId && safeGuard < 1000) { 
+          if (visited.has(current.id)) break; visited.add(current.id); 
+          const p = entries.find(e => e.id === current.parentId && !e.trashed); 
+          if (p && p.id !== current.id) current = p; else break; safeGuard++; 
+      } return current; 
+  };
+
+  const visibleEntries = useMemo(() => {
+    return entries.filter(e => {
+      if (view === 'trash') return e.trashed;
+      if (e.trashed) return false;
+      const q = debouncedSearch.toLowerCase(); 
+      if (debouncedSearch && !((e.title||'').toLowerCase().includes(q) || (e.text||'').toLowerCase().includes(q))) return false; 
+      if (view === 'archive') return e.archived;
+      if (e.archived) return false;
+      if (!debouncedSearch && activeCategory !== 'Alle' && e.category !== activeCategory) return false;
+      if (!debouncedSearch && e.parentId) return false; 
+      if (view === 'dashboard') return !e.locked; 
+      if (view === 'vault') return e.locked; 
+      return false;
+    });
+  }, [entries, debouncedSearch, activeCategory, view]);
+
+  const allQuotes = useMemo(() => { if (view !== 'quotes') return []; let quotes = []; entries.filter(e => !e.archived && !e.trashed).forEach(entry => { if(!entry.text) return; const blockquoteRegex = /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi; let match; while ((match = blockquoteRegex.exec(entry.text)) !== null) { const rawText = match[1].replace(/<[^>]*>?/gm, '').trim(); if(rawText) quotes.push({ text: rawText, date: entry.date, title: entry.title, id: entry.id + match.index, entryId: entry.id }); } }); return quotes.sort((a,b) => new Date(b.date) - new Date(a.date)); }, [entries, view]);
+  const heatmapData = useMemo(() => { return Array.from({ length: 30 }).map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (29 - i)); const dateStr = d.toDateString(); return { date: dateStr, count: entries.filter(e => !e.trashed && new Date(e.date).toDateString() === dateStr).length }; }); }, [entries]);
+  const { completedPillars, totalPillars, progressPercent } = useMemo(() => { const completed = PILLARS.filter(p => entries.some(e => !e.trashed && (e.title || '') === p.title)).length; return { completedPillars: completed, totalPillars: PILLARS.length, progressPercent: Math.round((completed / PILLARS.length) * 100) }; }, [entries]);
+
+
+  if (importId && !isLoaded) return html`<div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div></div>`;
+  if (importId && isLoaded) {
+    return html`
+      <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-slate-900 text-white text-center">
+        <${Icon} name="smartphone" size=${64} className="text-emerald-500 mb-6 animate-pulse" />
+        <h1 className="text-3xl font-bold font-serif mb-4">Geräte-Kopplung</h1>
+        <p className="opacity-80 text-lg mb-8 max-w-sm">${syncStatus || "Initialisiere..."}</p>
+        ${(syncStatus.includes('Fehler') || syncStatus.includes('erfolgreich')) && html`
+          <button onClick=${() => window.location.href = window.location.origin + window.location.pathname} className="px-8 py-4 bg-white text-slate-900 font-bold rounded-2xl mt-4 shadow-lg">Zurück zum Start</button>
+        `}
+      </div>
+    `;
+  }
+
+  if (view === 'loading' || !isLoaded) return html`<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-black"><div className="w-12 h-12 border-4 border-slate-300 dark:border-zinc-800 border-t-black dark:border-t-white rounded-full animate-spin"></div></div>`;
+
+  if (view === 'auth') {
+    return html`
+      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-black text-slate-900 dark:text-white">
+        <div className="max-w-sm w-full space-y-10 animate-slide-up z-10 text-center">
+          <div className="w-16 h-16 bg-black dark:bg-white rounded-2xl mx-auto flex items-center justify-center shadow-lg"><${Icon} name="book-open" size=${32} className="text-white dark:text-black" /></div>
+          <h1 className="text-3xl font-extrabold tracking-tight">Legacy</h1>
+          
+          <div className="space-y-4">
+            ${authError && html`<div className="p-4 bg-rose-50 dark:bg-rose-500/10 text-rose-600 rounded-2xl text-sm font-semibold">${authError}</div>`}
+            ${authMsg && html`<div className="p-4 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 rounded-2xl text-sm font-semibold">${authMsg}</div>`}
+            <input type="email" value=${authEmail} onChange=${e=>setAuthEmail(e.target.value)} className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 outline-none" placeholder="E-Mail" />
+            ${authMode !== 'reset' && html`<input type="password" value=${authPassword} onChange=${e=>setAuthPassword(e.target.value)} className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 outline-none" placeholder="Passwort" />`}
+            <button onClick=${handleAuth} className="w-full py-4 rounded-2xl font-bold bg-black dark:bg-white text-white dark:text-black">${authMode === 'login' ? 'Einloggen' : authMode === 'register' ? 'Account erstellen' : 'Link anfordern'}</button>
+            <div className="flex flex-col gap-2 pt-4">
+                ${authMode === 'login' ? html`
+                    <button onClick=${() => { setAuthMode('register'); setAuthError(''); setAuthMsg(''); }} className="text-sm font-semibold text-slate-500">Neuen Account erstellen</button>
+                    <button onClick=${() => { setAuthMode('reset'); setAuthError(''); setAuthMsg(''); }} className="text-xs font-medium text-slate-400">Passwort vergessen?</button>
+                ` : html`
+                    <button onClick=${() => { setAuthMode('login'); setAuthError(''); setAuthMsg(''); }} className="text-sm font-semibold text-slate-500">Zurück zum Login</button>
+                `}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (view === 'pin_entry') {
+    return html`
+      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-black text-slate-900 dark:text-white text-center">
+        <div className="max-w-sm w-full space-y-8 animate-slide-up">
+          <${Icon} name="lock" size=${48} className="mx-auto mb-2 opacity-80" />
+          <h1 className="text-2xl font-bold">Tresor entsperren</h1>
+          <input type="password" inputMode="numeric" autoFocus value=${newPinInput} onChange=${e => setNewPinInput(e.target.value)} onKeyDown=${e => { if (e.key === 'Enter') { setUser({...user, pin: newPinInput}); setView(user.name ? 'dashboard' : 'onboarding'); } }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl bg-slate-100 dark:bg-zinc-800 outline-none" placeholder="••••" />
+          <button onClick=${() => { setUser({...user, pin: newPinInput}); setView(user.name ? 'dashboard' : 'onboarding'); }} className="w-full py-4 font-bold rounded-2xl bg-black dark:bg-white text-white dark:text-black shadow-md">Entsperren</button>
+          ${safeStorageGet('legacy_bio_enabled') && html`<button onClick=${handleBiometricUnlock} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 flex justify-center gap-2"><${Icon} name="fingerprint" size=${20}/> Biometrisch</button>`}
+          <button onClick=${handleLogout} className="mt-4 w-full py-2 text-xs font-bold uppercase tracking-widest opacity-40">Abmelden</button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (view === 'onboarding') {
+    return html`
+      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-black text-slate-900 dark:text-white text-center">
+        <div className="max-w-sm w-full space-y-8 animate-slide-up">
+          <${Icon} name="sparkles" size=${48} className="mx-auto" />
+          <h1 className="text-3xl font-extrabold">Willkommen</h1>
+          <input type="text" value=${user.name} onChange=${e => setUser({...user, name: e.target.value})} className="w-full p-4 rounded-2xl text-center text-lg font-bold bg-slate-100 dark:bg-zinc-800 outline-none" placeholder="Dein Name" />
+          <button onClick=${() => { if(user.name) { safeStorageSet('legacy_user', JSON.stringify(user)); setView('dashboard'); } }} className="w-full py-4 rounded-2xl font-bold bg-black dark:bg-white text-white dark:text-black">Beginnen</button>
+        </div>
+      </div>
+    `;
+  }
+
+  return html`
+    <div className="min-h-screen pb-safe">
+      <header className="sticky top-0 z-30 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-slate-200 dark:border-zinc-800 px-6 py-4 flex justify-between items-center no-print transition-colors duration-300">
+        <div className="flex items-center gap-3 overflow-hidden">
+          ${view === 'archive' ? html`<h1 className="text-xl font-bold tracking-tight">Archiv</h1>` :
+            view === 'trash' ? html`<h1 className="text-xl font-bold tracking-tight text-rose-500">Papierkorb</h1>` :
+            view === 'menu' ? html`<h1 className="text-xl font-bold tracking-tight">Entdecken</h1>` :
+            view === 'wisdom' ? html`<h1 className="text-xl font-bold tracking-tight">Buch der Weisheit</h1>` :
+            view === 'burn' ? html`<h1 className="text-xl font-bold tracking-tight text-rose-500">Katharsis</h1>` :
+            view === 'quotes' ? html`<h1 className="text-xl font-bold tracking-tight">Erkenntnisse</h1>` :
+            view === 'map' ? html`<h1 className="text-xl font-bold tracking-tight text-amber-500">Lebenskarte</h1>` :
+            view === 'vault' ? html`<h1 className="text-xl font-bold tracking-tight flex items-center gap-2"><${Icon} name="lock" size=${20}/> Tresor</h1>` :
+            view === 'settings' ? html`<h1 className="text-xl font-bold tracking-tight">Einstellungen</h1>` : html`
+            <div className="w-10 h-10 rounded-full border-2 overflow-hidden bg-slate-200 dark:bg-zinc-800 flex items-center justify-center shrink-0" style=${{borderColor: user.nameColor}}>
+              ${user.avatar ? html`<img src=${user.avatar} className="w-full h-full object-cover"/>` : html`<${Icon} name="user" size=${20}/>`}
+            </div>
+            <div className="flex flex-col">
+               <h1 className="text-lg font-bold">${user.name}</h1>
+               ${user.motto && html`<p className="text-[10px] font-medium opacity-60 truncate max-w-[150px]">${user.motto}</p>`}
+            </div>
+          `}
+        </div>
+        <div className="flex gap-2">
+          <button onClick=${() => { setViewingEntry(null); setShowTimeline(true); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900"><${Icon} name="calendar-days" size=${18}/></button>
+          ${view === 'dashboard' && html`
+             <button onClick=${() => setIsSearchOpen(!isSearchOpen)} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900"><${Icon} name="search" size=${18}/></button>
+             <button onClick=${() => setView('menu')} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900"><${Icon} name="menu" size=${18}/></button>
+          `}
+          ${view !== 'dashboard' && html`<button onClick=${() => setView('dashboard')} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900"><${Icon} name="x" size=${18}/></button>`}
+        </div>
+        ${isSearchOpen && view === 'dashboard' && html`
+          <div className="absolute top-full left-0 right-0 p-4 bg-white/90 dark:bg-black/90 backdrop-blur-2xl shadow-xl z-50 animate-slide-up">
+            <input type="text" value=${searchQuery} onChange=${e=>setSearchQuery(e.target.value)} placeholder="Suchen..." autoFocus className="w-full p-4 rounded-2xl bg-slate-100 dark:bg-zinc-900 outline-none" />
+          </div>
+        `}
+      </header>
+
+      <main className="p-4 sm:p-6 max-w-2xl mx-auto min-h-[70vh] floating-nav-spacing relative z-10 no-print">
+        ${view === 'menu' && html`
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 animate-slide-up">
+              <button onClick=${() => setView('wisdom')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border shadow-sm hover:scale-105 transition-transform"><${Icon} name="book-open" size=${32} className="text-amber-500" /><span className="font-bold text-sm">Weisheit</span></button>
+              <button onClick=${() => setView('map')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border shadow-sm hover:scale-105 transition-transform"><${Icon} name="map" size=${32} className="text-emerald-500" /><span className="font-bold text-sm">Lebenskarte</span></button>
+              <button onClick=${() => setView('burn')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border shadow-sm hover:scale-105 transition-transform"><${Icon} name="flame" size=${32} className="text-rose-500" /><span className="font-bold text-sm">Katharsis</span></button>
+              <button onClick=${() => setView('quotes')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border shadow-sm hover:scale-105 transition-transform"><${Icon} name="quote" size=${32} className="text-indigo-500" /><span className="font-bold text-sm">Erkenntnisse</span></button>
+              <button onClick=${() => setView('archive')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border shadow-sm hover:scale-105 transition-transform"><${Icon} name="archive" size=${32} className="opacity-50" /><span className="font-bold text-sm">Archiv</span></button>
+              <button onClick=${() => setView('trash')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border shadow-sm hover:scale-105 transition-transform"><${Icon} name="trash-2" size=${32} className="text-rose-400" /><span className="font-bold text-sm text-rose-500">Papierkorb</span></button>
+              <button onClick=${() => setView('settings')} className="col-span-2 p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border shadow-sm hover:scale-105 transition-transform"><${Icon} name="settings" size=${32} className="opacity-50" /><span className="font-bold text-sm">Einstellungen</span></button>
+            </div>
+        `}
+
+        ${view === 'wisdom' && html`
+            <div className="animate-slide-up space-y-6 pb-24">
+                <div className="p-6 rounded-3xl border text-center" style=${{ backgroundColor: user.nameColor+'15', borderColor: user.nameColor+'30' }}>
+                   <h3 className="font-bold mb-2" style=${{ color: user.nameColor }}>Fortschritt deines Vermächtnisses</h3>
+                   <div className="flex justify-between text-sm font-bold opacity-70 mb-2" style=${{ color: user.nameColor }}><span>${completedPillars} von ${totalPillars}</span><span>${progressPercent}%</span></div>
+                   <div className="w-full h-2 rounded-full overflow-hidden" style=${{ backgroundColor: user.nameColor+'30' }}><div className="h-full transition-all duration-1000" style=${{width: progressPercent+'%', backgroundColor: user.nameColor }}></div></div>
+                </div>
+                ${['Fundament', 'Kommunikation', 'Struktur', 'Tiefe', 'Anpassung'].map(phase => html`
+                   <div key=${phase} className="space-y-3">
+                      <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 ml-2">${phase}</h4>
+                      ${PILLARS.filter(p=>p.phase===phase).map(pillar => {
+                          const isCompleted = entries.some(e => e.title === pillar.title && !e.trashed);
+                          return html`
+                            <button key=${pillar.id} onClick=${() => openEditor(null, pillar)} className="w-full text-left p-5 rounded-3xl bg-white dark:bg-zinc-900 border shadow-sm flex gap-4 hover:scale-[1.02] transition-transform" style=${{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
+                               <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isCompleted ? 'text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}" style=${isCompleted ? { backgroundColor: user.nameColor } : {}}><${Icon} name=${isCompleted?"check":"pen-tool"} size=${16}/></div>
+                               <div><div className="font-bold text-sm mb-1">${pillar.title}</div><div className="text-xs opacity-60 line-clamp-2 leading-relaxed">${pillar.desc}</div></div>
+                            </button>
+                          `
+                      })}
+                   </div>
+                `)}
+            </div>
+        `}
+
+        ${view === 'burn' && html`
+            <div className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-fade-in relative">
+              ${isBurning && html`<div className="absolute inset-0 bg-rose-500/10 animate-pulse rounded-3xl pointer-events-none" />`}
+              <${Icon} name="flame" size=${64} className="mb-6 ${isBurning ? 'text-rose-500 animate-flame' : 'text-slate-300 dark:text-zinc-700'}" />
+              <p className="opacity-60 mb-8 max-w-sm">Schreibe auf, was dich belastet. Wir übergeben es den Flammen. Es wird nirgendwo gespeichert.</p>
+              <textarea value=${burnText} onChange=${e=>setBurnText(e.target.value)} disabled=${isBurning} className="w-full p-6 rounded-3xl bg-white dark:bg-zinc-900 border border-slate-200 outline-none resize-none transition-all text-lg font-medium shadow-sm h-48 focus:border-rose-500" placeholder="Lass es los..." />
+              <button onClick=${triggerBurn} disabled=${!burnText || isBurning} className="mt-6 px-8 py-4 bg-rose-600 text-white rounded-2xl font-bold shadow-lg hover:scale-105 disabled:opacity-50">Dem Feuer übergeben</button>
+            </div>
+        `}
+
+        ${view === 'quotes' && html`
+            <div className="animate-slide-up space-y-4 pb-24">
+                ${allQuotes.length === 0 ? html`
+                   <div className="text-center py-20 opacity-40"><${Icon} name="quote" size=${48} className="mx-auto mb-4"/><p className="font-bold">Noch keine Erkenntnisse zitiert.</p></div>
+                ` : allQuotes.map(q => html`
+                   <div key=${q.id} onClick=${()=>{const e=entries.find(x=>x.id===q.entryId); if(e){setView('dashboard'); handleOpenEntry(e);}}} className="p-6 rounded-3xl bg-white dark:bg-zinc-900 border shadow-sm cursor-pointer hover:scale-[1.02] transition-transform" style=${{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
+                      <${Icon} name="quote" size=${20} className="mb-4 opacity-50" style=${{ color: user.nameColor }} />
+                      <p className="text-lg font-serif italic font-medium leading-relaxed mb-4">"${q.text}"</p>
+                      <div className="text-xs font-bold uppercase tracking-widest opacity-40">${q.title} • ${new Date(q.date).toLocaleDateString('de-DE')}</div>
+                   </div>
+                `)}
+            </div>
+        `}
+
+        ${['dashboard', 'vault', 'archive'].includes(view) && !searchQuery && html`
+          <div className="flex overflow-x-auto gap-2 pb-2 mb-6 custom-scrollbar">
+            ${['Alle', ...CATEGORIES].map(cat => html`
+              <button key=${cat} onClick=${() => setActiveCategory(cat)} className="px-5 py-2 rounded-full whitespace-nowrap text-sm font-semibold transition-colors ${activeCategory === cat ? 'text-white shadow-md' : 'bg-slate-100 dark:bg-zinc-900'}" style=${activeCategory === cat ? { backgroundColor: user.nameColor } : {}}>${cat}</button>
+            `)}
+          </div>
+        `}
+
+        ${view === 'dashboard' && !searchQuery && html`
+             <div className="mb-8 p-6 rounded-3xl bg-white dark:bg-zinc-900 border shadow-sm flex flex-col justify-center animate-fade-in">
+                <div className="flex justify-between items-center mb-4"><span className="font-bold text-xs uppercase tracking-widest opacity-50">30-Tage Aktivität</span><${Icon} name="activity" size=${16} className="opacity-30" /></div>
+                <div className="flex gap-1 justify-between items-end h-10">
+                   ${heatmapData.map((d, i) => html`
+                      <div key=${i} className="flex-1 rounded-sm transition-colors" style=${{ height: d.count===0?'20%':`${Math.min(100, 20+(d.count*40))}%`, backgroundColor: d.count===0 ? (user.isDark?'#27272a':'#f1f5f9') : (user.nameColor || '#f59e0b') }} />
+                   `)}
+                </div>
+             </div>
+        `}
+
+        ${view === 'settings' && html`
+           <div className="animate-slide-up space-y-6 pb-48">
+              <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border shadow-sm">
+                 <h2 className="text-base font-bold mb-4 flex items-center gap-2"><${Icon} name="user" size=${18}/> Profil</h2>
+                 <div className="flex flex-col sm:flex-row items-center gap-5 mb-6">
+                    <div className="relative shrink-0 w-24 h-24 rounded-full overflow-hidden border-4 shadow-sm flex items-center justify-center bg-slate-100 dark:bg-zinc-800" style=${{ borderColor: user.nameColor }}>
+                       ${user.avatar ? html`<img src=${user.avatar} className="w-full h-full object-cover scale-[1.02]" />` : html`<${Icon} name="user" size=${40} className="opacity-30" />`}
+                    </div>
+                    <label className="w-full sm:flex-1 py-3 px-4 rounded-xl cursor-pointer shadow-sm font-bold text-sm text-center border bg-white dark:bg-zinc-800 hover:scale-[1.02] transition-transform">
+                       Profilbild ändern <input type="file" accept="image/*" onChange=${(e) => handleFileUpload(e, 'image')} className="hidden" />
+                    </label>
+                 </div>
+                 <input type="text" value=${user.name} onChange=${e=>setUser({...user, name: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 outline-none font-bold text-lg mb-4" placeholder="Dein Name" />
+                 <textarea value=${user.motto} onChange=${e=>setUser({...user, motto: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 outline-none font-medium text-sm resize-none h-24" placeholder="Lebensmotto..." />
+              </div>
+
+              <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border shadow-sm">
+                 <h2 className="font-bold mb-4 flex items-center gap-2"><${Icon} name="moon" size=${18}/> Design & Farben</h2>
+                 <div className="flex gap-2 mb-6">
+                    <button onClick=${() => setUser({...user, isDark: false})} className="flex-1 py-3 rounded-xl font-bold bg-slate-100 dark:bg-zinc-800 ${!user.isDark ? 'shadow-inner' : 'opacity-60'}">Hell</button>
+                    <button onClick=${() => setUser({...user, isDark: true})} className="flex-1 py-3 rounded-xl font-bold bg-slate-100 dark:bg-zinc-800 ${user.isDark ? 'shadow-inner' : 'opacity-60'}">Dunkel</button>
+                 </div>
+                 <span className="text-xs font-bold uppercase tracking-widest opacity-60 mb-2 block">Schriftfarbe</span>
+                 <div className="flex flex-wrap gap-2">
+                    ${COLORS.map(color => html`<button key=${color} onClick=${() => setUser({...user, nameColor: color, textColor: color})} className="w-8 h-8 rounded-full border-2 transition-transform ${user.nameColor === color ? 'scale-125' : ''}" style=${{ backgroundColor: color }}></button>`)}
+                 </div>
+              </div>
+
+              <div className="p-6 rounded-[2rem] bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 shadow-sm">
+                 <h2 className="text-base font-bold mb-2 flex items-center gap-2 text-blue-600 dark:text-blue-400"><${Icon} name="cloud" size=${18}/> Cloud-Tresor</h2>
+                 <p className="text-xs font-medium opacity-70 mb-4">AES-GCM verschlüsselt gesichert.</p>
+                 <button onClick=${() => { if (!user.pin) { showDialog({title:'PIN fehlt', message:'Bitte lege zuerst eine PIN fest.'}); return; } setUser({...user, cloudSync: !user.cloudSync}); if (!user.cloudSync) { entries.forEach(e=>syncSingleEntryToCloud(e)); syncProfileToCloud({...user, cloudSync:true}); } }} className="w-full p-4 rounded-2xl font-bold text-sm shadow-sm mb-3 transition-transform hover:scale-[1.02] ${user.cloudSync ? 'bg-blue-600 text-white' : 'bg-white dark:bg-zinc-900'}">${user.cloudSync ? 'Cloud Sync ist Aktiv' : 'Cloud Sync aktivieren'}</button>
+                 <button onClick=${performCloudSync} className="w-full p-4 rounded-2xl font-bold text-sm bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2">${syncingCloud ? 'Lädt...' : html`<${React.Fragment}><${Icon} name="download-cloud" size=${18}/> Aus Cloud laden</${React.Fragment}>`}</button>
+              </div>
+
+              <div className="p-6 rounded-[2rem] bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 shadow-sm">
+                 <h2 className="text-base font-bold mb-2 flex items-center gap-2 text-indigo-600 dark:text-indigo-400"><${Icon} name="archive" size=${18}/> Ewigkeits-Archiv (ZIP)</h2>
+                 <p className="text-xs font-medium opacity-70 mb-4">Exportiert alle deine Einträge als simple Textdateien (.md) und extrahiert Bilder.</p>
+                 <button onClick=${exportEternityArchive} className="w-full p-4 rounded-2xl font-bold text-sm bg-indigo-600 text-white hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"><${Icon} name="folder-down" size=${18}/> Als ZIP speichern</button>
+              </div>
+
+              <div className="p-6 rounded-[2rem] bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 shadow-sm">
+                 <h2 className="text-base font-bold mb-2 flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><${Icon} name="smartphone" size=${18}/> P2P Transfer</h2>
+                 <p className="text-xs font-medium opacity-70 mb-4">Scanne einen QR Code mit neuem Gerät für direkten Transfer.</p>
+                 ${!peerId ? html`
+                    <button onClick=${() => { const peer = new window.Peer(); setSyncStatus('WebRTC wird vorbereitet...'); peer.on('open', (id) => { setPeerId(id); setSyncStatus('Scanne den Code mit dem neuen Gerät.'); }); peer.on('connection', (c) => { setSyncStatus('Verbunden! Sende...'); c.on('data', (d) => { if(d==='request_data'){c.send(JSON.stringify({user,entries})); setSyncStatus('Erledigt!'); setTimeout(()=>{setPeerId(null);}, 4000);} }); }); setPeerInstance(peer); }} className="w-full p-4 rounded-2xl font-bold text-sm bg-emerald-600 text-white hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"><${Icon} name="qr-code" size=${18}/> QR-Code generieren</button>
+                 ` : html`
+                    <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl flex flex-col items-center">
+                       <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin + window.location.pathname + '?import=' + peerId)}" className="w-40 h-40 mb-3 rounded-lg" />
+                       <p className="text-xs font-bold text-emerald-600 mb-3 animate-pulse">${syncStatus}</p>
+                       <button onClick=${()=>{peerInstance?.destroy(); setPeerId(null); setSyncStatus('');}} className="text-xs font-bold opacity-50">Abbrechen</button>
+                    </div>
+                 `}
+              </div>
+
+              <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border shadow-sm">
+                 <h2 className="text-base font-bold mb-4 flex items-center gap-2"><${Icon} name="key" size=${18}/> Sicherheit & PIN</h2>
+                 ${!user.pin ? html`
+                    <div className="space-y-4">
+                       <input type="password" inputMode="numeric" value=${newPinInput} onChange=${e=>setNewPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 outline-none text-center tracking-[1em]" placeholder="Neue PIN" />
+                       <input type="password" inputMode="numeric" value=${confirmPinInput} onChange=${e=>setConfirmPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 outline-none text-center tracking-[1em]" placeholder="Wiederholen" />
+                       <button onClick=${handleSavePin} className="w-full py-4 rounded-xl font-bold" style=${{ backgroundColor: user.nameColor, color: isDarkColor(user.nameColor)?'#fff':'#000' }}>PIN speichern</button>
+                    </div>
+                 ` : isChangingPin ? html`
+                    <div className="space-y-4">
+                       <input type="password" inputMode="numeric" value=${oldPinInput} onChange=${e=>setOldPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 outline-none text-center tracking-[1em]" placeholder="Alte PIN" />
+                       <input type="password" inputMode="numeric" value=${newPinInput} onChange=${e=>setNewPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 outline-none text-center tracking-[1em]" placeholder="Neue PIN" />
+                       <input type="password" inputMode="numeric" value=${confirmPinInput} onChange=${e=>setConfirmPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 outline-none text-center tracking-[1em]" placeholder="Wiederholen" />
+                       <div className="flex gap-2">
+                          <button onClick=${() => setIsChangingPin(false)} className="flex-1 py-4 rounded-xl font-bold bg-slate-100 dark:bg-zinc-800">Abbrechen</button>
+                          <button onClick=${handleSavePin} className="flex-1 py-4 rounded-xl font-bold" style=${{ backgroundColor: user.nameColor, color: isDarkColor(user.nameColor)?'#fff':'#000' }}>Speichern</button>
+                       </div>
+                    </div>
+                 ` : html`
+                    <div className="flex justify-between items-center p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950">
+                       <div className="flex items-center gap-3"><${Icon} name="check-circle" size=${20} className="text-emerald-500" /><span className="font-bold text-sm">PIN Aktiv</span></div>
+                       <button onClick=${() => setIsChangingPin(true)} className="px-4 py-2 rounded-lg font-bold text-xs bg-white dark:bg-zinc-800 shadow-sm" style=${{ color: user.nameColor }}>Ändern</button>
+                    </div>
+                 `}
+                 ${window.PublicKeyCredential && user.pin && !isChangingPin && html`
+                    <div className="flex justify-between items-center mt-6 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border">
+                       <div className="flex items-center gap-3"><${Icon} name="fingerprint" size=${20} className=${user.biometric ? 'text-indigo-500' : 'text-slate-400'}/><div><div className="font-bold text-sm">Biometrie</div><div className="text-[10px] opacity-60">TouchID / FaceID</div></div></div>
+                       <button onClick=${toggleBiometric} className="w-12 h-6 rounded-full transition-colors relative ${user.biometric ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-zinc-700'}"><div className="w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${user.biometric ? 'left-7' : 'left-1'}" /></button>
+                    </div>
+                 `}
+              </div>
+              <button onClick=${handleLogout} className="w-full p-4 rounded-2xl font-bold text-rose-500 bg-rose-50 dark:bg-rose-500/10 border hover:scale-95 transition-transform flex items-center justify-center gap-2"><${Icon} name="log-out" size=${18}/> Abmelden</button>
+           </div>
+        `}
+
+        ${view === 'map' && html`
+           <div className="h-[75vh] relative rounded-[2rem] overflow-hidden shadow-lg border border-slate-200 dark:border-zinc-800 animate-fade-in">
+              <div ref=${mapRef} className="absolute inset-0 z-0"></div>
+           </div>
+        `}
+
+        ${view === 'trash' && html`
+           <div className="space-y-4 animate-slide-up pb-24">
+              <div className="flex justify-between items-center p-6 bg-rose-50 dark:bg-rose-500/10 rounded-3xl mb-6 text-rose-500 border border-rose-100 shadow-sm">
+                 <div><h2 className="text-xl font-bold flex items-center gap-2"><${Icon} name="trash-2" size=${24}/> Papierkorb</h2><p className="text-xs opacity-70 mt-1">${visibleEntries.length} gelöschte Einträge</p></div>
+                 ${visibleEntries.length > 0 && html`
+                    <button onClick=${() => showDialog({title:'Papierkorb leeren', message:'Alle unwiderruflich löschen?', icon:'alert-triangle', onConfirm:()=>visibleEntries.forEach(e=>deleteFromDB(e.id))})} className="px-4 py-2 bg-rose-500 text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:scale-105 transition-transform">Alle leeren</button>
+                 `}
+              </div>
+              ${visibleEntries.length === 0 ? html`
+                 <div className="text-center py-20 opacity-40"><${Icon} name="trash" size=${48} className="mx-auto mb-4"/><p className="font-bold">Papierkorb ist leer.</p></div>
+              ` : visibleEntries.map(e => html`
+                 <div key=${e.id} className="p-5 bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border flex justify-between items-center gap-4">
+                    <div className="overflow-hidden flex-1"><h4 className="font-bold truncate text-lg">${e.title || 'Ohne Titel'}</h4><p className="text-xs font-bold uppercase tracking-widest opacity-50 mt-1">${new Date(e.date).toLocaleDateString('de-DE')} • ${e.category}</p></div>
+                    <div className="flex gap-2 shrink-0">
+                       <button onClick=${() => saveToDB({...e, trashed: false})} className="w-10 h-10 flex items-center justify-center bg-emerald-50 text-emerald-500 rounded-full hover:scale-110 shadow-sm"><${Icon} name="rotate-ccw" size=${18}/></button>
+                       <button onClick=${() => showDialog({title:'Endgültig löschen?', message:`"${e.title}" löschen?`, icon:'trash-2', onConfirm:()=>deleteFromDB(e.id)})} className="w-10 h-10 flex items-center justify-center bg-rose-50 text-rose-500 rounded-full hover:scale-110 shadow-sm"><${Icon} name="x" size=${18}/></button>
+                    </div>
+                 </div>
+              `)}
+           </div>
+        `}
+
+        ${['dashboard', 'vault', 'archive'].includes(view) && html`
+          <div className="grid gap-6 ${isGridView && view === 'dashboard' ? 'grid-cols-2' : 'grid-cols-1'}">
+            ${visibleEntries.length === 0 && !searchQuery ? html`
+               <div className="flex flex-col items-center justify-center py-32 text-center opacity-40 col-span-full"><${Icon} name=${view === 'vault' ? "lock" : "book-open"} size=${48} className="mb-4"/><p className="text-lg font-bold">Leer.</p></div>
+            ` : visibleEntries.map(entry => html`<${EntryCard} key=${entry.id} entry=${entry} onClick=${handleOpenEntry} isGridView=${isGridView && view === 'dashboard'} userColor=${user.nameColor} isDarkTheme=${user.isDark} searchQuery=${debouncedSearch} />`)}
+          </div>
+        `}
+      </main>
+
+      ${!showEditor && html`
+        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-xs backdrop-blur-2xl bg-white/90 dark:bg-zinc-900/90 border rounded-[2rem] shadow-2xl flex justify-between items-center px-2 py-2 z-50 no-print">
+          <button onClick=${() => { setViewingEntry(null); if(view==='dashboard') setIsGridView(!isGridView); else setView('dashboard'); }} className="flex-1 flex justify-center py-2 transition-colors rounded-2xl ${view === 'dashboard' && !viewingEntry ? 'bg-slate-100 dark:bg-zinc-800' : 'opacity-60'}" style=${view === 'dashboard' && !viewingEntry ? { color: user.nameColor } : {}}><${Icon} name=${isGridView && view === 'dashboard' ? "list" : "layout-grid"} size=${22} /></button>
+          <button onClick=${() => { setViewingEntry(null); openEditor(); }} className="flex-none mx-2 w-14 h-14 rounded-full text-white dark:text-black shadow-lg flex items-center justify-center hover:scale-105 transition-transform" style=${{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') }}><${Icon} name="plus" size=${28} /></button>
+          <button onClick=${() => { setViewingEntry(null); setView('vault'); }} className="flex-1 flex justify-center py-2 transition-colors rounded-2xl ${view === 'vault' && !viewingEntry ? 'bg-rose-50 text-rose-500' : 'text-slate-400 hover:text-rose-500'}"><${Icon} name="lock" size=${22} /></button>
+        </nav>
+      `}
+
+      ${showTimeline && !showEditor && (() => {
+          const bookEntries = viewingEntry ? getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id) : entries.filter(e => !e.archived && !e.trashed);
+          const daysInMonth = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth() + 1, 0).getDate();
+          const firstDay = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth(), 1).getDay();
+          const emptySlots = (firstDay + 6) % 7; 
+          const daysArray = Array.from({length: daysInMonth}, (_, i) => i + 1);
+          const entriesOnSelectedDate = timelineSelectedDate ? bookEntries.filter(e => new Date(e.date).toDateString() === timelineSelectedDate) : [];
+
+          return html`
+             <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex justify-end animate-fade-in no-print" onClick=${() => setShowTimeline(false)}>
+                <div className="w-full max-w-sm h-full bg-white dark:bg-zinc-950 shadow-2xl animate-slide-up flex flex-col" onClick=${e=>e.stopPropagation()}>
+                   <div className="p-6 border-b flex justify-between items-center">
+                      <h3 className="font-bold text-xl flex items-center gap-2" style=${{ color: user.nameColor }}><${Icon} name="calendar-days" /> Zeitreise</h3>
+                      <button onClick=${()=>setShowTimeline(false)} className="p-2 rounded-full bg-slate-100 dark:bg-zinc-900"><${Icon} name="x" size=${20}/></button>
+                   </div>
+                   <div className="flex-1 overflow-y-auto custom-scrollbar">
+                      <div className="p-6 border-b">
+                         <div className="flex justify-between items-center mb-6">
+                            <button onClick=${() => { const d = new Date(timelineMonth); d.setMonth(d.getMonth()-1); setTimelineMonth(d); }} className="p-2 rounded-full bg-slate-100 dark:bg-zinc-900"><${Icon} name="chevron-left" size=${20}/></button>
+                            <span className="font-bold text-sm uppercase tracking-widest">${timelineMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}</span>
+                            <button onClick=${() => { const d = new Date(timelineMonth); d.setMonth(d.getMonth()+1); setTimelineMonth(d); }} className="p-2 rounded-full bg-slate-100 dark:bg-zinc-900"><${Icon} name="chevron-right" size=${20}/></button>
+                         </div>
+                         <div className="grid grid-cols-7 gap-2 text-center">
+                            ${['Mo','Di','Mi','Do','Fr','Sa','So'].map(d => html`<div key=${d} className="text-[10px] font-bold opacity-50 py-2">${d}</div>`)}
+                            ${Array(emptySlots).fill(null).map((_, i) => html`<div key="empty-${i}" />`)}
+                            ${daysArray.map(day => {
+                                const dateStr = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth(), day).toDateString();
+                                const dayEntry = bookEntries.find(e => new Date(e.date).toDateString() === dateStr);
+                                const hasEntry = !!dayEntry; const bgImg = dayEntry?.images?.[0] || null; const isSelected = timelineSelectedDate === dateStr;
+                                return html`
+                                   <button key=${day} onClick=${() => setTimelineSelectedDate(isSelected ? null : dateStr)} className="relative p-2 text-sm rounded-xl transition-all flex items-center justify-center aspect-square overflow-hidden ${isSelected ? 'shadow-md font-bold scale-110' : ''}" style=${bgImg ? { backgroundImage: `url(${bgImg})`, backgroundSize: 'cover', backgroundPosition: 'center', border: isSelected ? `2px solid ${user.nameColor}` : 'none' } : (isSelected ? { backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000' } : { backgroundColor: 'transparent' })}>
+                                      ${!bgImg && html`<span>${day}</span>`}
+                                      ${hasEntry && !isSelected && !bgImg && html`<div className="absolute bottom-1 w-1.5 h-1.5 rounded-full" style=${{ backgroundColor: user.nameColor }}></div>`}
+                                   </button>
+                                `;
+                            })}
+                         </div>
+                      </div>
+                      <div className="p-4 pb-20">
+                         ${!timelineSelectedDate ? html`<p className="text-center opacity-40 text-sm font-medium mt-8">Wähle einen markierten Tag aus.</p>` : html`
+                            <div className="space-y-3">
+                               ${entriesOnSelectedDate.length === 0 ? html`<p className="text-center opacity-40 text-sm font-medium mt-4 mb-8">Kein Eintrag an diesem Tag.</p>` : entriesOnSelectedDate.map(e => html`
+                                  <${SwipeableTimelineEntry} key=${e.id} entry=${e} onClick=${(entry) => { setViewingEntry(entry); setShowTimeline(false); }} onArchive=${(entry) => saveToDB({...entry, archived: true})} onTrash=${(entry) => saveToDB({...entry, trashed: true})} showDialog=${showDialog} userColor=${user.nameColor} />
+                               `)}
+                               <button onClick=${() => { setShowTimeline(false); openEditor(null, null, timelineSelectedDate); }} className="w-full flex items-center justify-center gap-2 p-4 bg-slate-100 dark:bg-zinc-800 rounded-2xl font-bold text-sm hover:scale-[1.02] mt-4" style=${{color: user.nameColor}}><${Icon} name="plus" size=${18}/> Neuer Eintrag für diesen Tag</button>
+                            </div>
+                         `}
+                      </div>
+                   </div>
+                </div>
+             </div>
+          `;
+      })()}
+
+      ${viewingEntry && !showEditor && (() => {
+          const bookRoot = getBookRoot(viewingEntry.id);
+          const allBookEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
+          const cIdx = allBookEntries.findIndex(ex => ex.id === viewingEntry.id);
+          const prevPage = cIdx > 0 ? allBookEntries[cIdx - 1] : null;
+          const nextPage = cIdx < allBookEntries.length - 1 ? allBookEntries[cIdx + 1] : null;
+
+          return html`
+             <div className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-black animate-fade-in custom-scrollbar screen-only">
+                <div className="sticky top-0 z-40 flex justify-between items-center py-4 px-6 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b shrink-0 no-print">
+                   <button onClick=${() => {setViewingEntry(null); setCurrentViewerImgIdx(0);}} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900"><${Icon} name="arrow-left" size=${20}/></button>
+                   <div className="flex gap-2">
+                      <button onClick=${() => window.print()} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 text-slate-500"><${Icon} name="printer" size=${20}/></button>
+                      <button onClick=${() => handleReadAloud(viewingEntry)} className="p-3 rounded-full transition-transform ${isSpeaking ? 'text-white animate-pulse' : 'bg-slate-100 dark:bg-zinc-900'}" style=${isSpeaking ? { backgroundColor: user.nameColor } : {}}><${Icon} name=${isSpeaking ? "volume-2" : "volume-1"} size=${20}/></button>
+                      <button onClick=${() => { const e = viewingEntry; setViewingEntry(null); setTimeout(() => openEditor(e), 10); }} className="px-5 py-2.5 rounded-full font-bold text-sm bg-slate-100 dark:bg-zinc-900" style=${{ color: user.nameColor }}>Bearbeiten</button>
+                   </div>
+                </div>
+                <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-48 screen-only">
+                   ${viewingEntry.images && viewingEntry.images.length > 0 && html`
+                      <div className="relative w-full aspect-video rounded-3xl overflow-hidden shadow-sm mb-8 group bg-slate-100 dark:bg-zinc-900">
+                         <img src=${viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-cover transition-transform duration-700" alt="Cover" />
+                         ${viewingEntry.images.length > 1 && html`
+                            <button onClick=${(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p - 1 + viewingEntry.images.length) % viewingEntry.images.length); }} className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print"><${Icon} name="chevron-left" size=${24}/></button>
+                            <button onClick=${(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p + 1) % viewingEntry.images.length); }} className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print"><${Icon} name="chevron-right" size=${24}/></button>
+                            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/30 px-3 py-1.5 rounded-full backdrop-blur-sm no-print">
+                               ${viewingEntry.images.map((_, i) => html`<div key=${i} className="w-2 h-2 rounded-full transition-colors ${i === currentViewerImgIdx ? 'bg-white' : 'bg-white/40'}" />`)}
+                            </div>
+                         `}
+                      </div>
+                   `}
+                   <h1 className="text-4xl sm:text-5xl font-extrabold mb-6 tracking-tight leading-tight">${viewingEntry.title || 'Ohne Titel'}</h1>
+                   <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
+                      <span>${new Date(viewingEntry.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                      <span>•</span><span>${viewingEntry.category}</span>
+                      ${viewingEntry.location && html`<span className="flex items-center gap-1 text-amber-500"><${Icon} name="map-pin" size=${14}/> GPS-Siegel</span>`}
+                   </div>
+
+                   <div className="flex flex-wrap gap-2 mb-10 no-print">
+                      ${viewingEntry.tags && viewingEntry.tags.split(',').map(t => t.trim()).filter(t=>t).map((t, i) => html`<span key=${i} className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-bold flex items-center gap-1"><${Icon} name="tag" size=${12}/> ${t}</span>`)}
+                      ${viewingEntry.people && viewingEntry.people.split(',').map(p => p.trim()).filter(p=>p).map((p, i) => html`<span key=${i} className="px-3 py-1 bg-indigo-600 text-white rounded-lg text-xs font-bold flex items-center gap-1"><${Icon} name="user" size=${12}/> ${p}</span>`)}
+                      ${viewingEntry.weather && html`<span className="px-3 py-1 bg-orange-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 w-full sm:w-auto"><${Icon} name="sun" size=${12}/> ${viewingEntry.weather}</span>`}
+                      ${viewingEntry.rating > 0 && html`<div className="flex items-center gap-1 ml-auto">${[1,2,3,4,5].map(star => html`<${Icon} key=${star} name="star" size=${16} className=${viewingEntry.rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300'} />`)}</div>`}
+                   </div>
+
+                   <div className="text-lg leading-relaxed font-medium opacity-90 legacy-content" dangerouslySetInnerHTML=${createSafeHtml(viewingEntry.text)} />
+                   ${viewingEntry.audio && html`<div className="mt-8 p-4 rounded-2xl bg-slate-100 dark:bg-zinc-900 no-print"><audio src=${viewingEntry.audio} controls className="w-full" /></div>`}
+                   
+                   <div className="mt-16 pt-8 border-t flex justify-center no-print">
+                      <button onClick=${() => startNewChapter(viewingEntry)} className="px-6 py-3 font-bold rounded-2xl flex items-center gap-2 hover:scale-105 shadow-md" style=${{ backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000' }}><${Icon} name="plus" size=${20}/> Neue Seite anfügen</button>
+                   </div>
+
+                   ${allBookEntries.length > 1 && html`
+                      <div className="flex justify-between items-center mt-12 pt-8 border-t no-print">
+                         ${prevPage ? html`<button onClick=${() => setViewingEntry(prevPage)} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100" style=${{ color: user.nameColor }}><${Icon} name="arrow-left" size=${16}/> Vorherige Seite</button>` : html`<div/>`}
+                         <span className="text-xs font-bold opacity-30">Seite ${cIdx + 1} von ${allBookEntries.length}</span>
+                         ${nextPage ? html`<button onClick=${() => setViewingEntry(nextPage)} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100" style=${{ color: user.nameColor }}>Nächste Seite <${Icon} name="arrow-right" size=${16}/></button>` : html`<div/>`}
+                      </div>
+                   `}
+                </div>
+             </div>
+             
+             <!-- PRINT VIEW HTML STRUCTURE -->
+             <div className="print-only w-full max-w-4xl mx-auto p-8">
+                 <div className="print-title-page page-break-after">
+                    <h1 style=${{fontSize: '56px', marginBottom: '20px', fontFamily: 'Georgia, serif'}}>${user.appName || 'Legacy Vision Journal'}</h1>
+                    <h3 style=${{fontSize: '24px', opacity: 0.6}}>Verfasst von ${user.name}</h3>
+                    ${user.motto && html`<p style=${{marginTop: '40px', fontStyle: 'italic'}}>${user.motto}</p>`}
+                    <p style=${{position: 'absolute', bottom: '40px', left: 0, right: 0, textAlign: 'center'}}>Generiert am ${new Date().toLocaleDateString('de-DE')}</p>
+                 </div>
+                 <div className="print-toc page-break-after">
+                    <h2 style=${{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px', fontFamily: 'Georgia, serif'}}>Inhaltsverzeichnis</h2>
+                    <ul style=${{listStyle: 'none', padding: 0}}>
+                        ${allBookEntries.map((e, idx) => html`<li key=${idx} style=${{marginBottom: '15px', fontSize: '18px'}}><strong>${idx+1}.</strong> ${e.title || 'Ohne Titel'}</li>`)}
+                    </ul>
+                 </div>
+                 <div className="print-book-content">
+                    ${allBookEntries.map((e, idx) => html`
+                        <div key=${e.id} className="page-break-after" style=${{marginBottom: '60px', paddingTop: '20px'}}>
+                            <div style=${{textAlign: 'center', marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)'}}>
+                                <h1 style=${{fontSize: '36px', fontFamily: 'Georgia, serif', fontWeight: 'bold', marginBottom: '10px'}}>${e.title || 'Ohne Titel'}</h1>
+                                <p style=${{opacity: 0.6, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '12px'}}>${new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • ${e.category}</p>
+                            </div>
+                            ${e.images && e.images.length > 0 && html`<img src=${e.images[0]} style=${{width: '100%', maxHeight: '500px', objectFit: 'contain', marginBottom: '30px', borderRadius: '16px'}} alt="Cover" />`}
+                            <div className="text-lg leading-relaxed legacy-content" dangerouslySetInnerHTML=${createSafeHtml(e.text)}></div>
+                        </div>
+                    `)}
+                 </div>
+             </div>
+          `;
+      })()}
+
+      ${showEditor && html`
+        <div className="fixed inset-0 z-[150] flex flex-col bg-white dark:bg-black animate-fade-in no-print h-[100dvh]">
+          <div className="w-full h-full max-w-3xl mx-auto flex flex-col bg-white dark:bg-zinc-950 overflow-hidden shadow-2xl relative">
+             <div className="flex justify-between items-center px-4 py-3 sm:px-6 sm:py-4 border-b shrink-0 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md z-40 relative">
+                <button onClick=${() => checkSaveEntry(true)} className="p-3 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800"><${Icon} name="arrow-left" size=${24}/></button>
+                <div className="flex gap-2 items-center">
+                   ${editingState.id && html`<button onClick=${() => showDialog({title:'In den Papierkorb?', message:'Wird in Papierkorb verschoben.', icon:'trash-2', onConfirm:()=>{saveToDB({...currentEntryRef.current, trashed: true}); setShowEditor(false);}})} className="p-3 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50"><${Icon} name="trash-2" size=${20}/></button>`}
+                   <button onClick=${() => { setEditingState(p=>({...p, isLocked: !p.isLocked})); currentEntryRef.current.isLocked = !editingState.isLocked; isDirtyRef.current = true; checkSaveEntry(false); }} className="p-3 rounded-full ${editingState.isLocked ? 'bg-rose-500/10 text-rose-500' : 'opacity-60'}"><${Icon} name="lock" size=${20}/></button>
+                   <button onClick=${() => {
+                       if(navigator.geolocation) {
+                           showDialog({title:'Orte & Wetter', message:'Lade GPS...', icon:'loader'});
+                           navigator.geolocation.getCurrentPosition(async pos => {
+                               const lat = pos.coords.latitude; const lng = pos.coords.longitude;
+                               setEditingState(p=>({...p, location: {lat,lng}})); currentEntryRef.current.location = {lat,lng}; isDirtyRef.current = true;
+                               try {
+                                   const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`);
+                                   const data = await res.json();
+                                   if(data && data.current_weather) {
+                                       const wStr = Math.round(data.current_weather.temperature) + "°C";
+                                       setEditingState(p=>({...p, weather: wStr})); currentEntryRef.current.weather = wStr;
+                                   }
+                               } catch(e) {}
+                               setDialog(null); checkSaveEntry(false); showDialog({title:'Orts-Siegel', message:'Ort verewigt.', icon:'map-pin'});
+                           }, () => { setDialog(null); showDialog({title:'Fehler', message:'Ortung fehlgeschlagen.', icon:'x'}); });
+                       }
+                   }} className="p-3 rounded-full ${editingState.location ? 'bg-emerald-500/10 text-emerald-500' : 'opacity-60'}"><${Icon} name="map-pin" size=${20}/></button>
+                   <button onClick=${() => { setEditingState(p=>({...p, isManifested: !p.isManifested})); currentEntryRef.current.isManifested = !editingState.isManifested; isDirtyRef.current = true; checkSaveEntry(false); }} className="p-3 rounded-full ${editingState.isManifested ? 'bg-amber-400/10 text-amber-500' : 'opacity-60'}"><${Icon} name="sparkles" size=${20}/></button>
+                   <button onClick=${() => checkSaveEntry(true)} className="px-6 py-2.5 rounded-full font-bold shadow-sm text-sm ml-2 hover:scale-105" style=${{ backgroundColor: user.nameColor, color: isDarkColor(user.nameColor)?'#ffffff':'#000000' }}>Speichern</button>
+                </div>
+             </div>
+
+             <div className="flex flex-col shrink-0 px-6 sm:px-10 pt-6 pb-2 z-40 bg-white dark:bg-zinc-950 border-b relative">
+                ${editingState.pillarGuidance && html`<div className="mb-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-800 text-sm font-medium flex gap-3"><${Icon} name="book-open" size=${20} className="shrink-0"/>${editingState.pillarGuidance}</div>`}
+                <input type="text" placeholder="Ein brillianter Gedanke..." value=${editingState.title} onChange=${e => { setEditingState({...editingState, title: e.target.value}); currentEntryRef.current.title = e.target.value; isDirtyRef.current = true; checkSaveEntry(false); }} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tight outline-none mb-4" />
+                
+                <div className="flex gap-2 mb-2 overflow-x-auto hide-scrollbar items-center bg-slate-100 dark:bg-zinc-900 p-2 rounded-2xl">
+                   <button onMouseDown=${e => { e.preventDefault(); document.execCommand('formatBlock', false, '<h1>'); isDirtyRef.current = true; checkSaveEntry(false); }} className="px-3 py-1 font-bold text-lg rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800">H1</button>
+                   <button onMouseDown=${e => { e.preventDefault(); document.execCommand('formatBlock', false, '<h2>'); isDirtyRef.current = true; checkSaveEntry(false); }} className="px-3 py-1 font-bold text-md rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800">H2</button>
+                   <button onMouseDown=${e => { e.preventDefault(); document.execCommand('formatBlock', false, 'p'); isDirtyRef.current = true; checkSaveEntry(false); }} className="px-3 py-1 font-bold text-sm rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800">Text</button>
+                   <div className="w-px h-6 bg-slate-300 dark:bg-zinc-700 mx-1"></div>
+                   <button onMouseDown=${e => { e.preventDefault(); document.execCommand('bold', false, null); isDirtyRef.current = true; checkSaveEntry(false); }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800"><${Icon} name="bold" size=${18}/></button>
+                   <button onMouseDown=${e => { e.preventDefault(); document.execCommand('italic', false, null); isDirtyRef.current = true; checkSaveEntry(false); }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800"><${Icon} name="italic" size=${18}/></button>
+                   <button onMouseDown=${e => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); isDirtyRef.current = true; checkSaveEntry(false); }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800"><${Icon} name="list-todo" size=${18}/></button>
+                   <button onMouseDown=${e => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current = true; checkSaveEntry(false); }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800"><${Icon} name="quote" size=${18}/></button>
+                   <div className="w-px h-6 bg-slate-300 dark:bg-zinc-700 mx-1"></div>
+                   <label htmlFor="inline-image-upload" className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 cursor-pointer text-indigo-500 shrink-0"><${Icon} name="image" size=${18}/><input id="inline-image-upload" type="file" accept="image/*" onChange=${handleInlineImage} className="hidden"/></label>
+                   <div className="flex gap-1.5 ml-2 shrink-0">
+                      ${['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'].map(c => html`<button key=${c} onMouseDown=${e => { e.preventDefault(); document.execCommand('foreColor', false, c); isDirtyRef.current = true; checkSaveEntry(false); }} className="w-5 h-5 rounded-full hover:scale-110 shadow-sm" style=${{backgroundColor: c}}></button>`)}
+                   </div>
+                   <button onClick=${() => setPicker({ title: 'Kategorie', currentValue: editingState.category, options: CATEGORIES.map(c=>({label:c,value:c})), onSelect: (v)=>{setEditingState(p=>({...p, category: v})); currentEntryRef.current.category = v; isDirtyRef.current=true; checkSaveEntry(false);} })} className="px-4 py-2 rounded-xl bg-white dark:bg-zinc-800 shadow-sm font-bold text-[10px] uppercase tracking-widest ml-auto shrink-0" style=${{ color: user.nameColor }}>${editingState.category}</button>
+                </div>
+             </div>
+
+             <div className="flex-1 overflow-y-auto px-6 sm:px-10 pt-4 pb-12 relative z-10 block">
+                ${editingState.selectedImages.length > 0 && html`
+                   <div className="flex overflow-x-auto hide-scrollbar gap-3 mb-6 snap-x shrink-0">
+                      ${editingState.selectedImages.map((imgSrc, i) => html`
+                         <div key=${i} className="relative w-48 h-48 rounded-3xl overflow-hidden border shrink-0 snap-center">
+                            <img src=${imgSrc} className="w-full h-full object-cover"/>
+                            <button onClick=${() => { setEditingState(p => { const newImgs = p.selectedImages.filter((_,idx)=>idx!==i); currentEntryRef.current.selectedImages=newImgs; return {...p, selectedImages:newImgs}; }); isDirtyRef.current = true; checkSaveEntry(false); }} className="absolute top-2 right-2 bg-black/60 p-2 rounded-full text-white"><${Icon} name="x" size=${14}/></button>
+                         </div>
+                      `)}
+                   </div>
+                `}
+                ${editingState.audioUrl && html`
+                    <div className="mb-6 p-4 rounded-2xl bg-slate-100 dark:bg-zinc-900 relative mt-4 shrink-0">
+                        <audio src=${editingState.audioUrl} controls className="w-full"/>
+                        <button onClick=${()=>{setEditingState(p=>({...p, audioUrl: null})); currentEntryRef.current.audioUrl = null; isDirtyRef.current = true; checkSaveEntry(false);}} className="absolute -top-2 -right-2 bg-rose-500 text-white p-1 rounded-full shadow-lg"><${Icon} name="x" size=${14}/></button>
+                    </div>
+                `}
+                
+                <div ref=${editorRef} contentEditable suppressContentEditableWarning data-placeholder="Lass es fließen..." onInput=${e => { currentEntryRef.current.text = e.currentTarget.innerHTML; isDirtyRef.current = true; }} dangerouslySetInnerHTML=${{__html: editingState.text}} className="w-full min-h-[250px] bg-transparent text-lg leading-relaxed font-medium outline-none empty:before:content-[attr(data-placeholder)] legacy-editor-content pt-4 pb-12" />
+
+                <div className="flex flex-col gap-3 mt-4 pt-4 border-t pb-10">
+                   <div className="flex items-center gap-2">
+                       ${[1,2,3,4,5].map(star => html`<button key=${star} type="button" onClick=${() => { setEditingState(p=>({...p, rating: star})); currentEntryRef.current.rating = star; isDirtyRef.current=true; checkSaveEntry(false); }}><${Icon} name="star" size=${24} className=${editingState.rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-zinc-700'} /></button>`)}
+                   </div>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                       <div className="flex flex-col"><label className="text-[10px] font-bold uppercase opacity-50 mb-1">Tags (Komma getrennt)</label><input type="text" value=${editingState.tags} onChange=${e => {setEditingState(p=>({...p, tags: e.target.value})); currentEntryRef.current.tags = e.target.value; isDirtyRef.current=true;}} onBlur=${() => checkSaveEntry(false)} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none" /></div>
+                       <div className="flex flex-col"><label className="text-[10px] font-bold uppercase opacity-50 mb-1">Personen</label><input type="text" value=${editingState.people} onChange=${e => {setEditingState(p=>({...p, people: e.target.value})); currentEntryRef.current.people = e.target.value; isDirtyRef.current=true;}} onBlur=${() => checkSaveEntry(false)} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none" /></div>
+                       <div className="flex flex-col sm:col-span-2"><label className="text-[10px] font-bold uppercase opacity-50 mb-1">Wetter</label><input type="text" value=${editingState.weather} onChange=${e => {setEditingState(p=>({...p, weather: e.target.value})); currentEntryRef.current.weather = e.target.value; isDirtyRef.current=true;}} onBlur=${() => checkSaveEntry(false)} className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-900 text-sm outline-none" /></div>
+                   </div>
+                </div>
+             </div>
+
+             <div className="shrink-0 bg-slate-50 dark:bg-zinc-900 border-t p-4 flex justify-between items-center pb-[env(safe-area-inset-bottom,16px)] z-30">
+                <div className="flex gap-2">
+                   <label htmlFor="cover-upload" className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border shadow-sm cursor-pointer hover:scale-105"><${Icon} name="images" size=${20}/><input id="cover-upload" type="file" accept="image/*" multiple onChange=${(e) => handleFileUpload(e, 'image')} className="hidden" /></label>
+                   <button onClick=${()=>setIsDrawing(true)} className="p-3.5 rounded-full bg-white dark:bg-zinc-800 border shadow-sm hover:scale-105"><${Icon} name="pen-tool" size=${20}/></button>
+                   <button onClick=${isRecording?stopRecording:startRecording} className="p-3.5 rounded-full shadow-sm hover:scale-105 ${isRecording?'bg-rose-500 text-white animate-pulse':'bg-white dark:bg-zinc-800 border'}">${isRecording?html`<${Icon} name="square" size=${20}/>`:html`<${Icon} name="mic" size=${20}/>`}</button>
+                   
+                   <div className="relative pl-2 ml-2 border-l flex">
+                       <label className="relative p-3.5 rounded-full shadow-sm flex items-center justify-center cursor-pointer hover:scale-105 ${editingState.unlockDate ? 'text-white border-transparent' : 'bg-white dark:bg-zinc-800 border'}" style=${editingState.unlockDate ? { backgroundColor: user.nameColor } : {}}>
+                          <${Icon} name="clock" size=${20}/>
+                          <input type="date" value=${editingState.unlockDate} onChange=${e=>{setEditingState(p=>({...p, unlockDate: e.target.value})); currentEntryRef.current.unlockDate = e.target.value; isDirtyRef.current = true; checkSaveEntry(false);}} className="absolute opacity-0 w-full h-full cursor-pointer" />
+                       </label>
+                   </div>
+                </div>
+                <div className="flex gap-2">
+                   ${MOODS.slice(0,3).map(m => html`<button key=${m.id} onClick=${()=>{const nM = editingState.mood===m.label?null:m.label; setEditingState(p=>({...p, mood: nM})); currentEntryRef.current.mood = nM; isDirtyRef.current=true; checkSaveEntry(false);}} className="p-2.5 rounded-full transition-all ${editingState.mood===m.label ? 'bg-white shadow-md scale-110 ' + m.color : 'opacity-40'}"><${Icon} name=${m.iconName} size=${20}/></button>`)}
+                </div>
+             </div>
+          </div>
+        </div>
+      `}
+
+      ${isDrawing && html`
+         <div className="fixed inset-0 z-[200] flex flex-col bg-white dark:bg-black animate-fade-in no-print">
+            <div className="flex justify-between items-center p-6 border-b bg-slate-50 dark:bg-zinc-950 shrink-0">
+               <button onClick=${()=>setIsDrawing(false)} className="p-3 rounded-full bg-slate-200 dark:bg-zinc-800"><${Icon} name="x" size=${20}/></button>
+               <span className="font-bold text-lg">Skizze</span>
+               <button onClick=${()=>{if(canvasRef.current){
+                   setEditingState(p=>{ const newImgs = [...p.selectedImages, canvasRef.current.toDataURL()]; currentEntryRef.current.selectedImages = newImgs; return {...p, selectedImages: newImgs}; }); 
+                   setIsDrawing(false); isDirtyRef.current=true; checkSaveEntry(false);
+               }}} className="px-6 py-2 rounded-full font-bold shadow-md text-sm" style=${{ backgroundColor: user.nameColor, color: isDarkColor(user.nameColor)?'#fff':'#000' }}>Fertig</button>
+            </div>
+            <div className="flex-1 relative touch-none bg-white dark:bg-black">
+               <canvas ref=${canvasRef} className="absolute inset-0 w-full h-full touch-none" onMouseDown=${startDrawing} onMouseMove=${draw} onMouseUp=${stopDrawing} onMouseLeave=${stopDrawing} onTouchStart=${startDrawing} onTouchMove=${draw} onTouchEnd=${stopDrawing} />
+            </div>
+         </div>
+      `}
+
+      ${picker && html`
+        <div className="fixed inset-0 z-[250] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick=${() => setPicker(null)}>
+          <div className="w-full max-w-sm rounded-[2.5rem] shadow-2xl bg-white dark:bg-zinc-900 border animate-slide-up flex flex-col overflow-hidden max-h-[70vh]" onClick=${e => e.stopPropagation()}>
+            <div className="p-6 border-b flex justify-between items-center"><h3 className="font-bold text-lg">${picker.title}</h3><button onClick=${()=>setPicker(null)} className="p-2 rounded-full bg-slate-100 dark:bg-zinc-800"><${Icon} name="x" size=${20}/></button></div>
+            <div className="overflow-y-auto p-4 space-y-2">
+               ${picker.options.map(opt => html`
+                  <button key=${opt.value} onClick=${()=>{picker.onSelect(opt.value); setPicker(null);}} className="w-full text-left p-4 rounded-2xl font-bold text-sm flex justify-between transition-all ${picker.currentValue===opt.value ? 'text-white' : 'hover:bg-slate-50'}" style=${picker.currentValue === opt.value ? { backgroundColor: user.nameColor } : {}}>
+                     ${opt.label} ${picker.currentValue===opt.value && html`<${Icon} name="check" size=${16}/>`}
+                  </button>
+               `)}
+            </div>
+          </div>
+        </div>
+      `}
+    </div>
+  `;
+}
+
+const root = createRoot(document.getElementById('root'));
+root.render(html`<${App} />`);
+</script>
+</body>
+</html>
