@@ -194,7 +194,7 @@ const { useState, useEffect, useRef, useMemo, memo } = React;
 const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
 const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
 
-// Lokale Zeit für Speicherung sichern (UTC Offset fix - 01.04. anstatt 31.03.)
+// Lokale Zeit für Speicherung sichern (UTC Offset fix)
 const getLocalISO = () => {
     const now = new Date();
     const tzOffset = now.getTimezoneOffset() * 60000;
@@ -302,7 +302,7 @@ const Icon = ({ name, size = 24, className = '', ...props }) => {
   return <span ref={spanRef} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} {...props}></span>;
 };
 
-// 25 Custom Colors
+// Constants
 const COLORS = [
   '#ffffff', '#f8fafc', '#e4e4e7', '#a1a1aa', '#52525b', 
   '#27272a', '#18181b', '#09090b', '#fef08a', '#fbbf24', 
@@ -429,7 +429,7 @@ const EntryCard = memo(({ entry, onClick, isGridView, userColor, isDarkTheme, se
             <div className="text-sm font-medium leading-relaxed opacity-70 line-clamp-3" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
           )}
           {(entry.locked || isCapsuleLocked) && !isGridView && (
-             <div className="text-sm font-medium leading-relaxed opacity-40 italic">
+             <div className="text-sm font-medium leading-relaxed opacity-40 italic mb-4">
                 {isCapsuleLocked ? 'Inhalt durch Zeitsiegel geschützt.' : 'Inhalt durch Tresor-PIN geschützt.'}
              </div>
           )}
@@ -439,7 +439,7 @@ const EntryCard = memo(({ entry, onClick, isGridView, userColor, isDarkTheme, se
 }, (prev, next) => prev.entry.orderTimestamp === next.entry.orderTimestamp && prev.entry.id === next.entry.id && prev.isGridView === next.isGridView && prev.searchQuery === next.searchQuery);
 
 // --- Swipeable Timeline Item Component ---
-const SwipeableTimelineEntry = ({ entry, onArchive, onTrash, onClick, showDialog }) => {
+const SwipeableTimelineEntry = ({ entry, onArchive, onTrash, onClick, showDialog, userColor }) => {
     const [offsetX, setOffsetX] = useState(0);
     const startX = useRef(null);
 
@@ -484,7 +484,7 @@ const SwipeableTimelineEntry = ({ entry, onArchive, onTrash, onClick, showDialog
             >
                 {entry.images && entry.images.length > 0 && <img src={entry.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0 pointer-events-none" />}
                 <div className="flex-1 overflow-hidden pointer-events-none">
-                    <span className="font-bold text-sm truncate block">{entry.title || 'Ohne Titel'}</span>
+                    <span className="font-bold text-sm truncate block" style={{ color: userColor }}>{entry.title || 'Ohne Titel'}</span>
                     <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">{new Date(entry.date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
                 </div>
             </button>
@@ -937,7 +937,7 @@ function App() {
         const currentText = editorRef.current ? editorRef.current.innerHTML : (state.text || ''); 
         const titleSafe = state.title || '';
         
-        // Leere Einträge werden als Raum akzeptiert, aber unbenannte komplett leere Kapseln werden ignoriert
+        // Leere Einträge verhindern Abstürze
         const isEmpty = !titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && (!state.selectedImages || state.selectedImages.length === 0) && !state.audioUrl && !state.weather && !state.tags && !state.people;
         
         if (isEmpty && closeAndRead) { 
@@ -1123,23 +1123,6 @@ function App() {
       return current; 
   };
 
-  // Swipe Navigation in Viewer (Category specific)
-  const handleTouchStart = (e) => { setTouchStart(e.touches[0].clientX); };
-  const handleTouchEnd = (e) => {
-      if (!touchStart || !viewingEntry) return;
-      const touchEnd = e.changedTouches[0].clientX; const distance = touchStart - touchEnd;
-      
-      let swipeNext = null, swipePrev = null;
-      const sorted = visibleEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
-      const cIdx = sorted.findIndex(ex => ex.id === viewingEntry.id);
-      if (cIdx > 0) swipePrev = sorted[cIdx - 1]; 
-      if (cIdx < sorted.length - 1) swipeNext = sorted[cIdx + 1]; 
-
-      if (distance > 50 && swipeNext) { setViewingEntry(swipeNext); setCurrentViewerImgIdx(0); } // Swipe left
-      if (distance < -50 && swipePrev) { setViewingEntry(swipePrev); setCurrentViewerImgIdx(0); } // Swipe right
-      setTouchStart(null);
-  };
-
   // Canvas Drawing Logic
   const getCanvasCoordinates = (e) => {
       if (!canvasRef.current) return { x: 0, y: 0 };
@@ -1235,7 +1218,6 @@ function App() {
                   editorRef.current.focus();
                   document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false" style="width: 150px; height: 150px;"><img src="${base64}" /></span><br><br>`);
                   isDirtyRef.current = true;
-                  checkSaveEntry(false);
               }
           };
           img.src = evt.target.result;
@@ -1467,6 +1449,7 @@ function App() {
             )}
           </div>
           <div className="flex gap-2 items-center">
+            {/* Kalender Button GLOBAL zugänglich */}
             <button type="button" onClick={() => { setViewingEntry(null); setShowTimeline(true); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="calendar-days" size={18}/></button>
             
             {view === 'dashboard' && (
@@ -1781,15 +1764,15 @@ function App() {
         </main>
 
         {/* --- FLOATING BOTTOM NAV --- */}
-        {!showEditor && (
+        {!showEditor && !viewingEntry && (
           <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-xs backdrop-blur-2xl bg-white/90 dark:bg-zinc-900/90 border border-slate-200/50 dark:border-zinc-700/50 rounded-[2rem] shadow-2xl flex justify-between items-center px-2 py-2 z-40 no-print">
-            <button onClick={() => { setViewingEntry(null); if(view==='dashboard') setIsGridView(!isGridView); else setView('dashboard'); }} className={`flex-1 flex flex-col items-center justify-center py-2 transition-colors rounded-2xl ${view === 'dashboard' && !viewingEntry ? 'bg-slate-100 dark:bg-zinc-800 shadow-inner' : 'opacity-60 hover:opacity-100'}`} style={view === 'dashboard' && !viewingEntry ? { color: user.nameColor || '#000000' } : { color: 'inherit' }}>
+            <button onClick={() => { if(view==='dashboard') setIsGridView(!isGridView); else setView('dashboard'); }} className={`flex-1 flex flex-col items-center justify-center py-2 transition-colors rounded-2xl ${view === 'dashboard' ? 'bg-slate-100 dark:bg-zinc-800 shadow-inner' : 'opacity-60 hover:opacity-100'}`} style={view === 'dashboard' ? { color: user.nameColor || '#000000' } : { color: 'inherit' }}>
               <Icon name={isGridView && view === 'dashboard' ? "list" : "layout-grid"} size={22} />
             </button>
-            <button onClick={() => { setViewingEntry(null); openEditor(); }} className="flex-none mx-2 w-14 h-14 rounded-full text-white dark:text-black shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shrink-0" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') }}>
+            <button onClick={() => openEditor()} className="flex-none mx-2 w-14 h-14 rounded-full text-white dark:text-black shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shrink-0" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') }}>
               <Icon name="plus" size={28} />
             </button>
-            <button onClick={() => { setViewingEntry(null); setView('vault'); }} className={`flex-1 flex flex-col items-center justify-center py-2 transition-colors rounded-2xl ${view === 'vault' && !viewingEntry ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-500 shadow-inner' : 'text-slate-400 hover:text-rose-500'}`}>
+            <button onClick={() => setView('vault')} className={`flex-1 flex flex-col items-center justify-center py-2 transition-colors rounded-2xl ${view === 'vault' ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-500 shadow-inner' : 'text-slate-400 hover:text-rose-500'}`}>
               <Icon name="lock" size={22} />
             </button>
           </nav>
@@ -2073,7 +2056,7 @@ function App() {
                     <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current = true; checkSaveEntry(false); }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="quote" size={18}/></button>
                     <div className="w-px h-6 bg-slate-300 dark:bg-zinc-700 mx-1"></div>
                     
-                    {/* Inline Image Upload */}
+                    {/* Inline Image Upload (Resizable with pure CSS Handles) */}
                     <label htmlFor="inline-image-upload" className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 cursor-pointer text-indigo-500 transition-colors shrink-0" title="Bild in Text">
                        <Icon name="image" size={18}/>
                        <input id="inline-image-upload" type="file" accept="image/*" onChange={handleInlineImage} className="hidden"/>
