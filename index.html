@@ -151,8 +151,8 @@
   
   /* Inline Image Resizing Magic (Native Browser Resizing & Drag/Drop) */
   .inline-img-wrapper { display: inline-block; vertical-align: text-bottom; margin: 4px; max-width: 100%; cursor: move; }
-  .legacy-editor-content .inline-img-wrapper { resize: both; overflow: hidden; border: 2px dashed #cbd5e1; padding: 2px; border-radius: 8px; }
-  .legacy-content .inline-img-wrapper { border: 2px solid transparent; padding: 2px; overflow: hidden; border-radius: 8px; }
+  .legacy-editor-content .inline-img-wrapper { resize: both; overflow: hidden; border: 2px dashed #cbd5e1; padding: 2px; border-radius: 8px; width: 150px; min-width: 50px; min-height: 50px; }
+  .legacy-content .inline-img-wrapper { border: 2px solid transparent; padding: 2px; overflow: hidden; border-radius: 8px; width: auto; }
   .inline-img-wrapper img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; border-radius: 6px; }
   
   /* Standard Images Overview */
@@ -179,7 +179,6 @@
     img { max-width: 100% !important; max-height: 500px !important; object-fit: contain !important; margin-bottom: 2rem !important; page-break-inside: avoid; border-radius: 0.5rem !important; }
     * { color: #000000 !important; } 
     h1, h2, h3 { page-break-after: avoid; }
-    
     .print-title-page { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; text-align: center; }
     .legacy-content { text-align: justify; hyphens: auto; font-family: 'Georgia', serif; }
     .legacy-content p:first-of-type::first-letter { font-size: 3.5em; float: left; line-height: 0.9; padding-right: 8px; font-weight: bold; color: #111; }
@@ -204,13 +203,15 @@ const getLocalISO = () => {
 
 // Safe HTML mit 'contenteditable' erlaubt (wichtig für Drag&Drop Bilder)
 const createSafeHtml = (htmlStr) => {
-  return { __html: window.DOMPurify ? window.DOMPurify.sanitize(htmlStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] }) : htmlStr };
+  const safeStr = htmlStr || '';
+  return { __html: window.DOMPurify ? window.DOMPurify.sanitize(safeStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] }) : safeStr };
 };
 
 // Highlight Funktion
 const highlightText = (text, query) => {
-  if (!text) return { __html: '' };
-  let safeText = text.replace(/<img[^>]*>/g, '[Bild]');
+  const safeStr = text || '';
+  if (!safeStr) return { __html: '' };
+  let safeText = safeStr.replace(/<img[^>]*>/g, '[Bild]');
   safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] }) : safeText;
   if (!query) return { __html: safeText };
   const plainText = safeText.replace(/<[^>]*>?/gm, '');
@@ -412,7 +413,7 @@ const EntryCard = memo(({ entry, onClick, isGridView, userColor, isDarkTheme, se
             {entry.location && <span className="text-amber-500 flex items-center ml-1"><Icon name="map-pin" size={12}/></span>}
           </div>
           
-          <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : ''}`} dangerouslySetInnerHTML={highlightText(entry.title, searchQuery)} />
+          <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : ''}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery)} />
           
           {/* Metadata Pills directly on Dashboard Card */}
           {!isGridView && (entry.tags || entry.people || entry.weather || entry.rating > 0) && (
@@ -438,7 +439,7 @@ const EntryCard = memo(({ entry, onClick, isGridView, userColor, isDarkTheme, se
 }, (prev, next) => prev.entry.orderTimestamp === next.entry.orderTimestamp && prev.entry.id === next.entry.id && prev.isGridView === next.isGridView && prev.searchQuery === next.searchQuery);
 
 // --- Swipeable Timeline Item Component ---
-const SwipeableTimelineEntry = ({ entry, onArchive, onTrash, onClick, userColor }) => {
+const SwipeableTimelineEntry = ({ entry, onArchive, onTrash, onClick, showDialog }) => {
     const [offsetX, setOffsetX] = useState(0);
     const startX = useRef(null);
 
@@ -455,8 +456,14 @@ const SwipeableTimelineEntry = ({ entry, onArchive, onTrash, onClick, userColor 
     };
 
     const handleTouchEnd = () => {
-        if (offsetX > 80) onArchive(entry);
-        else if (offsetX < -80) onTrash(entry);
+        if (offsetX > 60) {
+            onArchive(entry);
+            showDialog({title: 'Archiviert', message: 'Der Eintrag wurde ins Archiv verschoben.', icon: 'archive', iconColor: 'text-emerald-500'});
+        }
+        else if (offsetX < -60) {
+            onTrash(entry);
+            showDialog({title: 'Papierkorb', message: 'Der Eintrag wurde gelöscht.', icon: 'trash-2', iconColor: 'text-rose-500'});
+        }
         setOffsetX(0);
         startX.current = null;
     };
@@ -595,7 +602,7 @@ function App() {
     if (isLoaded) safeStorageSet('legacy_user', JSON.stringify(user));
   }, [user, isLoaded]);
 
-  // Hardware Back Button Logik (Sicher für Apps)
+  // Hardware Back Button Logik
   useEffect(() => {
     try { window.history.pushState({ isApp: true }, ''); } catch(e) {}
     const handlePopState = (e) => {
@@ -706,7 +713,6 @@ function App() {
       if(fb) { await fb.signOut(fb.auth); setUser({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: false, biometric: false }); localStorage.removeItem('legacy_user'); setEntries([]); setView('auth'); }
   };
 
-  // --- WebAuthn Biometrie Fix ---
   const toggleBiometric = async () => {
       if (!user.biometric) {
           try {
@@ -931,10 +937,16 @@ function App() {
         const currentText = editorRef.current ? editorRef.current.innerHTML : (state.text || ''); 
         const titleSafe = state.title || '';
         
-        if (!titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && (!state.selectedImages || state.selectedImages.length === 0) && !state.audioUrl && closeAndRead) { closeEditor(entries.find(e => e.id === editingIdRef.current) || null); return; }
+        // Leere Einträge werden als Raum akzeptiert, aber unbenannte komplett leere Kapseln werden ignoriert
+        const isEmpty = !titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && (!state.selectedImages || state.selectedImages.length === 0) && !state.audioUrl && !state.weather && !state.tags && !state.people;
+        
+        if (isEmpty && closeAndRead) { 
+            closeEditor(entries.find(e => e.id === editingIdRef.current) || null); 
+            return; 
+        }
         
         const newEntry = { 
-            id: entryId, title: titleSafe || 'Ohne Titel', text: currentText, color: state.selectedColor, images: state.selectedImages, audio: state.audioUrl, locked: state.isLocked, archived: false, trashed: false, manifested: state.isManifested, category: state.category, mood: state.mood, unlockDate: state.unlockDate, location: state.location, parentId: state.parentId, inheritedFrom: state.inheritedFrom, rating: state.rating, tags: state.tags, people: state.people, weather: state.weather, 
+            id: entryId, title: titleSafe || '', text: currentText, color: state.selectedColor, images: state.selectedImages, audio: state.audioUrl, locked: state.isLocked, archived: false, trashed: false, manifested: state.isManifested, category: state.category, mood: state.mood, unlockDate: state.unlockDate, location: state.location, parentId: state.parentId, inheritedFrom: state.inheritedFrom, rating: state.rating, tags: state.tags, people: state.people, weather: state.weather, 
             date: editingIdRef.current ? (entries.find(e => e.id === editingIdRef.current)?.date || state.date || getLocalISO()) : (state.date || getLocalISO()), 
             orderTimestamp: editingIdRef.current ? (entries.find(e => e.id === editingIdRef.current)?.orderTimestamp || getLocalISO()) : getLocalISO() 
         };
@@ -1054,7 +1066,9 @@ function App() {
       if (e.trashed) return false;
 
       const q = searchQuery.toLowerCase(); 
-      const matchesSearch = e.title.toLowerCase().includes(q) || (e.text && e.text.toLowerCase().includes(q)); 
+      const safeTitle = e.title || '';
+      const safeText = e.text || '';
+      const matchesSearch = safeTitle.toLowerCase().includes(q) || safeText.toLowerCase().includes(q); 
       if (searchQuery && !matchesSearch) return false; 
       
       if (view === 'archive') return e.archived;
@@ -1076,9 +1090,38 @@ function App() {
   
   const allQuotes = useMemo(() => { if (view !== 'quotes') return []; let quotes = []; entries.filter(e => !e.archived && !e.trashed).forEach(entry => { if(!entry.text) return; const blockquoteRegex = /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi; let match; while ((match = blockquoteRegex.exec(entry.text)) !== null) { const rawText = match[1].replace(/<[^>]*>?/gm, '').trim(); if(rawText) quotes.push({ text: rawText, date: entry.date, title: entry.title, id: entry.id + match.index, entryId: entry.id }); } }); return quotes.sort((a,b) => new Date(b.date) - new Date(a.date)); }, [entries, view]);
   const heatmapData = useMemo(() => { return Array.from({ length: 30 }).map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (29 - i)); const dateStr = d.toDateString(); return { date: dateStr, count: entries.filter(e => !e.trashed && new Date(e.date).toDateString() === dateStr).length }; }); }, [entries]);
-  const { completedPillars, totalPillars, progressPercent } = useMemo(() => { const completed = PILLARS.filter(p => entries.some(e => !e.trashed && e.title === p.title)).length; return { completedPillars: completed, totalPillars: PILLARS.length, progressPercent: Math.round((completed / PILLARS.length) * 100) }; }, [entries]);
-  const getAllBookEntries = (rootId) => { const result = []; const traverse = (id, depth=0) => { if (depth > 1000) return; const entry = entries.find(e => e.id === id && !e.trashed); if (entry && !result.find(r => r.id === entry.id)) { result.push(entry); entries.filter(e => e.parentId === id && !e.trashed).sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(c => traverse(c.id, depth+1)); } }; traverse(rootId); return result; };
-  const getBookRoot = (entryId) => { let current = entries.find(e => e.id === entryId && !e.trashed); let safeGuard = 0; while (current && current.parentId && safeGuard < 1000) { const p = entries.find(e => e.id === current.parentId && !e.trashed); if (p) current = p; else break; safeGuard++; } return current; };
+  const { completedPillars, totalPillars, progressPercent } = useMemo(() => { const completed = PILLARS.filter(p => entries.some(e => !e.trashed && (e.title || '') === p.title)).length; return { completedPillars: completed, totalPillars: PILLARS.length, progressPercent: Math.round((completed / PILLARS.length) * 100) }; }, [entries]);
+  
+  // SICHERHEITS-SCHLOSS (Set) um Endlosschleifen zu verhindern!
+  const getAllBookEntries = (rootId) => { 
+      const result = []; 
+      const visited = new Set(); 
+      const traverse = (id, depth=0) => { 
+          if (depth > 1000 || visited.has(id)) return; 
+          visited.add(id); 
+          const entry = entries.find(e => e.id === id && !e.trashed); 
+          if (entry && !result.find(r => r.id === entry.id)) { 
+              result.push(entry); 
+              entries.filter(e => e.parentId === id && !e.trashed).sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(c => traverse(c.id, depth+1)); 
+          } 
+      }; 
+      traverse(rootId); 
+      return result; 
+  };
+  
+  const getBookRoot = (entryId) => { 
+      let current = entries.find(e => e.id === entryId && !e.trashed); 
+      let safeGuard = 0; 
+      const visited = new Set(); 
+      while (current && current.parentId && safeGuard < 1000) { 
+          if (visited.has(current.id)) break; 
+          visited.add(current.id); 
+          const p = entries.find(e => e.id === current.parentId && !e.trashed); 
+          if (p && p.id !== current.id) current = p; else break; 
+          safeGuard++; 
+      } 
+      return current; 
+  };
 
   // Swipe Navigation in Viewer (Category specific)
   const handleTouchStart = (e) => { setTouchStart(e.touches[0].clientX); };
@@ -1130,7 +1173,7 @@ function App() {
   // Audio
   const startRecording = async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); mediaRecorderRef.current = new MediaRecorder(stream); audioChunksRef.current = []; mediaRecorderRef.current.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); }; mediaRecorderRef.current.onstop = () => { const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); const reader = new FileReader(); reader.readAsDataURL(blob); reader.onloadend = () => { setAudioUrl(reader.result); currentEntryRef.current.audioUrl = reader.result; isDirtyRef.current = true; checkSaveEntry(false); }; }; mediaRecorderRef.current.start(); setIsRecording(true); } catch (err) { showDialog({ title: 'Fehler', message: 'Mikrofon verweigert.', icon: 'mic-off' }); } };
   const stopRecording = () => { if (mediaRecorderRef.current) { mediaRecorderRef.current.stop(); setIsRecording(false); } };
-  const handleReadAloud = (entry) => { if (isSpeaking) { window.speechSynthesis.cancel(); setIsSpeaking(false); return; } const plainText = (entry.title + ". " + (entry.text || '')).replace(/<[^>]*>?/gm, ''); if (!plainText.trim()) return; setIsSpeaking(true); const utterance = new SpeechSynthesisUtterance(plainText); utterance.lang = 'de-DE'; utterance.onend = () => setIsSpeaking(false); window.speechSynthesis.speak(utterance); };
+  const handleReadAloud = (entry) => { if (isSpeaking) { window.speechSynthesis.cancel(); setIsSpeaking(false); return; } const plainText = ((entry.title || '') + ". " + (entry.text || '')).replace(/<[^>]*>?/gm, ''); if (!plainText.trim()) return; setIsSpeaking(true); const utterance = new SpeechSynthesisUtterance(plainText); utterance.lang = 'de-DE'; utterance.onend = () => setIsSpeaking(false); window.speechSynthesis.speak(utterance); };
   const triggerBurn = () => { setIsBurning(true); setTimeout(() => { setBurnText(''); setIsBurning(false); setView('dashboard'); showDialog({ title: 'Katharsis', message: 'Dem Feuer übergeben.', icon: 'flame' }); }, 2500); };
   const handleAvatarUpload = (e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (event) => { const img = new Image(); img.onload = () => { const canvas = document.createElement('canvas'); const SIZE = 512; canvas.width = SIZE; canvas.height = SIZE; const ctx = canvas.getContext('2d'); const minDim = Math.min(img.width, img.height); ctx.drawImage(img, (img.width - minDim) / 2, (img.height - minDim) / 2, minDim, minDim, 0, 0, SIZE, SIZE); setUser(prev => ({ ...prev, avatar: canvas.toDataURL('image/png') })); }; img.src = event.target.result; }; reader.readAsDataURL(file); } };
 
@@ -1192,6 +1235,7 @@ function App() {
                   editorRef.current.focus();
                   document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false" style="width: 150px; height: 150px;"><img src="${base64}" /></span><br><br>`);
                   isDirtyRef.current = true;
+                  checkSaveEntry(false);
               }
           };
           img.src = evt.target.result;
@@ -1210,7 +1254,7 @@ function App() {
 
           let imgCounter = 1;
           entries.filter(e => !e.trashed).forEach(e => {
-              let mdContent = `# ${e.title}\n\nDatum: ${new Date(e.date).toLocaleDateString('de-DE')}\nKategorie: ${e.category}\n\n${e.text.replace(/<[^>]*>?/gm, '')}`;
+              let mdContent = `# ${e.title || 'Ohne Titel'}\n\nDatum: ${new Date(e.date).toLocaleDateString('de-DE')}\nKategorie: ${e.category}\n\n${(e.text || '').replace(/<[^>]*>?/gm, '')}`;
               if (e.images && e.images.length > 0) {
                   e.images.forEach(imgBase64 => {
                       const base64Data = imgBase64.split(',')[1];
@@ -1220,7 +1264,7 @@ function App() {
                       imgCounter++;
                   });
               }
-              const safeTitle = e.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'eintrag';
+              const safeTitle = (e.title || 'Eintrag').replace(/[^a-z0-9]/gi, '_').toLowerCase();
               textsFolder.file(`${new Date(e.date).toISOString().split('T')[0]}_${safeTitle}.md`, mdContent);
           });
 
@@ -1423,7 +1467,6 @@ function App() {
             )}
           </div>
           <div className="flex gap-2 items-center">
-            {/* Kalender Button GLOBAL zugänglich */}
             <button type="button" onClick={() => { setViewingEntry(null); setShowTimeline(true); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="calendar-days" size={18}/></button>
             
             {view === 'dashboard' && (
@@ -1765,9 +1808,6 @@ function App() {
                <div className="sticky top-0 z-40 flex justify-between items-center py-4 px-6 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-slate-100 dark:border-zinc-900 shrink-0 no-print">
                  <div className="flex gap-2">
                    <button onClick={() => {setViewingEntry(null); setCurrentViewerImgIdx(0);}} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform"><Icon name="arrow-left" size={20}/></button>
-                   {allBookEntries.length > 1 && (
-                       <button onClick={() => setShowTimeline(true)} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform" style={{ color: user.nameColor }}><Icon name="calendar-days" size={20}/></button>
-                   )}
                  </div>
                  <div className="flex gap-2">
                    <button onClick={() => window.print()} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform text-slate-500"><Icon name="printer" size={20}/></button>
@@ -1793,7 +1833,7 @@ function App() {
                     </div>
                   )}
 
-                  <h1 className="text-4xl sm:text-5xl font-extrabold mb-6 tracking-tight leading-tight">{viewingEntry.title}</h1>
+                  <h1 className="text-4xl sm:text-5xl font-extrabold mb-6 tracking-tight leading-tight">{viewingEntry.title || 'Ohne Titel'}</h1>
                   <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
                     <span>{new Date(viewingEntry.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                     <span>•</span><span>{viewingEntry.category}</span>
@@ -1856,7 +1896,7 @@ function App() {
                     <h2 style={{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px', fontFamily: 'Georgia, serif'}}>Inhaltsverzeichnis</h2>
                     <ul style={{listStyle: 'none', padding: 0}}>
                         {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
-                            <li key={idx} style={{marginBottom: '15px', fontSize: '18px'}}><strong>{idx+1}.</strong> {e.title}</li>
+                            <li key={idx} style={{marginBottom: '15px', fontSize: '18px'}}><strong>{idx+1}.</strong> {e.title || 'Ohne Titel'}</li>
                         ))}
                     </ul>
                  </div>
@@ -1865,7 +1905,7 @@ function App() {
                     {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
                         <div key={e.id} className="page-break-after" style={{ marginBottom: '60px', paddingTop: '20px' }}>
                             <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
-                                <h1 style={{ fontSize: '36px', fontFamily: 'Georgia, serif', fontWeight: 'bold', marginBottom: '10px' }}>{e.title}</h1>
+                                <h1 style={{ fontSize: '36px', fontFamily: 'Georgia, serif', fontWeight: 'bold', marginBottom: '10px' }}>{e.title || 'Ohne Titel'}</h1>
                                 <p style={{ opacity: 0.6, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '12px' }}>
                                     {new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category}
                                 </p>
@@ -1945,6 +1985,7 @@ function App() {
                                                 onClick={(entry) => { setViewingEntry(entry); setShowTimeline(false); }} 
                                                 onArchive={(entry) => saveToDB({...entry, archived: true})}
                                                 onTrash={(entry) => saveToDB({...entry, trashed: true})}
+                                                showDialog={showDialog}
                                                 userColor={user.nameColor}
                                             />
                                        ))
@@ -2012,27 +2053,27 @@ function App() {
                    }} className={`p-3 rounded-full transition-colors ${location ? 'bg-emerald-500/10 text-emerald-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`} title="Standort verewigen"><Icon name="map-pin" size={20}/></button>
 
                    <button onClick={() => { setIsManifested(!isManifested); currentEntryRef.current.isManifested = !isManifested; isDirtyRef.current = true; checkSaveEntry(false); }} className={`p-3 rounded-full transition-colors ${isManifested ? 'bg-amber-400/10 text-amber-500' : 'hover:bg-slate-100 dark:hover:bg-zinc-800 opacity-60 hover:opacity-100'}`} title="Manifestieren"><Icon name="sparkles" size={20}/></button>
-                   <button onClick={() => checkSaveEntry(false)} className="px-6 py-2.5 rounded-full font-bold shadow-sm text-sm ml-2 hover:scale-105 transition-transform" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>Sichern</button>
+                   <button onClick={() => checkSaveEntry(true)} className="px-6 py-2.5 rounded-full font-bold shadow-sm text-sm ml-2 hover:scale-105 transition-transform" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>Fertig</button>
                 </div>
               </div>
 
               {/* Title & Format Toolbar - KOMPLETT ENTKOPPELT UND STICKY */}
               <div className="flex flex-col shrink-0 px-6 sm:px-10 pt-6 pb-2 z-40 bg-white dark:bg-zinc-950 border-b border-slate-100 dark:border-zinc-900 shadow-sm relative">
                  {pillarGuidance && <div className="mb-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-400 text-sm font-medium flex gap-3"><Icon name="book-open" size={20} className="shrink-0"/>{pillarGuidance}</div>}
-                 <input type="text" placeholder="Ein brillianter Gedanke..." value={title} onChange={(e) => { setTitle(e.target.value); currentEntryRef.current.title = e.target.value; isDirtyRef.current = true; }} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tight outline-none placeholder:opacity-30 mb-4" />
+                 <input type="text" placeholder="Ein brillianter Gedanke..." value={title} onChange={(e) => { setTitle(e.target.value); currentEntryRef.current.title = e.target.value; isDirtyRef.current = true; checkSaveEntry(false); }} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tight outline-none placeholder:opacity-30 mb-4" />
                  
                  <div className="flex gap-2 mb-2 overflow-x-auto hide-scrollbar items-center bg-slate-100 dark:bg-zinc-900 p-2 rounded-2xl">
-                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, '<h1>'); isDirtyRef.current = true; }} className="px-3 py-1 font-bold text-lg hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl transition-colors">H1</button>
-                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, '<h2>'); isDirtyRef.current = true; }} className="px-3 py-1 font-bold text-md hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl transition-colors">H2</button>
-                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'p'); isDirtyRef.current = true; }} className="px-3 py-1 font-bold text-sm hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl transition-colors" title="Normaler Text">Text</button>
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, '<h1>'); isDirtyRef.current = true; checkSaveEntry(false); }} className="px-3 py-1 font-bold text-lg hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl transition-colors">H1</button>
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, '<h2>'); isDirtyRef.current = true; checkSaveEntry(false); }} className="px-3 py-1 font-bold text-md hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl transition-colors">H2</button>
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'p'); isDirtyRef.current = true; checkSaveEntry(false); }} className="px-3 py-1 font-bold text-sm hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl transition-colors" title="Normaler Text">Text</button>
                     <div className="w-px h-6 bg-slate-300 dark:bg-zinc-700 mx-1"></div>
-                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="bold" size={18}/></button>
-                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="italic" size={18}/></button>
-                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="list-todo" size={18}/></button>
-                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current = true; }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="quote" size={18}/></button>
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold', false, null); isDirtyRef.current = true; checkSaveEntry(false); }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="bold" size={18}/></button>
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic', false, null); isDirtyRef.current = true; checkSaveEntry(false); }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="italic" size={18}/></button>
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('insertUnorderedList', false, null); isDirtyRef.current = true; checkSaveEntry(false); }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="list-todo" size={18}/></button>
+                    <button onMouseDown={(e) => { e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current = true; checkSaveEntry(false); }} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="quote" size={18}/></button>
                     <div className="w-px h-6 bg-slate-300 dark:bg-zinc-700 mx-1"></div>
                     
-                    {/* Inline Image Upload (Resizable with pure CSS Handles) */}
+                    {/* Inline Image Upload */}
                     <label htmlFor="inline-image-upload" className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-zinc-800 cursor-pointer text-indigo-500 transition-colors shrink-0" title="Bild in Text">
                        <Icon name="image" size={18}/>
                        <input id="inline-image-upload" type="file" accept="image/*" onChange={handleInlineImage} className="hidden"/>
@@ -2040,7 +2081,7 @@ function App() {
 
                     <div className="flex gap-1.5 ml-2 shrink-0">
                        {['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'].map(c => (
-                          <button key={c} onMouseDown={(e) => { e.preventDefault(); document.execCommand('foreColor', false, c); isDirtyRef.current = true; }} className="w-5 h-5 rounded-full hover:scale-110 transition-transform shadow-sm" style={{backgroundColor: c}}></button>
+                          <button key={c} onMouseDown={(e) => { e.preventDefault(); document.execCommand('foreColor', false, c); isDirtyRef.current = true; checkSaveEntry(false); }} className="w-5 h-5 rounded-full hover:scale-110 transition-transform shadow-sm" style={{backgroundColor: c}}></button>
                        ))}
                     </div>
                     
@@ -2048,7 +2089,7 @@ function App() {
                  </div>
               </div>
 
-              {/* Editor Content Area - Normal Block Flow */}
+              {/* Editor Content Area */}
               <div className="flex-1 overflow-y-auto px-6 sm:px-10 pt-4 pb-12 relative z-10 block">
                 {selectedImages.length > 0 && (
                    <div className="flex overflow-x-auto hide-scrollbar gap-3 mb-6 snap-x shrink-0">
@@ -2078,7 +2119,7 @@ function App() {
                 {/* Main Text Editor */}
                 <div ref={editorRef} contentEditable suppressContentEditableWarning data-placeholder="Lass es fließen..." onInput={(e) => { currentEntryRef.current.text = e.currentTarget.innerHTML; isDirtyRef.current = true; }} className="w-full min-h-[250px] bg-transparent text-lg leading-relaxed font-medium outline-none empty:before:content-[attr(data-placeholder)] legacy-editor-content opacity-90 pt-4 pb-12" />
 
-                {/* Metadata Inputs (Tags, People, Weather, Rating) */}
+                {/* Metadata Inputs */}
                 <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800 pb-10">
                    <div className="flex items-center gap-2">
                        {[1,2,3,4,5].map(star => (
