@@ -118,18 +118,13 @@
     box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
   }
   
-  /* Sticker / Bilder im Text (Keyboard Support) */
-  .legacy-editor-content img:not([style*="width"]), .legacy-content img:not([style*="width"]) { width: 120px; }
-  .legacy-editor-content img, .legacy-content img { 
-      display: inline-block; 
-      vertical-align: middle; 
-      height: auto; 
-      border-radius: 8px; 
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); 
-      max-width: 100%; 
-      margin: 4px;
-      cursor: pointer;
-  }
+  /* Inline Image Resizing Magic & Deletion X */
+  .inline-img-wrapper { display: inline-block; vertical-align: text-bottom; margin: 4px; max-width: 100%; position: relative; }
+  .inline-img-wrapper img { width: 120px; height: auto; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+  .delete-img-btn { position: absolute; top: -10px; right: -10px; background: #ef4444; color: white; border-radius: 50%; width: 24px; height: 24px; text-align: center; line-height: 24px; cursor: pointer; font-family: sans-serif; font-size: 12px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10; display: none; }
+  .inline-img-wrapper:hover .delete-img-btn, .inline-img-wrapper:active .delete-img-btn { display: block; }
+  
+  .legacy-editor-content > img, .legacy-content > img { border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: inline-block; vertical-align: middle; max-width: 100%; }
   
   [contenteditable="true"]:empty:before { content: attr(data-placeholder); opacity: 0.3; pointer-events: none; display: block; font-weight: 400; }
   html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
@@ -357,7 +352,6 @@ const initDB = () => {
   });
 };
 
-// --- EntryCard Component ---
 const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQuery }) => {
     if (!entry) return null;
     const hasImages = entry.images && entry.images.length > 0;
@@ -365,14 +359,14 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
     const isCapsuleLocked = entry.unlockDate;
 
     return (
-      <div onClick={() => onClick(entry)} className={`group relative rounded-3xl overflow-hidden cursor-pointer border transition-transform active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col' : ''}`} style={{ borderColor: getSubtleBorderColor(userColor, isDarkTheme) }}>
+      <div onClick={() => onClick(entry)} className={`group relative rounded-[2rem] overflow-hidden cursor-pointer border transition-transform active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col' : ''}`} style={{ borderColor: getSubtleBorderColor(userColor, isDarkTheme) }}>
         {entry.manifested && (
           <div className="absolute top-4 right-4 z-20 bg-amber-400 text-amber-950 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
             <Icon name="sparkles" size={12}/> Highlight
           </div>
         )}
         {hasImages && (
-          <div className="w-full aspect-video relative overflow-hidden bg-slate-100 dark:bg-zinc-800">
+          <div className="w-full h-48 sm:h-56 relative overflow-hidden bg-slate-100 dark:bg-zinc-800">
             <img src={entry.images[0]} className="w-full h-full object-contain bg-slate-100 dark:bg-zinc-900 transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
           </div>
@@ -389,23 +383,23 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
             {entry.location && <span className="text-amber-500 flex items-center ml-1"><Icon name="map-pin" size={12}/></span>}
           </div>
           
-          <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : ''}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery)} />
+          <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : 'text-slate-900 dark:text-white group-hover:text-accent transition-colors'}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery)} />
           
           {/* Metadata Pills directly on Dashboard Card */}
           {!isGridView && (entry.tags || entry.people || entry.weather || entry.rating > 0) && (
              <div className="flex flex-wrap gap-1.5 mb-4">
-                {entry.tags && entry.tags.split(',').filter(x=>x.trim()).map((t, i) => <span key={`t-${i}`} className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded text-[10px] font-bold flex items-center gap-1"><Icon name="tag" size={10}/> {t.trim()}</span>)}
-                {entry.people && entry.people.split(',').filter(x=>x.trim()).map((p, i) => <span key={`p-${i}`} className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded text-[10px] font-bold flex items-center gap-1"><Icon name="user" size={10}/> {p.trim()}</span>)}
-                {entry.weather && <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded text-[10px] font-bold flex items-center gap-1"><Icon name="sun" size={10}/> {entry.weather}</span>}
-                {entry.rating > 0 && <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded text-[10px] font-bold flex items-center gap-1"><Icon name="star" size={10}/> {entry.rating}</span>}
+                {entry.tags && entry.tags.split(',').filter(x=>x.trim()).map((t, i) => <span key={`t-${i}`} className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="tag" size={10}/> {t.trim()}</span>)}
+                {entry.people && entry.people.split(',').filter(x=>x.trim()).map((p, i) => <span key={`p-${i}`} className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="user" size={10}/> {p.trim()}</span>)}
+                {entry.weather && <span className="px-2 py-0.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="sun" size={10}/> {entry.weather}</span>}
+                {entry.rating > 0 && <span className="px-2 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="star" size={10}/> {entry.rating}</span>}
              </div>
           )}
 
           {!entry.locked && !isCapsuleLocked && entry.text && !isGridView && (
-            <div className="text-sm font-medium leading-relaxed opacity-70 line-clamp-3" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
+            <div className="text-sm font-medium leading-relaxed opacity-70 line-clamp-3 text-slate-600 dark:text-slate-400" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
           )}
           {(entry.locked || isCapsuleLocked) && !isGridView && (
-             <div className="text-sm font-medium leading-relaxed opacity-40 italic mb-4">
+             <div className="text-sm font-medium leading-relaxed opacity-40 italic mt-auto">
                 {isCapsuleLocked ? 'Inhalt durch Zeitsiegel geschützt.' : 'Inhalt durch Tresor-PIN geschützt.'}
              </div>
           )}
@@ -466,7 +460,7 @@ const SwipeableTimelineEntry = ({ entry, onArchive, onTrash, onClick, showDialog
                 style={{ transform: `translateX(${offsetX}px)`, transition: startX.current === null ? 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)' : 'none' }}
                 className="relative z-10 w-full text-left p-4 rounded-2xl flex items-center gap-4 bg-slate-50 dark:bg-zinc-900 shadow-sm border border-transparent"
             >
-                {entry.images && entry.images.length > 0 && <img src={entry.images[0]} className="w-12 h-12 rounded-xl object-contain bg-slate-100 dark:bg-zinc-800 shadow-sm shrink-0 pointer-events-none" />}
+                {entry.images && entry.images.length > 0 && <img src={entry.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0 pointer-events-none" />}
                 <div className="flex-1 overflow-hidden pointer-events-none">
                     <span className="font-bold text-sm truncate block" style={{ color: userColor }}>{entry.title || 'Ohne Titel'}</span>
                     <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">{new Date(entry.date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
@@ -481,8 +475,10 @@ function App() {
   const [fb, setFb] = useState(null);
   const [authUser, setAuthUser] = useState(null);
   
+  // Settings / User State
+  const [user, setUser] = useState({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false, uiScale: 1 });
   const [entries, setEntries] = useState([]);
-  const [user, setUser] = useState({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false });
+  
   const [view, setView] = useState('loading'); 
   const [isLoaded, setIsLoaded] = useState(false);
   const [isGridView, setIsGridView] = useState(false); 
@@ -500,7 +496,6 @@ function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [dialog, setDialog] = useState(null);
   const [picker, setPicker] = useState(null);
-  const [installHint, setInstallHint] = useState('');
 
   const [viewingEntry, setViewingEntry] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
@@ -512,7 +507,6 @@ function App() {
   const [timelineSelectedDate, setTimelineSelectedDate] = useState(null); 
   const [expandedNodes, setExpandedNodes] = useState({}); 
   
-  const [affirmation, setAffirmation] = useState(null);
   const [unlockTarget, setUnlockTarget] = useState(null);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
@@ -586,6 +580,11 @@ function App() {
       showTimelineRef.current = showTimeline;
       viewRef.current = view;
   }, [isDrawing, showEditor, viewingEntry, showTimeline, view]);
+
+  // Apply UI Scale
+  useEffect(() => {
+      document.documentElement.style.fontSize = `${(user.uiScale || 1) * 100}%`;
+  }, [user.uiScale]);
 
   // Auto-save user to localStorage
   useEffect(() => {
@@ -694,7 +693,7 @@ function App() {
     loadApp();
   }, []);
 
-  const handleAuth = async () => {
+  const handleAuthAction = async () => {
       setAuthError(''); setAuthMsg('');
       if (!fb || !authEmail) { setAuthError('Bitte fülle deine E-Mail aus.'); return; }
       try {
@@ -722,7 +721,7 @@ function App() {
   };
 
   const handleLogout = async () => {
-      if(fb) { await fb.signOut(fb.auth); setUser({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false }); localStorage.removeItem('legacy_user'); setEntries([]); setView('auth'); }
+      if(fb) { await fb.signOut(fb.auth); setUser({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false, uiScale: 1 }); localStorage.removeItem('legacy_user'); setEntries([]); setView('auth'); }
   };
 
   const handleUnlockSubmit = (pinValue) => {
@@ -1311,57 +1310,35 @@ function App() {
     e.target.value = null; 
   };
 
-  const handleInlineImage = (e) => {
-      const file = e.target.files[0];
-      if(!file) return;
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-          const img = new Image();
-          img.onload = () => {
-              const canvas = document.createElement('canvas');
-              const MAX_WIDTH = 400;
-              let w = img.width, h = img.height;
-              if (w > MAX_WIDTH) { h *= MAX_WIDTH / w; w = MAX_WIDTH; }
-              canvas.width = w; canvas.height = h;
-              canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-              const base64 = canvas.toDataURL('image/jpeg', 0.6);
-              if (editorRef.current) {
-                  editorRef.current.focus();
-                  document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false"><img src="${base64}" /><span class="delete-img-btn">X</span></span>&nbsp;`);
-                  isDirtyRef.current = true;
-                  checkSaveEntry(false);
-              }
-          };
-          img.src = evt.target.result;
-      };
-      reader.readAsDataURL(file);
-      e.target.value = null;
+  // Einfügen von Bildern / Stickern über die Handy-Tastatur oder Clipboard
+  const handleEditorPaste = (e) => {
+      const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+      for (let index in items) {
+          const item = items[index];
+          if (item.kind === 'file' && item.type.startsWith('image/')) {
+              e.preventDefault();
+              const blob = item.getAsFile();
+              const reader = new FileReader();
+              reader.onload = (event) => {
+                  const base64 = event.target.result;
+                  if (editorRef.current) {
+                      editorRef.current.focus();
+                      document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false"><img src="${base64}" /><span class="delete-img-btn">X</span></span>&nbsp;`);
+                      isDirtyRef.current = true;
+                      checkSaveEntry(false);
+                  }
+              };
+              reader.readAsDataURL(blob);
+          }
+      }
   };
 
-  // Klick-Listener für Editor (Löschen & Vergrößern von Inline-Bildern/Stickern)
+  // Klick-Listener für Editor (Löschen von Inline-Bildern/Stickern)
   const handleEditorClick = (e) => {
       if (e.target.classList.contains('delete-img-btn')) {
           e.target.closest('.inline-img-wrapper').remove();
           isDirtyRef.current = true;
           checkSaveEntry(false);
-      } else if (e.target.tagName === 'IMG' && !e.target.closest('.inline-img-wrapper')) {
-          // Fallback für Tastatur-Sticker ohne Wrapper
-          setPicker({
-              title: 'Sticker anpassen',
-              currentValue: null,
-              options: [
-                  {label: 'Klein (Standard)', value: '120px'},
-                  {label: 'Mittel', value: '250px'},
-                  {label: 'Groß', value: '100%'},
-                  {label: '❌ Löschen', value: 'delete'}
-              ],
-              onSelect: (val) => {
-                  if(val === 'delete') { e.target.remove(); }
-                  else { e.target.style.width = val; e.target.style.height = 'auto'; }
-                  isDirtyRef.current = true;
-                  checkSaveEntry(false);
-              }
-          });
       }
   };
 
@@ -1506,7 +1483,7 @@ function App() {
             {authMsg && <div className="p-4 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl text-sm font-semibold text-center border border-emerald-100 dark:border-emerald-500/20">{authMsg}</div>}
             <input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} className="w-full p-4 rounded-2xl outline-none text-base font-medium bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-slate-400 dark:focus:border-zinc-600 transition-colors placeholder:opacity-40" placeholder="E-Mail Adresse" />
             {authMode !== 'reset' && <input type="password" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} className="w-full p-4 rounded-2xl outline-none text-base font-medium bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-slate-400 dark:focus:border-zinc-600 transition-colors placeholder:opacity-40" placeholder="Passwort" />}
-            <button onClick={handleAuth} className="w-full py-4 rounded-2xl font-bold text-base bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-all shadow-md mt-2">{authMode === 'login' ? 'Einloggen' : authMode === 'register' ? 'Account erstellen' : 'Link anfordern'}</button>
+            <button onClick={handleAuthAction} className="w-full py-4 rounded-2xl font-bold text-base bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-all shadow-md mt-2">{authMode === 'login' ? 'Einloggen' : authMode === 'register' ? 'Account erstellen' : 'Link anfordern'}</button>
             <div className="flex flex-col gap-2 pt-4">
                 {authMode === 'login' ? (
                     <><button onClick={() => { setAuthMode('register'); setAuthError(''); setAuthMsg(''); }} className="text-sm font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">Neuen Account erstellen</button><button onClick={() => { setAuthMode('reset'); setAuthError(''); setAuthMsg(''); }} className="text-xs font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">Passwort vergessen?</button></>
@@ -1707,11 +1684,19 @@ function App() {
                    </div>
 
                    <span className="text-xs font-bold uppercase tracking-widest opacity-60 mb-3 block">Schriftfarbe</span>
-                   <div className="flex flex-wrap gap-3">
+                   <div className="flex flex-wrap gap-3 mb-8">
                       <button onClick={() => setUser({...user, textColor: null})} className={`w-10 h-10 rounded-full border-2 transition-transform flex items-center justify-center ${!user.textColor ? 'border-slate-400 dark:border-zinc-500 scale-110 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: user.isDark ? '#ffffff' : '#0f172a' }}><Icon name="slash" size={16} className={user.isDark ? 'text-black' : 'text-white'} /></button>
                       {COLORS.map(color => (
                           <button key={color} onClick={() => setUser({...user, textColor: color, nameColor: color})} className={`w-10 h-10 rounded-full border-2 transition-transform ${user.textColor === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
                       ))}
+                   </div>
+
+                   {/* ZOOM (App Darstellung vergrößern) */}
+                   <span className="text-xs font-bold uppercase tracking-widest opacity-60 mb-3 block">Darstellungsgröße</span>
+                   <div className="flex gap-2">
+                      <button onClick={() => setUser({...user, uiScale: 0.9})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${user.uiScale === 0.9 ? 'bg-black dark:bg-white text-white dark:text-black shadow-sm' : 'bg-slate-100 dark:bg-zinc-950 text-slate-500'}`}>A-</button>
+                      <button onClick={() => setUser({...user, uiScale: 1})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${user.uiScale === 1 || !user.uiScale ? 'bg-black dark:bg-white text-white dark:text-black shadow-sm' : 'bg-slate-100 dark:bg-zinc-950 text-slate-500'}`}>Normal</button>
+                      <button onClick={() => setUser({...user, uiScale: 1.1})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${user.uiScale === 1.1 ? 'bg-black dark:bg-white text-white dark:text-black shadow-sm' : 'bg-slate-100 dark:bg-zinc-950 text-slate-500'}`}>A+</button>
                    </div>
                 </div>
                 
@@ -2040,7 +2025,7 @@ function App() {
           <div className="fixed inset-0 bg-white dark:bg-black z-[200] flex flex-col page-transition">
             
             {/* 1. Header (Immer ganz oben) */}
-            <header className="flex justify-between items-center p-4 sm:p-6 shrink-0 z-50 pt-safe bg-white/95 dark:bg-black/95">
+            <header className="flex justify-between items-center p-4 sm:p-6 shrink-0 z-50 pt-safe bg-white/95 dark:bg-black/95 border-b border-slate-100 dark:border-zinc-900">
                 <button onClick={()=>checkSaveEntry(true)} className="p-3 bg-slate-100 dark:bg-zinc-900 rounded-2xl text-slate-900 dark:text-white hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
                 <div className="flex items-center gap-4">
                     <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">{autoSaveStatus}</span>
@@ -2050,7 +2035,7 @@ function App() {
 
             {/* 2. Titel Eingabe (Durchgehende Linie) */}
             <div className="px-4 sm:px-8 pt-6 pb-2 shrink-0 bg-white dark:bg-black z-40">
-              <input type="text" placeholder="Titel der Vision..." value={title} onChange={e=>{setTitle(e.target.value); isDirtyRef.current=true;}} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tighter outline-none border-b-[3px] border-slate-200 dark:border-zinc-800 pb-3 placeholder-slate-300 dark:placeholder-zinc-700 text-slate-900 dark:text-white transition-colors focus:border-accent" />
+              <input type="text" placeholder="Titel der Vision..." value={title} onChange={e=>{setTitle(e.target.value); isDirtyRef.current=true;}} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tighter outline-none border-b-2 border-slate-200 dark:border-zinc-800 pb-3 placeholder-slate-300 dark:placeholder-zinc-700 text-slate-900 dark:text-white transition-colors focus:border-accent" />
             </div>
 
             {/* 3. STICKY TOOLBAR (Immer sichtbar über dem Text) */}
@@ -2081,6 +2066,7 @@ function App() {
                 <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
 
                 {/* Medien & Zeichnen */}
+                <label className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm cursor-pointer flex items-center justify-center relative overflow-hidden shrink-0 border border-slate-100 dark:border-zinc-800" title="Bild für Hauptkarte (Cover)"><Icon name="image" size={18} /><input type="file" accept="image/*" multiple onChange={e=>handleFileUpload(e,'image')} className="absolute opacity-0 w-[200%] h-[200%] top-0 left-0 cursor-pointer" /></label>
                 <button onClick={() => setIsDrawing(true)} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="pen-tool" size={18} /></button>
                 <button onClick={isRecording ? stopRecording : startRecording} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800 ${isRecording ? 'bg-rose-500 text-white animate-pulse' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:text-accent'}`}>{isRecording ? <Icon name="square" size={18}/> : <Icon name="mic" size={18}/>}</button>
                 
@@ -2092,8 +2078,19 @@ function App() {
             </div>
             
             {/* 4. Text-Eingabebereich */}
-            <div className="flex-1 p-4 md:p-8 overflow-y-auto custom-scrollbar flex flex-col w-full bg-white dark:bg-black">
+            <div className="flex-1 p-4 md:p-8 overflow-y-auto custom-scrollbar flex flex-col max-w-3xl mx-auto w-full relative bg-white dark:bg-black">
               
+              {selectedImages.length > 0 && (
+                  <div className="flex gap-4 mb-6 overflow-x-auto hide-scrollbar snap-x pb-4">
+                      {selectedImages.map((img, i) => (
+                          <div key={i} className="relative w-48 aspect-video rounded-2xl overflow-hidden shadow-sm shrink-0 snap-start group border border-slate-200 dark:border-zinc-800">
+                              <img src={img} className="w-full h-full object-cover" />
+                              <button onClick={()=>{setSelectedImages(prev=>prev.filter((_,idx)=>idx!==i)); isDirtyRef.current=true;}} className="absolute top-2 right-2 p-2 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"><Icon name="x" size={14}/></button>
+                          </div>
+                      ))}
+                  </div>
+              )}
+
               {pillarGuidance && (
                   <div className="p-4 rounded-3xl bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-900/30 text-amber-700 dark:text-amber-400 font-medium text-sm mb-6 flex gap-4 leading-relaxed">
                       <Icon name="book-open" size={24} className="shrink-0 mt-0.5 opacity-80" /> {pillarGuidance}
@@ -2112,38 +2109,40 @@ function App() {
                   ref={editorRef} 
                   contentEditable 
                   onClick={handleEditorClick}
+                  onPaste={handleEditorPaste}
                   onInput={()=>isDirtyRef.current=true} 
                   className="flex-1 outline-none text-[1.05rem] leading-[1.8] legacy-editor-content text-slate-800 dark:text-slate-200 pb-32 min-h-[50vh]" 
-                  data-placeholder="Was wirst du hinterlassen? Du kannst auch Sticker per Tastatur einfügen..." 
+                  data-placeholder="Was wirst du hinterlassen? Füge Sticker über deine Handy-Tastatur ein..." 
                   dangerouslySetInnerHTML={{__html: text}} 
               />
             </div>
 
             {/* 5. Footer (Tags, People, Rating, TimeSeal, Location) */}
-            <div className="p-3 border-t border-slate-100 dark:border-zinc-900 bg-white/95 dark:bg-black/95 backdrop-blur-xl shrink-0 flex items-center gap-3 overflow-x-auto hide-scrollbar z-50 pb-safe">
-               <button onClick={()=>setPicker({title:'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c, value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;}})} className="px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs font-bold flex items-center gap-2 shrink-0">{category} <Icon name="chevron-down" size={12}/></button>
+            <div className="p-3 border-t border-slate-100 dark:border-zinc-900 bg-white/95 dark:bg-black/95 backdrop-blur-xl shrink-0 flex items-center gap-3 overflow-x-auto hide-scrollbar z-50 pb-safe shadow-[0_-4px_6px_rgba(0,0,0,0.02)]">
+               <button onClick={()=>setPicker({title:'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c, value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;}})} className="h-10 px-4 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs font-bold flex items-center gap-2 shrink-0">{category} <Icon name="chevron-down" size={12}/></button>
                
                {/* Rating Component */}
-               <div className="flex items-center gap-1 bg-slate-50 dark:bg-zinc-900 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0">
+               <div className="h-10 flex items-center gap-1 bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0">
                   {[1,2,3,4,5].map(star => (
-                      <Icon key={star} name="star" size={14} className={`cursor-pointer transition-colors ${rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-zinc-700'}`} onClick={() => {setRating(rating === star ? 0 : star); isDirtyRef.current=true;}} />
+                      <Icon key={star} name="star" size={16} className={`cursor-pointer transition-colors ${rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-zinc-700'}`} onClick={() => {setRating(rating === star ? 0 : star); isDirtyRef.current=true;}} />
                   ))}
                </div>
 
                {/* Tags Input */}
-               <div className="flex items-center bg-slate-50 dark:bg-zinc-900 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
-                   <Icon name="tag" size={12} className="text-slate-400 mr-2 shrink-0" />
+               <div className="h-10 flex items-center bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
+                   <Icon name="tag" size={14} className="text-slate-400 mr-2 shrink-0" />
                    <input type="text" placeholder="Tags (Komma...)" value={tags} onChange={e=>{setTags(e.target.value); isDirtyRef.current=true;}} className="bg-transparent border-none outline-none text-xs font-bold placeholder:opacity-50 w-full text-slate-900 dark:text-white" />
                </div>
 
                {/* Personen Eingabe */}
-               <div className="flex items-center bg-slate-50 dark:bg-zinc-900 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
-                   <Icon name="user" size={12} className="text-slate-400 mr-2 shrink-0" />
+               <div className="h-10 flex items-center bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
+                   <Icon name="user" size={14} className="text-slate-400 mr-2 shrink-0" />
                    <input type="text" placeholder="Personen..." value={people} onChange={e=>{setPeople(e.target.value); isDirtyRef.current=true;}} className="bg-transparent border-none outline-none text-xs font-bold placeholder:opacity-50 w-full text-slate-900 dark:text-white" />
                </div>
 
-               <div className={`relative px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 cursor-pointer overflow-hidden ${unlockDate ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}>
-                  <Icon name="calendar-clock" size={14}/> {unlockDate ? new Date(unlockDate).toLocaleDateString('de-DE') : 'Zeitsiegel'}
+               {/* Zeitsiegel */}
+               <div className={`h-10 relative px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 cursor-pointer overflow-hidden ${unlockDate ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}>
+                  <Icon name="calendar-clock" size={16}/> {unlockDate ? new Date(unlockDate).toLocaleDateString('de-DE') : 'Zeitsiegel'}
                   <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); isDirtyRef.current=true;}} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
                </div>
                
@@ -2151,7 +2150,7 @@ function App() {
                    if(location){setLocation(null); isDirtyRef.current=true; return;}
                    if(!("geolocation" in navigator)){showDialog({title:'Fehler', message:'Ortung nicht unterstützt.'}); return;}
                    navigator.geolocation.getCurrentPosition(p => { setLocation({lat: p.coords.latitude, lng: p.coords.longitude}); isDirtyRef.current=true; showDialog({title:'GPS erfasst', message:'Ort wurde gesichert.', icon:'map-pin'}); }, ()=>showDialog({title:'Fehler', message:'Ortung fehlgeschlagen.'}));
-               }} className={`px-3 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 ${location ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-900/50 text-amber-600 dark:text-amber-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}><Icon name="map-pin" size={14}/> {location ? 'Ort gesichert' : 'GPS-Siegel'}</button>
+               }} className={`h-10 px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 ${location ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-900/50 text-amber-600 dark:text-amber-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}><Icon name="map-pin" size={16}/> {location ? 'Ort gesichert' : 'GPS-Siegel'}</button>
             </div>
           </div>
         )}
@@ -2164,11 +2163,10 @@ function App() {
               <span className="font-bold">Zeichnen</span>
               <button onClick={() => {
                   if(canvasRef.current) {
-                      // Das gezeichnete Bild wird nun als <img> in den Text eingefügt anstatt oben abgetrennt
                       const base64 = canvasRef.current.toDataURL();
                       if (editorRef.current) {
                           editorRef.current.focus();
-                          document.execCommand('insertHTML', false, `<img src="${base64}" />&nbsp;`);
+                          document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false"><img src="${base64}" /><span class="delete-img-btn">X</span></span>&nbsp;`);
                           isDirtyRef.current = true;
                           checkSaveEntry(false);
                       }
@@ -2275,6 +2273,59 @@ function App() {
            );
         })()}
 
+        {/* --- PICKER DIALOG --- */}
+        {picker && (
+          <div className="fixed inset-0 z-[250] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setPicker(null)}>
+            <div className="w-full max-w-sm rounded-[2.5rem] shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up flex flex-col overflow-hidden max-h-[70vh]" onClick={e => e.stopPropagation()}>
+              <div className="p-6 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
+                 <h3 className="font-extrabold text-xl tracking-tight">{picker.title}</h3>
+                 <button onClick={()=>setPicker(null)} className="p-2 rounded-full bg-slate-100 dark:bg-zinc-800"><Icon name="x" size={20}/></button>
+              </div>
+              <div className="overflow-y-auto custom-scrollbar p-3 space-y-1">
+                 {picker.options.map(opt => (
+                    <button key={opt.value} onClick={()=>{picker.onSelect(opt.value); setPicker(null);}} className={`w-full text-left p-5 rounded-[1.5rem] font-bold text-sm flex justify-between items-center transition-all ${picker.currentValue===opt.value ? 'text-white dark:text-black shadow-md scale-[1.02]' : 'hover:bg-slate-50 dark:hover:bg-zinc-800'}`} style={picker.currentValue === opt.value ? { backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') } : {}}>
+                       {opt.label} {picker.currentValue===opt.value && <Icon name="check" size={18}/>}
+                    </button>
+                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- DIALOGS --- */}
+        {dialog && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setDialog(null)}>
+            <div className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up" onClick={e => e.stopPropagation()}>
+              {dialog.icon && <div className={`w-20 h-20 bg-slate-50 dark:bg-zinc-950 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100 dark:border-zinc-800 ${dialog.iconColor || 'text-slate-900 dark:text-white'}`}><Icon name={dialog.icon} size={32}/></div>}
+              <h3 className="text-2xl font-extrabold tracking-tight mb-3">{dialog.title}</h3>
+              <p className="text-sm font-medium opacity-70 mb-8 leading-relaxed px-2">{dialog.message}</p>
+              <div className="flex flex-col gap-3 w-full">
+                <button onClick={() => { if(dialog.onConfirm) dialog.onConfirm(); setDialog(null); }} className="w-full py-4 rounded-2xl font-bold shadow-md active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>{dialog.confirmLabel || 'Okay'}</button>
+                {dialog.onCancel && <button onClick={() => { if(dialog.onCancel) dialog.onCancel(); setDialog(null); }} className="w-full py-4 rounded-2xl font-bold bg-slate-100 dark:bg-zinc-800 active:scale-95 transition-transform">Abbrechen</button>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- PIN UNLOCK MODAL --- */}
+        {unlockTarget && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setUnlockTarget(null)}>
+            <div className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up" onClick={e => e.stopPropagation()}>
+              <div className="w-20 h-20 bg-slate-50 dark:bg-zinc-950 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100 dark:border-zinc-800"><Icon name="lock" size={32} style={{ color: user.nameColor || '#f59e0b' }} /></div>
+              <h3 className="text-2xl font-extrabold tracking-tight mb-2">Tresor entsperren</h3>
+              <p className="text-xs font-bold uppercase tracking-widest opacity-40 mb-8 truncate w-full px-4">"{unlockTarget.title}"</p>
+              <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submitPin()} className={`w-full p-4 text-center text-4xl tracking-[0.5em] rounded-2xl bg-slate-50 dark:bg-zinc-950 border-2 outline-none mb-6 transition-colors placeholder:opacity-30 ${pinError ? 'border-rose-500' : 'border-transparent focus:border-slate-300 dark:focus:border-zinc-700'}`} placeholder="••••" />
+              <div className="flex gap-3 w-full mb-4">
+                <button onClick={() => setUnlockTarget(null)} className="flex-1 py-4 font-bold rounded-2xl bg-slate-100 dark:bg-zinc-800 active:scale-95 transition-transform">Abbrechen</button>
+                <button onClick={submitPin} className="flex-1 py-4 rounded-2xl font-bold shadow-md active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || '#f59e0b', color: isDarkColor(user.nameColor || '#f59e0b') ? '#ffffff' : '#000000' }}>Öffnen</button>
+              </div>
+              {safeStorageGet('legacy_bio_pin') && (
+                <button onClick={handleBiometricUnlock} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm flex items-center justify-center gap-2"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
+              )}
+            </div>
+          </div>
+        )}
+
       </div>
     </ErrorBoundary>
   );
@@ -2284,7 +2335,7 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
 </script>
 
-<!-- Statische Service Worker Registrierung -->
+<!-- Statische Service Worker Registrierung (Sicherer Standort außerhalb von Babel) -->
 <script>
   if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
     window.addEventListener('load', () => {
