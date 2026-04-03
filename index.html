@@ -1513,6 +1513,2593 @@ function App() {
   const callGemini = async (payload, retries = 5) => {
       const delays = [1000, 2000, 4000, 8000, 16000];
       const apiKey = "AIzaSyC4z8nQq_N7bK7lgyyox8jM_Vbnuz_SP3E";
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
+      
+      for (let i = 0; i < retries; i++) {
+          try {
+              const response = await fetch(url, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(payload)
+              });
+              if (!response.ok) {
+                  const errData = await response.json().catch(() => ({}));
+                  throw new Error(errData?.error?.message || `HTTP ${response.status}`);
+              }
+              return await response.json();
+          } catch (err) {
+              if (i === retries - 1) throw err;
+              await new Promise(resolve => setTimeout(resolve, delays[i]));
+          }
+      }
+  };
+
+  const handleOCRUpload = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      setDialog({ title: 'Analysiere Handschrift...', message: 'Bitte warten, die KI entziffert deinen Text...', icon: 'loader' });
+      
+      const reader = new FileReader();
+      reader.onload = (event) => {
+          const img = new Image();
+          img.onload = async () => {
+              const canvas = document.createElement('canvas');
+              const MAX_SIZE = 1024; 
+              let width = img.width; 
+              let height = img.height;
+              if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } 
+              else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
+              canvas.width = width; canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, width, height);
+
+              const base64Full = canvas.toDataURL('image/jpeg', 0.8);
+              const base64Data = base64Full.split(',')[1];
+              
+              setSelectedImages(prev => {
+                  const newImgs = [...prev, base64Full];
+                  currentEntryRef.current.selectedImages = newImgs;
+                  return newImgs;
+              });
+
+              try {
+                  const prompt = "Lies diesen handschriftlichen Text. Gib mir NUR den erkannten Text in lesbarem Deutsch zurück. Keine Erklärungen. Setze passende Absätze.";
+                  const payload = { contents: [{ role: "user", parts: [{ text: prompt }, { inlineData: { mimeType: 'image/jpeg', data: base64Data } }] }] };
+                  
+                  const result = await callGemini(payload);
+                  
+                  if (result.candidates && result.candidates[0].content.parts[0].text) {
+                      const recognizedText = result.candidates[0].content.parts[0].text.replace(/\n/g, '<br>');
+                      if (editorRef.current) {
+                          editorRef.current.innerHTML += `<p><i>Handschrift erkannt:</i><br>${recognizedText}</p><br>`;
+                          isDirtyRef.current = true;
+                          checkSaveEntry(false);
+                      }
+                      setDialog({ title: 'Erfolg', message: 'Handschrift erfolgreich eingefügt!', icon: 'check' });
+                  } else {
+                      setDialog({ title: 'Fehler', message: 'Konnte die Handschrift nicht lesen.', icon: 'x' });
+                  }
+              } catch(err) {
+                  setDialog({ title: 'KI Fehler', message: `Die KI antwortet nicht. Grund: ${err.message}`, icon: 'x' });
+              }
+          };
+          img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+      e.target.value = null;
+  };
+
+  const handleEditorPaste = (e) => {
+      const clipboardData = e.clipboardData || window.clipboardData || (e.nativeEvent && e.nativeEvent.clipboardData);
+      if (!clipboardData) return;
+      
+      if (clipboardData.items) {
+          for (let i = 0; i < clipboardData.items.length; i++) {
+              if (clipboardData.items[i].type.indexOf('image') !== -1) {
+                  const blob = clipboardData.items[i].getAsFile();
+                  if (!blob) continue;
+                  e.preventDefault();
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                      const base64 = event.target.result;
+                      if (editorRef.current) {
+                          editorRef.current.focus();
+                          document.execCommand('insertHTML', false, `<img src="${base64}" />`);
+                      }
+                  };
+                  reader.readAsDataURL(blob);
+                  return; 
+              }
+          }
+      }
+  };
+
+  const handleEditorClick = (e) => {
+      if (e.target.classList.contains('delete-img-btn')) {
+          e.target.closest('.inline-img-wrapper').remove();
+          isDirtyRef.current = true;
+          checkSaveEntry(false);
+      } else if (e.target.tagName === 'IMG' && e.target.closest('.inline-img-wrapper')) {
+          const wrapper = e.target.closest('.inline-img-wrapper');
+          const img = wrapper.querySelector('img');
+          setPicker({
+              title: 'Sticker / Bild anpassen',
+              currentValue: null,
+              options: [
+                  {label: 'Klein', value: '120px'},
+                  {label: 'Mittel', value: '250px'},
+                  {label: 'Groß', value: '100%'}
+              ],
+              onSelect: (val) => {
+                  img.style.width = val;
+                  isDirtyRef.current = true;
+                  checkSaveEntry(false);
+              }
+          });
+      } else if (e.target.tagName === 'IMG' && !e.target.closest('.inline-img-wrapper')) {
+          const img = e.target;
+          setPicker({
+              title: 'Sticker / Bild anpassen',
+              currentValue: null,
+              options: [
+                  {label: 'Klein', value: '120px'},
+                  {label: 'Mittel', value: '250px'},
+                  {label: 'Groß', value: '100%'},
+                  {label: '❌ Löschen', value: 'delete'}
+              ],
+              onSelect: (val) => {
+                  if (val === 'delete') { img.remove(); }
+                  else { img.style.width = val; img.style.height = 'auto'; }
+                  isDirtyRef.current = true;
+                  checkSaveEntry(false);
+              }
+          });
+      }
+  };
+
+  const exportEternityArchive = async () => {
+      if (!window.JSZip) { showDialog({title: 'Fehler', message: 'JSZip Modul nicht geladen.'}); return; }
+      showDialog({title: 'Archiv wird erstellt', message: 'Deine Gedanken werden für die Ewigkeit als reiner Text (.md) verpackt. Bitte warten...', icon: 'loader'});
+      try {
+          const zip = new window.JSZip();
+          const textsFolder = zip.folder("Eintraege");
+          const imagesFolder = zip.folder("Bilder");
+
+          let imgCounter = 1;
+          entries.filter(e => e && !e.trashed).forEach(e => {
+              let mdContent = `# ${e.title || 'Ohne Titel'}\n\nDatum: ${new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}\nKategorie: ${e.category}\n\n${(e.text || '').replace(/<[^>]*>?/gm, '')}`;
+              if (e.images && e.images.length > 0) {
+                  e.images.forEach(imgBase64 => {
+                      const base64Data = imgBase64.split(',')[1];
+                      const imgName = `Bild_${imgCounter}.jpg`;
+                      imagesFolder.file(imgName, base64Data, {base64: true});
+                      mdContent += `\n\n[Bild: ${imgName}]`;
+                      imgCounter++;
+                  });
+              }
+              const safeTitle = (e.title || 'Eintrag').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+              textsFolder.file(`${new Date(e.date).toISOString().split('T')[0]}_${safeTitle}.md`, mdContent);
+          });
+
+          const content = await zip.generateAsync({type:"blob"});
+          const url = URL.createObjectURL(content);
+          const a = document.createElement('a'); a.href = url; a.download = `Legacy_Ewigkeits_Archiv_${new Date().toISOString().split('T')[0]}.zip`;
+          a.click(); URL.revokeObjectURL(url);
+          setDialog(null);
+      } catch(err) {
+          showDialog({title: 'Fehler', message: 'ZIP Erstellung fehlgeschlagen.'});
+      }
+  };
+
+  const downloadFullApp = () => { const cloneDocument = document.cloneNode(true); const rootDiv = cloneDocument.getElementById('root'); if (rootDiv) rootDiv.innerHTML = ''; const existingInjected = cloneDocument.getElementById('legacy-injected-data'); if (existingInjected) existingInjected.remove(); const data = { user, entries }; const scriptEl = cloneDocument.createElement('script'); scriptEl.id = 'legacy-injected-data'; scriptEl.type = 'application/json'; scriptEl.textContent = JSON.stringify(data); cloneDocument.head.appendChild(scriptEl); const htmlContent = "<!DOCTYPE html>\n" + cloneDocument.documentElement.outerHTML; const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Legacy_${new Date().toISOString().split('T')[0]}.html`; a.click(); URL.revokeObjectURL(a.href); showDialog({ title: 'Erledigt!', message: 'App als HTML-Backup gespeichert.', icon: 'download' }); };
+
+  const importBackup = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async (e) => { try { let data = null; if (file.name.toLowerCase().endsWith('.html')) { const doc = new DOMParser().parseFromString(e.target.result, 'text/html'); const script = doc.getElementById('legacy-injected-data'); if (script && script.textContent && script.textContent !== 'null') data = JSON.parse(script.textContent); else throw new Error("Keine Daten"); } else data = JSON.parse(e.target.result); if (data && data.entries && db) { const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); let mergedCount = 0; const pinToUse = data.user ? data.user.pin : user.pin; const entriesToSave = await Promise.all(data.entries.map(async (en) => { let dbE = { ...en }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []); if (dbE.locked && pinToUse) { const payload = JSON.stringify({ text: dbE.text||'', title: dbE.title||'' }); dbE.encryptedData = await encryptData(payload, pinToUse); dbE.text = ''; dbE.title = 'Verschlüsselt'; } return dbE; })); entriesToSave.forEach(en => { if (!entries.find(ex => ex && ex.id === en.id)) { if (data.user && data.user.name !== user.name) en.inheritedFrom = data.user.name; store.put(en); mergedCount++; } }); const req = store.getAll(); req.onsuccess = async () => { let loadedEntries = req.result || []; loadedEntries = loadedEntries.filter(e => e != null); if (user.pin) loadedEntries = await Promise.all(loadedEntries.map(async (en) => { if (en.locked && en.encryptedData) { const decStr = await decryptData(en.encryptedData, user.pin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...en, text: parsed.text, title: parsed.title }; } catch(err){} } } return en; })); setEntries(loadedEntries.sort(sortEntriesDesc)); showDialog({ title: 'Erfolg', message: `${mergedCount} neue Seiten importiert.`, icon: 'check' }); }; } } catch (err) { showDialog({ title: 'Fehler', message: 'Ungültige Datei.', icon: 'x' }); } }; reader.readAsText(file); };
+
+  return (
+    <ErrorBoundary>
+      <div className="min-h-screen pb-safe">
+
+        {/* --- MAIN HEADER --- */}
+        <header className="sticky top-0 z-30 bg-white/80 dark:bg-black/80 backdrop-blur-2xl border-b border-slate-200/50 dark:border-zinc-800/50 px-6 py-4 flex justify-between items-center transition-colors duration-300 no-print">
+          <div className="flex items-center gap-3 overflow-hidden">
+            {view === 'archive' ? <h1 className="text-2xl font-extrabold tracking-tight">Archiv</h1> :
+             view === 'trash' ? <h1 className="text-2xl font-extrabold tracking-tight text-rose-500">Papierkorb</h1> :
+             view === 'menu' ? <h1 className="text-2xl font-extrabold tracking-tight">Entdecken</h1> :
+             view === 'wisdom' ? <h1 className="text-2xl font-extrabold tracking-tight">Säulen</h1> :
+             view === 'burn' ? <h1 className="text-2xl font-extrabold tracking-tight text-rose-500">Katharsis</h1> :
+             view === 'quotes' ? <h1 className="text-2xl font-extrabold tracking-tight">Erkenntnisse</h1> :
+             view === 'map' ? <h1 className="text-2xl font-extrabold tracking-tight text-amber-500">Lebenskarte</h1> :
+             view === 'vault' ? <h1 className="text-2xl font-extrabold tracking-tight flex items-center gap-2"><Icon name="lock" size={24}/> Tresor</h1> :
+             view === 'settings' ? <h1 className="text-2xl font-extrabold tracking-tight flex items-center gap-2">Einstellungen</h1> :
+            (
+              <>
+                <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 shadow-sm overflow-hidden" style={{ borderColor: user.nameColor, borderWidth: '2px' }}>
+                  {user.avatar ? <img src={user.avatar} className="w-full h-full object-cover"/> : <Icon name="user" size={20} className="opacity-50 text-slate-900 dark:text-white"/>}
+                </div>
+                <div className="flex flex-col">
+                  <h1 className="text-lg font-bold tracking-tight leading-tight">{user.name}</h1>
+                  {user.motto && <p className="text-[10px] font-medium opacity-60 truncate max-w-[150px]">{user.motto}</p>}
+                </div>
+              </>
+            )}
+          </div>
+          <div className="flex gap-2 items-center">
+            {/* Kalender Button GLOBAL zugänglich */}
+            <button type="button" onClick={() => { setViewingEntry(null); setShowTimeline(true); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="calendar-days" size={18}/></button>
+            
+            {view === 'dashboard' && (
+              <>
+                <button type="button" onClick={() => setIsSearchOpen(!isSearchOpen)} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="search" size={18}/></button>
+                <button type="button" onClick={() => setView('menu')} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="menu" size={18}/></button>
+              </>
+            )}
+            {view !== 'dashboard' && <button type="button" onClick={() => setView('dashboard')} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="x" size={18} /></button>}
+          </div>
+
+          {isSearchOpen && view === 'dashboard' && (
+            <div className="absolute top-full left-0 right-0 p-4 bg-white/90 dark:bg-black/90 backdrop-blur-2xl border-b border-slate-200/50 dark:border-zinc-800/50 shadow-xl animate-slide-up z-50">
+              <input type="text" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Suchen..." autoFocus className="w-full p-4 rounded-2xl bg-slate-100 dark:bg-zinc-900 border-none outline-none font-medium focus:ring-2 focus:ring-slate-300 dark:focus:ring-zinc-700 transition-shadow" />
+            </div>
+          )}
+        </header>
+
+        {/* --- MAIN FEED & VIEWS --- */}
+        <main className={`p-4 sm:p-6 max-w-2xl mx-auto min-h-[70vh] relative z-10 no-print ${view === 'map' ? 'h-[85vh] floating-nav-spacing flex flex-col' : 'floating-nav-spacing'}`}>
+          
+          {view === 'menu' && (
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 animate-slide-up">
+              <button onClick={() => setView('wisdom')} className="p-6 rounded-[2rem] flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-[1.02] active:scale-95 transition-transform"><Icon name="book-open" size={32} className="text-amber-500" /><span className="font-bold text-sm">Weisheit</span></button>
+              <button onClick={() => setView('map')} className="p-6 rounded-[2rem] flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-[1.02] active:scale-95 transition-transform"><Icon name="map" size={32} className="text-emerald-500" /><span className="font-bold text-sm">Lebenskarte</span></button>
+              <button onClick={() => setView('burn')} className="p-6 rounded-[2rem] flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-[1.02] active:scale-95 transition-transform"><Icon name="flame" size={32} className="text-rose-500" /><span className="font-bold text-sm">Katharsis</span></button>
+              <button onClick={() => setView('quotes')} className="p-6 rounded-[2rem] flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-[1.02] active:scale-95 transition-transform"><Icon name="quote" size={32} className="text-indigo-500" /><span className="font-bold text-sm">Erkenntnisse</span></button>
+              <button onClick={() => setView('archive')} className="p-6 rounded-[2rem] flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-[1.02] active:scale-95 transition-transform"><Icon name="archive" size={32} className="opacity-50" /><span className="font-bold text-sm">Archiv</span></button>
+              <button onClick={() => setView('trash')} className="p-6 rounded-[2rem] flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-[1.02] active:scale-95 transition-transform"><Icon name="trash-2" size={32} className="text-rose-400" /><span className="font-bold text-sm text-rose-500">Papierkorb</span></button>
+              <button onClick={() => setView('settings')} className="col-span-2 p-6 rounded-[2rem] flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-[1.02] active:scale-95 transition-transform"><Icon name="settings" size={32} className="opacity-50" /><span className="font-bold text-sm">Einstellungen</span></button>
+            </div>
+          )}
+
+          {/* --- ARCHIVE VIEW --- */}
+          {view === 'archive' && (
+              <div className="space-y-4 animate-slide-up pb-24">
+                  <div className="flex justify-between items-center p-6 bg-slate-100 dark:bg-zinc-900 rounded-[2rem] mb-6 border border-slate-200 dark:border-zinc-800 shadow-sm">
+                      <div>
+                          <h2 className="text-xl font-extrabold flex items-center gap-2"><Icon name="archive" size={24}/> Archiv</h2>
+                          <p className="text-xs opacity-70 font-medium mt-1">{visibleEntries.length} archivierte Einträge</p>
+                      </div>
+                  </div>
+                  
+                  {visibleEntries.length === 0 ? (
+                      <div className="text-center py-20 opacity-40"><Icon name="archive" size={48} className="mx-auto mb-4"/><p className="font-bold">Archiv ist leer.</p></div>
+                  ) : (
+                      <div className="grid gap-4">
+                          {visibleEntries.map(e => (
+                              <div key={e.id} className="p-5 bg-white dark:bg-zinc-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-zinc-800 flex justify-between items-center gap-4">
+                                  <div className="overflow-hidden flex-1 cursor-pointer" onClick={() => handleOpenEntry(e)}>
+                                      <h4 className="font-bold truncate text-lg hover:text-accent transition-colors">{e.title || 'Ohne Titel'}</h4>
+                                      <p className="text-xs font-bold uppercase tracking-widest opacity-50 mt-1">{new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category}</p>
+                                  </div>
+                                  <div className="flex gap-2 shrink-0">
+                                      <button onClick={() => saveToDB({...e, archived: false})} className="w-12 h-12 flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Wiederherstellen"><Icon name="rotate-ccw" size={20}/></button>
+                                      <button onClick={() => {
+                                          showDialog({
+                                              title: 'Endgültig löschen?',
+                                              message: `"${e.title || 'Ohne Titel'}" wird für immer gelöscht.`,
+                                              icon: 'trash-2',
+                                              iconColor: 'text-rose-500',
+                                              onConfirm: () => deleteFromDB(e.id)
+                                          });
+                                      }} className="w-12 h-12 flex items-center justify-center bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Endgültig löschen"><Icon name="x" size={20}/></button>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  )}
+              </div>
+          )}
+
+          {/* --- TRASH VIEW --- */}
+          {view === 'trash' && (
+              <div className="space-y-4 animate-slide-up pb-24">
+                  <div className="flex justify-between items-center p-6 bg-rose-50 dark:bg-rose-500/10 rounded-[2rem] mb-6 text-rose-500 border border-rose-100 dark:border-rose-900/30 shadow-sm">
+                      <div>
+                          <h2 className="text-xl font-extrabold flex items-center gap-2"><Icon name="trash-2" size={24}/> Papierkorb</h2>
+                          <p className="text-xs opacity-70 font-medium mt-1">{visibleEntries.length} gelöschte Einträge</p>
+                      </div>
+                      {visibleEntries.length > 0 && (
+                          <button onClick={() => {
+                              showDialog({
+                                  title: 'Papierkorb leeren',
+                                  message: 'Möchtest du alle Einträge unwiderruflich löschen?',
+                                  icon: 'alert-triangle',
+                                  iconColor: 'text-rose-500',
+                                  onConfirm: () => visibleEntries.forEach(e => deleteFromDB(e.id))
+                              });
+                          }} className="px-5 py-3 bg-rose-500 text-white rounded-xl font-bold text-sm uppercase tracking-widest shadow-md hover:scale-105 active:scale-95 transition-transform">Leeren</button>
+                      )}
+                  </div>
+                  
+                  {visibleEntries.length === 0 ? (
+                      <div className="text-center py-20 opacity-40"><Icon name="trash" size={48} className="mx-auto mb-4"/><p className="font-bold">Papierkorb ist leer.</p></div>
+                  ) : (
+                      <div className="grid gap-4">
+                          {visibleEntries.map(e => (
+                              <div key={e.id} className="p-5 bg-white dark:bg-zinc-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-zinc-800 flex justify-between items-center gap-4">
+                                  <div className="overflow-hidden flex-1 cursor-pointer" onClick={() => handleOpenEntry(e)}>
+                                      <h4 className="font-bold truncate text-lg hover:text-accent transition-colors">{e.title || 'Ohne Titel'}</h4>
+                                      <p className="text-xs font-bold uppercase tracking-widest opacity-50 mt-1">{new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category}</p>
+                                  </div>
+                                  <div className="flex gap-2 shrink-0">
+                                      <button onClick={() => saveToDB({...e, trashed: false})} className="w-12 h-12 flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Wiederherstellen"><Icon name="rotate-ccw" size={20}/></button>
+                                      <button onClick={() => {
+                                          showDialog({
+                                              title: 'Endgültig löschen?',
+                                              message: `"${e.title || 'Ohne Titel'}" wird für immer gelöscht.`,
+                                              icon: 'trash-2',
+                                              iconColor: 'text-rose-500',
+                                              onConfirm: () => deleteFromDB(e.id)
+                                          });
+                                      }} className="w-12 h-12 flex items-center justify-center bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Endgültig löschen"><Icon name="x" size={20}/></button>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  )}
+              </div>
+          )}
+
+          {/* --- SETTINGS VIEW --- */}
+          {view === 'settings' && (
+             <div className="animate-slide-up space-y-6 pb-48">
+                <div className="p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
+                   <h2 className="text-lg font-bold mb-6 flex items-center gap-2"><Icon name="user" size={20}/> Profil</h2>
+                   <div className="flex flex-col sm:flex-row items-center gap-6 mb-8">
+                       <div className="relative shrink-0">
+                           <div className="w-24 h-24 rounded-full overflow-hidden border-4 shadow-sm flex items-center justify-center bg-slate-100 dark:bg-zinc-800" style={{ borderColor: user.nameColor }}>
+                               {user.avatar ? <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover scale-[1.02]" /> : <Icon name="user" size={40} className="opacity-30 text-slate-900 dark:text-white" />}
+                           </div>
+                       </div>
+                       <label className="w-full sm:flex-1 py-4 px-4 rounded-2xl cursor-pointer shadow-sm font-bold text-sm text-center border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 hover:scale-[1.02] active:scale-95 transition-transform">
+                           Profilbild ändern <input type="file" accept="image/*" onChange={(e) => handleAvatarUpload(e)} className="hidden" />
+                       </label>
+                   </div>
+                   <input type="text" value={user.name} onChange={e=>setUser({...user, name: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-transparent outline-none font-bold text-lg mb-4 focus:border-slate-300 dark:focus:border-zinc-700 transition-colors" placeholder="Dein Name" />
+                   <textarea value={user.motto} onChange={e=>setUser({...user, motto: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-transparent outline-none font-medium text-sm resize-none h-24 focus:border-slate-300 dark:focus:border-zinc-700 transition-colors" placeholder="Lebensmotto..." />
+                </div>
+
+                <div className="p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
+                   <h2 className="text-lg font-bold mb-6 flex items-center gap-2"><Icon name="moon" size={20}/> Design & Farben</h2>
+                   <div className="flex p-1 bg-slate-100 dark:bg-zinc-950 rounded-2xl mb-8 border border-slate-200/50 dark:border-zinc-800">
+                      <button onClick={() => setUser({...user, isDark: false})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${!user.isDark ? 'bg-white shadow-sm text-black' : 'text-slate-500'}`}>Hell</button>
+                      <button onClick={() => setUser({...user, isDark: true})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${user.isDark ? 'bg-zinc-800 shadow-sm text-white' : 'text-slate-500'}`}>Dunkel</button>
+                   </div>
+                   
+                   <span className="text-xs font-bold uppercase tracking-widest opacity-60 mb-3 block">Hintergrund (App)</span>
+                   <div className="flex flex-wrap gap-3 mb-8">
+                      <button onClick={() => setUser({...user, appBgColor: null})} className={`w-10 h-10 rounded-full border-2 transition-transform flex items-center justify-center ${!user.appBgColor ? 'border-slate-400 dark:border-zinc-500 scale-110 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: user.isDark ? '#000000' : '#f8fafc' }}><Icon name="slash" size={16} className="opacity-50" /></button>
+                      {COLORS.map(color => (
+                          <button key={color} onClick={() => setUser({...user, appBgColor: color})} className={`w-10 h-10 rounded-full border-2 transition-transform ${user.appBgColor === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
+                      ))}
+                   </div>
+
+                   <span className="text-xs font-bold uppercase tracking-widest opacity-60 mb-3 block">Schriftfarbe</span>
+                   <div className="flex flex-wrap gap-3 mb-8">
+                      <button onClick={() => setUser({...user, textColor: null})} className={`w-10 h-10 rounded-full border-2 transition-transform flex items-center justify-center ${!user.textColor ? 'border-slate-400 dark:border-zinc-500 scale-110 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: user.isDark ? '#ffffff' : '#0f172a' }}><Icon name="slash" size={16} className={user.isDark ? 'text-black' : 'text-white'} /></button>
+                      {COLORS.map(color => (
+                          <button key={color} onClick={() => setUser({...user, textColor: color, nameColor: color})} className={`w-10 h-10 rounded-full border-2 transition-transform ${user.textColor === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
+                      ))}
+                   </div>
+
+                   {/* ZOOM (App Darstellung vergrößern) */}
+                   <span className="text-xs font-bold uppercase tracking-widest opacity-60 mb-3 block">Darstellungsgröße</span>
+                   <div className="flex gap-2">
+                      <button onClick={() => setUser({...user, uiScale: 0.9})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${user.uiScale === 0.9 ? 'bg-black dark:bg-white text-white dark:text-black shadow-sm' : 'bg-slate-100 dark:bg-zinc-950 text-slate-500'}`}>A-</button>
+                      <button onClick={() => setUser({...user, uiScale: 1})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${user.uiScale === 1 || !user.uiScale ? 'bg-black dark:bg-white text-white dark:text-black shadow-sm' : 'bg-slate-100 dark:bg-zinc-950 text-slate-500'}`}>Normal</button>
+                      <button onClick={() => setUser({...user, uiScale: 1.1})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${user.uiScale === 1.1 ? 'bg-black dark:bg-white text-white dark:text-black shadow-sm' : 'bg-slate-100 dark:bg-zinc-950 text-slate-500'}`}>A+</button>
+                   </div>
+                </div>
+                
+                <div className="p-8 rounded-[2.5rem] bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 shadow-sm">
+                   <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-blue-600 dark:text-blue-400"><Icon name="cloud" size={20}/> Verschlüsselter Cloud-Tresor</h2>
+                   <p className="text-sm font-medium opacity-70 mb-6">Deine Daten werden in Echtzeit synchronisiert. Wenn du dich neu einloggst, lädt die App automatisch alle Daten herunter.</p>
+                   <button onClick={performCloudSync} className="w-full p-4 rounded-2xl font-bold text-base bg-blue-600 text-white active:scale-95 shadow-sm transition-transform flex items-center justify-center gap-2">{syncingCloud ? 'Lädt...' : <><Icon name="download-cloud" size={20}/> Jetzt Cloud aktualisieren</>}</button>
+                </div>
+
+                <div className="p-8 rounded-[2.5rem] bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 shadow-sm">
+                   <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-indigo-600 dark:text-indigo-400"><Icon name="archive" size={20}/> Ewigkeits-Archiv (ZIP)</h2>
+                   <p className="text-sm font-medium opacity-70 mb-6">Exportiert alle deine Einträge als simple, für immer lesbare Textdateien (.md) und extrahiert alle Bilder.</p>
+                   <button onClick={exportEternityArchive} className="w-full p-4 rounded-2xl font-bold text-base bg-indigo-600 text-white active:scale-95 shadow-sm transition-transform flex items-center justify-center gap-2 mb-3"><Icon name="folder-down" size={20}/> Als ZIP speichern</button>
+                </div>
+
+                <div className="p-8 rounded-[2.5rem] bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 shadow-sm">
+                   <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><Icon name="smartphone" size={20}/> P2P Transfer (Ohne Cloud)</h2>
+                   <p className="text-sm font-medium opacity-70 mb-6">Scanne einen QR Code mit deinem neuen Handy, um Daten direkt zu senden.</p>
+                   {!peerId ? (
+                      <button onClick={() => {
+                         const peer = new window.Peer(); setSyncStatus('WebRTC wird vorbereitet...');
+                         peer.on('open', (id) => { setPeerId(id); setSyncStatus('Scanne den Code mit dem neuen Gerät.'); });
+                         peer.on('connection', (c) => { setSyncStatus('Verbunden! Sende...'); c.on('data', (d) => { if(d==='request_data'){c.send(JSON.stringify({user,entries})); setSyncStatus('Erledigt!'); setTimeout(()=>{setPeerId(null);}, 4000);} }); });
+                         setPeerInstance(peer);
+                      }} className="w-full p-4 rounded-2xl font-bold text-base bg-emerald-600 text-white active:scale-95 shadow-sm transition-transform flex items-center justify-center gap-2"><Icon name="qr-code" size={20}/> QR-Code generieren</button>
+                   ) : (
+                      <div className="bg-white dark:bg-zinc-900 p-6 rounded-[2rem] flex flex-col items-center">
+                         <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin + window.location.pathname + '?import=' + peerId)}`} className="w-48 h-48 mb-4 rounded-xl" />
+                         <p className="text-sm font-bold text-emerald-600 mb-4 animate-pulse">{syncStatus}</p>
+                         <button onClick={()=>{peerInstance?.destroy(); setPeerId(null); setSyncStatus('');}} className="text-sm font-bold opacity-50 px-4 py-2 bg-slate-100 dark:bg-zinc-800 rounded-lg">Abbrechen</button>
+                      </div>
+                   )}
+                </div>
+
+                <div className="p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
+                   <h2 className="text-lg font-bold mb-6 flex items-center gap-2"><Icon name="key" size={20}/> Sicherheit & PIN</h2>
+                   
+                   {!user.pin ? (
+                       <div className="space-y-4">
+                           <p className="text-sm font-medium opacity-70">Lege eine PIN fest, um den Tresor zu nutzen.</p>
+                           <input type="password" inputMode="numeric" value={newPinInput} onChange={e=>setNewPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-transparent outline-none font-bold text-center tracking-[1em] focus:border-slate-300 dark:focus:border-zinc-700 transition-colors" placeholder="Neue PIN" />
+                           <input type="password" inputMode="numeric" value={confirmPinInput} onChange={e=>setConfirmPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-transparent outline-none font-bold text-center tracking-[1em] focus:border-slate-300 dark:focus:border-zinc-700 transition-colors" placeholder="Wiederholen" />
+                           <button onClick={handleSavePin} className="w-full py-4 rounded-2xl font-bold active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>PIN speichern</button>
+                       </div>
+                   ) : (
+                       isChangingPin ? (
+                           <div className="space-y-4">
+                               <input type="password" inputMode="numeric" value={oldPinInput} onChange={e=>setOldPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-transparent outline-none font-bold text-center tracking-[1em] focus:border-slate-300 dark:focus:border-zinc-700 transition-colors" placeholder="Alte PIN" />
+                               <input type="password" inputMode="numeric" value={newPinInput} onChange={e=>setNewPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-transparent outline-none font-bold text-center tracking-[1em] focus:border-slate-300 dark:focus:border-zinc-700 transition-colors" placeholder="Neue PIN" />
+                               <input type="password" inputMode="numeric" value={confirmPinInput} onChange={e=>setConfirmPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-transparent outline-none font-bold text-center tracking-[1em] focus:border-slate-300 dark:focus:border-zinc-700 transition-colors" placeholder="Wiederholen" />
+                               <div className="flex gap-2">
+                                   <button onClick={() => setIsChangingPin(false)} className="flex-1 py-4 rounded-2xl font-bold bg-slate-100 dark:bg-zinc-800 active:scale-95 transition-transform">Abbrechen</button>
+                                   <button onClick={handleSavePin} className="flex-1 py-4 rounded-2xl font-bold active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>Speichern</button>
+                               </div>
+                           </div>
+                       ) : (
+                           <div className="flex justify-between items-center p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950">
+                               <div className="flex items-center gap-3">
+                                   <Icon name="check-circle" size={20} className="text-emerald-500" />
+                                   <span className="font-bold text-sm">PIN Aktiv</span>
+                               </div>
+                               <button onClick={() => setIsChangingPin(true)} className="px-4 py-2 rounded-lg font-bold text-xs bg-white dark:bg-zinc-800 shadow-sm active:scale-95 transition-transform" style={{ color: user.nameColor }}>Ändern</button>
+                           </div>
+                       )
+                   )}
+
+                   {/* Biometric Toggle */}
+                   {window.PublicKeyCredential && user.pin && !isChangingPin && (
+                       <div className="flex justify-between items-center mt-6 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800">
+                           <div className="flex items-center gap-3">
+                               <Icon name="fingerprint" size={20} className={user.biometric ? 'text-indigo-500' : 'text-slate-400'}/>
+                               <div>
+                                   <div className="font-bold text-sm">Biometrie</div>
+                                   <div className="text-[10px] opacity-60">TouchID / FaceID</div>
+                               </div>
+                           </div>
+                           <button onClick={toggleBiometric} className={`w-12 h-6 rounded-full transition-colors relative ${user.biometric ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-zinc-700'}`}>
+                               <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${user.biometric ? 'left-7' : 'left-1'}`} />
+                           </button>
+                       </div>
+                   )}
+                   
+                   <button onClick={handleLogout} className="w-full p-4 mt-8 rounded-[2.5rem] font-bold text-rose-500 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-900/30 shadow-sm active:scale-95 transition-transform flex items-center justify-center gap-2">
+                       <Icon name="log-out" size={20}/> Von der App abmelden
+                   </button>
+                </div>
+             </div>
+          )}
+
+          {view === 'map' && (
+             <div className="flex-1 flex flex-col gap-4 animate-fade-in pb-24 h-full">
+                <div className="flex-1 relative rounded-[2rem] overflow-hidden shadow-lg border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900">
+                    <div ref={mapRef} className="absolute inset-0 w-full h-full"></div>
+                </div>
+                <div className="p-4 bg-white/90 dark:bg-black/90 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200 dark:border-zinc-800 flex justify-between items-center shrink-0">
+                    <div className="font-bold text-sm">Orte deines Lebens</div>
+                    <div className="text-xs opacity-70 font-bold">{entries.filter(e => e && e.location && !e.trashed).length} Markierungen</div>
+                </div>
+             </div>
+          )}
+
+          {view === 'burn' && (
+            <div className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-fade-in relative">
+              {isBurning && <div className="absolute inset-0 bg-rose-500/10 animate-pulse rounded-[3rem] pointer-events-none" />}
+              <Icon name="flame" size={64} className={`mb-6 ${isBurning ? 'text-rose-500 animate-flame' : 'text-slate-300 dark:text-zinc-700'}`} />
+              <p className="opacity-60 mb-8 max-w-sm text-sm">Schreibe auf, was dich belastet. Wir übergeben es den Flammen. Es wird nirgendwo gespeichert.</p>
+              <textarea value={burnText} onChange={e=>setBurnText(e.target.value)} disabled={isBurning} className="w-full p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-rose-500 h-56 outline-none resize-none transition-all text-xl font-medium shadow-sm" placeholder="Lass es los..." />
+              <button onClick={triggerBurn} disabled={!burnText || isBurning} className="mt-8 px-10 py-5 bg-rose-600 text-white rounded-2xl font-bold text-lg shadow-lg shadow-rose-600/20 active:scale-95 transition-transform disabled:opacity-50 flex items-center justify-center gap-3">
+                {isBurning ? 'Verbrennt...' : <><Icon name="flame" size={24}/> Dem Feuer übergeben</>}
+              </button>
+            </div>
+          )}
+
+          {view === 'wisdom' && (
+             <div className="animate-slide-up space-y-8 pb-32">
+                <div className="p-8 rounded-[2.5rem] border text-center shadow-sm" style={{ backgroundColor: `${user.nameColor}15`, borderColor: `${user.nameColor}30` }}>
+                   <h3 className="font-extrabold text-xl mb-3" style={{ color: user.nameColor }}>Fortschritt deines Vermächtnisses</h3>
+                   <div className="flex justify-between text-sm font-bold opacity-70 mb-4" style={{ color: user.nameColor }}><span>{completedPillars} von {totalPillars}</span><span>{progressPercent}%</span></div>
+                   <div className="w-full h-3 rounded-full overflow-hidden" style={{ backgroundColor: `${user.nameColor}30` }}><div className="h-full transition-all duration-1000" style={{width:`${progressPercent}%`, backgroundColor: user.nameColor }}></div></div>
+                </div>
+                {['Fundament', 'Kommunikation', 'Struktur', 'Tiefe', 'Anpassung'].map(phase => (
+                   <div key={phase} className="space-y-4">
+                      <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-zinc-500 ml-4 mb-2">{phase}</h4>
+                      {PILLARS.filter(p=>p.phase===phase).map(pillar => {
+                         const isCompleted = entries.some(e => e && e.title === pillar.title && !e.trashed);
+                         return (
+                           <button key={pillar.id} onClick={() => openEditor(null, pillar)} className="w-full text-left p-6 rounded-3xl bg-white dark:bg-zinc-900 border shadow-sm flex items-start gap-5 hover:scale-[1.02] active:scale-95 transition-transform" style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm ${isCompleted ? 'text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`} style={isCompleted ? { backgroundColor: user.nameColor } : {}}><Icon name={isCompleted?"check":"pen-tool"} size={18}/></div>
+                              <div><div className="font-bold text-lg leading-tight mb-2 text-slate-900 dark:text-white">{pillar.title}</div><div className="text-sm font-medium opacity-60 line-clamp-2 leading-relaxed">{pillar.desc}</div></div>
+                           </button>
+                         )
+                      })}
+                   </div>
+                ))}
+             </div>
+          )}
+
+          {view === 'quotes' && (
+             <div className="animate-slide-up space-y-6 pb-32">
+                {allQuotes.length === 0 ? (
+                   <div className="text-center py-20 opacity-40"><Icon name="quote" size={56} className="mx-auto mb-6"/><p className="font-bold text-lg">Noch keine Erkenntnisse zitiert.</p></div>
+                ) : (
+                   allQuotes.map(q => (
+                      <div key={q.id} onClick={()=>{const e=entries.find(x=>x && x.id===q.entryId); if(e){setView('dashboard'); handleOpenEntry(e);}}} className="p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border shadow-sm cursor-pointer hover:-translate-y-1 hover:shadow-md transition-all relative overflow-hidden" style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
+                         <div className="flex gap-4 items-start">
+                             <div className="shrink-0 mt-1" style={{ color: user.nameColor }}><Icon name="quote" size={28} /></div>
+                             <div className="flex-1">
+                                 <p className="text-xl font-serif italic font-medium leading-relaxed mb-4 text-slate-800 dark:text-slate-200">
+                                    {q.text}
+                                 </p>
+                                 <div className="text-xs font-bold uppercase tracking-widest opacity-40 text-slate-500">
+                                    {q.title} • {new Date(q.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                 </div>
+                             </div>
+                         </div>
+                      </div>
+                   ))
+                )}
+             </div>
+          )}
+
+          {['dashboard', 'vault', 'archive'].includes(view) && !searchQuery && (
+            <div className="flex overflow-x-auto gap-3 pb-4 mb-8 custom-scrollbar hide-scrollbar snap-x">
+              {['Alle', ...CATEGORIES].map(cat => (
+                <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-6 py-3 rounded-2xl whitespace-nowrap text-sm font-bold transition-all snap-start ${activeCategory === cat ? 'text-white dark:text-black shadow-md scale-105' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-zinc-800 border border-slate-100 dark:border-zinc-800'}`} style={activeCategory === cat ? { backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') } : {}}>
+                  {cat}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {['dashboard', 'vault', 'archive'].includes(view) && visibleEntries.length === 0 && !searchQuery && (
+            <div className="flex flex-col items-center justify-center py-32 text-center opacity-40 animate-fade-in">
+              <Icon name={view === 'vault' ? "lock" : "book-open"} size={64} className="mb-6"/>
+              <p className="text-2xl font-bold font-serif">{view === 'vault' ? 'Tresor leer.' : view === 'archive' ? 'Archiv leer.' : 'Noch keine Einträge.'}</p>
+            </div>
+          )}
+
+          {['dashboard', 'vault', 'archive'].includes(view) && (
+            <div className={`grid gap-6 pb-32 ${isGridView && view === 'dashboard' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              {renderEntries.map(entry => (
+                 <EntryCard key={entry.id} entry={entry} onClick={handleOpenEntry} isGridView={isGridView && view === 'dashboard'} userColor={user.nameColor} isDarkTheme={user.isDark} searchQuery={searchQuery} />
+              ))}
+            </div>
+          )}
+        </main>
+
+        {/* --- FLOATING BOTTOM NAV (Premium Style) --- */}
+        {!showEditor && ['dashboard', 'menu'].includes(view) && (
+          <nav className="floating-nav">
+            <div className="flex justify-around items-center h-[72px] px-2">
+              <button onClick={() => { setViewingEntry(null); if(view==='dashboard') setIsGridView(!isGridView); else setView('dashboard'); }} className={`flex-1 flex flex-col items-center justify-center py-2 transition-all rounded-full ${view === 'dashboard' && !viewingEntry ? 'text-accent scale-110' : 'text-slate-400 opacity-60 hover:opacity-100 hover:scale-105'}`} style={view === 'dashboard' && !viewingEntry ? { color: user.nameColor || '#000000' } : { color: 'inherit' }}>
+                <Icon name={isGridView && view === 'dashboard' ? "list" : "layout-grid"} size={26} />
+              </button>
+              <button onClick={() => { setViewingEntry(null); openEditor(); }} className="flex-none mx-2 w-16 h-16 rounded-[1.5rem] text-white dark:text-black shadow-xl flex items-center justify-center hover:scale-110 active:scale-90 transition-transform shrink-0 border-[4px] border-slate-50 dark:border-black -mt-8" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') }}>
+                <Icon name="plus" size={32} />
+              </button>
+              <button onClick={() => { setViewingEntry(null); setView('vault'); }} className={`flex-1 flex flex-col items-center justify-center py-2 transition-all rounded-full ${view === 'vault' && !viewingEntry ? 'text-rose-500 scale-110 shadow-inner bg-rose-50 dark:bg-rose-500/10' : 'text-slate-400 hover:text-rose-500 hover:scale-105'}`}>
+                <Icon name="lock" size={26} />
+              </button>
+            </div>
+          </nav>
+        )}
+
+        {/* --- VIEWER --- */}
+        {viewingEntry && !showEditor && (() => {
+           const bookRoot = getBookRoot(viewingEntry.id);
+           const allBookEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
+           const cIdx = allBookEntries.findIndex(ex => ex && ex.id === viewingEntry.id);
+           const prevPage = cIdx > 0 ? allBookEntries[cIdx - 1] : null;
+           const nextPage = cIdx < allBookEntries.length - 1 ? allBookEntries[cIdx + 1] : null;
+
+           return (
+             <div className="fixed inset-0 z-[80] overflow-y-auto bg-white dark:bg-black animate-fade-in custom-scrollbar flex flex-col screen-only" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+               <div className="sticky top-0 z-40 flex justify-between items-center py-4 px-6 md:px-10 bg-white/90 dark:bg-black/90 backdrop-blur-xl border-b border-slate-100 dark:border-zinc-900 shrink-0 no-print transition-colors">
+                 <div className="flex gap-3">
+                   <button onClick={() => {setViewingEntry(null); setCurrentViewerImgIdx(0);}} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
+                 </div>
+                 <div className="flex gap-3">
+                   <button onClick={() => window.print()} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500"><Icon name="printer" size={22}/></button>
+                   <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
+                   <button onClick={() => { const e = viewingEntry; setViewingEntry(null); setTimeout(() => openEditor(e), 10); }} className="px-6 py-3 rounded-2xl font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
+                 </div>
+               </div>
+
+               <div className="max-w-3xl w-full mx-auto p-6 sm:p-12 pb-32 screen-only flex-1 flex flex-col">
+                  {viewingEntry.images && viewingEntry.images.length > 0 && (
+                    <div className="relative w-full aspect-video rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-10 group bg-slate-100 dark:bg-zinc-900">
+                        <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-contain transition-transform duration-700" alt="Cover" />
+                        {viewingEntry.images.length > 1 && (
+                            <>
+                                <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p - 1 + viewingEntry.images.length) % viewingEntry.images.length); }} className="absolute left-6 top-1/2 -translate-y-1/2 bg-black/50 text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print backdrop-blur-md hover:bg-black/70"><Icon name="chevron-left" size={24}/></button>
+                                <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p + 1) % viewingEntry.images.length); }} className="absolute right-6 top-1/2 -translate-y-1/2 bg-black/50 text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print backdrop-blur-md hover:bg-black/70"><Icon name="chevron-right" size={24}/></button>
+                                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 bg-black/40 px-4 py-2 rounded-full backdrop-blur-md no-print">
+                                    {viewingEntry.images.map((_, i) => <div key={i} className={`w-2.5 h-2.5 rounded-full transition-colors shadow-sm ${i === currentViewerImgIdx ? 'bg-white' : 'bg-white/40'}`} />)}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                  )}
+
+                  <h1 className="text-4xl sm:text-6xl font-extrabold mb-8 tracking-tighter leading-[1.1] text-slate-900 dark:text-white">{viewingEntry.title || 'Ohne Titel'}</h1>
+                  <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
+                    <span>{new Date(viewingEntry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                    <span>•</span><span>{viewingEntry.category || 'Allgemein'}</span>
+                    {viewingEntry.location && <span className="flex items-center gap-1 text-amber-500"><Icon name="map-pin" size={14}/> GPS-Siegel</span>}
+                  </div>
+                  
+                  {/* Meta-Data Pills */}
+                  <div className="flex flex-wrap gap-2 mb-12 no-print">
+                      {viewingEntry.tags && viewingEntry.tags.split(',').map(t => t.trim()).filter(t=>t).map((t, i) => (
+                          <span key={i} className="px-4 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="tag" size={14}/> {t}</span>
+                      ))}
+                      {viewingEntry.people && viewingEntry.people.split(',').map(p => p.trim()).filter(p=>p).map((p, i) => (
+                          <span key={i} className="px-4 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="user" size={14}/> {p}</span>
+                      ))}
+                      {viewingEntry.weather && (
+                          <span className="px-4 py-1.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-xl text-xs font-bold flex items-center gap-1.5 w-full sm:w-auto"><Icon name="sun" size={14}/> {viewingEntry.weather}</span>
+                      )}
+                      {viewingEntry.rating > 0 && (
+                          <div className="flex items-center gap-1 ml-auto bg-amber-50 dark:bg-amber-900/30 px-4 py-1.5 rounded-xl">
+                              {[1,2,3,4,5].map(star => <Icon key={star} name="star" size={16} className={viewingEntry.rating >= star ? 'text-amber-500 fill-amber-500' : 'text-amber-200 dark:text-amber-900'} />)}
+                          </div>
+                      )}
+                  </div>
+
+                  <div className="text-xl leading-relaxed font-medium opacity-90 legacy-content text-slate-800 dark:text-slate-200" dangerouslySetInnerHTML={createSafeHtml(viewingEntry.text)} />
+                  {viewingEntry.audio && <div className="mt-12 p-6 rounded-[2rem] bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm no-print"><span className="text-xs font-bold uppercase tracking-widest opacity-50 mb-4 block">Audio-Log</span><audio src={viewingEntry.audio} controls className="w-full" /></div>}
+                  
+                  <div className="mt-20 pt-10 border-t border-slate-100 dark:border-zinc-800 flex justify-center no-print">
+                      <button onClick={() => startNewChapter(viewingEntry)} className="px-8 py-4 font-bold rounded-full flex items-center gap-3 hover:scale-105 active:scale-95 transition-transform shadow-lg text-lg" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}><Icon name="plus" size={24}/> Neues Kapitel anfügen</button>
+                  </div>
+
+                  {/* Navigation für Buch-Seiten */}
+                  {allBookEntries.length > 1 && (
+                      <div className="flex justify-between items-center mt-16 pt-8 border-t border-slate-100 dark:border-zinc-800 no-print pb-24">
+                          {prevPage ? (
+                              <button onClick={() => setViewingEntry(prevPage)} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100 transition-colors" style={{ color: user.nameColor }}><Icon name="arrow-left" size={18}/> Vorherige Seite</button>
+                          ) : <div/>}
+                          <span className="text-xs font-bold opacity-30 uppercase tracking-widest">Seite {cIdx + 1} von {allBookEntries.length}</span>
+                          {nextPage ? (
+                              <button onClick={() => setViewingEntry(nextPage)} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100 transition-colors" style={{ color: user.nameColor }}>Nächste Seite <Icon name="arrow-right" size={18}/></button>
+                          ) : <div/>}
+                      </div>
+                  )}
+               </div>
+             </div>
+           );
+        })()}
+
+        {/* --- PRINT VIEW ONLY --- */}
+        {viewingEntry && !showEditor && (
+          <div className="print-only w-full max-w-4xl mx-auto p-8">
+            <div className="print-title-page page-break-after">
+               <h1 style={{fontSize: '56px', marginBottom: '20px', fontFamily: 'Georgia, serif'}}>{user.appName || 'Legacy Vision Journal'}</h1>
+               <h3 style={{fontSize: '24px', opacity: 0.6}}>Verfasst von {user.name}</h3>
+               {user.motto && <p style={{marginTop: '40px', fontStyle: 'italic'}}>{user.motto}</p>}
+               <p style={{position: 'absolute', bottom: '40px', left: '0', right: '0', textAlign: 'center'}}>Generiert am {new Date().toLocaleDateString('de-DE')}</p>
+            </div>
+            
+            <div className="print-toc page-break-after">
+               <h2 style={{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px', fontFamily: 'Georgia, serif'}}>Inhaltsverzeichnis</h2>
+               <ul style={{listStyle: 'none', padding: 0}}>
+                   {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
+                       <li key={idx} style={{marginBottom: '15px', fontSize: '18px'}}><strong>{idx+1}.</strong> {e.title || 'Ohne Titel'}</li>
+                   ))}
+               </ul>
+            </div>
+
+            <div className="print-book-content">
+               {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
+                   <div key={e.id} className="page-break-after" style={{ marginBottom: '60px', paddingTop: '20px' }}>
+                       <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+                           <h1 style={{ fontSize: '36px', fontFamily: 'Georgia, serif', fontWeight: 'bold', marginBottom: '10px' }}>{e.title || 'Ohne Titel'}</h1>
+                           <p style={{ opacity: 0.6, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '12px' }}>
+                               {new Date(e.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category || 'Allgemein'}
+                           </p>
+                       </div>
+                       
+                       {e.images && e.images.length > 0 && (
+                           <img src={e.images[0]} style={{ width: '100%', maxHeight: '500px', objectFit: 'contain', marginBottom: '30px', borderRadius: '16px' }} alt="Cover" />
+                       )}
+                       
+                       <div className="text-lg leading-relaxed legacy-content" dangerouslySetInnerHTML={createSafeHtml(e.text)}></div>
+                   </div>
+               ))}
+            </div>
+          </div>
+        )}
+
+        {/* --- EDITOR MODAL --- */}
+        {showEditor && (
+          <div className="fixed inset-0 bg-white dark:bg-black z-[200] flex flex-col h-[100dvh] overflow-hidden page-transition">
+            
+            {/* 1. Header (Immer ganz oben) */}
+            <header className="flex justify-between items-center p-4 sm:p-6 shrink-0 z-50 pt-safe bg-white/95 dark:bg-black/95 border-b border-slate-100 dark:border-zinc-900">
+                <button onClick={()=>checkSaveEntry(true)} className="p-3 bg-slate-100 dark:bg-zinc-900 rounded-2xl text-slate-900 dark:text-white hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
+                <div className="flex items-center gap-4">
+                    <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">{autoSaveStatus}</span>
+                    <button onClick={()=>checkSaveEntry(false)} className="px-6 py-3 bg-accent text-white rounded-2xl font-bold text-sm shadow-xl shadow-accent/20 hover:scale-105 active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || '#000000', color: isDarkColor(user.nameColor || '#000000') ? '#ffffff' : '#000000' }}>Sichern</button>
+                </div>
+            </header>
+
+            {/* 2. Titel Eingabe (Durchgehende Linie) */}
+            <div className="px-4 sm:px-8 pt-6 pb-2 shrink-0 bg-white dark:bg-black z-40 border-b-[3px] border-slate-200 dark:border-zinc-800 focus-within:border-accent transition-colors">
+              <input type="text" placeholder="Titel der Vision..." value={title} onChange={e=>{setTitle(e.target.value); isDirtyRef.current=true;}} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tighter outline-none pb-3 placeholder-slate-300 dark:placeholder-zinc-700 text-slate-900 dark:text-white" />
+            </div>
+
+            {/* 3. STICKY TOOLBAR (Immer sichtbar über dem Text) */}
+            <div className="flex items-center gap-2 p-2 px-4 overflow-x-auto hide-scrollbar border-b border-slate-100 dark:border-zinc-900 bg-slate-50 dark:bg-zinc-950 shrink-0 shadow-sm z-40">
+                {/* Textgrößen */}
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'H1'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><span className="font-extrabold text-sm">H1</span></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'H2'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><span className="font-bold text-sm">H2</span></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'P'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><span className="font-medium text-sm">T</span></button>
+                
+                <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
+
+                {/* Formate */}
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('bold'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="bold" size={18} /></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('italic'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="italic" size={18} /></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="quote" size={18} /></button>
+                
+                {/* Listen */}
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('insertOrderedList'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="list-ordered" size={18} /></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('insertUnorderedList'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="list" size={18} /></button>
+
+                <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
+
+                {/* Medien, Zeichnen & KI Scanner */}
+                <label className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm cursor-pointer flex items-center justify-center relative overflow-hidden shrink-0 border border-slate-100 dark:border-zinc-800" title="Cover Bild hochladen"><Icon name="image" size={18} /><input type="file" accept="image/*" multiple onChange={e=>handleFileUpload(e,'image')} className="absolute opacity-0 w-[200%] h-[200%] top-0 left-0 cursor-pointer" /></label>
+                <label className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-amber-500 hover:text-accent transition-colors shadow-sm cursor-pointer flex items-center justify-center relative overflow-hidden shrink-0 border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-500/10" title="Handschrift mit KI Scannen"><Icon name="wand-2" size={18} /><input type="file" accept="image/*" onChange={handleOCRUpload} className="absolute opacity-0 w-[200%] h-[200%] top-0 left-0 cursor-pointer" /></label>
+                <button onClick={() => setIsDrawing(true)} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="pen-tool" size={18} /></button>
+                <button onClick={isRecording ? stopRecording : startRecording} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800 ${isRecording ? 'bg-rose-500 text-white animate-pulse' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:text-accent'}`}>{isRecording ? <Icon name="square" size={18}/> : <Icon name="mic" size={18}/>}</button>
+                
+                <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
+
+                {/* Sicherheit */}
+                <button onClick={()=>{setIsLocked(!isLocked); isDirtyRef.current=true;}} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 border ${isLocked ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-500 border-rose-200 dark:border-rose-900/50' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:text-rose-500 border-slate-100 dark:border-zinc-800'}`}><Icon name="lock" size={18}/></button>
+                <button onClick={()=>{setIsManifested(!isManifested); isDirtyRef.current=true;}} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 border ${isManifested ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-500 border-amber-200 dark:border-amber-900/50' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:text-amber-500 border-slate-100 dark:border-zinc-800'}`}><Icon name="sparkles" size={18}/></button>
+
+                <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
+
+                {/* Farben (Rund am Ende) */}
+                {EDITOR_COLORS.map(c => (
+                    <button key={c} onMouseDown={e=>{e.preventDefault(); document.execCommand('foreColor', false, c); isDirtyRef.current=true;}} className="w-8 h-8 rounded-full border-2 shadow-sm shrink-0 transition-transform hover:scale-110 active:scale-95" style={{backgroundColor: c, borderColor: isDarkColor(c) ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}}></button>
+                ))}
+            </div>
+            
+            {/* 4. Text-Eingabebereich */}
+            <div className="flex-1 p-4 md:p-8 overflow-y-auto custom-scrollbar flex flex-col w-full bg-white dark:bg-black relative">
+              
+              {/* Cover-Bilder GANZ OBEN im Editor, zentriert und groß */}
+              {selectedImages.length > 0 && (
+                  <div className="mb-8 w-full max-w-3xl mx-auto flex flex-col items-center">
+                      <div className="relative w-full h-48 sm:h-64 rounded-[2rem] overflow-hidden shadow-sm group border border-slate-200 dark:border-zinc-800 shrink-0">
+                          <img src={selectedImages[0]} className="w-full h-full object-cover" />
+                          <button onClick={()=>{setSelectedImages(prev=>prev.slice(1)); isDirtyRef.current=true;}} className="absolute top-4 right-4 p-3 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"><Icon name="x" size={16}/></button>
+                      </div>
+                      {selectedImages.length > 1 && (
+                          <div className="flex gap-3 mt-4 overflow-x-auto hide-scrollbar snap-x w-full max-w-full">
+                              {selectedImages.slice(1).map((img, i) => (
+                                  <div key={i+1} className="relative w-24 h-24 rounded-2xl overflow-hidden shadow-sm shrink-0 snap-start group border border-slate-200 dark:border-zinc-800">
+                                      <img src={img} className="w-full h-full object-cover" />
+                                      <button onClick={()=>{setSelectedImages(prev=>prev.filter((_,idx)=>idx!==i+1)); isDirtyRef.current=true;}} className="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"><Icon name="x" size={10}/></button>
+                                  </div>
+                              ))}
+                          </div>
+                      )}
+                  </div>
+              )}
+
+              {pillarGuidance && (
+                  <div className="p-4 rounded-3xl bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-900/30 text-amber-700 dark:text-amber-400 font-medium text-sm mb-6 flex gap-4 leading-relaxed max-w-3xl mx-auto">
+                      <Icon name="book-open" size={24} className="shrink-0 mt-0.5 opacity-80" /> {pillarGuidance}
+                  </div>
+              )}
+
+              {audioUrl && (
+                  <div className="mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 relative max-w-3xl mx-auto w-full">
+                     <span className="text-[10px] font-bold uppercase tracking-widest opacity-50 mb-3 block">Audio-Log</span>
+                     <audio src={audioUrl} controls className="w-full" />
+                     <button onClick={()=>{setAudioUrl(null); isDirtyRef.current=true;}} className="absolute top-4 right-4 p-2 bg-slate-200 dark:bg-zinc-800 rounded-full text-slate-500 hover:text-rose-500"><Icon name="x" size={14}/></button>
+                  </div>
+              )}
+
+              <div 
+                  ref={editorRef} 
+                  contentEditable={true}
+                  suppressContentEditableWarning={true}
+                  role="textbox"
+                  aria-multiline="true"
+                  onClick={handleEditorClick}
+                  onPaste={handleEditorPaste}
+                  onInput={handleEditorInput} 
+                  className="flex-1 outline-none text-[1.05rem] leading-[1.8] legacy-editor-content text-slate-800 dark:text-slate-200 pb-32 min-h-[50vh] max-w-3xl mx-auto w-full" 
+                  data-placeholder="Was wirst du hinterlassen? Du kannst auch Sticker per Tastatur einfügen..." 
+                  dangerouslySetInnerHTML={{__html: text}} 
+              />
+            </div>
+
+            {/* 5. Footer (Tags, People, Rating, TimeSeal, Location) */}
+            <div className="p-3 border-t border-slate-100 dark:border-zinc-900 bg-white/95 dark:bg-black/95 backdrop-blur-xl shrink-0 flex items-center gap-3 overflow-x-auto hide-scrollbar z-50 pb-safe shadow-[0_-4px_6px_rgba(0,0,0,0.02)]">
+               <button onClick={()=>setPicker({title:'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c, value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;}})} className="h-10 px-4 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs font-bold flex items-center gap-2 shrink-0">{category} <Icon name="chevron-down" size={12}/></button>
+               
+               {/* Rating Component */}
+               <div className="h-10 flex items-center gap-1 bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0">
+                  {[1,2,3,4,5].map(star => (
+                      <Icon key={star} name="star" size={14} className={`cursor-pointer transition-colors ${rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-zinc-700'}`} onClick={() => {setRating(rating === star ? 0 : star); isDirtyRef.current=true;}} />
+                  ))}
+               </div>
+
+               {/* Tags Input */}
+               <div className="h-10 flex items-center bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
+                   <Icon name="tag" size={12} className="text-slate-400 mr-2 shrink-0" />
+                   <input type="text" placeholder="Tags (Komma...)" value={tags} onChange={e=>{setTags(e.target.value); isDirtyRef.current=true;}} className="bg-transparent border-none outline-none text-xs font-bold placeholder:opacity-50 w-full text-slate-900 dark:text-white" />
+               </div>
+
+               {/* Personen Eingabe */}
+               <div className="h-10 flex items-center bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
+                   <Icon name="user" size={12} className="text-slate-400 mr-2 shrink-0" />
+                   <input type="text" placeholder="Personen..." value={people} onChange={e=>{setPeople(e.target.value); isDirtyRef.current=true;}} className="bg-transparent border-none outline-none text-xs font-bold placeholder:opacity-50 w-full text-slate-900 dark:text-white" />
+               </div>
+
+               {/* Zeitsiegel */}
+               <div className={`h-10 relative px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 cursor-pointer overflow-hidden ${unlockDate ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}>
+                  <Icon name="calendar-clock" size={14}/> {unlockDate ? new Date(unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Zeitsiegel'}
+                  <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); isDirtyRef.current=true;}} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
+               </div>
+               
+               <button onClick={async ()=>{
+                   if(location){setLocation(null); setWeather(''); isDirtyRef.current=true; return;}
+                   if(!("geolocation" in navigator)){showDialog({title:'Fehler', message:'Ortung nicht unterstützt.'}); return;}
+                   navigator.geolocation.getCurrentPosition(async (p) => { 
+                       const lat = p.coords.latitude;
+                       const lng = p.coords.longitude;
+                       setLocation({lat, lng}); 
+                       try {
+                           const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`);
+                           const data = await res.json();
+                           const temp = Math.round(data.current_weather.temperature);
+                           const wcode = data.current_weather.weathercode;
+                           let wStr = `${temp}°C`;
+                           if (wcode === 0) wStr += ' ☀️';
+                           else if (wcode <= 3) wStr += ' ⛅';
+                           else if (wcode <= 48) wStr += ' ☁️';
+                           else if (wcode <= 67) wStr += ' 🌧️';
+                           else if (wcode <= 79) wStr += ' 🌨️';
+                           else if (wcode <= 99) wStr += ' ⛈️';
+                           setWeather(wStr);
+                       } catch(e) {}
+                       isDirtyRef.current=true; 
+                       showDialog({title:'GPS erfasst', message:'Ort und Wetter wurden gesichert.', icon:'map-pin'}); 
+                   }, ()=>showDialog({title:'Fehler', message:'Ortung fehlgeschlagen.'}));
+               }} className={`h-10 px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 ${location ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-900/50 text-amber-600 dark:text-amber-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}><Icon name="map-pin" size={14}/> {location ? 'Ort gesichert' : 'GPS-Siegel'}</button>
+            </div>
+          </div>
+        )}
+
+        {/* --- ZEICHNEN MODAL --- */}
+        {isDrawing && (
+          <div className="fixed inset-0 z-[300] bg-slate-900 flex flex-col no-print">
+            <header className="flex justify-between items-center p-4 bg-slate-950 text-white pt-safe border-b border-white/10">
+              <button onClick={() => setIsDrawing(false)} className="p-3 bg-white/10 rounded-2xl hover:bg-white/20 transition-colors"><Icon name="x"/></button>
+              <span className="font-bold">Zeichnen</span>
+              <button onClick={() => {
+                  if(canvasRef.current) {
+                      const base64 = canvasRef.current.toDataURL();
+                      if (editorRef.current) {
+                          editorRef.current.focus();
+                          document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false"><img src="${base64}" /><span class="delete-img-btn">X</span></span>&nbsp;`);
+                          isDirtyRef.current = true;
+                          checkSaveEntry(false);
+                      }
+                      setIsDrawing(false);
+                  }
+              }} className="px-6 py-2 bg-accent text-black font-bold rounded-2xl">Fertig</button>
+            </header>
+            <div className="flex-1 bg-white relative touch-none">
+              <canvas ref={canvasRef} className="absolute inset-0 w-full h-full cursor-crosshair touch-none" onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing} onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
+            </div>
+            <div className="p-4 pb-safe bg-slate-950 flex justify-center border-t border-white/10">
+              <button onClick={() => {
+                  if(canvasRef.current){
+                      const ctx = canvasRef.current.getContext('2d');
+                      ctx.fillStyle = user.isDark ? '#18181b' : '#ffffff';
+                      ctx.fillRect(0,0,canvasRef.current.width, canvasRef.current.height);
+                  }
+              }} className="p-4 bg-white/10 rounded-2xl text-white hover:bg-white/20"><Icon name="eraser"/></button>
+            </div>
+          </div>
+        )}
+
+        {/* --- TIMELINE / ZEITREISE (Calendar Style) --- */}
+        {showTimeline && !showEditor && (() => {
+           const bookEntries = viewingEntry ? getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id) : entries.filter(e => e && !e.archived && !e.trashed);
+           
+           const daysInMonth = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth() + 1, 0).getDate();
+           const firstDay = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth(), 1).getDay();
+           const emptySlots = (firstDay + 6) % 7; 
+           const daysArray = Array.from({length: daysInMonth}, (_, i) => i + 1);
+
+           const entriesOnSelectedDate = timelineSelectedDate ? bookEntries.filter(e => e && new Date(e.date).toDateString() === timelineSelectedDate) : [];
+
+           return (
+             <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex justify-end animate-fade-in no-print" onClick={() => setShowTimeline(false)}>
+                <div className="w-full max-w-md h-full bg-white dark:bg-zinc-950 shadow-2xl animate-slide-up flex flex-col" onClick={e=>e.stopPropagation()}>
+                   <div className="p-6 border-b border-slate-100 dark:border-zinc-900 flex justify-between items-center shrink-0">
+                      <h3 className="font-extrabold text-2xl flex items-center gap-3 tracking-tight" style={{ color: user.nameColor }}><Icon name="calendar-days" size={28}/> Zeitreise</h3>
+                      <button onClick={()=>setShowTimeline(false)} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="x" size={20}/></button>
+                   </div>
+                   
+                   <div className="flex-1 overflow-y-auto custom-scrollbar">
+                       <div className="p-6 border-b border-slate-100 dark:border-zinc-900">
+                          <div className="flex justify-between items-center mb-8">
+                              <button onClick={() => { const d = new Date(timelineMonth); d.setMonth(d.getMonth()-1); setTimelineMonth(d); }} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="chevron-left" size={20}/></button>
+                              <span className="font-extrabold text-lg uppercase tracking-widest">{timelineMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}</span>
+                              <button onClick={() => { const d = new Date(timelineMonth); d.setMonth(d.getMonth()+1); setTimelineMonth(d); }} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="chevron-right" size={20}/></button>
+                          </div>
+                          
+                          <div className="grid grid-cols-7 gap-3 text-center">
+                              {['Mo','Di','Mi','Do','Fr','Sa','So'].map(d => <div key={d} className="text-xs font-bold opacity-40 py-2">{d}</div>)}
+                              {Array(emptySlots).fill(null).map((_, i) => <div key={`empty-${i}`} />)}
+                              {daysArray.map(day => {
+                                  const dateStr = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth(), day).toDateString();
+                                  const dayEntry = bookEntries.find(e => e && new Date(e.date).toDateString() === dateStr);
+                                  const hasEntry = !!dayEntry;
+                                  const bgImg = dayEntry?.images?.[0] || null;
+                                  const isSelected = timelineSelectedDate === dateStr;
+                                  
+                                  return (
+                                      <button key={day} onClick={() => setTimelineSelectedDate(isSelected ? null : dateStr)} className={`relative p-2 text-sm font-bold rounded-2xl transition-all flex items-center justify-center aspect-square overflow-hidden ${isSelected ? 'shadow-lg scale-110' : 'hover:scale-105'} ${hasEntry && !isSelected && !bgImg ? 'bg-slate-100 dark:bg-zinc-800' : ''}`} style={bgImg ? { backgroundImage: `url(${bgImg})`, backgroundSize: 'cover', backgroundPosition: 'center', border: isSelected ? `3px solid ${user.nameColor}` : 'none' } : (isSelected ? { backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000' } : { backgroundColor: 'transparent' })}>
+                                          {!bgImg && <span>{day}</span>}
+                                          {hasEntry && !isSelected && !bgImg && <div className="absolute bottom-2 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: user.nameColor }}></div>}
+                                      </button>
+                                  );
+                              })}
+                          </div>
+                          {timelineSelectedDate && (
+                             <div className="mt-8 text-center">
+                                <button onClick={() => setTimelineSelectedDate(null)} className="text-[10px] uppercase font-bold tracking-widest opacity-60 hover:opacity-100 transition-opacity bg-slate-100 dark:bg-zinc-900 px-4 py-2 rounded-xl">Filter aufheben</button>
+                             </div>
+                          )}
+                       </div>
+
+                       <div className="p-6 pb-20">
+                           {!timelineSelectedDate ? (
+                               <p className="text-center opacity-40 text-sm font-bold mt-12 flex flex-col items-center gap-4"><Icon name="calendar-search" size={48} className="opacity-50"/>Wähle einen markierten Tag aus.</p>
+                           ) : (
+                               <div className="space-y-4">
+                                   {entriesOnSelectedDate.length === 0 ? (
+                                       <p className="text-center opacity-40 text-sm font-bold mt-8 mb-8">Kein Eintrag an diesem Tag.</p>
+                                   ) : (
+                                       entriesOnSelectedDate.map((e) => (
+                                           <SwipeableTimelineEntry 
+                                                key={e.id} 
+                                                entry={e} 
+                                                onClick={(entry) => { setShowTimeline(false); handleOpenEntry(entry); }} 
+                                                onArchive={(entry) => saveToDB({...entry, archived: true})}
+                                                onTrash={(entry) => saveToDB({...entry, trashed: true})}
+                                                showDialog={showDialog}
+                                                userColor={user.nameColor}
+                                           />
+                                       ))
+                                   )}
+                                   <button onClick={() => { setShowTimeline(false); openEditor(null, null, timelineSelectedDate); }} className="w-full flex items-center justify-center gap-3 p-5 bg-slate-100 dark:bg-zinc-900 rounded-[2rem] font-bold text-sm hover:scale-[1.02] active:scale-95 transition-transform mt-6 shadow-sm" style={{color: user.nameColor}}>
+                                       <Icon name="plus" size={20}/> Neuer Eintrag für diesen Tag
+                                   </button>
+                               </div>
+                           )}
+                       </div>
+                   </div>
+                </div>
+             </div>
+           );
+        })()}
+
+        {/* --- PICKER DIALOG --- */}
+        {picker && (
+          <div className="fixed inset-0 z-[250] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setPicker(null)}>
+            <div className="w-full max-w-sm rounded-[2.5rem] shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up flex flex-col overflow-hidden max-h-[70vh]" onClick={e => e.stopPropagation()}>
+              <div className="p-6 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
+                 <h3 className="font-extrabold text-xl tracking-tight">{picker.title}</h3>
+                 <button onClick={()=>setPicker(null)} className="p-2 rounded-full bg-slate-100 dark:bg-zinc-800"><Icon name="x" size={20}/></button>
+              </div>
+              <div className="overflow-y-auto custom-scrollbar p-3 space-y-1">
+                 {picker.options.map(opt => (
+                    <button key={opt.value} onClick={()=>{picker.onSelect(opt.value); setPicker(null);}} className={`w-full text-left p-5 rounded-[1.5rem] font-bold text-sm flex justify-between items-center transition-all ${picker.currentValue===opt.value ? 'text-white dark:text-black shadow-md scale-[1.02]' : 'hover:bg-slate-50 dark:hover:bg-zinc-800'}`} style={picker.currentValue === opt.value ? { backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') } : {}}>
+                       {opt.label} {picker.currentValue===opt.value && <Icon name="check" size={18}/>}
+                    </button>
+                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- DIALOGS --- */}
+        {dialog && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setDialog(null)}>
+            <div className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up" onClick={e => e.stopPropagation()}>
+              {dialog.icon && <div className={`w-20 h-20 bg-slate-50 dark:bg-zinc-950 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100 dark:border-zinc-800 ${dialog.iconColor || 'text-slate-900 dark:text-white'}`}><Icon name={dialog.icon} size={32}/></div>}
+              <h3 className="text-2xl font-extrabold tracking-tight mb-3">{dialog.title}</h3>
+              <p className="text-sm font-medium opacity-70 mb-8 leading-relaxed px-2" dangerouslySetInnerHTML={{__html: dialog.message}}></p>
+              <div className="flex flex-col gap-3 w-full">
+                <button onClick={() => { if(dialog.onConfirm) dialog.onConfirm(); setDialog(null); }} className="w-full py-4 rounded-2xl font-bold shadow-md active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>{dialog.confirmLabel || 'Okay'}</button>
+                {dialog.onCancel && <button onClick={() => { if(dialog.onCancel) dialog.onCancel(); setDialog(null); }} className="w-full py-4 rounded-2xl font-bold bg-slate-100 dark:bg-zinc-800 active:scale-95 transition-transform">Abbrechen</button>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- PIN UNLOCK MODAL --- */}
+        {unlockTarget && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setUnlockTarget(null)}>
+            <div className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up" onClick={e => e.stopPropagation()}>
+              <div className="w-20 h-20 bg-slate-50 dark:bg-zinc-950 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100 dark:border-zinc-800"><Icon name="lock" size={32} style={{ color: user.nameColor || '#f59e0b' }} /></div>
+              <h3 className="text-2xl font-extrabold tracking-tight mb-2">Tresor entsperren</h3>
+              <p className="text-xs font-bold uppercase tracking-widest opacity-40 mb-8 truncate w-full px-4">"{unlockTarget.title}"</p>
+              <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submitPin()} className={`w-full p-4 text-center text-4xl tracking-[0.5em] rounded-2xl bg-slate-50 dark:bg-zinc-950 border-2 outline-none mb-6 transition-colors placeholder:opacity-30 ${pinError ? 'border-rose-500' : 'border-transparent focus:border-slate-300 dark:focus:border-zinc-700'}`} placeholder="••••" />
+              <div className="flex gap-3 w-full mb-4">
+                <button onClick={() => setUnlockTarget(null)} className="flex-1 py-4 font-bold rounded-2xl bg-slate-100 dark:bg-zinc-800 active:scale-95 transition-transform">Abbrechen</button>
+                <button onClick={submitPin} className="flex-1 py-4 rounded-2xl font-bold shadow-md active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || '#f59e0b', color: isDarkColor(user.nameColor || '#f59e0b') ? '#ffffff' : '#000000' }}>Öffnen</button>
+              </div>
+              {safeStorageGet('legacy_bio_pin') && (
+                <button onClick={handleBiometricUnlock} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm flex items-center justify-center gap-2"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
+              )}
+            </div>
+          </div>
+        )}
+
+      </div>
+    </ErrorBoundary>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+
+<!-- Statische Service Worker Registrierung (Sicherer Standort außerhalb von Babel) -->
+<script>
+  if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('SW Aktiv'))
+        .catch(err => console.warn('SW Registrierung übersprungen'));
+    });
+  }
+</script>
+
+</body>
+</html><!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Legacy Vision Journal - Ultimate Edition</title>
+
+<!-- PWA & iOS Premium Integration -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" id="meta-theme-color" content="#f8fafc">
+<meta name="color-scheme" content="light dark">
+
+<!-- W3C Standard Manifest (Statisch für Langlebigkeit) -->
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192x192.png">
+
+<!-- Container für den App-Klon -->
+<script id="legacy-injected-data" type="application/json">null</script>
+
+<!-- Inter Font & Libraries -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  window.tailwind = {
+    config: { 
+        darkMode: 'class', 
+        theme: { 
+            extend: { 
+                fontFamily: { sans: ['Inter', 'sans-serif'] }, 
+                colors: { 
+                    slate: { 50: '#f8fafc', 100: '#f1f5f9', 900: '#0f172a' }, 
+                    zinc: { 800: '#27272a', 900: '#18181b', 950: '#09090b' },
+                    accent: '#f59e0b'
+                } 
+            } 
+        } 
+    }
+  };
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+  /* --- DESIGN UPGRADE (Premium Apple/Meta/Google UI) --- */
+  html, body {
+    overscroll-behavior-y: none;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  body.modal-open { overflow: hidden !important; }
+
+  html:not(.dark) body { background-color: #f8fafc !important; color: #0f172a !important; }
+  html.dark body { background-color: #000000 !important; color: #f8fafc !important; }
+
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 32px); }
+  .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+  .floating-nav-spacing { padding-bottom: calc(120px + env(safe-area-inset-bottom, 20px)); }
+
+  /* Fließtext extrem leserlich, Überschriften fett/klar */
+  h1, h2, h3, h4, h5, h6 { font-weight: 800; letter-spacing: -0.03em; }
+
+  @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } } 
+  .animate-fade-in { animation: fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  
+  @keyframes slide-up { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } 
+  .animate-slide-up { animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  
+  @keyframes pulse-flame { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.05); } } 
+  .animate-flame { animation: pulse-flame 2s infinite ease-in-out; }
+
+  .custom-scrollbar::-webkit-scrollbar { display: none; }
+  .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Premium Editor Typography */
+  .legacy-editor-content p, .legacy-content p { line-height: 1.8; margin-bottom: 1.2rem; font-size: 1.05rem; }
+  .legacy-editor-content h1, .legacy-content h1 { font-size: 2.25rem; font-weight: 800; margin-top: 1.5rem; margin-bottom: 1rem; line-height: 1.2; }
+  .legacy-editor-content h2, .legacy-content h2 { font-size: 1.75rem; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.75rem; line-height: 1.3; }
+  .legacy-editor-content b, .legacy-content b, .legacy-editor-content strong, .legacy-content strong { font-weight: 700; color: inherit; }
+  .legacy-editor-content ul, .legacy-content ul { list-style-type: disc; padding-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.5rem; }
+  .legacy-editor-content ol, .legacy-content ol { list-style-type: decimal; padding-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.5rem; }
+  .legacy-editor-content li, .legacy-content li { margin-bottom: 0.25rem; }
+  .legacy-editor-content blockquote, .legacy-content blockquote { border-left: 4px solid currentColor; padding-left: 1.5rem; font-style: normal; font-weight: 500; opacity: 0.8; background: transparent; margin: 1.5rem 0; font-size: 1.1em; }
+  
+  /* Floating Bottom Navigation - Sauber & Halbtransparent */
+  .floating-nav {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 48px);
+    max-width: 400px;
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(226, 232, 240, 0.6);
+    border-radius: 2rem;
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+  }
+  html.dark .floating-nav {
+    background: rgba(24, 24, 27, 0.75);
+    border-color: rgba(39, 39, 42, 0.6);
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
+  }
+  
+  /* Inline Image / Sticker Resizing Magic & Deletion X */
+  .inline-img-wrapper { display: inline-block; vertical-align: text-bottom; margin: 4px; max-width: 100%; position: relative; }
+  .inline-img-wrapper img { width: 120px; height: auto; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+  .delete-img-btn { position: absolute; top: -10px; right: -10px; background: #ef4444; color: white; border-radius: 50%; width: 24px; height: 24px; text-align: center; line-height: 24px; cursor: pointer; font-family: sans-serif; font-size: 12px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10; display: none; }
+  .inline-img-wrapper:hover .delete-img-btn, .inline-img-wrapper:active .delete-img-btn { display: block; }
+  
+  .legacy-editor-content > img, .legacy-content > img { border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: inline-block; vertical-align: middle; max-width: 100%; }
+  
+  [contenteditable="true"]:empty:before { content: attr(data-placeholder); opacity: 0.3; pointer-events: none; display: block; font-weight: 400; }
+  html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
+  .search-highlight { background-color: rgba(245, 158, 11, 0.3); padding: 0 2px; border-radius: 3px; border-bottom: 1px solid #f59e0b; }
+
+  /* Map Container & Fix Leaflet Attribution/Markers */
+  .map-container { height: 100%; width: 100%; border-radius: 1.5rem; z-index: 1; }
+  .leaflet-marker-icon.avatar-marker { border: none !important; background: transparent !important; }
+  .leaflet-control-attribution { display: none !important; }
+
+  /* --- BUCHDRUCK-MODUS --- */
+  .print-only { display: none; }
+  @media print {
+    @page { margin: 2cm; @bottom-center { content: counter(page); font-family: 'Inter', sans-serif; font-size: 12px; color: #888; } }
+    body, html, #root, .min-h-screen { background: #ffffff !important; color: #000000 !important; height: auto !important; overflow: visible !important; width: 100% !important; }
+    nav, header, button, .no-print, .screen-only, .custom-scrollbar::-webkit-scrollbar { display: none !important; }
+    .print-only { display: block !important; width: 100% !important; max-width: 100% !important; padding: 0 !important; }
+    .page-break-after { page-break-after: always; }
+    .group { box-shadow: none !important; border: none !important; background: #ffffff !important; color: #000000 !important; page-break-inside: avoid; margin-bottom: 24px !important; }
+    img { max-width: 100% !important; max-height: 500px !important; object-fit: contain !important; margin-bottom: 2rem !important; page-break-inside: avoid; border-radius: 0.5rem !important; }
+    * { color: #000000 !important; } 
+    h1, h2, h3 { page-break-after: avoid; }
+    .print-title-page { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; text-align: center; }
+    .legacy-content { text-align: justify; hyphens: auto; font-family: 'Georgia', serif; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo } = React;
+
+const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
+const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
+
+const sortEntriesDesc = (a, b) => {
+    const tA = new Date(a.orderTimestamp || a.date || 0).getTime();
+    const tB = new Date(b.orderTimestamp || b.date || 0).getTime();
+    return (isNaN(tB) ? 0 : tB) - (isNaN(tA) ? 0 : tA);
+};
+
+const getLocalISO = () => {
+    const now = new Date();
+    const tzOffset = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - tzOffset).toISOString().slice(0, -1); 
+};
+
+const createSafeHtml = (htmlStr) => {
+  const safeStr = htmlStr || '';
+  return { __html: window.DOMPurify ? window.DOMPurify.sanitize(safeStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] }) : safeStr };
+};
+
+const highlightText = (text, query) => {
+  const safeStr = text || '';
+  if (!safeStr) return { __html: '' };
+  let safeText = safeStr.replace(/<img[^>]*>/g, '[Bild]');
+  safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] }) : safeText;
+  if (!query) return { __html: safeText };
+  const plainText = safeText.replace(/<[^>]*>?/gm, '');
+  const parts = plainText.split(new RegExp(`(${query})`, 'gi'));
+  const highlighted = parts.map((part, i) =>
+      part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part
+  ).join('');
+  return { __html: highlighted };
+};
+
+const encHelper = new TextEncoder();
+const decHelper = new TextDecoder();
+const cryptoKeyCache = {}; 
+
+const getCryptoKey = async (pin, saltStr) => {
+    const cacheKey = pin + saltStr;
+    if (cryptoKeyCache[cacheKey]) return cryptoKeyCache[cacheKey];
+    const keyMaterial = await window.crypto.subtle.importKey("raw", encHelper.encode(pin), { name: "PBKDF2" }, false, ["deriveBits", "deriveKey"]);
+    const salt = Uint8Array.from(atob(saltStr), c => c.charCodeAt(0));
+    const key = await window.crypto.subtle.deriveKey({ name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" }, keyMaterial, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+    cryptoKeyCache[cacheKey] = key; return key;
+};
+
+const encryptData = async (text, pin) => {
+    try {
+        const salt = window.crypto.getRandomValues(new Uint8Array(16));
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+        const saltStr = btoa(String.fromCharCode(...salt));
+        const ivStr = btoa(String.fromCharCode(...iv));
+        const key = await getCryptoKey(pin, saltStr);
+        const encrypted = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, encHelper.encode(text));
+        return { cipher: btoa(String.fromCharCode(...new Uint8Array(encrypted))), iv: ivStr, salt: saltStr };
+    } catch(e) { return null; }
+};
+
+const decryptData = async (encryptedObj, pin) => {
+    if (!encryptedObj || !pin) return null;
+    try {
+        const salt = Uint8Array.from(atob(encryptedObj.salt), c => c.charCodeAt(0));
+        const iv = Uint8Array.from(atob(encryptedObj.iv), c => c.charCodeAt(0));
+        const cipher = Uint8Array.from(atob(encryptedObj.cipher), c => c.charCodeAt(0));
+        const keyMaterial = await window.crypto.subtle.importKey("raw", encHelper.encode(pin), { name: "PBKDF2" }, false, ["deriveBits", "deriveKey"]);
+        const key = await window.crypto.subtle.deriveKey({ name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" }, keyMaterial, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+        const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, cipher);
+        return decHelper.decode(decrypted);
+    } catch(e) { return null; }
+};
+
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-black text-white p-8 text-center">
+          <div><h1 className="text-2xl font-bold mb-4">Ein Moment bitte...</h1><p className="opacity-70 mb-8">Die App hat sich verschluckt.</p><button type="button" onClick={() => window.location.reload()} className="px-6 py-3 bg-white text-black font-bold rounded-full">Neu laden</button></div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const Icon = ({ name, size = 24, className = '', ...props }) => {
+  const spanRef = useRef(null);
+  useEffect(() => {
+    const renderIcon = () => {
+      if (spanRef.current && window.lucide) {
+        spanRef.current.innerHTML = `<i data-lucide="${name}"></i>`;
+        window.lucide.createIcons({ root: spanRef.current });
+        const svg = spanRef.current.querySelector('svg');
+        if (svg) { svg.setAttribute('width', size); svg.setAttribute('height', size); if (className) svg.setAttribute('class', `lucide lucide-${name} ${className}`); }
+      }
+    };
+    if (window.lucide) renderIcon(); else setTimeout(renderIcon, 100);
+  }, [name, size, className]);
+  return <span ref={spanRef} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} {...props}></span>;
+};
+
+const COLORS = [
+  '#ffffff', '#f8fafc', '#e4e4e7', '#a1a1aa', '#52525b', 
+  '#27272a', '#18181b', '#09090b', '#fef08a', '#fbbf24', 
+  '#f59e0b', '#d97706', '#fecdd3', '#fb7185', '#f43f5e', 
+  '#e11d48', '#bfdbfe', '#3b82f6', '#1d4ed8', '#a7f3d0', 
+  '#10b981', '#047857', '#e9d5ff', '#8b5cf6', '#6d28d9'
+];
+
+const EDITOR_COLORS = [
+  '#0f172a', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#a8a29e', '#ffffff'
+];
+
+const isDarkColor = (color) => {
+  if (!color) return true;
+  const hex = color.replace('#', '');
+  if (hex.length === 6) {
+    const r = parseInt(hex.substr(0, 2), 16), g = parseInt(hex.substr(2, 2), 16), b = parseInt(hex.substr(4, 2), 16);
+    return ((r * 299 + g * 587 + b * 114) / 1000) < 128;
+  }
+  return true; 
+};
+
+const getSubtleBorderColor = (hexColor, isDark) => {
+    if (!hexColor) return isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+    const cleanHex = hexColor.replace('#', '');
+    if (cleanHex.length === 6) {
+        const r = parseInt(cleanHex.slice(0, 2), 16), g = parseInt(cleanHex.slice(2, 4), 16), b = parseInt(cleanHex.slice(4, 6), 16);
+        return `rgba(${r}, ${g}, ${b}, ${isDark ? 0.15 : 0.25})`;
+    }
+    return isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+};
+
+const CATEGORIES = ['Allgemein', 'Tagebuch', 'Ideen', 'Gesundheit', 'Vision', 'Ziele', 'Bücher', 'Familie'];
+
+const PILLARS = [
+  { id: 'm1', phase: 'Fundament', title: '1. Das Nordstern-Manifest', desc: 'Definiere deine absoluten, unverhandelbaren Grundwerte.' },
+  { id: 'm2', phase: 'Fundament', title: '2. Der Zeitgeist-Stempel', desc: 'Historischer Kontext: Was passiert gerade auf der Welt?' },
+  { id: 'm3', phase: 'Fundament', title: '3. Das Geistige Testament', desc: 'Vererbe deinen Charakter. Welche Lebensweisheiten möchtest du weitergeben?' },
+  { id: 'm4', phase: 'Fundament', title: '4. Die Anti-Vision', desc: 'Definiere glasklar, wer du niemals werden willst und welche Pfade du vermeidest.' },
+  { id: 'm5', phase: 'Fundament', title: '5. Das Narben-Register', desc: 'Eine ehrliche Dokumentation deines größten Fehlschlags und deines Comebacks.' },
+  { id: 'm6', phase: 'Kommunikation', title: '6. Die Zeitkapsel', desc: 'Eine Botschaft an die Zukunft. Nutze die Datums-Siegelfunktion.' },
+  { id: 'm7', phase: 'Kommunikation', title: '7. Der Enkel-Dialog', desc: 'Stelle Fragen, die der zukünftige Leser für sich selbst beantworten soll.' },
+  { id: 'm8', phase: 'Kommunikation', title: '8. Stammbaum der Fähigkeiten', desc: 'Dokumentiere, wie du dir über Jahrzehnte Fähigkeiten angeeignet hast.' },
+  { id: 'm9', phase: 'Kommunikation', title: '9. Schicksals-Tagebuch', desc: 'Ein Ort für unglaubliche Zufälle und unerklärliche Momente deines Lebens.' },
+  { id: 'm10', phase: 'Kommunikation', title: '10. Das Dankbarkeits-Echo', desc: 'Wem verdankst du etwas? Wer waren deine Mentoren, Lehrer, Wegbegleiter?' },
+  { id: 'm11', phase: 'Struktur', title: '11. Purer Text (Agnostisch)', desc: 'Schreibe in einfachen Sätzen rohe Fakten auf, völlig ohne Emotionen.' },
+  { id: 'm12', phase: 'Struktur', title: '12. Matroschka-Ziele', desc: 'Bricht deine 50-Jahres-Vision auf ein 10-Jahres-Ziel und das Heute herunter.' },
+  { id: 'm13', phase: 'Struktur', title: '13. Die Essenz-Filterung', desc: 'Fasse das vergangene Jahr in drei Sätzen zusammen: Triumph, Schmerz, Lektion.' },
+  { id: 'm14', phase: 'Struktur', title: '14. Offene Fragen', desc: 'Dinge im Leben, die du noch nicht verstehst. Zeige intellektuelle Demut.' },
+  { id: 'm15', phase: 'Struktur', title: '15. Denkwerkzeuge', desc: 'Notiere die mentalen Modelle, die dir in schweren Situationen helfen.' },
+  { id: 'm16', phase: 'Tiefe', title: '16. Emotionaler Farb-Code', desc: 'Vergib deiner aktuellen Lebensphase eine Farbe und erkläre, warum.' },
+  { id: 'm17', phase: 'Tiefe', title: '17. Die Friedens-Akte', desc: 'Aufzeichnungen darüber, wie du einen schweren Konflikt gelöst hast.' },
+  { id: 'm18', phase: 'Tiefe', title: '18. Das Alltags-Fossil', desc: 'Dokumentiere einen extrem banalen, minutengenauen Ablauf eines normalen Dienstags.' },
+  { id: 'm19', phase: 'Tiefe', title: '19. Rhythmus-Tracker', desc: 'Beobachte deine eigenen Lebensenergie-Zyklen. Wann musstest du loslassen?' },
+  { id: 'm20', phase: 'Tiefe', title: '20. Ideen-Gewächshaus', desc: 'Ideen, die du heute hast, für die du oder die Welt noch nicht bereit sind.' },
+  { id: 'm21', phase: 'Anpassung', title: '21. Der Pivot-Tracker', desc: 'Hebe Momente hervor, in denen du dein Leben radikal in eine neue Richtung gelenkt hast.' },
+  { id: 'm22', phase: 'Anpassung', title: '22. Umwelt-Resonanz', desc: 'Beobachtungen über die Natur und Umwelt an deinem Wohnort im Wandel der Zeit.' },
+  { id: 'm23', phase: 'Anpassung', title: '23. Die Loslass-Liste', desc: 'Träume, Ziele oder Menschen, die du bewusst (und in Frieden) aufgegeben hast.' },
+  { id: 'm24', phase: 'Anpassung', title: '24. Stimme & Akzent', desc: 'Nutze die Mikrofon-Funktion, um eine Audio-Nachricht mit deiner Stimme zu hinterlassen.' },
+  { id: 'm25', phase: 'Anpassung', title: '25. Raum für Unbegreifliches', desc: 'Platz für Konzepte und Lebensrealitäten, die es heute noch gar nicht gibt.' }
+];
+
+const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+
+const getDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371e3;
+  const p1 = lat1 * Math.PI/180, p2 = lat2 * Math.PI/180;
+  const dp = (lat2-lat1) * Math.PI/180, dl = (lon2-lon1) * Math.PI/180;
+  const a = Math.sin(dp/2) * Math.sin(dp/2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2) * Math.sin(dl/2);
+  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+};
+
+const initDB = () => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('LegacyVisionDB', 4);
+    request.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('entries')) db.createObjectStore('entries', { keyPath: 'id' });
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQuery }) => {
+    if (!entry) return null;
+    const hasImages = entry.images && entry.images.length > 0;
+    const cardBgClass = isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-slate-100 shadow-sm';
+    const isCapsuleLocked = entry.unlockDate;
+
+    return (
+      <div onClick={() => onClick(entry)} className={`group relative rounded-[2rem] overflow-hidden cursor-pointer border hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col h-full' : ''}`}>
+        {entry.manifested && (
+          <div className="absolute top-4 right-4 z-20 bg-amber-400 text-amber-950 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
+            <Icon name="sparkles" size={12}/> Highlight
+          </div>
+        )}
+        {hasImages && (
+          <div className="w-full h-48 sm:h-56 relative overflow-hidden bg-slate-100 dark:bg-zinc-800">
+            <img src={entry.images[0]} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+          </div>
+        )}
+        <div className="p-6 relative z-10 flex-1 flex flex-col">
+          <div className="flex items-center gap-2 mb-3 text-[10px] font-bold uppercase tracking-widest opacity-50 flex-wrap">
+            <span>{new Date(entry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+            {!isGridView && <><span>•</span><span>{entry.category || 'Allgemein'}</span></>}
+            {entry.tags && <span className="text-blue-500 flex items-center gap-0.5 ml-1"><Icon name="tag" size={10}/>{entry.tags.split(',').filter(x=>x.trim()).length}</span>}
+            {entry.people && <span className="text-indigo-500 flex items-center gap-0.5 ml-1"><Icon name="user" size={10}/>{entry.people.split(',').filter(x=>x.trim()).length}</span>}
+            {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span></>}
+            {entry.locked && !isCapsuleLocked && <><span className="text-rose-500 flex items-center gap-1 ml-auto"><Icon name="lock" size={12}/> Tresor</span></>}
+            {entry.audio && <><span className="text-emerald-500 flex items-center ml-1"><Icon name="mic" size={12}/></span></>}
+            {entry.location && <span className="text-amber-500 flex items-center ml-1"><Icon name="map-pin" size={12}/></span>}
+          </div>
+          
+          <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : 'text-slate-900 dark:text-white group-hover:text-accent transition-colors'}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery)} />
+          
+          {/* Metadata Pills directly on Dashboard Card */}
+          {!isGridView && (entry.tags || entry.people || entry.weather || entry.rating > 0) && (
+             <div className="flex flex-wrap gap-1.5 mb-4">
+                {entry.tags && entry.tags.split(',').filter(x=>x.trim()).map((t, i) => <span key={`t-${i}`} className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="tag" size={10}/> {t.trim()}</span>)}
+                {entry.people && entry.people.split(',').filter(x=>x.trim()).map((p, i) => <span key={`p-${i}`} className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="user" size={10}/> {p.trim()}</span>)}
+                {entry.weather && <span className="px-2 py-0.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="sun" size={10}/> {entry.weather}</span>}
+                {entry.rating > 0 && <span className="px-2 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="star" size={10}/> {entry.rating}</span>}
+             </div>
+          )}
+
+          {!entry.locked && !isCapsuleLocked && entry.text && !isGridView && (
+            <div className="text-sm font-medium leading-relaxed opacity-70 line-clamp-3 text-slate-600 dark:text-slate-400" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
+          )}
+          {(entry.locked || isCapsuleLocked) && !isGridView && (
+             <div className="text-sm font-medium leading-relaxed opacity-40 italic mt-auto">
+                {isCapsuleLocked ? 'Inhalt durch Zeitsiegel geschützt.' : 'Inhalt durch Tresor-PIN geschützt.'}
+             </div>
+          )}
+        </div>
+      </div>
+    );
+};
+
+const SwipeableTimelineEntry = ({ entry, onArchive, onTrash, onClick, showDialog, userColor }) => {
+    const [offsetX, setOffsetX] = useState(0);
+    const startX = useRef(null);
+    const dragged = useRef(false);
+
+    const handleTouchStart = (evt) => {
+        startX.current = evt.touches[0].clientX;
+        dragged.current = false;
+    };
+
+    const handleTouchMove = (evt) => {
+        if (startX.current === null) return;
+        const diff = evt.touches[0].clientX - startX.current;
+        if (Math.abs(diff) > 10) dragged.current = true;
+        
+        if (diff > 120) setOffsetX(120);
+        else if (diff < -120) setOffsetX(-120);
+        else setOffsetX(diff);
+    };
+
+    const handleTouchEnd = () => {
+        if (offsetX > 60) {
+            onArchive(entry);
+            showDialog({title: 'Archiviert', message: 'Der Eintrag wurde ins Archiv verschoben.', icon: 'archive', iconColor: 'text-emerald-500'});
+        }
+        else if (offsetX < -60) {
+            onTrash(entry);
+            showDialog({title: 'Papierkorb', message: 'Der Eintrag wurde gelöscht.', icon: 'trash-2', iconColor: 'text-rose-500'});
+        }
+        setOffsetX(0);
+        startX.current = null;
+        setTimeout(() => { dragged.current = false; }, 100);
+    };
+
+    return (
+        <div className="relative w-full rounded-[2rem] overflow-hidden bg-slate-200 dark:bg-zinc-800 shrink-0 mb-3">
+            <div className="absolute inset-0 flex justify-between items-center px-6">
+                <div className="text-emerald-600 font-bold flex items-center gap-2 opacity-80"><Icon name="archive" size={18}/> Archiv</div>
+                <div className="text-rose-600 font-bold flex items-center gap-2 opacity-80">Löschen <Icon name="trash-2" size={18}/></div>
+            </div>
+            <button 
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onClick={(e) => {
+                    if (dragged.current) { e.preventDefault(); return; }
+                    onClick(entry);
+                }} 
+                style={{ transform: `translateX(${offsetX}px)`, transition: startX.current === null ? 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)' : 'none' }}
+                className="relative z-10 w-full text-left p-4 rounded-[2rem] flex items-center gap-4 bg-slate-50 dark:bg-zinc-900 shadow-sm border border-transparent"
+            >
+                {entry.images && entry.images.length > 0 && <img src={entry.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0 pointer-events-none" />}
+                <div className="flex-1 overflow-hidden pointer-events-none">
+                    <span className="font-bold text-sm truncate block" style={{ color: userColor }}>{entry.title || 'Ohne Titel'}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">{new Date(entry.date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
+                </div>
+            </button>
+        </div>
+    );
+};
+
+function App() {
+  const [db, setDb] = useState(null);
+  const [fb, setFb] = useState(null);
+  const [authUser, setAuthUser] = useState(null);
+  
+  const [user, setUser] = useState({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false, uiScale: 1 });
+  const [entries, setEntries] = useState([]);
+  
+  const [view, setView] = useState('loading'); 
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isGridView, setIsGridView] = useState(false); 
+  
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authMsg, setAuthMsg] = useState('');
+  const [authMode, setAuthMode] = useState('login');
+  const [syncingCloud, setSyncingCloud] = useState(false);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState('Alle');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [dialog, setDialog] = useState(null);
+  const [picker, setPicker] = useState(null);
+
+  const [viewingEntry, setViewingEntry] = useState(null);
+  const [showEditor, setShowEditor] = useState(false);
+  const [currentViewerImgIdx, setCurrentViewerImgIdx] = useState(0);
+  
+  const [showTimeline, setShowTimeline] = useState(false); 
+  const [timelineMonth, setTimelineMonth] = useState(() => new Date()); 
+  const [timelineSelectedDate, setTimelineSelectedDate] = useState(null); 
+  
+  const [unlockTarget, setUnlockTarget] = useState(null);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+  
+  const [isChangingPin, setIsChangingPin] = useState(false);
+  const [oldPinInput, setOldPinInput] = useState('');
+  const [newPinInput, setNewPinInput] = useState('');
+  const [confirmPinInput, setConfirmPinInput] = useState('');
+
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const audioPlayerRef = useRef(new Audio());
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+
+  const [burnText, setBurnText] = useState('');
+  const [isBurning, setIsBurning] = useState(false);
+
+  const [isDrawing, setIsDrawing] = useState(false);
+  const canvasRef = useRef(null);
+  
+  const mapRef = useRef(null);
+  const mapInstance = useRef(null);
+
+  const [peerId, setPeerId] = useState(null);
+  const [peerInstance, setPeerInstance] = useState(null);
+  const [syncStatus, setSyncStatus] = useState('');
+  const [importId, setImportId] = useState(() => new URLSearchParams(window.location.search).get('import'));
+
+  const [editingId, setEditingId] = useState(null);
+  const [title, setTitle] = useState('');
+  const [text, setText] = useState(''); 
+  const [selectedColor, setSelectedColor] = useState(COLORS[8]);
+  const [selectedImages, setSelectedImages] = useState([]); 
+  const [isLocked, setIsLocked] = useState(false);
+  const [audioUrl, setAudioUrl] = useState(null);
+  const [isManifested, setIsManifested] = useState(false);
+  const [unlockDate, setUnlockDate] = useState('');
+  const [location, setLocation] = useState(null);
+  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [mood, setMood] = useState(null);
+  const [entryDate, setEntryDate] = useState('');
+  
+  const [rating, setRating] = useState(0);
+  const [tags, setTags] = useState('');
+  const [people, setPeople] = useState('');
+  const [weather, setWeather] = useState('');
+  
+  const [parentId, setParentId] = useState('');
+  const [inheritedFrom, setInheritedFrom] = useState(null);
+  const [pillarGuidance, setPillarGuidance] = useState(null);
+  const [autoSaveStatus, setAutoSaveStatus] = useState('');
+
+  const editorRef = useRef(null);
+  const isDirtyRef = useRef(false);
+  const currentEntryRef = useRef({});
+  const editingIdRef = useRef(null);
+
+  const [touchStart, setTouchStart] = useState(null);
+  const isDrawingRef = useRef(isDrawing);
+  const showEditorRef = useRef(showEditor);
+  const viewingEntryRef = useRef(viewingEntry);
+  const showTimelineRef = useRef(showTimeline);
+  const viewRef = useRef(view);
+
+  // Sync state refs for popstate
+  useEffect(() => {
+      isDrawingRef.current = isDrawing;
+      showEditorRef.current = showEditor;
+      viewingEntryRef.current = viewingEntry;
+      showTimelineRef.current = showTimeline;
+      viewRef.current = view;
+  }, [isDrawing, showEditor, viewingEntry, showTimeline, view]);
+
+  // Apply UI Scale
+  useEffect(() => {
+      document.documentElement.style.fontSize = `${(user.uiScale || 1) * 100}%`;
+  }, [user.uiScale]);
+
+  useEffect(() => {
+    if (isLoaded && user.name) {
+       safeStorageSet('legacy_user', JSON.stringify(user));
+    }
+  }, [user, isLoaded]);
+
+  useEffect(() => {
+    try { window.history.pushState({ isApp: true }, ''); } catch(e) {}
+    const handlePopState = (e) => {
+      e.preventDefault();
+      let trapped = false;
+      if (isDrawingRef.current) { setIsDrawing(false); trapped = true; }
+      else if (showEditorRef.current) { checkSaveEntry(true); trapped = true; } 
+      else if (viewingEntryRef.current) { setViewingEntry(null); setCurrentViewerImgIdx(0); trapped = true; }
+      else if (showTimelineRef.current) { setShowTimeline(false); trapped = true; }
+      else if (viewRef.current !== 'dashboard' && viewRef.current !== 'loading' && viewRef.current !== 'auth' && viewRef.current !== 'pin_entry' && viewRef.current !== 'onboarding' && viewRef.current !== 'cloud_pin_sync') { setView('dashboard'); trapped = true; }
+
+      if (trapped) {
+          try { window.history.pushState({ isApp: true }, ''); } catch(e) {}
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // --- Login Bypass & Firebase Setup ---
+  useEffect(() => {
+    const initFB = async () => {
+       try {
+          const firebaseConfig = { apiKey: "AIzaSyBs7DoO5z8cuIc3DtdArgorKRx_FX7JX-U", authDomain: "tagebuch-og.firebaseapp.com", projectId: "tagebuch-og", storageBucket: "tagebuch-og.firebasestorage.app", messagingSenderId: "418864246292", appId: "1:418864246292:web:957b604fe7ce4380c24101" };
+          const nativeImport = new Function('url', 'return import(url)');
+          const { initializeApp } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
+          const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
+          const { getFirestore, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+          
+          const app = initializeApp(firebaseConfig); const auth = getAuth(app); const firestoreDb = getFirestore(app);
+          setFb({ db: firestoreDb, auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot });
+
+          const handleUserLoad = async (u) => {
+              const savedStr = safeStorageGet('legacy_user');
+              if (savedStr) {
+                  try {
+                      const parsed = JSON.parse(savedStr);
+                      setUser(parsed);
+                      if (parsed.pin) {
+                          setView('pin_entry');
+                      } else {
+                          setView(parsed.name ? 'dashboard' : 'onboarding');
+                      }
+                  } catch(e) { setView('auth'); }
+              } else {
+                  try {
+                      const profileSnap = await getDoc(doc(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'profile', 'data'));
+                      if (profileSnap.exists()) {
+                          const data = profileSnap.data();
+                          if (data.encryptedData) {
+                              setView('cloud_pin_sync'); 
+                              return;
+                          } else if (data.rawData) {
+                              setUser({ ...user, ...data.rawData });
+                              safeStorageSet('legacy_user', JSON.stringify(data.rawData));
+                              setView('dashboard');
+                              return;
+                          }
+                      }
+                  } catch(e) {}
+                  setView('onboarding'); 
+              }
+          };
+
+          onAuthStateChanged(auth, (u) => {
+             if (u) {
+                 if (u.emailVerified) {
+                     setAuthUser(u);
+                     handleUserLoad(u);
+                 } else { signOut(auth); setView('auth'); }
+             } else {
+                 setAuthUser(null);
+                 setView('auth'); 
+             }
+             setIsLoaded(true);
+          });
+       } catch(e) { 
+           console.error("Firebase init error:", e);
+           setView('auth');
+           setAuthError('Verbindung zu Firebase blockiert. Bitte Internet oder Adblocker prüfen.');
+           setIsLoaded(true); 
+       }
+    };
+    initFB();
+  }, []);
+
+  // Initialize DB
+  useEffect(() => {
+    const loadApp = async () => {
+      try {
+        const database = await initDB(); setDb(database);
+        const transaction = database.transaction('entries', 'readonly'); const request = transaction.objectStore('entries').getAll();
+
+        request.onsuccess = async () => {
+          let loadedEntries = request.result || [];
+          loadedEntries = loadedEntries.filter(e => e != null);
+
+          const savedUser = safeStorageGet('legacy_user');
+          let currentUser = user;
+          if (savedUser) { 
+              try { currentUser = { ...user, ...JSON.parse(savedUser) }; setUser(currentUser); } catch(e){} 
+          }
+
+          if (currentUser.pin) {
+            loadedEntries = await Promise.all(loadedEntries.map(async (e) => {
+              if (e.locked && e.encryptedData) {
+                const decStr = await decryptData(e.encryptedData, currentUser.pin);
+                if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, text: parsed.text, title: parsed.title }; } catch(err){} }
+              }
+              return e;
+            }));
+          }
+          setEntries(loadedEntries.sort(sortEntriesDesc));
+        };
+      } catch (e) { console.warn("DB Load failed", e); }
+    };
+    loadApp();
+  }, []);
+
+  // REALTIME CLOUD SYNC
+  useEffect(() => {
+    if (!fb || !fb.onSnapshot || !authUser || !user.cloudSync) return;
+    const q = fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries');
+    const unsubscribe = fb.onSnapshot(q, async (snapshot) => {
+        const rawEntries = [];
+        snapshot.forEach(d => rawEntries.push(d.data()));
+        const decEntries = await Promise.all(rawEntries.map(async (docData) => {
+            if (docData.encryptedData && user.pin) {
+               const decStr = await decryptData(docData.encryptedData, user.pin);
+               if (decStr) { 
+                   try { return { ...JSON.parse(decStr), id: docData.id }; } catch(e){} 
+               }
+            } else if (docData.rawData) {
+                return { ...docData.rawData, id: docData.id };
+            }
+            return null;
+        }));
+        
+        const validCloudEntries = decEntries.filter(Boolean);
+        setEntries(prev => {
+            const map = new Map();
+            prev.forEach(e => map.set(e.id, e));
+            validCloudEntries.forEach(e => map.set(e.id, e));
+            return Array.from(map.values()).sort(sortEntriesDesc);
+        });
+    });
+    return () => unsubscribe();
+  }, [fb, authUser, user.pin, user.cloudSync]);
+
+  const handleAuthAction = async () => {
+      setAuthError(''); setAuthMsg('');
+      if (!fb || !authEmail) { setAuthError('Bitte fülle deine E-Mail aus.'); return; }
+      try {
+          if (authMode === 'login') {
+              if (!authPassword) { setAuthError('Passwort fehlt.'); return; }
+              const cred = await fb.signInWithEmailAndPassword(fb.auth, authEmail, authPassword);
+              if (!cred.user.emailVerified) { setAuthError('Bitte bestätige zuerst deine E-Mail (Double Opt-In).'); await fb.signOut(fb.auth); }
+          } else if (authMode === 'register') {
+              if (!authPassword) { setAuthError('Passwort fehlt.'); return; }
+              const cred = await fb.createUserWithEmailAndPassword(fb.auth, authEmail, authPassword);
+              await fb.sendEmailVerification(cred.user);
+              setAuthMsg('Erfolg! Bitte prüfe deine E-Mails zur Bestätigung.'); await fb.signOut(fb.auth); setAuthMode('login');
+          } else if (authMode === 'reset') {
+              await fb.sendPasswordResetEmail(fb.auth, authEmail);
+              setAuthMsg('Passwort-Reset-Link gesendet!'); setTimeout(() => setAuthMode('login'), 3000);
+          }
+      } catch (e) {
+          let errorMsg = 'Fehler aufgetreten.';
+          if (e.code === 'auth/email-already-in-use') errorMsg = 'E-Mail wird bereits verwendet.';
+          else if (e.code === 'auth/invalid-email') errorMsg = 'E-Mail ungültig.';
+          else if (e.code === 'auth/weak-password') errorMsg = 'Passwort zu schwach (min. 6 Zeichen).';
+          else if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') errorMsg = 'Daten falsch oder nicht bestätigt.';
+          setAuthError(errorMsg);
+      }
+  };
+
+  const handleLogout = async () => {
+      if(fb) { await fb.signOut(fb.auth); setUser({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false, uiScale: 1 }); localStorage.removeItem('legacy_user'); setEntries([]); setView('auth'); }
+  };
+
+  const handleUnlockSubmit = (pinValue) => {
+      if (!pinValue) return;
+      
+      if (unlockTarget) {
+          if (pinValue === user.pin || !user.pin) { 
+              setViewingEntry(unlockTarget); setCurrentViewerImgIdx(0); setUnlockTarget(null); setPinInput(''); setPinError(false);
+          } else { 
+              setPinError(true); setTimeout(() => setPinError(false), 800); setPinInput(''); 
+          }
+          return;
+      }
+      
+      if (user.pin && pinValue !== user.pin) {
+          setPinError(true); setTimeout(() => setPinError(false), 800); setPinInput('');
+          return;
+      }
+
+      const savedStr = safeStorageGet('legacy_user');
+      let mergedUser = { ...user, pin: pinValue };
+      if (savedStr) {
+          try {
+              const parsed = JSON.parse(savedStr);
+              mergedUser = { ...parsed, pin: pinValue };
+          } catch(e) {}
+      }
+
+      setUser(mergedUser);
+      safeStorageSet('legacy_user', JSON.stringify(mergedUser));
+      setView(mergedUser.name ? 'dashboard' : 'onboarding');
+      
+      // Falls auf einem neuen Gerät gerade die PIN eingegeben wurde, ziehe sofort alle Backup-Daten!
+      if (fb && authUser && db) performCloudSync();
+  };
+
+  const submitPin = () => handleUnlockSubmit(pinInput);
+
+  const toggleBiometric = async () => {
+      if (!user.biometric) {
+          try {
+              const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
+              const userId = new Uint8Array(16); window.crypto.getRandomValues(userId);
+              const rpId = window.location.hostname || "localhost";
+              
+              const cred = await navigator.credentials.create({
+                  publicKey: {
+                      challenge, 
+                      rp: { name: "Legacy Journal", id: rpId }, 
+                      user: { id: userId, name: user.name || 'User', displayName: user.name || 'User' },
+                      pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+                      authenticatorSelection: { 
+                          authenticatorAttachment: "platform", 
+                          residentKey: "required", 
+                          userVerification: "discouraged" 
+                      }, 
+                      timeout: 60000
+                  }
+              });
+              if (cred) {
+                  setUser({...user, biometric: true});
+                  safeStorageSet('legacy_bio_pin', btoa(user.pin)); 
+                  safeStorageSet('legacy_bio_id', btoa(String.fromCharCode(...new Uint8Array(cred.rawId))));
+                  showDialog({title: 'Aktiviert', message: 'Biometrisches Entsperren ist nun aktiv.', icon: 'fingerprint'});
+              }
+          } catch(e) { showDialog({title: 'Fehler', message: 'Biometrie abgebrochen oder auf diesem Gerät nicht verfügbar.', icon: 'x'}); }
+      } else {
+          setUser({...user, biometric: false}); localStorage.removeItem('legacy_bio_pin'); localStorage.removeItem('legacy_bio_id');
+      }
+  };
+
+  const handleBiometricUnlock = async () => {
+      try {
+          const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
+          const rpId = window.location.hostname || "localhost";
+          const savedIdStr = safeStorageGet('legacy_bio_id');
+          let allowCredentials = undefined;
+          
+          if (savedIdStr) {
+              const rawId = Uint8Array.from(atob(savedIdStr), c => c.charCodeAt(0));
+              allowCredentials = [{ id: rawId, type: "public-key" }];
+          }
+
+          const cred = await navigator.credentials.get({ 
+              publicKey: { 
+                  challenge, 
+                  rpId,
+                  allowCredentials, 
+                  userVerification: "discouraged" 
+              } 
+          });
+
+          if (cred) {
+              const savedPin = atob(safeStorageGet('legacy_bio_pin'));
+              if (savedPin) {
+                  handleUnlockSubmit(savedPin);
+              }
+          }
+      } catch(e) { showDialog({title: 'Fehler', message: 'Biometrische Prüfung fehlgeschlagen.', icon: 'x'}); }
+  };
+
+  const handleCloudRestore = async (pinValue) => {
+      if (!pinValue) return;
+      setPinError(false);
+      try {
+          const profileSnap = await fb.getDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'profile', 'data'));
+          if (profileSnap.exists() && profileSnap.data().encryptedData) {
+              const decProfile = await decryptData(profileSnap.data().encryptedData, pinValue);
+              if (decProfile) {
+                  const parsedUser = JSON.parse(decProfile);
+                  const mergedUser = { ...parsedUser, pin: pinValue, cloudSync: true };
+                  setUser(mergedUser);
+                  safeStorageSet('legacy_user', JSON.stringify(mergedUser));
+                  setPinInput('');
+                  setView('loading');
+                  
+                  // Restore all entries directy
+                  const cloudSnap = await fb.getDocs(fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries'));
+                  const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries');
+                  let count = 0;
+                  const cloudDocs = []; cloudSnap.forEach(d => cloudDocs.push(d.data()));
+                  for (let cloudDoc of cloudDocs) {
+                      if (cloudDoc.encryptedData) {
+                          const decryptedStr = await decryptData(cloudDoc.encryptedData, pinValue);
+                          if (decryptedStr) {
+                              store.put({ ...JSON.parse(decryptedStr) });
+                              count++;
+                          }
+                      } else if (cloudDoc.rawData) {
+                          store.put(cloudDoc.rawData); count++;
+                      }
+                  }
+                  tx.oncomplete = () => {
+                      const req = db.transaction('entries', 'readonly').objectStore('entries').getAll();
+                      req.onsuccess = async () => {
+                          let loadedEntries = req.result || [];
+                          loadedEntries = loadedEntries.map(e => ({ ...e, images: e.images || (e.image ? [e.image] : []) }));
+                          setEntries(loadedEntries.sort(sortEntriesDesc));
+                          setView('dashboard');
+                          showDialog({ title: 'Willkommen zurück', message: `Deine Daten (${count} Einträge) wurden erfolgreich synchronisiert!`, icon: 'cloud-download' });
+                      };
+                  }
+              } else {
+                  setPinError(true); setTimeout(() => setPinError(false), 1000); setPinInput('');
+              }
+          }
+      } catch(e) {
+          showDialog({title: 'Fehler', message: 'Verbindungsfehler zur Cloud.', icon: 'x'});
+      }
+  };
+
+  // Theme Sync
+  useEffect(() => {
+    const metaThemeColor = document.getElementById("meta-theme-color");
+    
+    if (user.appBgColor) {
+        document.body.style.setProperty('background-color', user.appBgColor, 'important');
+        if (metaThemeColor) metaThemeColor.setAttribute("content", user.appBgColor);
+        const isBgDark = isDarkColor(user.appBgColor);
+        if(isBgDark) document.documentElement.classList.add('dark');
+        else document.documentElement.classList.remove('dark');
+    } else {
+        document.body.style.removeProperty('background-color');
+        if (user.isDark) { document.documentElement.classList.add('dark'); if (metaThemeColor) metaThemeColor.setAttribute("content", "#000000"); } 
+        else { document.documentElement.classList.remove('dark'); if (metaThemeColor) metaThemeColor.setAttribute("content", "#f8fafc"); }
+    }
+
+    if (user.textColor) {
+        document.body.style.setProperty('color', user.textColor, 'important');
+    } else {
+        document.body.style.removeProperty('color');
+        const isBgDark = user.appBgColor ? isDarkColor(user.appBgColor) : user.isDark;
+        document.body.style.setProperty('color', isBgDark ? '#ffffff' : '#18181b', 'important');
+    }
+  }, [user.appBgColor, user.textColor, user.isDark]);
+
+  const syncSingleEntryToCloud = async (entry) => {
+      if (!fb || !fb.auth.currentUser || !user.cloudSync) return;
+      const appId = 'legacy-vision'; const userId = fb.auth.currentUser.uid;
+      try { 
+          let payloadToSave = { id: entry.id, timestamp: Date.now() };
+          if (user.pin) {
+              const encrypted = await encryptData(JSON.stringify(entry), user.pin); 
+              if (encrypted) payloadToSave.encryptedData = encrypted;
+          } else {
+              payloadToSave.rawData = entry;
+          }
+          await fb.setDoc(fb.doc(fb.db, 'artifacts', appId, 'users', userId, 'entries', entry.id), payloadToSave); 
+      } catch(e) {}
+  };
+  
+  const deleteSingleEntryFromCloud = async (id) => {
+      if (!fb || !fb.auth.currentUser || !user.cloudSync) return;
+      try { await fb.deleteDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', fb.auth.currentUser.uid, 'entries', id)); } catch(e) {}
+  };
+  
+  const syncProfileToCloud = async (userData) => {
+      if (!fb || !fb.auth.currentUser || !userData.cloudSync) return;
+      try { 
+          let payload = { timestamp: Date.now() };
+          if (userData.pin) {
+              const encrypted = await encryptData(JSON.stringify(userData), userData.pin); 
+              if (encrypted) payload.encryptedData = encrypted; 
+          } else {
+              payload.rawData = userData;
+          }
+          await fb.setDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', fb.auth.currentUser.uid, 'profile', 'data'), payload); 
+      } catch(e) {}
+  };
+
+  const performCloudSync = async () => {
+      if (!fb || !fb.auth.currentUser) return;
+      setSyncingCloud(true); const appId = 'legacy-vision'; const userId = fb.auth.currentUser.uid;
+      try {
+          try {
+              const profileSnap = await fb.getDoc(fb.doc(fb.db, 'artifacts', appId, 'users', userId, 'profile', 'data'));
+              if (profileSnap.exists() && profileSnap.data().encryptedData && user.pin) {
+                  const decProfile = await decryptData(profileSnap.data().encryptedData, user.pin);
+                  if (decProfile) setUser({ ...user, ...JSON.parse(decProfile), cloudSync: true });
+              }
+          } catch(e) {}
+
+          const cloudSnap = await fb.getDocs(fb.collection(fb.db, 'artifacts', appId, 'users', userId, 'entries'));
+          const cloudEntries = []; cloudSnap.forEach(doc => cloudEntries.push(doc.data()));
+          if (cloudEntries.length === 0) { showDialog({ title: 'Cloud leer', message: 'Keine Cloud-Einträge gefunden.', icon: 'cloud-off' }); setSyncingCloud(false); return; }
+
+          let recoveredCount = 0; let failedDecrypt = 0; const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries');
+          for (let cloudDoc of cloudEntries) {
+              if (cloudDoc.encryptedData) {
+                  try {
+                      if (!user.pin) { failedDecrypt++; continue; }
+                      const decryptedStr = await decryptData(cloudDoc.encryptedData, user.pin);
+                      if (decryptedStr) {
+                          let dbItem = { ...JSON.parse(decryptedStr) };
+                          if (dbItem.locked) { const payload = JSON.stringify({ text: dbItem.text || '', title: dbItem.title || '' }); dbItem.encryptedData = await encryptData(payload, user.pin); dbItem.text = ''; dbItem.title = 'Verschlüsselter Eintrag'; }
+                          store.put(dbItem); recoveredCount++;
+                      } else failedDecrypt++;
+                  } catch(e) { failedDecrypt++; }
+              } else if (cloudDoc.rawData) {
+                  store.put(cloudDoc.rawData); recoveredCount++;
+              }
+          }
+          tx.oncomplete = () => {
+              const req = db.transaction('entries', 'readonly').objectStore('entries').getAll();
+              req.onsuccess = async () => {
+                  let loadedEntries = req.result || [];
+                  loadedEntries = loadedEntries.map(e => ({ ...e, images: e.images || (e.image ? [e.image] : []) }));
+                  if (user.pin) loadedEntries = await Promise.all(loadedEntries.map(async (e) => { if (e.locked && e.encryptedData) { const decStr = await decryptData(e.encryptedData, user.pin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, text: parsed.text, title: parsed.title }; } catch(err){} } } return e; }));
+                  setEntries(loadedEntries.sort(sortEntriesDesc));
+                  if (failedDecrypt > 0) showDialog({ title: 'Entschlüsselung unvollständig', message: `${failedDecrypt} Einträge fehlgeschlagen. PIN fehlt/falsch?`, icon: 'shield-alert' });
+                  else showDialog({ title: 'Wiederhergestellt', message: `${recoveredCount} Einträge geladen.`, icon: 'check' });
+              };
+          };
+      } catch(e) { showDialog({ title: 'Verbindungsfehler', message: 'Cloud nicht erreichbar.', icon: 'wifi-off' }); }
+      finally { setSyncingCloud(false); }
+  };
+
+  useEffect(() => {
+    if (importId && isLoaded) {
+      setSyncStatus('Bereite Datenübertragung vor...'); const peer = new window.Peer();
+      peer.on('open', () => { setSyncStatus(`Verbinde mit altem Gerät...`); const conn = peer.connect(importId); conn.on('open', () => { setSyncStatus('Verbunden! Empfange Daten...'); conn.send('request_data'); }); conn.on('data', async (data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.entries) {
+               setSyncStatus('Daten werden verarbeitet...');
+               if (db) {
+                 const pinToUse = parsed.user ? parsed.user.pin : user.pin;
+                 const entriesToSave = await Promise.all(parsed.entries.map(async (e) => {
+                     let dbE = { ...e }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []);
+                     if (dbE.locked && pinToUse) { const payload = JSON.stringify({ text: dbE.text || '', title: dbE.title || '' }); dbE.encryptedData = await encryptData(payload, pinToUse); dbE.text = ''; dbE.title = 'Verschlüsselter Eintrag'; return dbE; } return dbE;
+                 }));
+                 const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); entriesToSave.forEach(e => store.put(e));
+                 tx.oncomplete = () => { if (parsed.user) safeStorageSet('legacy_user', JSON.stringify(parsed.user)); setSyncStatus('Erfolgreich übertragen!'); setTimeout(() => { window.location.href = window.location.origin + window.location.pathname; }, 2000); };
+               }
+            }
+          } catch(e) { setSyncStatus('Fehler beim Lesen der Daten.'); }
+        }); conn.on('error', (err) => setSyncStatus('Verbindungsfehler: ' + err)); }); peer.on('error', (err) => setSyncStatus('Gerät nicht bereit.'));
+    }
+  }, [importId, isLoaded, db]);
+
+  // Robust Save Logic Update
+  useEffect(() => {
+     editingIdRef.current = editingId;
+     currentEntryRef.current = { 
+         ...currentEntryRef.current,
+         title, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, rating, tags, people, weather, date: entryDate 
+     };
+  }, [editingId, title, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, rating, tags, people, weather, entryDate]);
+
+  const saveToDB = async (entry, forcePin = null) => {
+    const activePin = forcePin || user.pin; let dbEntry = { ...entry };
+    try { if (dbEntry.locked && activePin) { const payload = JSON.stringify({ text: dbEntry.text || '', title: dbEntry.title || '' }); dbEntry.encryptedData = await encryptData(payload, activePin); dbEntry.text = ''; dbEntry.title = 'Verschlüsselter Eintrag'; } else if (!dbEntry.locked) { dbEntry.encryptedData = null; } } catch(e) {}
+    
+    const updateMemory = () => {
+        setEntries(prev => { 
+            const exists = prev.find(e => e && e.id === entry.id); 
+            let nextEntries = exists ? prev.map(e => (e && e.id === entry.id) ? entry : e) : [entry, ...prev];
+            return nextEntries.sort(sortEntriesDesc);
+        });
+    };
+
+    if (!db) {
+        updateMemory();
+        syncSingleEntryToCloud(entry); 
+        return;
+    }
+
+    try {
+      const tx = db.transaction('entries', 'readwrite'); 
+      tx.objectStore('entries').put(dbEntry); 
+      tx.oncomplete = () => { 
+          updateMemory();
+          syncSingleEntryToCloud(entry); 
+      }; 
+      tx.onerror = () => { updateMemory(); syncSingleEntryToCloud(entry); }
+    } catch (e) {
+        updateMemory();
+        syncSingleEntryToCloud(entry);
+    }
+  };
+
+  const deleteFromDB = async (id) => { 
+      const updateMemory = () => setEntries(prev => prev.filter(e => e && e.id !== id));
+      if (!db) { updateMemory(); return; } 
+      try {
+          const tx = db.transaction('entries', 'readwrite'); 
+          tx.objectStore('entries').delete(id); 
+          tx.oncomplete = () => { 
+              updateMemory();
+              deleteSingleEntryFromCloud(id); 
+          }; 
+          tx.onerror = () => updateMemory();
+      } catch(e) { updateMemory(); }
+  };
+
+  const checkSaveEntry = (closeAndRead = false) => {
+    try {
+        const state = currentEntryRef.current;
+        const entryId = editingIdRef.current || generateId(); 
+        const currentText = editorRef.current ? editorRef.current.innerHTML : (state.text || ''); 
+        const titleSafe = state.title || '';
+        
+        const hasInlineImage = currentText.includes('<img');
+        const isEmpty = !titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && !hasInlineImage && (!state.selectedImages || state.selectedImages.length === 0) && !state.audioUrl && !state.weather && !state.tags && !state.people;
+        
+        if (isEmpty && closeAndRead) { 
+            closeEditor(entries.find(e => e && e.id === editingIdRef.current) || null); 
+            return; 
+        }
+        
+        const existingEntry = entries.find(e => e && e.id === editingIdRef.current);
+        
+        const newEntry = { 
+            id: entryId, title: titleSafe || '', text: currentText, color: state.selectedColor, images: state.selectedImages, audio: state.audioUrl, locked: state.isLocked, archived: false, trashed: false, manifested: state.isManifested, category: state.category, mood: state.mood, unlockDate: state.unlockDate, location: state.location, parentId: state.parentId, inheritedFrom: state.inheritedFrom, rating: state.rating, tags: state.tags, people: state.people, weather: state.weather, 
+            date: existingEntry ? (existingEntry.date || state.date || getLocalISO()) : (state.date || getLocalISO()), 
+            orderTimestamp: existingEntry ? (existingEntry.orderTimestamp || getLocalISO()) : getLocalISO() 
+        };
+        
+        if (!editingIdRef.current) { setEditingId(entryId); editingIdRef.current = entryId; }
+        saveToDB(newEntry);
+        isDirtyRef.current = false;
+        
+        if (closeAndRead) {
+            closeEditor(newEntry);
+        } else { 
+            setAutoSaveStatus('Gespeichert'); 
+            setTimeout(()=>setAutoSaveStatus(''), 2000); 
+        }
+    } catch (err) { 
+        if (closeAndRead) closeEditor(entries.find(e => e && e.id === editingIdRef.current) || null); 
+    }
+  };
+
+  const wrapImage = (img) => {
+      if (img.closest('.inline-img-wrapper')) return; 
+      const wrapper = document.createElement('span');
+      wrapper.className = 'inline-img-wrapper';
+      wrapper.contentEditable = 'false';
+      const delBtn = document.createElement('span');
+      delBtn.className = 'delete-img-btn';
+      delBtn.innerText = 'X';
+      
+      const cleanImg = document.createElement('img');
+      cleanImg.src = img.src;
+      cleanImg.style.width = '120px';
+      cleanImg.style.height = 'auto';
+      
+      wrapper.appendChild(cleanImg);
+      wrapper.appendChild(delBtn);
+      
+      if (img.parentNode) {
+          img.parentNode.replaceChild(wrapper, img);
+          const space = document.createTextNode('\u00A0');
+          if (wrapper.nextSibling) {
+              wrapper.parentNode.insertBefore(space, wrapper.nextSibling);
+          } else {
+              wrapper.parentNode.appendChild(space);
+          }
+      }
+      isDirtyRef.current = true;
+      checkSaveEntry(false);
+  };
+
+  const handleEditorInput = () => {
+      isDirtyRef.current = true;
+      if (editorRef.current) {
+          const nakedImgs = editorRef.current.querySelectorAll('img:not(.inline-img-wrapper img)');
+          if (nakedImgs.length > 0) {
+              nakedImgs.forEach(img => {
+                  if (img.src.startsWith('blob:')) {
+                      fetch(img.src).then(r => r.blob()).then(blob => {
+                          const reader = new FileReader();
+                          reader.onload = () => { 
+                              img.src = reader.result; 
+                              wrapImage(img); 
+                          };
+                          reader.readAsDataURL(blob);
+                      }).catch(() => wrapImage(img));
+                  } else {
+                      wrapImage(img);
+                  }
+              });
+          }
+      }
+  };
+
+  useEffect(() => { 
+      if (showEditor && editorRef.current) { 
+          editorRef.current.innerHTML = text || ''; 
+
+          const observer = new MutationObserver((mutations) => {
+              let checkNeeded = false;
+              mutations.forEach(mutation => {
+                  mutation.addedNodes.forEach(node => {
+                      if (node.nodeName === 'IMG' && !node.closest('.inline-img-wrapper')) {
+                          wrapImage(node);
+                          checkNeeded = true;
+                      } else if (node.nodeType === 1 && node.querySelector) {
+                          const imgs = node.querySelectorAll('img:not(.inline-img-wrapper img)');
+                          if (imgs.length > 0) {
+                              imgs.forEach(img => wrapImage(img));
+                              checkNeeded = true;
+                          }
+                      }
+                  });
+              });
+              if (checkNeeded) {
+                  isDirtyRef.current = true;
+              }
+          });
+          
+          observer.observe(editorRef.current, { childList: true, subtree: true });
+          return () => observer.disconnect();
+      } 
+  }, [showEditor]);
+
+  useEffect(() => { 
+      if (!showEditor || view === 'burn') return; 
+      const timer = setInterval(() => { 
+          if (isDirtyRef.current) checkSaveEntry(false); 
+      }, 3000); 
+      return () => clearInterval(timer); 
+  }, [showEditor, view]);
+
+  const confirmDelete = (id) => {
+    showDialog({ 
+        type: 'confirm', 
+        title: 'In den Papierkorb?', 
+        message: 'Dieser Eintrag wird in den Papierkorb verschoben.', 
+        icon: 'trash-2', 
+        iconColor: 'text-rose-500', 
+        onConfirm: () => { 
+            const entryToTrash = entries.find(e => e && e.id === id);
+            if(entryToTrash) { saveToDB({...entryToTrash, trashed: true}); }
+            closeEditor(null); 
+        } 
+    });
+  };
+
+  const handleSavePin = () => {
+      if (newPinInput.length < 4) { showDialog({title: 'Fehler', message: 'Die neue PIN muss mindestens 4 Zeichen lang sein.', icon: 'x'}); return; }
+      if (newPinInput !== confirmPinInput) { showDialog({title: 'Fehler', message: 'Die neuen PINs stimmen nicht überein.', icon: 'x'}); return; }
+      if (user.pin && oldPinInput !== user.pin) { showDialog({title: 'Fehler', message: 'Die alte PIN ist falsch.', icon: 'x'}); return; }
+      
+      const newUserData = {...user, pin: newPinInput};
+      setUser(newUserData); 
+      setIsChangingPin(false); setOldPinInput(''); setNewPinInput(''); setConfirmPinInput('');
+      syncProfileToCloud(newUserData);
+      showDialog({title: 'Erfolg', message: 'Deine PIN wurde erfolgreich gespeichert.', icon: 'check'});
+  };
+
+  const closeEditor = (savedEntry = null) => { setShowEditor(false); if(isRecording) stopRecording(); setViewingEntry(savedEntry); };
+
+  const openEditor = (entry = null, pillar = null, customDate = null) => {
+    isDirtyRef.current = false;
+    const targetDate = entry && entry.id ? (entry.date || getLocalISO()) : (customDate ? new Date(customDate).toISOString().slice(0, -1) : getLocalISO());
+
+    const newEntryState = entry && entry.id ? {
+        title: entry.title || '', text: entry.text || '', selectedColor: entry.color || (user.isDark ? COLORS[8] : COLORS[0]), selectedImages: entry.images || [], isLocked: entry.locked || false, isManifested: entry.manifested || false, category: entry.category || CATEGORIES[0], mood: entry.mood || null, audioUrl: entry.audio || null, unlockDate: entry.unlockDate || '', location: entry.location || null, parentId: entry.parentId || '', inheritedFrom: entry.inheritedFrom || null, rating: entry.rating || 0, tags: entry.tags || '', people: entry.people || '', weather: entry.weather || '', date: targetDate, orderTimestamp: entry.orderTimestamp || targetDate
+    } : {
+        title: pillar ? pillar.title : '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isLocked: view === 'vault', isManifested: false, category: pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory), mood: null, audioUrl: null, unlockDate: '', location: null, parentId: '', inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: targetDate, orderTimestamp: targetDate
+    };
+
+    currentEntryRef.current = newEntryState;
+    editingIdRef.current = entry && entry.id ? entry.id : null;
+    
+    setEditingId(editingIdRef.current);
+    setTitle(newEntryState.title); setText(newEntryState.text); setSelectedColor(newEntryState.selectedColor); setSelectedImages(newEntryState.selectedImages); setIsLocked(newEntryState.isLocked); setIsManifested(newEntryState.isManifested); setCategory(newEntryState.category); setMood(newEntryState.mood); setAudioUrl(newEntryState.audioUrl); setUnlockDate(newEntryState.unlockDate); setLocation(newEntryState.location); setParentId(newEntryState.parentId); setInheritedFrom(newEntryState.inheritedFrom); setRating(newEntryState.rating); setTags(newEntryState.tags); setPeople(newEntryState.people); setWeather(newEntryState.weather); setEntryDate(newEntryState.date); setPillarGuidance(pillar ? pillar.desc : null);
+    
+    setShowEditor(true);
+  };
+
+  const startNewChapter = (parent) => { 
+    isDirtyRef.current = false; setViewingEntry(null); 
+    const newEntryState = {
+        title: parent.title || '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isLocked: parent.locked || false, isManifested: false, category: parent.category || CATEGORIES[0], mood: null, audioUrl: null, unlockDate: '', location: null, parentId: parent.id, inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: getLocalISO(), orderTimestamp: getLocalISO()
+    };
+    currentEntryRef.current = newEntryState; editingIdRef.current = null;
+    
+    setEditingId(null); setTitle(newEntryState.title); setText(newEntryState.text); setSelectedColor(newEntryState.selectedColor); setSelectedImages(newEntryState.selectedImages); setIsLocked(newEntryState.isLocked); setAudioUrl(newEntryState.audioUrl); setIsManifested(newEntryState.isManifested); setUnlockDate(newEntryState.unlockDate); setLocation(newEntryState.location); setCategory(newEntryState.category); setMood(newEntryState.mood); setParentId(newEntryState.parentId); setInheritedFrom(newEntryState.inheritedFrom); setRating(newEntryState.rating); setTags(newEntryState.tags); setPeople(newEntryState.people); setWeather(newEntryState.weather); setEntryDate(newEntryState.date); setPillarGuidance(null);
+    setShowEditor(true); 
+  };
+
+  const showDialog = (options) => { setDialog({ type: 'alert', confirmLabel: 'Okay', ...options }); };
+
+  const handleOpenEntry = async (entry) => {
+      if (!entry) return;
+      
+      // If locked, we MUST ask for PIN before doing anything else
+      if (entry.locked) {
+          if (!user.pin) { showDialog({ title: 'Hinweis', message: 'Bitte richte zuerst eine PIN in den Einstellungen ein.', icon: 'key' }); setView('settings'); return; }
+          setUnlockTarget(entry); setPinInput(''); setPinError(false);
+          return; 
+      } 
+      
+      if (entry.unlockDate) {
+          try {
+              showDialog({title: 'Kryptografische Zeit-Sperre', message: 'Prüfe globales Zeitsiegel (NTP)...', icon: 'clock'});
+              const res = await fetch('https://worldtimeapi.org/api/timezone/Etc/UTC');
+              const data = await res.json();
+              const realTime = new Date(data.datetime);
+              const unlockTime = new Date(entry.unlockDate);
+              if (realTime < unlockTime) {
+                  setDialog(null); setTimeout(() => showDialog({title: 'Zeitkapsel versiegelt', message: `Das kryptografische Zeitsiegel ist intakt. Die Kapsel öffnet erst am ${unlockTime.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}.`, icon: 'lock', iconColor: 'text-indigo-500'}), 300);
+                  return; 
+              }
+              setDialog(null);
+          } catch(e) {
+              if (new Date() < new Date(entry.unlockDate)) {
+                  showDialog({title: 'Zeitkapsel versiegelt', message: `Öffnet erst am ${new Date(entry.unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}.`, icon: 'lock', iconColor: 'text-indigo-500'});
+                  return; 
+              }
+              setDialog(null);
+          }
+      }
+      
+      setViewingEntry(entry);
+      setCurrentViewerImgIdx(0);
+  };
+
+  const visibleEntries = useMemo(() => {
+    return entries.filter(e => {
+      if (!e) return false;
+      if (view === 'trash') return e.trashed;
+      if (e.trashed) return false;
+
+      const q = searchQuery.toLowerCase(); 
+      const safeTitle = e.title || '';
+      const safeText = e.text || '';
+      const matchesSearch = safeTitle.toLowerCase().includes(q) || safeText.toLowerCase().includes(q); 
+      if (searchQuery && !matchesSearch) return false; 
+      
+      if (view === 'archive') return e.archived;
+      if (e.archived) return false;
+
+      if (!searchQuery && e.parentId) return false; 
+
+      const matchesCategory = activeCategory === 'Alle' || e.category === activeCategory || (!e.category && activeCategory === 'Allgemein'); 
+      if (!searchQuery && !matchesCategory) return false;
+      
+      if (view === 'dashboard') return !e.locked; 
+      if (view === 'vault') return !!e.locked; 
+      
+      return false;
+    });
+  }, [entries, searchQuery, activeCategory, view]);
+
+  const renderEntries = visibleEntries; const now = new Date();
+  
+  const allQuotes = useMemo(() => { 
+      if (view !== 'quotes') return []; 
+      let quotes = []; 
+      entries.filter(e => e && !e.archived && !e.trashed).forEach(entry => { 
+          if(!entry.text) return; 
+          const blockquoteRegex = /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi; 
+          let match; 
+          while ((match = blockquoteRegex.exec(entry.text)) !== null) { 
+              const rawText = match[1].replace(/<[^>]*>?/gm, '').trim(); 
+              if(rawText) quotes.push({ text: rawText, date: entry.date, title: entry.title, id: entry.id + match.index, entryId: entry.id }); 
+          } 
+      }); 
+      return quotes.sort((a,b) => new Date(b.date) - new Date(a.date)); 
+  }, [entries, view]);
+  
+  const heatmapData = useMemo(() => { return Array.from({ length: 30 }).map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (29 - i)); const dateStr = d.toDateString(); return { date: dateStr, count: entries.filter(e => e && !e.trashed && new Date(e.date || getLocalISO()).toDateString() === dateStr).length }; }); }, [entries]);
+  const { completedPillars, totalPillars, progressPercent } = useMemo(() => { const completed = PILLARS.filter(p => entries.some(e => e && !e.trashed && (e.title || '') === p.title)).length; return { completedPillars: completed, totalPillars: PILLARS.length, progressPercent: Math.round((completed / PILLARS.length) * 100) }; }, [entries]);
+  
+  const getAllBookEntries = (rootId) => { 
+      const result = []; 
+      const visited = new Set(); 
+      const traverse = (id, depth=0) => { 
+          if (depth > 1000 || visited.has(id)) return; 
+          visited.add(id); 
+          const entry = entries.find(e => e && e.id === id && !e.trashed); 
+          if (entry && !result.find(r => r.id === entry.id)) { 
+              result.push(entry); 
+              entries.filter(e => e && e.parentId === id && !e.trashed).sort(sortEntriesDesc).forEach(c => traverse(c.id, depth+1)); 
+          } 
+      }; 
+      traverse(rootId); 
+      return result; 
+  };
+  
+  const getBookRoot = (entryId) => { 
+      let current = entries.find(e => e && e.id === entryId && !e.trashed); 
+      let safeGuard = 0; 
+      const visited = new Set(); 
+      while (current && current.parentId && safeGuard < 1000) { 
+          if (visited.has(current.id)) break; 
+          visited.add(current.id); 
+          const p = entries.find(e => e && e.id === current.parentId && !e.trashed); 
+          if (p && p.id !== current.id) current = p; else break; 
+          safeGuard++; 
+      } 
+      return current; 
+  };
+
+  const handleTouchStart = (e) => { setTouchStart(e.touches[0].clientX); };
+  const handleTouchEnd = (e) => {
+      if (!touchStart || !viewingEntry) return;
+      const touchEnd = e.changedTouches[0].clientX; const distance = touchStart - touchEnd;
+      
+      let swipeNext = null, swipePrev = null;
+      const sorted = visibleEntries.sort(sortEntriesDesc);
+      const cIdx = sorted.findIndex(ex => ex && ex.id === viewingEntry.id);
+      if (cIdx > 0) swipePrev = sorted[cIdx - 1]; 
+      if (cIdx < sorted.length - 1) swipeNext = sorted[cIdx + 1]; 
+
+      if (distance > 50 && swipeNext) { setViewingEntry(swipeNext); setCurrentViewerImgIdx(0); }
+      if (distance < -50 && swipePrev) { setViewingEntry(swipePrev); setCurrentViewerImgIdx(0); }
+      setTouchStart(null);
+  };
+
+  const getCanvasCoordinates = (e) => {
+      if (!canvasRef.current) return { x: 0, y: 0 };
+      const rect = canvasRef.current.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      if (e.touches && e.touches.length > 0) return { x: (e.touches[0].clientX - rect.left), y: (e.touches[0].clientY - rect.top) };
+      return { x: (e.clientX - rect.left), y: (e.clientY - rect.top) };
+  };
+  const startDrawing = (e) => { if (!canvasRef.current) return; const {x, y} = getCanvasCoordinates(e); const ctx = canvasRef.current.getContext('2d'); ctx.beginPath(); ctx.moveTo(x, y); canvasRef.current.isPainting = true; };
+  const draw = (e) => { if (!canvasRef.current?.isPainting) return; const {x, y} = getCanvasCoordinates(e); const ctx = canvasRef.current.getContext('2d'); ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.strokeStyle = user.isDark ? '#ffffff' : '#000000'; ctx.lineTo(x, y); ctx.stroke(); };
+  const stopDrawing = () => { if (canvasRef.current) canvasRef.current.isPainting = false; };
+  useEffect(() => { 
+      let canvasEl = canvasRef.current; 
+      const preventScroll = (e) => e.preventDefault(); 
+      if (isDrawing && canvasEl) { 
+          canvasEl.addEventListener('touchstart', preventScroll, { passive: false }); 
+          canvasEl.addEventListener('touchmove', preventScroll, { passive: false }); 
+          setTimeout(() => { 
+              if (!canvasEl) return; 
+              const rect = canvasEl.parentElement.getBoundingClientRect(); 
+              const dpr = window.devicePixelRatio || 1;
+              canvasEl.width = rect.width * dpr; canvasEl.height = rect.height * dpr; 
+              const ctx = canvasEl.getContext('2d'); 
+              ctx.scale(dpr, dpr);
+              ctx.fillStyle = user.isDark ? '#18181b' : '#ffffff'; ctx.fillRect(0, 0, rect.width, rect.height); 
+          }, 50); 
+      } 
+      return () => { if (canvasEl) { canvasEl.removeEventListener('touchstart', preventScroll); canvasEl.removeEventListener('touchmove', preventScroll); } }; 
+  }, [isDrawing, user.isDark]);
+
+  const startRecording = async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); mediaRecorderRef.current = new MediaRecorder(stream); audioChunksRef.current = []; mediaRecorderRef.current.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); }; mediaRecorderRef.current.onstop = () => { const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); const reader = new FileReader(); reader.readAsDataURL(blob); reader.onloadend = () => { setAudioUrl(reader.result); currentEntryRef.current.audioUrl = reader.result; isDirtyRef.current = true; checkSaveEntry(false); }; }; mediaRecorderRef.current.start(); setIsRecording(true); } catch (err) { showDialog({ title: 'Fehler', message: 'Mikrofon verweigert.', icon: 'mic-off' }); } };
+  const stopRecording = () => { if (mediaRecorderRef.current) { mediaRecorderRef.current.stop(); setIsRecording(false); } };
+  const handleReadAloud = (entry) => { if (!entry) return; if (isSpeaking) { window.speechSynthesis.cancel(); setIsSpeaking(false); return; } const plainText = ((entry.title || '') + ". " + (entry.text || '')).replace(/<[^>]*>?/gm, ''); if (!plainText.trim()) return; setIsSpeaking(true); const utterance = new SpeechSynthesisUtterance(plainText); utterance.lang = 'de-DE'; utterance.onend = () => setIsSpeaking(false); window.speechSynthesis.speak(utterance); };
+  const triggerBurn = () => { setIsBurning(true); setTimeout(() => { setBurnText(''); setIsBurning(false); setView('dashboard'); showDialog({ title: 'Katharsis', message: 'Dem Feuer übergeben.', icon: 'flame' }); }, 2500); };
+  
+  const handleAvatarUpload = (e) => { 
+      const file = e.target.files[0]; 
+      if (file) { 
+          const reader = new FileReader(); 
+          reader.onload = (event) => { 
+              const img = new Image(); 
+              img.onload = () => { 
+                  const canvas = document.createElement('canvas'); 
+                  const SIZE = 512; 
+                  canvas.width = SIZE; 
+                  canvas.height = SIZE; 
+                  const ctx = canvas.getContext('2d'); 
+                  const minDim = Math.min(img.width, img.height); 
+                  ctx.drawImage(img, (img.width - minDim) / 2, (img.height - minDim) / 2, minDim, minDim, 0, 0, SIZE, SIZE); 
+                  const newAvatarUrl = canvas.toDataURL('image/png');
+                  setUser(prev => {
+                      const updated = { ...prev, avatar: newAvatarUrl };
+                      safeStorageSet('legacy_user', JSON.stringify(updated));
+                      syncProfileToCloud(updated);
+                      return updated;
+                  }); 
+              }; 
+              img.src = event.target.result; 
+          }; 
+          reader.readAsDataURL(file); 
+      } 
+  };
+
+  const handleFileUpload = (e, type) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    if (type === 'image') {
+      const MAX_SIZE = 800; 
+      const processedPromises = files.map(file => {
+          return new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onload = (event) => {
+                  const img = new Image();
+                  img.onload = () => {
+                      const canvas = document.createElement('canvas');
+                      let width = img.width; let height = img.height;
+                      if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } 
+                      else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
+                      canvas.width = width; canvas.height = height;
+                      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                      resolve(canvas.toDataURL('image/jpeg', 0.6)); 
+                  };
+                  img.src = event.target.result;
+              };
+              reader.readAsDataURL(file);
+          });
+      });
+      Promise.all(processedPromises).then(base64Images => {
+          setSelectedImages(prev => {
+              const newImgs = [...prev, ...base64Images];
+              currentEntryRef.current.selectedImages = newImgs; 
+              return newImgs;
+          });
+          isDirtyRef.current = true;
+          checkSaveEntry(false); 
+      });
+    }
+    e.target.value = null; 
+  };
+
+  const callGemini = async (payload, retries = 5) => {
+      const delays = [1000, 2000, 4000, 8000, 16000];
+      const apiKey = "AIzaSyC4z8nQq_N7bK7lgyyox8jM_Vbnuz_SP3E";
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
       
       for (let i = 0; i < retries; i++) {
