@@ -608,17 +608,15 @@ function App() {
           const firebaseConfig = { apiKey: "AIzaSyBs7DoO5z8cuIc3DtdArgorKRx_FX7JX-U", authDomain: "tagebuch-og.firebaseapp.com", projectId: "tagebuch-og", storageBucket: "tagebuch-og.firebasestorage.app", messagingSenderId: "418864246292", appId: "1:418864246292:web:957b604fe7ce4380c24101" };
           const nativeImport = new Function('url', 'return import(url)');
           const { initializeApp } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
-          const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, setPersistence, browserSessionPersistence } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
+          const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, setPersistence, inMemoryPersistence } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
           const { getFirestore, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
           
           const app = initializeApp(firebaseConfig); 
           const auth = getAuth(app); 
           
-          // ERZWINGT DEN LOGIN BEI NEUEM TAB/APP-START
-          if (!sessionStorage.getItem('legacy_session_active')) {
-              sessionStorage.setItem('legacy_session_active', 'true');
-              await signOut(auth);
-          }
+          // ERZWINGT DEN LOGIN BEI JEDEM NEUSTART / NEU LADEN
+          await setPersistence(auth, inMemoryPersistence);
+          await signOut(auth); // Zwanghafter Logout beim Öffnen, damit immer nach E-Mail gefragt wird!
           
           const firestoreDb = getFirestore(app);
           setFb({ db: firestoreDb, auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot });
@@ -775,7 +773,6 @@ function App() {
   const handleLogout = async () => {
       if(fb) { 
           await fb.signOut(fb.auth); 
-          sessionStorage.removeItem('legacy_session_active'); 
           setEntries([]); 
           setView('auth'); 
       }
