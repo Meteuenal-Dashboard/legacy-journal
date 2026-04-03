@@ -1541,7 +1541,7 @@ function App() {
   const callGemini = async (payload, retries = 5) => {
       const delays = [1000, 2000, 4000, 8000, 16000];
       const apiKey = "AIzaSyC4z8nQq_N7bK7lgyyox8jM_Vbnuz_SP3E";
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
       
       for (let i = 0; i < retries; i++) {
           try {
@@ -1550,7 +1550,10 @@ function App() {
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(payload)
               });
-              if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+              if (!response.ok) {
+                  const errData = await response.json().catch(() => ({}));
+                  throw new Error(errData?.error?.message || `HTTP ${response.status}`);
+              }
               return await response.json();
           } catch (err) {
               if (i === retries - 1) throw err;
@@ -1605,7 +1608,7 @@ function App() {
                       setDialog({ title: 'Fehler', message: 'Konnte die Handschrift nicht lesen.', icon: 'x' });
                   }
               } catch(err) {
-                  setDialog({ title: 'KI Fehler', message: 'Die KI antwortet nicht. Versuche es später noch einmal.', icon: 'x' });
+                  setDialog({ title: 'KI Fehler', message: `Die KI antwortet nicht. Grund: ${err.message}`, icon: 'x' });
               }
           };
           img.src = event.target.result;
