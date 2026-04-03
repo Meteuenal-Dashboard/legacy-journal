@@ -818,6 +818,7 @@ function App() {
       safeStorageSet('legacy_user', JSON.stringify(mergedUser));
       setView(mergedUser.name ? 'dashboard' : 'onboarding');
       
+      // Falls auf einem neuen Gerät gerade die PIN eingegeben wurde, ziehe sofort alle Backup-Daten!
       if (fb && authUser && db) performCloudSync();
   };
 
@@ -901,6 +902,7 @@ function App() {
                   setPinInput('');
                   setView('loading');
                   
+                  // Restore all entries directy
                   const cloudSnap = await fb.getDocs(fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries'));
                   const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries');
                   let count = 0;
@@ -935,6 +937,7 @@ function App() {
       }
   };
 
+  // Theme Sync
   useEffect(() => {
     const metaThemeColor = document.getElementById("meta-theme-color");
     
@@ -1455,12 +1458,7 @@ function App() {
   // KI Handschrift OCR Scanner (mit Exponential Backoff)
   const callGemini = async (payload, retries = 5) => {
       const delays = [1000, 2000, 4000, 8000, 16000];
-      const apiKey = ""; // WICHTIG: Hier deinen Gemini API Key eintragen, wenn du Github Pages nutzt!
-      
-      if (!apiKey && window.location.hostname.includes('github.io')) {
-          throw new Error('API_KEY_MISSING');
-      }
-
+      const apiKey = ""; // WICHTIG: Das System injiziert den Schlüssel hier, wenn du es extern hostest musst du ihn hart eintragen
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
       
       for (let i = 0; i < retries; i++) {
@@ -1526,11 +1524,7 @@ function App() {
                       setDialog({ title: 'Fehler', message: 'Konnte die Handschrift nicht lesen.', icon: 'x' });
                   }
               } catch(err) {
-                  if (err.message === 'API_KEY_MISSING') {
-                      setDialog({ title: 'API Key fehlt', message: 'Da du die App auf GitHub Pages hostest, musst du im Code deinen eigenen kostenlosen Gemini API Key eintragen (Suche nach: const apiKey = "").', icon: 'key' });
-                  } else {
-                      setDialog({ title: 'Fehler', message: 'KI-Verbindung fehlgeschlagen. Versuche es mit einem anderen Bild.', icon: 'x' });
-                  }
+                  setDialog({ title: 'KI Fehler', message: 'Die KI antwortet nicht. Wenn du diese App auf GitHub Pages hochgeladen hast, musst du im Code deinen eigenen Gemini API Key eintragen (Zeile: const apiKey = "...").', icon: 'x' });
               }
           };
           img.src = event.target.result;
@@ -1539,6 +1533,7 @@ function App() {
       e.target.value = null;
   };
 
+  // Sticker Wrapping Helper
   const wrapImage = (img) => {
       if (img.closest('.inline-img-wrapper')) return; // Bereits umwickelt
       const wrapper = document.createElement('span');
@@ -1551,56 +1546,63 @@ function App() {
       // Sauberes Bild ohne Samsung-Tastatur Styles erstellen
       const cleanImg = document.createElement('img');
       cleanImg.src = img.src;
+      cleanImg.style.width = '120px';
+      cleanImg.style.height = 'auto';
       
       wrapper.appendChild(cleanImg);
       wrapper.appendChild(delBtn);
-      img.parentNode.replaceChild(wrapper, img);
       
-      const space = document.createTextNode('\u00A0');
-      if (wrapper.nextSibling) {
-          wrapper.parentNode.insertBefore(space, wrapper.nextSibling);
-      } else {
-          wrapper.parentNode.appendChild(space);
-      }
-      isDirtyRef.current = true;
-  };
-
-  // Einfügen von Bildern / Stickern über die Handy-Tastatur
-  const handleEditorInput = () => {
-      isDirtyRef.current = true;
-      if (editorRef.current) {
-          const nakedImgs = editorRef.current.querySelectorAll('img:not(.inline-img-wrapper img)');
-          if (nakedImgs.length > 0) {
-              nakedImgs.forEach(img => {
-                  if (img.src.startsWith('blob:')) {
-                      // Wandelt Gboard/Samsung Blob-Sticker in speicherbares Base64 um
-                      fetch(img.src).then(r => r.blob()).then(blob => {
-                          const reader = new FileReader();
-                          reader.onload = () => { 
-                              img.src = reader.result; 
-                              wrapImage(img); 
-                              checkSaveEntry(false); 
-                          };
-                          reader.readAsDataURL(blob);
-                      }).catch(() => wrapImage(img));
-                  } else {
-                      wrapImage(img);
-                      checkSaveEntry(false);
-                  }
-              });
+      if (img.parentNode) {
+          img.parentNode.replaceChild(wrapper, img);
+          const space = document.createTextNode('\u00A0');
+          if (wrapper.nextSibling) {
+              wrapper.parentNode.insertBefore(space, wrapper.nextSibling);
+          } else {
+              wrapper.parentNode.appendChild(space);
           }
       }
+      isDirtyRef.current = true;
+      checkSaveEntry(false);
   };
+
+  // Einfügen von Bildern / Stickern überwachen (Samsung Support)
+  useEffect(() => { 
+      if (showEditor && editorRef.current) { 
+          editorRef.current.innerHTML = text || ''; 
+
+          const observer = new MutationObserver((mutations) => {
+              let checkNeeded = false;
+              mutations.forEach(mutation => {
+                  mutation.addedNodes.forEach(node => {
+                      if (node.nodeName === 'IMG' && !node.closest('.inline-img-wrapper')) {
+                          wrapImage(node);
+                          checkNeeded = true;
+                      } else if (node.nodeType === 1 && node.querySelector) {
+                          const imgs = node.querySelectorAll('img:not(.inline-img-wrapper img)');
+                          if (imgs.length > 0) {
+                              imgs.forEach(img => wrapImage(img));
+                              checkNeeded = true;
+                          }
+                      }
+                  });
+              });
+              if (checkNeeded) {
+                  isDirtyRef.current = true;
+              }
+          });
+          
+          observer.observe(editorRef.current, { childList: true, subtree: true });
+          return () => observer.disconnect();
+      } 
+  }, [showEditor]);
 
   const handleEditorPaste = (e) => {
       const clipboardData = e.clipboardData || window.clipboardData || (e.nativeEvent && e.nativeEvent.clipboardData);
       if (!clipboardData) return;
       
-      let hasImage = false;
       if (clipboardData.items) {
           for (let i = 0; i < clipboardData.items.length; i++) {
               if (clipboardData.items[i].type.indexOf('image') !== -1) {
-                  hasImage = true;
                   const blob = clipboardData.items[i].getAsFile();
                   if (!blob) continue;
                   e.preventDefault();
@@ -1609,18 +1611,14 @@ function App() {
                       const base64 = event.target.result;
                       if (editorRef.current) {
                           editorRef.current.focus();
-                          document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false"><img src="${base64}" /><span class="delete-img-btn">X</span></span>&nbsp;`);
-                          isDirtyRef.current = true;
-                          checkSaveEntry(false);
+                          document.execCommand('insertHTML', false, `<img src="${base64}" />`);
                       }
                   };
                   reader.readAsDataURL(blob);
-                  break; 
+                  return; 
               }
           }
       }
-      // Wenn kein reines Bild-Item gefunden wurde (Samsung Keyboard HTML Payload)
-      // dann kümmert sich handleEditorInput via Mutation-Erfassung um den Rest.
   };
 
   // Klick-Listener für Editor (Löschen & Vergrößern von Inline-Bildern/Stickern)
@@ -1642,25 +1640,6 @@ function App() {
               ],
               onSelect: (val) => {
                   img.style.width = val;
-                  isDirtyRef.current = true;
-                  checkSaveEntry(false);
-              }
-          });
-      } else if (e.target.tagName === 'IMG' && !e.target.closest('.inline-img-wrapper')) {
-          // Fallback, falls die Tastatur ein nacktes Bild eingefügt hat
-          const img = e.target;
-          setPicker({
-              title: 'Sticker / Bild anpassen',
-              currentValue: null,
-              options: [
-                  {label: 'Klein', value: '120px'},
-                  {label: 'Mittel', value: '250px'},
-                  {label: 'Groß', value: '100%'},
-                  {label: '❌ Löschen', value: 'delete'}
-              ],
-              onSelect: (val) => {
-                  if (val === 'delete') { img.remove(); }
-                  else { img.style.width = val; img.style.height = 'auto'; }
                   isDirtyRef.current = true;
                   checkSaveEntry(false);
               }
@@ -1705,12 +1684,6 @@ function App() {
   const downloadFullApp = () => { const cloneDocument = document.cloneNode(true); const rootDiv = cloneDocument.getElementById('root'); if (rootDiv) rootDiv.innerHTML = ''; const existingInjected = cloneDocument.getElementById('legacy-injected-data'); if (existingInjected) existingInjected.remove(); const data = { user, entries }; const scriptEl = cloneDocument.createElement('script'); scriptEl.id = 'legacy-injected-data'; scriptEl.type = 'application/json'; scriptEl.textContent = JSON.stringify(data); cloneDocument.head.appendChild(scriptEl); const htmlContent = "<!DOCTYPE html>\n" + cloneDocument.documentElement.outerHTML; const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Legacy_${new Date().toISOString().split('T')[0]}.html`; a.click(); URL.revokeObjectURL(a.href); showDialog({ title: 'Erledigt!', message: 'App als HTML-Backup gespeichert.', icon: 'download' }); };
 
   const importBackup = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async (e) => { try { let data = null; if (file.name.toLowerCase().endsWith('.html')) { const doc = new DOMParser().parseFromString(e.target.result, 'text/html'); const script = doc.getElementById('legacy-injected-data'); if (script && script.textContent && script.textContent !== 'null') data = JSON.parse(script.textContent); else throw new Error("Keine Daten"); } else data = JSON.parse(e.target.result); if (data && data.entries && db) { const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); let mergedCount = 0; const pinToUse = data.user ? data.user.pin : user.pin; const entriesToSave = await Promise.all(data.entries.map(async (en) => { let dbE = { ...en }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []); if (dbE.locked && pinToUse) { const payload = JSON.stringify({ text: dbE.text||'', title: dbE.title||'' }); dbE.encryptedData = await encryptData(payload, pinToUse); dbE.text = ''; dbE.title = 'Verschlüsselt'; } return dbE; })); entriesToSave.forEach(en => { if (!entries.find(ex => ex && ex.id === en.id)) { if (data.user && data.user.name !== user.name) en.inheritedFrom = data.user.name; store.put(en); mergedCount++; } }); const req = store.getAll(); req.onsuccess = async () => { let loadedEntries = req.result || []; loadedEntries = loadedEntries.filter(e => e != null); if (user.pin) loadedEntries = await Promise.all(loadedEntries.map(async (en) => { if (en.locked && en.encryptedData) { const decStr = await decryptData(en.encryptedData, user.pin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...en, text: parsed.text, title: parsed.title }; } catch(err){} } } return en; })); setEntries(loadedEntries.sort(sortEntriesDesc)); showDialog({ title: 'Erfolg', message: `${mergedCount} neue Seiten importiert.`, icon: 'check' }); }; } } catch (err) { showDialog({ title: 'Fehler', message: 'Ungültige Datei.', icon: 'x' }); } }; reader.readAsText(file); };
-
-  useEffect(() => { 
-      if (showEditor && editorRef.current) { 
-          editorRef.current.innerHTML = text || ''; 
-      } 
-  }, [showEditor]); 
 
   // --- IDEA 3: Geografische Lebenskarte (Leaflet) mit Auto-Theme (Uhrzeit) ---
   useEffect(() => {
