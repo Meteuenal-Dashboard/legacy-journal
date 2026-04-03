@@ -5,17 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Legacy Vision Journal - Ultimate Edition</title>
 
+<!-- PWA & iOS Premium Integration -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" id="meta-theme-color" content="#f8fafc">
 <meta name="color-scheme" content="light dark">
 
+<!-- W3C Standard Manifest (Statisch für Langlebigkeit) -->
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icon-192x192.png">
 
+<!-- Container für den App-Klon -->
 <script id="legacy-injected-data" type="application/json">null</script>
 
+<!-- Inter Font & Libraries -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -50,6 +54,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <style>
+  /* --- DESIGN UPGRADE (Premium Apple/Meta/Google UI) --- */
   html, body {
     overscroll-behavior-y: none;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -65,6 +70,7 @@
   .pb-safe { padding-bottom: env(safe-area-inset-bottom, 32px); }
   .floating-nav-spacing { padding-bottom: calc(120px + env(safe-area-inset-bottom, 20px)); }
 
+  /* Fließtext extrem leserlich, Überschriften fett/klar */
   h1, h2, h3, h4, h5, h6 { font-weight: 800; letter-spacing: -0.03em; }
 
   @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } } 
@@ -89,7 +95,7 @@
   .legacy-editor-content li, .legacy-content li { margin-bottom: 0.25rem; }
   .legacy-editor-content blockquote, .legacy-content blockquote { border-left: 4px solid currentColor; padding-left: 1.5rem; font-style: normal; font-weight: 500; opacity: 0.8; background: transparent; margin: 1.5rem 0; font-size: 1.1em; }
   
-  /* Floating Bottom Navigation */
+  /* Floating Bottom Navigation - Sauber & Halbtransparent */
   .floating-nav {
     position: fixed;
     bottom: 32px;
@@ -112,10 +118,9 @@
   }
   
   /* Inline Image Resizing Magic */
-  .inline-img-wrapper { display: inline-block; vertical-align: text-bottom; margin: 4px; max-width: 100%; cursor: move; }
-  .legacy-editor-content .inline-img-wrapper { resize: both; overflow: hidden; border: 2px dashed #cbd5e1; padding: 2px; border-radius: 8px; min-width: 50px; min-height: 50px; }
-  .legacy-content .inline-img-wrapper { border: 2px solid transparent; padding: 2px; overflow: hidden; border-radius: 8px; width: auto; }
-  .inline-img-wrapper img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; border-radius: 6px; }
+  .inline-img-wrapper { display: inline-block; vertical-align: text-bottom; margin: 4px; max-width: 100%; position: relative; }
+  .inline-img-wrapper img { width: 100%; height: 100%; object-fit: contain; border-radius: 6px; border: 1px solid rgba(150,150,150,0.2); }
+  .delete-img-btn { position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border-radius: 50%; width: 22px; height: 22px; text-align: center; line-height: 22px; cursor: pointer; font-family: sans-serif; font-size: 12px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10; }
   
   .legacy-editor-content > img, .legacy-content > img { border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: inline-block; vertical-align: middle; max-width: 100%; }
   
@@ -123,6 +128,7 @@
   html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
   .search-highlight { background-color: rgba(245, 158, 11, 0.3); padding: 0 2px; border-radius: 3px; border-bottom: 1px solid #f59e0b; }
 
+  /* Map Container & Fix Leaflet Attribution/Markers */
   .map-container { height: 100%; width: 100%; border-radius: 1.5rem; z-index: 1; }
   .leaflet-marker-icon.avatar-marker { border: none !important; background: transparent !important; }
   .leaflet-control-attribution { display: none !important; }
@@ -253,7 +259,6 @@ const Icon = ({ name, size = 24, className = '', ...props }) => {
   return <span ref={spanRef} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} {...props}></span>;
 };
 
-// Constants
 const COLORS = [
   '#ffffff', '#f8fafc', '#e4e4e7', '#a1a1aa', '#52525b', 
   '#27272a', '#18181b', '#09090b', '#fef08a', '#fbbf24', 
@@ -295,9 +300,28 @@ const PILLARS = [
   { id: 'm1', phase: 'Fundament', title: '1. Das Nordstern-Manifest', desc: 'Definiere deine absoluten, unverhandelbaren Grundwerte.' },
   { id: 'm2', phase: 'Fundament', title: '2. Der Zeitgeist-Stempel', desc: 'Historischer Kontext: Was passiert gerade auf der Welt?' },
   { id: 'm3', phase: 'Fundament', title: '3. Das Geistige Testament', desc: 'Vererbe deinen Charakter. Welche Lebensweisheiten möchtest du weitergeben?' },
+  { id: 'm4', phase: 'Fundament', title: '4. Die Anti-Vision', desc: 'Definiere glasklar, wer du niemals werden willst und welche Pfade du vermeidest.' },
+  { id: 'm5', phase: 'Fundament', title: '5. Das Narben-Register', desc: 'Eine ehrliche Dokumentation deines größten Fehlschlags und deines Comebacks.' },
   { id: 'm6', phase: 'Kommunikation', title: '6. Die Zeitkapsel', desc: 'Eine Botschaft an die Zukunft. Nutze die Datums-Siegelfunktion.' },
+  { id: 'm7', phase: 'Kommunikation', title: '7. Der Enkel-Dialog', desc: 'Stelle Fragen, die der zukünftige Leser für sich selbst beantworten soll.' },
+  { id: 'm8', phase: 'Kommunikation', title: '8. Stammbaum der Fähigkeiten', desc: 'Dokumentiere, wie du dir über Jahrzehnte Fähigkeiten angeeignet hast.' },
+  { id: 'm9', phase: 'Kommunikation', title: '9. Schicksals-Tagebuch', desc: 'Ein Ort für unglaubliche Zufälle und unerklärliche Momente deines Lebens.' },
+  { id: 'm10', phase: 'Kommunikation', title: '10. Das Dankbarkeits-Echo', desc: 'Wem verdankst du etwas? Wer waren deine Mentoren, Lehrer, Wegbegleiter?' },
+  { id: 'm11', phase: 'Struktur', title: '11. Purer Text (Agnostisch)', desc: 'Schreibe in einfachen Sätzen rohe Fakten auf, völlig ohne Emotionen.' },
   { id: 'm12', phase: 'Struktur', title: '12. Matroschka-Ziele', desc: 'Bricht deine 50-Jahres-Vision auf ein 10-Jahres-Ziel und das Heute herunter.' },
-  { id: 'm24', phase: 'Anpassung', title: '24. Stimme & Akzent', desc: 'Hinterlasse eine Audio-Nachricht mit deiner echten Stimme.' }
+  { id: 'm13', phase: 'Struktur', title: '13. Die Essenz-Filterung', desc: 'Fasse das vergangene Jahr in drei Sätzen zusammen: Triumph, Schmerz, Lektion.' },
+  { id: 'm14', phase: 'Struktur', title: '14. Offene Fragen', desc: 'Dinge im Leben, die du noch nicht verstehst. Zeige intellektuelle Demut.' },
+  { id: 'm15', phase: 'Struktur', title: '15. Denkwerkzeuge', desc: 'Notiere die mentalen Modelle, die dir in schweren Situationen helfen.' },
+  { id: 'm16', phase: 'Tiefe', title: '16. Emotionaler Farb-Code', desc: 'Vergib deiner aktuellen Lebensphase eine Farbe und erkläre, warum.' },
+  { id: 'm17', phase: 'Tiefe', title: '17. Die Friedens-Akte', desc: 'Aufzeichnungen darüber, wie du einen schweren Konflikt gelöst hast.' },
+  { id: 'm18', phase: 'Tiefe', title: '18. Das Alltags-Fossil', desc: 'Dokumentiere einen extrem banalen, minutengenauen Ablauf eines normalen Dienstags.' },
+  { id: 'm19', phase: 'Tiefe', title: '19. Rhythmus-Tracker', desc: 'Beobachte deine eigenen Lebensenergie-Zyklen. Wann musstest du loslassen?' },
+  { id: 'm20', phase: 'Tiefe', title: '20. Ideen-Gewächshaus', desc: 'Ideen, die du heute hast, für die du oder die Welt noch nicht bereit sind.' },
+  { id: 'm21', phase: 'Anpassung', title: '21. Der Pivot-Tracker', desc: 'Hebe Momente hervor, in denen du dein Leben radikal in eine neue Richtung gelenkt hast.' },
+  { id: 'm22', phase: 'Anpassung', title: '22. Umwelt-Resonanz', desc: 'Beobachtungen über die Natur und Umwelt an deinem Wohnort im Wandel der Zeit.' },
+  { id: 'm23', phase: 'Anpassung', title: '23. Die Loslass-Liste', desc: 'Träume, Ziele oder Menschen, die du bewusst (und in Frieden) aufgegeben hast.' },
+  { id: 'm24', phase: 'Anpassung', title: '24. Stimme & Akzent', desc: 'Nutze die Mikrofon-Funktion, um eine Audio-Nachricht mit deiner Stimme zu hinterlassen.' },
+  { id: 'm25', phase: 'Anpassung', title: '25. Raum für Unbegreifliches', desc: 'Platz für Konzepte und Lebensrealitäten, die es heute noch gar nicht gibt.' }
 ];
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -322,7 +346,6 @@ const initDB = () => {
   });
 };
 
-// --- EntryCard Component ---
 const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQuery }) => {
     if (!entry) return null;
     const hasImages = entry.images && entry.images.length > 0;
@@ -346,6 +369,8 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
           <div className="flex items-center gap-2 mb-3 text-[10px] font-bold uppercase tracking-widest opacity-50 flex-wrap">
             <span>{new Date(entry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
             {!isGridView && <><span>•</span><span>{entry.category || 'Allgemein'}</span></>}
+            {entry.tags && <span className="text-blue-500 flex items-center gap-0.5 ml-1"><Icon name="tag" size={10}/>{entry.tags.split(',').filter(x=>x.trim()).length}</span>}
+            {entry.people && <span className="text-indigo-500 flex items-center gap-0.5 ml-1"><Icon name="user" size={10}/>{entry.people.split(',').filter(x=>x.trim()).length}</span>}
             {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE')}</span></>}
             {entry.locked && !isCapsuleLocked && <><span className="text-rose-500 flex items-center gap-1 ml-auto"><Icon name="lock" size={12}/> Tresor</span></>}
             {entry.audio && <><span className="text-emerald-500 flex items-center ml-1"><Icon name="mic" size={12}/></span></>}
@@ -354,10 +379,11 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
           
           <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : ''}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery)} />
           
-          {/* Metadata Pills */}
-          {!isGridView && (entry.tags || entry.rating > 0) && (
+          {!isGridView && (entry.tags || entry.people || entry.weather || entry.rating > 0) && (
              <div className="flex flex-wrap gap-1.5 mb-4">
                 {entry.tags && entry.tags.split(',').filter(x=>x.trim()).map((t, i) => <span key={`t-${i}`} className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded text-[10px] font-bold flex items-center gap-1"><Icon name="tag" size={10}/> {t.trim()}</span>)}
+                {entry.people && entry.people.split(',').filter(x=>x.trim()).map((p, i) => <span key={`p-${i}`} className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded text-[10px] font-bold flex items-center gap-1"><Icon name="user" size={10}/> {p.trim()}</span>)}
+                {entry.weather && <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded text-[10px] font-bold flex items-center gap-1"><Icon name="sun" size={10}/> {entry.weather}</span>}
                 {entry.rating > 0 && <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded text-[10px] font-bold flex items-center gap-1"><Icon name="star" size={10}/> {entry.rating}</span>}
              </div>
           )}
@@ -375,7 +401,6 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
     );
 };
 
-// --- Swipeable Timeline Item Component ---
 const SwipeableTimelineEntry = ({ entry, onArchive, onTrash, onClick, showDialog, userColor }) => {
     const [offsetX, setOffsetX] = useState(0);
     const startX = useRef(null);
@@ -411,7 +436,7 @@ const SwipeableTimelineEntry = ({ entry, onArchive, onTrash, onClick, showDialog
     };
 
     return (
-        <div className="relative w-full rounded-3xl overflow-hidden bg-slate-200 dark:bg-zinc-800 shrink-0 mb-3">
+        <div className="relative w-full rounded-2xl overflow-hidden bg-slate-200 dark:bg-zinc-800 shrink-0 mb-3">
             <div className="absolute inset-0 flex justify-between items-center px-6">
                 <div className="text-emerald-600 font-bold flex items-center gap-2 opacity-80"><Icon name="archive" size={18}/> Archiv</div>
                 <div className="text-rose-600 font-bold flex items-center gap-2 opacity-80">Löschen <Icon name="trash-2" size={18}/></div>
@@ -425,7 +450,7 @@ const SwipeableTimelineEntry = ({ entry, onArchive, onTrash, onClick, showDialog
                     onClick(entry);
                 }} 
                 style={{ transform: `translateX(${offsetX}px)`, transition: startX.current === null ? 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)' : 'none' }}
-                className="relative z-10 w-full text-left p-4 rounded-3xl flex items-center gap-4 bg-slate-50 dark:bg-zinc-900 shadow-sm border border-transparent"
+                className="relative z-10 w-full text-left p-4 rounded-2xl flex items-center gap-4 bg-slate-50 dark:bg-zinc-900 shadow-sm border border-transparent"
             >
                 {entry.images && entry.images.length > 0 && <img src={entry.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0 pointer-events-none" />}
                 <div className="flex-1 overflow-hidden pointer-events-none">
@@ -443,12 +468,11 @@ function App() {
   const [authUser, setAuthUser] = useState(null);
   
   const [entries, setEntries] = useState([]);
-  const [user, setUser] = useState({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: false, biometric: false });
+  const [user, setUser] = useState({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false });
   const [view, setView] = useState('loading'); 
   const [isLoaded, setIsLoaded] = useState(false);
   const [isGridView, setIsGridView] = useState(false); 
   
-  // Auth Form State
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authError, setAuthError] = useState('');
@@ -461,6 +485,7 @@ function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [dialog, setDialog] = useState(null);
   const [picker, setPicker] = useState(null);
+  const [installHint, setInstallHint] = useState('');
 
   const [viewingEntry, setViewingEntry] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
@@ -468,10 +493,13 @@ function App() {
   
   const [showTimeline, setShowTimeline] = useState(false); 
   const [timelineMonth, setTimelineMonth] = useState(() => new Date()); 
+  const [timelineSearchQuery, setTimelineSearchQuery] = useState(''); 
   const [timelineSelectedDate, setTimelineSelectedDate] = useState(null); 
   const [expandedNodes, setExpandedNodes] = useState({}); 
   
+  const [affirmation, setAffirmation] = useState(null);
   const [unlockTarget, setUnlockTarget] = useState(null);
+  
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
   
@@ -513,8 +541,11 @@ function App() {
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [mood, setMood] = useState(null);
   const [entryDate, setEntryDate] = useState('');
+  
   const [rating, setRating] = useState(0);
   const [tags, setTags] = useState('');
+  const [people, setPeople] = useState('');
+  const [weather, setWeather] = useState('');
   
   const [parentId, setParentId] = useState('');
   const [inheritedFrom, setInheritedFrom] = useState(null);
@@ -542,10 +573,12 @@ function App() {
       viewRef.current = view;
   }, [isDrawing, showEditor, viewingEntry, showTimeline, view]);
 
+  // Auto-save user to localStorage
   useEffect(() => {
     if (isLoaded) safeStorageSet('legacy_user', JSON.stringify(user));
   }, [user, isLoaded]);
 
+  // Hardware Back Button Logik
   useEffect(() => {
     try { window.history.pushState({ isApp: true }, ''); } catch(e) {}
     const handlePopState = (e) => {
@@ -611,6 +644,7 @@ function App() {
     initFB();
   }, []);
 
+  // Initialize DB
   useEffect(() => {
     const loadApp = async () => {
       try {
@@ -706,7 +740,6 @@ function App() {
       setView(mergedUser.name ? 'dashboard' : 'onboarding');
   };
 
-  // NEW: Helper so we can trigger it from button click or Enter key easily
   const submitPin = () => handleUnlockSubmit(pinInput);
 
   const toggleBiometric = async () => {
@@ -798,27 +831,18 @@ function App() {
   }, [user.appBgColor, user.textColor, user.isDark]);
 
   const syncSingleEntryToCloud = async (entry) => {
-      if (!fb || !fb.auth.currentUser || !user.cloudSync) return;
+      if (!fb || !fb.auth.currentUser || !user.pin) return;
       const appId = 'legacy-vision'; const userId = fb.auth.currentUser.uid;
-      try { 
-          let payloadToSave = { id: entry.id, timestamp: Date.now() };
-          if (user.pin) {
-              const encrypted = await encryptData(JSON.stringify(entry), user.pin); 
-              if (encrypted) payloadToSave.encryptedData = encrypted;
-          } else {
-              payloadToSave.rawData = entry;
-          }
-          await fb.setDoc(fb.doc(fb.db, 'artifacts', appId, 'users', userId, 'entries', entry.id), payloadToSave); 
-      } catch(e) {}
+      try { const payload = JSON.stringify(entry); const encrypted = await encryptData(payload, user.pin); if (encrypted) { const docRef = fb.doc(fb.db, 'artifacts', appId, 'users', userId, 'entries', entry.id); await fb.setDoc(docRef, { id: entry.id, encryptedData: encrypted, timestamp: Date.now() }); } } catch(e) {}
   };
-
+  
   const deleteSingleEntryFromCloud = async (id) => {
-      if (!fb || !fb.auth.currentUser || !user.cloudSync) return;
+      if (!fb || !fb.auth.currentUser) return;
       try { await fb.deleteDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', fb.auth.currentUser.uid, 'entries', id)); } catch(e) {}
   };
-
+  
   const syncProfileToCloud = async (userData) => {
-      if (!fb || !fb.auth.currentUser || !userData.cloudSync || !userData.pin) return;
+      if (!fb || !fb.auth.currentUser || !userData.pin) return;
       try { const encrypted = await encryptData(JSON.stringify(userData), userData.pin); if (encrypted) await fb.setDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', fb.auth.currentUser.uid, 'profile', 'data'), { encryptedData: encrypted, timestamp: Date.now() }); } catch(e) {}
   };
 
@@ -952,7 +976,6 @@ function App() {
         const currentText = editorRef.current ? editorRef.current.innerHTML : (state.text || ''); 
         const titleSafe = state.title || '';
         
-        // Leere Einträge verhindern Abstürze
         const isEmpty = !titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && (!state.selectedImages || state.selectedImages.length === 0) && !state.audioUrl && !state.weather && !state.tags && !state.people;
         
         if (isEmpty && closeAndRead) { 
@@ -1276,7 +1299,7 @@ function App() {
               const base64 = canvas.toDataURL('image/jpeg', 0.6);
               if (editorRef.current) {
                   editorRef.current.focus();
-                  document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false" style="width: 150px; height: 150px;"><img src="${base64}" /></span><br><br>&nbsp;`);
+                  document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false" style="display:inline-block; position:relative; margin:4px; max-width:100%;"><img src="${base64}" style="border-radius:8px; width:100%;" /><span class="delete-img-btn" style="position:absolute; top:-8px; right:-8px; background:red; color:white; border-radius:50%; width:20px; height:20px; text-align:center; line-height:20px; cursor:pointer; font-family:sans-serif; font-size:12px; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">X</span></span>&nbsp;`);
                   isDirtyRef.current = true;
                   checkSaveEntry(false);
               }
@@ -1287,21 +1310,11 @@ function App() {
       e.target.value = null;
   };
 
-  // Klick auf Editor zum Löschen von Inline-Bildern
   const handleEditorClick = (e) => {
-      if (e.target.tagName === 'IMG' && e.target.closest('.inline-img-wrapper')) {
-          const wrapper = e.target.closest('.inline-img-wrapper');
-          showDialog({
-              title: 'Bild entfernen?',
-              message: 'Soll dieses Bild aus dem Text entfernt werden?',
-              icon: 'trash-2',
-              iconColor: 'text-rose-500',
-              onConfirm: () => {
-                  wrapper.remove();
-                  isDirtyRef.current = true;
-                  checkSaveEntry(false);
-              }
-          });
+      if (e.target.classList.contains('delete-img-btn')) {
+          e.target.closest('.inline-img-wrapper').remove();
+          isDirtyRef.current = true;
+          checkSaveEntry(false);
       }
   };
 
@@ -1446,7 +1459,7 @@ function App() {
             {authMsg && <div className="p-4 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl text-sm font-semibold text-center border border-emerald-100 dark:border-emerald-500/20">{authMsg}</div>}
             <input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} className="w-full p-4 rounded-2xl outline-none text-base font-medium bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-slate-400 dark:focus:border-zinc-600 transition-colors placeholder:opacity-40" placeholder="E-Mail Adresse" />
             {authMode !== 'reset' && <input type="password" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} className="w-full p-4 rounded-2xl outline-none text-base font-medium bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-slate-400 dark:focus:border-zinc-600 transition-colors placeholder:opacity-40" placeholder="Passwort" />}
-            <button onClick={handleAuthAction} className="w-full py-4 rounded-2xl font-bold text-base bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-all shadow-md mt-2">{authMode === 'login' ? 'Einloggen' : authMode === 'register' ? 'Account erstellen' : 'Link anfordern'}</button>
+            <button onClick={handleAuth} className="w-full py-4 rounded-2xl font-bold text-base bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-all shadow-md mt-2">{authMode === 'login' ? 'Einloggen' : authMode === 'register' ? 'Account erstellen' : 'Link anfordern'}</button>
             <div className="flex flex-col gap-2 pt-4">
                 {authMode === 'login' ? (
                     <><button onClick={() => { setAuthMode('register'); setAuthError(''); setAuthMsg(''); }} className="text-sm font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">Neuen Account erstellen</button><button onClick={() => { setAuthMode('reset'); setAuthError(''); setAuthMsg(''); }} className="text-xs font-medium text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">Passwort vergessen?</button></>
@@ -1528,6 +1541,7 @@ function App() {
             )}
           </div>
           <div className="flex gap-2 items-center">
+            {/* Kalender Button GLOBAL zugänglich */}
             <button type="button" onClick={() => { setViewingEntry(null); setShowTimeline(true); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="calendar-days" size={18}/></button>
             
             {view === 'dashboard' && (
@@ -1755,12 +1769,12 @@ function App() {
 
           {view === 'burn' && (
             <div className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-fade-in relative">
-              {isBurning && <div className="absolute inset-0 bg-rose-500/10 animate-pulse rounded-3xl pointer-events-none" />}
+              {isBurning && <div className="absolute inset-0 bg-rose-500/10 animate-pulse rounded-[3rem] pointer-events-none" />}
               <Icon name="flame" size={64} className={`mb-6 ${isBurning ? 'text-rose-500 animate-flame' : 'text-slate-300 dark:text-zinc-700'}`} />
               <p className="opacity-60 mb-8 max-w-sm text-sm">Schreibe auf, was dich belastet. Wir übergeben es den Flammen. Es wird nirgendwo gespeichert.</p>
-              <textarea value={burnText} onChange={e=>setBurnText(e.target.value)} disabled={isBurning} className="w-full p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-rose-500 h-48 outline-none resize-none transition-all text-lg font-medium shadow-sm" placeholder="Lass es los..." />
-              <button onClick={triggerBurn} disabled={!burnText || isBurning} className="mt-6 px-8 py-4 bg-rose-600 text-white rounded-2xl font-bold shadow-lg shadow-rose-600/20 hover:scale-105 active:scale-95 transition-transform disabled:opacity-50 flex items-center justify-center gap-2">
-                {isBurning ? 'Verbrennt...' : <><Icon name="flame" size={20}/> Dem Feuer übergeben</>}
+              <textarea value={burnText} onChange={e=>setBurnText(e.target.value)} disabled={isBurning} className="w-full p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-rose-500 h-56 outline-none resize-none transition-all text-xl font-medium shadow-sm" placeholder="Lass es los..." />
+              <button onClick={triggerBurn} disabled={!burnText || isBurning} className="mt-8 px-10 py-5 bg-rose-600 text-white rounded-2xl font-bold text-lg shadow-lg shadow-rose-600/20 active:scale-95 transition-transform disabled:opacity-50 flex items-center justify-center gap-3">
+                {isBurning ? 'Verbrennt...' : <><Icon name="flame" size={24}/> Dem Feuer übergeben</>}
               </button>
             </div>
           )}
@@ -1886,7 +1900,7 @@ function App() {
                   )}
 
                   <h1 className="text-4xl sm:text-6xl font-extrabold mb-8 tracking-tighter leading-[1.1] text-slate-900 dark:text-white">{viewingEntry.title || 'Ohne Titel'}</h1>
-                  <div className="flex gap-4 mb-8 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
+                  <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
                     <span>{new Date(viewingEntry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
                     <span>•</span><span>{viewingEntry.category || 'Allgemein'}</span>
                     {viewingEntry.location && <span className="flex items-center gap-1 text-amber-500"><Icon name="map-pin" size={14}/> GPS-Siegel</span>}
@@ -1917,6 +1931,7 @@ function App() {
                       <button onClick={() => startNewChapter(viewingEntry)} className="px-8 py-4 font-bold rounded-full flex items-center gap-3 hover:scale-105 active:scale-95 transition-transform shadow-lg text-lg" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}><Icon name="plus" size={24}/> Neues Kapitel anfügen</button>
                   </div>
 
+                  {/* Navigation für Buch-Seiten */}
                   {allBookEntries.length > 1 && (
                       <div className="flex justify-between items-center mt-16 pt-8 border-t border-slate-100 dark:border-zinc-800 no-print pb-24">
                           {prevPage ? (
@@ -1973,7 +1988,7 @@ function App() {
           </div>
         )}
 
-        {/* --- TIMELINE / ZEITREISE --- */}
+        {/* --- TIMELINE / ZEITREISE (Calendar Style) --- */}
         {showTimeline && !showEditor && (() => {
            const bookEntries = viewingEntry ? getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id) : entries.filter(e => e && !e.archived && !e.trashed);
            
@@ -2110,128 +2125,6 @@ function App() {
           </div>
         )}
 
-        {/* --- EDITOR --- */}
-        {showEditor && (
-          <div className="fixed inset-0 bg-white dark:bg-black z-[200] flex flex-col page-transition">
-            
-            {/* Editor Top Bar (Fixed) */}
-            <header className="flex justify-between items-center p-6 border-b border-slate-100 dark:border-zinc-900 bg-white/90 dark:bg-black/90 backdrop-blur-xl shrink-0 z-50">
-                <button onClick={()=>checkSaveEntry(true)} className="p-3 bg-slate-100 dark:bg-zinc-900 rounded-2xl text-slate-900 dark:text-white hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
-                <div className="flex items-center gap-4">
-                    <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">{autoSaveStatus}</span>
-                    <button onClick={()=>checkSaveEntry(false)} className="px-6 py-3 bg-accent text-white rounded-2xl font-bold text-sm shadow-xl shadow-accent/20 hover:scale-105 active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || '#000000', color: isDarkColor(user.nameColor || '#000000') ? '#ffffff' : '#000000' }}>Sichern</button>
-                </div>
-            </header>
-
-            {/* Sticky Editor Toolbar (Immer sichtbar) */}
-            <div className="flex gap-2 p-4 px-6 overflow-x-auto hide-scrollbar border-b border-slate-50 dark:border-zinc-900 bg-white/95 dark:bg-black/95 backdrop-blur-md shrink-0 z-40 sticky top-0 shadow-sm">
-                
-                {/* Headings & Text */}
-                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'H1'); isDirtyRef.current=true;}} className="p-3 bg-slate-50 dark:bg-cardDark rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm"><span className="font-extrabold">H1</span></button>
-                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'H2'); isDirtyRef.current=true;}} className="p-3 bg-slate-50 dark:bg-cardDark rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm"><span className="font-bold">H2</span></button>
-                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'P'); isDirtyRef.current=true;}} className="p-3 bg-slate-50 dark:bg-cardDark rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm"><span className="font-medium">T</span></button>
-                
-                <div className="w-px bg-slate-200 dark:bg-zinc-800 mx-1"></div>
-
-                {/* Formats */}
-                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('bold'); isDirtyRef.current=true;}} className="p-3 bg-slate-50 dark:bg-cardDark rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm"><Icon name="bold" size={18} /></button>
-                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('italic'); isDirtyRef.current=true;}} className="p-3 bg-slate-50 dark:bg-cardDark rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm"><Icon name="italic" size={18} /></button>
-                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current=true;}} className="p-3 bg-slate-50 dark:bg-cardDark rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm"><Icon name="quote" size={18} /></button>
-                
-                {/* Lists */}
-                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('insertUnorderedList'); isDirtyRef.current=true;}} className="p-3 bg-slate-50 dark:bg-cardDark rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm"><Icon name="list" size={18} /></button>
-                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('insertOrderedList'); isDirtyRef.current=true;}} className="p-3 bg-slate-50 dark:bg-cardDark rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm"><Icon name="list-ordered" size={18} /></button>
-
-                <div className="w-px bg-slate-200 dark:bg-zinc-800 mx-1"></div>
-
-                {/* Color & Media */}
-                <label className="p-3 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm cursor-pointer flex items-center justify-center">
-                    <Icon name="palette" size={18} />
-                    <input type="color" className="hidden" onChange={(e) => { document.execCommand('foreColor', false, e.target.value); isDirtyRef.current = true; }} />
-                </label>
-                <label className="p-3 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm cursor-pointer"><Icon name="image" size={18} /><input type="file" accept="image/*" multiple onChange={e=>handleFileUpload(e,'image')} className="hidden" /></label>
-                <label className="p-3 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm cursor-pointer" title="Bild im Text (Inline)"><Icon name="image-plus" size={18} /><input type="file" accept="image/*" onChange={handleInlineImage} className="hidden" /></label>
-                <button onClick={() => setIsDrawing(true)} className="p-3 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm"><Icon name="pen-tool" size={18} /></button>
-                <button onClick={isRecording ? stopRecording : startRecording} className={`p-3 rounded-xl transition-colors shadow-sm ${isRecording ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-50 dark:bg-zinc-900 text-slate-500 hover:text-accent'}`}>{isRecording ? <Icon name="square" size={18}/> : <Icon name="mic" size={18}/>}</button>
-                
-                <div className="w-px bg-slate-200 dark:bg-zinc-800 mx-1"></div>
-
-                {/* Locks */}
-                <button onClick={()=>{setIsLocked(!isLocked); isDirtyRef.current=true;}} className={`p-3 rounded-xl transition-colors shadow-sm ${isLocked ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-500 border border-rose-200 dark:border-rose-900/50' : 'bg-slate-50 dark:bg-zinc-900 text-slate-500 hover:text-rose-500'}`}><Icon name="lock" size={18}/></button>
-                <button onClick={()=>{setIsManifested(!isManifested); isDirtyRef.current=true;}} className={`p-3 rounded-xl transition-colors shadow-sm ${isManifested ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-500 border border-amber-200 dark:border-amber-900/50' : 'bg-slate-50 dark:bg-zinc-900 text-slate-500 hover:text-amber-500'}`}><Icon name="sparkles" size={18}/></button>
-            </div>
-            
-            {/* Editor Content Area */}
-            <div className="flex-1 p-6 md:p-10 overflow-y-auto custom-scrollbar flex flex-col max-w-3xl mx-auto w-full">
-              
-              {selectedImages.length > 0 && (
-                  <div className="flex gap-4 mb-8 overflow-x-auto hide-scrollbar snap-x pb-4">
-                      {selectedImages.map((img, i) => (
-                          <div key={i} className="relative w-48 aspect-video rounded-2xl overflow-hidden shadow-sm shrink-0 snap-start group border border-slate-200 dark:border-zinc-800">
-                              <img src={img} className="w-full h-full object-cover" />
-                              <button onClick={()=>{setSelectedImages(prev=>prev.filter((_,idx)=>idx!==i)); isDirtyRef.current=true;}} className="absolute top-2 right-2 p-2 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"><Icon name="x" size={14}/></button>
-                          </div>
-                      ))}
-                  </div>
-              )}
-
-              {pillarGuidance && (
-                  <div className="p-5 rounded-3xl bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-900/30 text-amber-700 dark:text-amber-400 font-medium text-sm mb-8 flex gap-4 leading-relaxed">
-                      <Icon name="book-open" size={24} className="shrink-0 mt-0.5 opacity-80" /> {pillarGuidance}
-                  </div>
-              )}
-
-              <input type="text" placeholder="Titel der Vision..." value={title} onChange={e=>{setTitle(e.target.value); isDirtyRef.current=true;}} className="w-full bg-transparent text-4xl sm:text-5xl font-extrabold tracking-tighter outline-none mb-6 placeholder-slate-200 dark:placeholder-zinc-800 text-slate-900 dark:text-white" />
-
-              {audioUrl && (
-                  <div className="mb-8 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 relative">
-                     <span className="text-[10px] font-bold uppercase tracking-widest opacity-50 mb-3 block">Audio-Log</span>
-                     <audio src={audioUrl} controls className="w-full" />
-                     <button onClick={()=>{setAudioUrl(null); isDirtyRef.current=true;}} className="absolute top-4 right-4 p-2 bg-slate-200 dark:bg-zinc-800 rounded-full text-slate-500 hover:text-rose-500"><Icon name="x" size={14}/></button>
-                  </div>
-              )}
-
-              <div 
-                  ref={editorRef} 
-                  contentEditable 
-                  onClick={handleEditorClick}
-                  onInput={()=>isDirtyRef.current=true} 
-                  className="flex-1 outline-none text-[1.05rem] leading-[1.8] legacy-editor-content text-slate-800 dark:text-slate-200 pb-32" 
-                  data-placeholder="Was wirst du hinterlassen?" 
-                  dangerouslySetInnerHTML={{__html: text}} 
-              />
-            </div>
-
-            {/* Editor Meta Bottom Bar (Tags, Rating, Location, Date) */}
-            <div className="p-4 border-t border-slate-100 dark:border-zinc-900 bg-white/90 dark:bg-black/90 backdrop-blur-xl shrink-0 flex items-center gap-3 overflow-x-auto hide-scrollbar z-50">
-               <button onClick={()=>setPicker({title:'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c, value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;}})} className="px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs font-bold flex items-center gap-2 shrink-0">{category} <Icon name="chevron-down" size={12}/></button>
-               
-               {/* Rating Component */}
-               <div className="flex items-center gap-1 bg-slate-50 dark:bg-zinc-900 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0">
-                  {[1,2,3,4,5].map(star => (
-                      <Icon key={star} name="star" size={16} className={`cursor-pointer transition-colors ${rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-zinc-700'}`} onClick={() => {setRating(rating === star ? 0 : star); isDirtyRef.current=true;}} />
-                  ))}
-               </div>
-
-               {/* Tags Input */}
-               <div className="flex items-center bg-slate-50 dark:bg-zinc-900 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[150px]">
-                   <Icon name="tag" size={14} className="text-slate-400 mr-2" />
-                   <input type="text" placeholder="Tags (Komma...)" value={tags} onChange={e=>{setTags(e.target.value); isDirtyRef.current=true;}} className="bg-transparent border-none outline-none text-xs font-bold placeholder:opacity-50 w-full text-slate-900 dark:text-white" />
-               </div>
-
-               <label className={`px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 cursor-pointer ${unlockDate ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}>
-                  <Icon name="calendar-clock" size={14}/> {unlockDate ? new Date(unlockDate).toLocaleDateString('de-DE') : 'Zeitsiegel'}
-                  <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); isDirtyRef.current=true;}} className="hidden" />
-               </label>
-               <button onClick={()=>{
-                   if(location){setLocation(null); isDirtyRef.current=true; return;}
-                   if(!("geolocation" in navigator)){showDialog({title:'Fehler', message:'Ortung nicht unterstützt.'}); return;}
-                   navigator.geolocation.getCurrentPosition(p => { setLocation({lat: p.coords.latitude, lng: p.coords.longitude}); isDirtyRef.current=true; showDialog({title:'GPS erfasst', message:'Ort wurde gesichert.', icon:'map-pin'}); }, ()=>showDialog({title:'Fehler', message:'Ortung fehlgeschlagen.'}));
-               }} className={`px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 ${location ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-900/50 text-amber-600 dark:text-amber-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}><Icon name="map-pin" size={14}/> {location ? 'Ort gesichert' : 'GPS-Siegel'}</button>
-            </div>
-          </div>
-        )}
-
       </div>
     </ErrorBoundary>
   );
@@ -2241,6 +2134,7 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
 </script>
 
+<!-- Statische Service Worker Registrierung (Sicherer Standort außerhalb von Babel) -->
 <script>
   if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
     window.addEventListener('load', () => {
