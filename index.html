@@ -521,6 +521,48 @@ function App() {
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
 
+  // Geografische Lebenskarte (Leaflet) laden - Dies fehlte!
+  useEffect(() => {
+      if (view === 'map' && mapRef.current && window.L) {
+          if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; }
+
+          const map = window.L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView([51.1657, 10.4515], 3);
+          window.L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+          // Zuverlässige OpenStreetMap Kacheln (damit es nicht schwarz bleibt)
+          window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+          
+          let hasMarkers = false;
+          const bounds = window.L.latLngBounds();
+
+          const locationGroups = {};
+          entries.filter(e => e && !e.trashed).forEach(e => {
+              if (e.location) {
+                  hasMarkers = true;
+                  bounds.extend([e.location.lat, e.location.lng]);
+                  const key = `${Number(e.location.lat).toFixed(3)}_${Number(e.location.lng).toFixed(3)}`;
+                  if (!locationGroups[key]) locationGroups[key] = { lat: e.location.lat, lng: e.location.lng, entries: [] };
+                  locationGroups[key].entries.push(e);
+              }
+          });
+
+          Object.values(locationGroups).forEach(group => {
+              const e = group.entries[0];
+              const count = group.entries.length;
+              const iconHtml = `<div style="width: 16px; height: 16px; border-radius: 50%; background-color: ${user.nameColor || '#f59e0b'}; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`;
+              const icon = window.L.divIcon({ html: iconHtml, className: 'avatar-marker', iconSize: [16, 16], iconAnchor: [8, 8] });
+              const marker = window.L.marker([group.lat, group.lng], { icon }).addTo(map);
+              marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b>`);
+              marker.on('click', () => { setView('dashboard'); handleOpenEntry(e); });
+          });
+
+          if (hasMarkers) map.fitBounds(bounds, { padding: [50, 50] });
+          mapInstance.current = map;
+          // Verzögerung, damit Container-Größe berechnet wurde
+          setTimeout(() => map.invalidateSize(), 200);
+      }
+  }, [view, entries, user.nameColor]);
+
   const [peerId, setPeerId] = useState(null);
   const [peerInstance, setPeerInstance] = useState(null);
   const [syncStatus, setSyncStatus] = useState('');
@@ -604,19 +646,28 @@ function App() {
   // --- Firebase Setup mit strikter Login-Abfrage ---
   useEffect(() => {
     const initFB = async () => {
+       // NOTFALL-TIMER: Verhindert den endlosen schwarzen Ladebildschirm!
+       let authTimeout = setTimeout(() => {
+           if (!isLoaded) {
+               setView('auth');
+               setIsLoaded(true);
+           }
+       }, 3000);
+
        try {
           const firebaseConfig = { apiKey: "AIzaSyBs7DoO5z8cuIc3DtdArgorKRx_FX7JX-U", authDomain: "tagebuch-og.firebaseapp.com", projectId: "tagebuch-og", storageBucket: "tagebuch-og.firebasestorage.app", messagingSenderId: "418864246292", appId: "1:418864246292:web:957b604fe7ce4380c24101" };
           const nativeImport = new Function('url', 'return import(url)');
           const { initializeApp } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
-          const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, setPersistence, inMemoryPersistence } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
+          const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, setPersistence, browserSessionPersistence } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
           const { getFirestore, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
           
           const app = initializeApp(firebaseConfig); 
           const auth = getAuth(app); 
           
-          // ERZWINGT DEN LOGIN BEI JEDEM NEUSTART / NEU LADEN
-          await setPersistence(auth, inMemoryPersistence);
-          await signOut(auth); // Zwanghafter Logout beim Öffnen, damit immer nach E-Mail gefragt wird!
+          try {
+              // Sorgt dafür, dass man nach dem Schließen des Tabs ausgeloggt ist.
+              await setPersistence(auth, browserSessionPersistence);
+          } catch(e) { console.warn("Sitzung konnte nicht erzwungen werden", e); }
           
           const firestoreDb = getFirestore(app);
           setFb({ db: firestoreDb, auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot });
@@ -654,6 +705,7 @@ function App() {
           };
 
           onAuthStateChanged(auth, (u) => {
+             clearTimeout(authTimeout);
              if (u) {
                  if (u.emailVerified) {
                      setAuthUser(u);
@@ -666,9 +718,10 @@ function App() {
              setIsLoaded(true);
           });
        } catch(e) { 
+           clearTimeout(authTimeout);
            console.error("Firebase init error:", e);
            setView('auth');
-           setAuthError('Verbindung zu Firebase blockiert. Bitte Internet oder Adblocker prüfen.');
+           setAuthError('Verbindung zu Firebase blockiert. Bitte Internet prüfen.');
            setIsLoaded(true); 
        }
     };
@@ -1523,7 +1576,15 @@ function App() {
 
   const callGemini = async (payload, retries = 5) => {
       const delays = [1000, 2000, 4000, 8000, 16000];
-      const apiKey = "AIzaSyC4z8nQq_N7bK7lgyyox8jM_Vbnuz_SP3E";
+      
+      // KI-Key lokal abfragen, damit Google ihn nicht auf GitHub sperrt!
+      let apiKey = safeStorageGet('gemini_api_key');
+      if (!apiKey) {
+          apiKey = prompt("Sicherheits-Schutz: Bitte gib deinen Gemini API-Key ein. Er wird nur auf diesem Gerät gespeichert und NICHT auf GitHub veröffentlicht:");
+          if (apiKey) safeStorageSet('gemini_api_key', apiKey.trim());
+          else throw new Error("Kein API-Key angegeben.");
+      }
+
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
       
       for (let i = 0; i < retries; i++) {
