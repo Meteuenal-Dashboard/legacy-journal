@@ -336,6 +336,14 @@ const PILLARS = [
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
+const getDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371e3;
+  const p1 = lat1 * Math.PI/180, p2 = lat2 * Math.PI/180;
+  const dp = (lat2-lat1) * Math.PI/180, dl = (lon2-lon1) * Math.PI/180;
+  const a = Math.sin(dp/2) * Math.sin(dp/2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2) * Math.sin(dl/2);
+  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+};
+
 const initDB = () => {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('LegacyVisionDB', 4);
@@ -741,6 +749,10 @@ function App() {
       setUser(mergedUser);
       safeStorageSet('legacy_user', JSON.stringify(mergedUser));
       setView(mergedUser.name ? 'dashboard' : 'onboarding');
+  };
+
+  const submitPin = () => {
+      handleUnlockSubmit(pinInput);
   };
 
   const toggleBiometric = async () => {
@@ -1427,13 +1439,13 @@ function App() {
         <h1 className="text-3xl font-bold font-serif mb-4">Geräte-Kopplung</h1>
         <p className="opacity-80 text-lg mb-8 max-w-sm">{syncStatus || "Initialisiere..."}</p>
         {(syncStatus.includes('Fehler') || syncStatus.includes('erfolgreich')) && (
-          <button onClick={() => window.location.href = window.location.origin + window.location.pathname} className="px-8 py-4 bg-white text-slate-900 font-bold rounded-2xl mt-4 shadow-lg">Zurück zum Start</button>
+          <button onClick={() => window.location.href = window.location.origin + window.location.pathname} className="px-8 py-4 bg-white text-slate-900 font-bold rounded-2xl mt-4 shadow-lg hover:scale-105 transition-transform">Zurück zum Start</button>
         )}
       </div>
     );
   }
 
-  if (view === 'loading' || !isLoaded) return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-black"><div className="w-12 h-12 border-4 border-slate-300 dark:border-zinc-800 border-t-black dark:border-t-white rounded-full animate-spin"></div></div>;
+  if (view === 'loading' || !isLoaded) return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-black"><div className="w-8 h-8 border-4 border-slate-300 dark:border-zinc-800 border-t-black dark:border-t-white rounded-full animate-spin"></div></div>;
 
   if (view === 'auth') {
     return (
@@ -1471,7 +1483,7 @@ function App() {
           <h1 className="text-2xl font-bold tracking-tight">Tresor entsperren</h1>
           <p className="opacity-60 text-sm font-medium px-4">Gib deine PIN ein, um dein lokales Journal zu entschlüsseln.</p>
           <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-zinc-800">
-             <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockSubmit(newPinInput); }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none mb-6 bg-slate-100 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-zinc-600 transition-colors placeholder:opacity-30" placeholder="••••" />
+             <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockSubmit(newPinInput); }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none mb-6 bg-slate-100 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-zinc-600 transition-colors placeholder:opacity-30" placeholder="••••" />
              <button onClick={() => handleUnlockSubmit(newPinInput)} className="w-full py-4 font-bold rounded-2xl bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-transform shadow-md mb-3">Entsperren</button>
              
              {/* Biometric Fallback UI in PIN view if enabled */}
@@ -1507,20 +1519,20 @@ function App() {
       <div className="min-h-screen pb-safe">
 
         {/* --- MAIN HEADER --- */}
-        <header className="sticky top-0 z-30 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-slate-200 dark:border-zinc-800 px-6 py-4 flex justify-between items-center transition-colors duration-300 no-print">
+        <header className="sticky top-0 z-30 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-zinc-800/50 px-6 py-4 flex justify-between items-center transition-colors duration-300 no-print">
           <div className="flex items-center gap-3 overflow-hidden">
-            {view === 'archive' ? <h1 className="text-xl font-bold tracking-tight">Archiv</h1> :
-             view === 'trash' ? <h1 className="text-xl font-bold tracking-tight text-rose-500">Papierkorb</h1> :
-             view === 'menu' ? <h1 className="text-xl font-bold tracking-tight">Entdecken</h1> :
-             view === 'wisdom' ? <h1 className="text-xl font-bold tracking-tight">Buch der Weisheit</h1> :
-             view === 'burn' ? <h1 className="text-xl font-bold tracking-tight text-rose-500">Katharsis</h1> :
-             view === 'quotes' ? <h1 className="text-xl font-bold tracking-tight">Erkenntnisse</h1> :
-             view === 'map' ? <h1 className="text-xl font-bold tracking-tight text-amber-500">Lebenskarte</h1> :
-             view === 'vault' ? <h1 className="text-xl font-bold tracking-tight flex items-center gap-2"><Icon name="lock" size={20}/> Tresor</h1> :
-             view === 'settings' ? <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">Einstellungen</h1> :
+            {view === 'archive' ? <h1 className="text-2xl font-extrabold tracking-tight">Archiv</h1> :
+             view === 'trash' ? <h1 className="text-2xl font-extrabold tracking-tight text-rose-500">Papierkorb</h1> :
+             view === 'menu' ? <h1 className="text-2xl font-extrabold tracking-tight">Entdecken</h1> :
+             view === 'wisdom' ? <h1 className="text-2xl font-extrabold tracking-tight">Säulen</h1> :
+             view === 'burn' ? <h1 className="text-2xl font-extrabold tracking-tight text-rose-500">Katharsis</h1> :
+             view === 'quotes' ? <h1 className="text-2xl font-extrabold tracking-tight">Erkenntnisse</h1> :
+             view === 'map' ? <h1 className="text-2xl font-extrabold tracking-tight text-amber-500">Lebenskarte</h1> :
+             view === 'vault' ? <h1 className="text-2xl font-extrabold tracking-tight flex items-center gap-2"><Icon name="lock" size={24}/> Tresor</h1> :
+             view === 'settings' ? <h1 className="text-2xl font-extrabold tracking-tight flex items-center gap-2">Einstellungen</h1> :
             (
               <>
-                <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-zinc-800 flex items-center justify-center shrink-0 shadow-sm overflow-hidden" style={{ borderColor: user.nameColor, borderWidth: '2px' }}>
+                <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 shadow-sm overflow-hidden" style={{ borderColor: user.nameColor, borderWidth: '2px' }}>
                   {user.avatar ? <img src={user.avatar} className="w-full h-full object-cover"/> : <Icon name="user" size={20} className="opacity-50 text-slate-900 dark:text-white"/>}
                 </div>
                 <div className="flex flex-col">
@@ -1544,7 +1556,7 @@ function App() {
           </div>
 
           {isSearchOpen && view === 'dashboard' && (
-            <div className="absolute top-full left-0 right-0 p-4 bg-white/90 dark:bg-black/90 backdrop-blur-2xl border-b border-slate-200 dark:border-zinc-800 shadow-xl animate-slide-up z-50">
+            <div className="absolute top-full left-0 right-0 p-4 bg-white/90 dark:bg-black/90 backdrop-blur-2xl border-b border-slate-200/50 dark:border-zinc-800/50 shadow-xl animate-slide-up z-50">
               <input type="text" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Suchen..." autoFocus className="w-full p-4 rounded-2xl bg-slate-100 dark:bg-zinc-900 border-none outline-none font-medium focus:ring-2 focus:ring-slate-300 dark:focus:ring-zinc-700 transition-shadow" />
             </div>
           )}
@@ -1555,23 +1567,23 @@ function App() {
           
           {view === 'menu' && (
             <div className="grid grid-cols-2 gap-4 sm:gap-6 animate-slide-up">
-              <button onClick={() => setView('wisdom')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-105 transition-transform"><Icon name="book-open" size={32} className="text-amber-500" /><span className="font-bold text-sm">Weisheit</span></button>
-              <button onClick={() => setView('map')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-105 transition-transform"><Icon name="map" size={32} className="text-emerald-500" /><span className="font-bold text-sm">Lebenskarte</span></button>
-              <button onClick={() => setView('burn')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-105 transition-transform"><Icon name="flame" size={32} className="text-rose-500" /><span className="font-bold text-sm">Katharsis</span></button>
-              <button onClick={() => setView('quotes')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-105 transition-transform"><Icon name="quote" size={32} className="text-indigo-500" /><span className="font-bold text-sm">Erkenntnisse</span></button>
-              <button onClick={() => setView('archive')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-105 transition-transform"><Icon name="archive" size={32} className="opacity-50" /><span className="font-bold text-sm">Archiv</span></button>
-              <button onClick={() => setView('trash')} className="p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-105 transition-transform"><Icon name="trash-2" size={32} className="text-rose-400" /><span className="font-bold text-sm text-rose-500">Papierkorb</span></button>
-              <button onClick={() => setView('settings')} className="col-span-2 p-6 rounded-3xl flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-105 transition-transform"><Icon name="settings" size={32} className="opacity-50" /><span className="font-bold text-sm">Einstellungen</span></button>
+              <button onClick={() => setView('wisdom')} className="p-6 rounded-[2rem] flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-[1.02] active:scale-95 transition-transform"><Icon name="book-open" size={32} className="text-amber-500" /><span className="font-bold text-sm">Weisheit</span></button>
+              <button onClick={() => setView('map')} className="p-6 rounded-[2rem] flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-[1.02] active:scale-95 transition-transform"><Icon name="map" size={32} className="text-emerald-500" /><span className="font-bold text-sm">Lebenskarte</span></button>
+              <button onClick={() => setView('burn')} className="p-6 rounded-[2rem] flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-[1.02] active:scale-95 transition-transform"><Icon name="flame" size={32} className="text-rose-500" /><span className="font-bold text-sm">Katharsis</span></button>
+              <button onClick={() => setView('quotes')} className="p-6 rounded-[2rem] flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-[1.02] active:scale-95 transition-transform"><Icon name="quote" size={32} className="text-indigo-500" /><span className="font-bold text-sm">Erkenntnisse</span></button>
+              <button onClick={() => setView('archive')} className="p-6 rounded-[2rem] flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-[1.02] active:scale-95 transition-transform"><Icon name="archive" size={32} className="opacity-50" /><span className="font-bold text-sm">Archiv</span></button>
+              <button onClick={() => setView('trash')} className="p-6 rounded-[2rem] flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-[1.02] active:scale-95 transition-transform"><Icon name="trash-2" size={32} className="text-rose-400" /><span className="font-bold text-sm text-rose-500">Papierkorb</span></button>
+              <button onClick={() => setView('settings')} className="col-span-2 p-6 rounded-[2rem] flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-[1.02] active:scale-95 transition-transform"><Icon name="settings" size={32} className="opacity-50" /><span className="font-bold text-sm">Einstellungen</span></button>
             </div>
           )}
 
           {/* --- TRASH VIEW --- */}
           {view === 'trash' && (
               <div className="space-y-4 animate-slide-up pb-24">
-                  <div className="flex justify-between items-center p-6 bg-rose-50 dark:bg-rose-500/10 rounded-3xl mb-6 text-rose-500 border border-rose-100 dark:border-rose-900/30 shadow-sm">
+                  <div className="flex justify-between items-center p-6 bg-rose-50 dark:bg-rose-500/10 rounded-[2rem] mb-6 text-rose-500 border border-rose-100 dark:border-rose-900/30 shadow-sm">
                       <div>
-                          <h2 className="text-xl font-bold flex items-center gap-2"><Icon name="trash-2" size={24}/> Papierkorb</h2>
-                          <p className="text-xs opacity-70 mt-1">{visibleEntries.length} gelöschte Einträge</p>
+                          <h2 className="text-xl font-extrabold flex items-center gap-2"><Icon name="trash-2" size={24}/> Papierkorb</h2>
+                          <p className="text-xs opacity-70 font-medium mt-1">{visibleEntries.length} gelöschte Einträge</p>
                       </div>
                       {visibleEntries.length > 0 && (
                           <button onClick={() => {
@@ -1582,7 +1594,7 @@ function App() {
                                   iconColor: 'text-rose-500',
                                   onConfirm: () => visibleEntries.forEach(e => deleteFromDB(e.id))
                               });
-                          }} className="px-4 py-2 bg-rose-500 text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-md hover:scale-105 transition-transform">Alle leeren</button>
+                          }} className="px-5 py-3 bg-rose-500 text-white rounded-xl font-bold text-sm uppercase tracking-widest shadow-md hover:scale-105 active:scale-95 transition-transform">Leeren</button>
                       )}
                   </div>
                   
@@ -1597,7 +1609,7 @@ function App() {
                                       <p className="text-xs font-bold uppercase tracking-widest opacity-50 mt-1">{new Date(e.date).toLocaleDateString('de-DE')} • {e.category}</p>
                                   </div>
                                   <div className="flex gap-2 shrink-0">
-                                      <button onClick={() => saveToDB({...e, trashed: false})} className="w-10 h-10 flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 rounded-full hover:scale-110 transition-transform shadow-sm" title="Wiederherstellen"><Icon name="rotate-ccw" size={18}/></button>
+                                      <button onClick={() => saveToDB({...e, trashed: false})} className="w-12 h-12 flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Wiederherstellen"><Icon name="rotate-ccw" size={20}/></button>
                                       <button onClick={() => {
                                           showDialog({
                                               title: 'Endgültig löschen?',
@@ -1606,7 +1618,7 @@ function App() {
                                               iconColor: 'text-rose-500',
                                               onConfirm: () => deleteFromDB(e.id)
                                           });
-                                      }} className="w-10 h-10 flex items-center justify-center bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full hover:scale-110 transition-transform shadow-sm" title="Endgültig löschen"><Icon name="x" size={18}/></button>
+                                      }} className="w-12 h-12 flex items-center justify-center bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Endgültig löschen"><Icon name="x" size={20}/></button>
                                   </div>
                               </div>
                           ))}
@@ -1618,102 +1630,101 @@ function App() {
           {/* --- SETTINGS VIEW --- */}
           {view === 'settings' && (
              <div className="animate-slide-up space-y-6 pb-48">
-                <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
-                   <h2 className="text-base font-bold mb-4 flex items-center gap-2"><Icon name="user" size={18}/> Profil</h2>
-                   <div className="flex flex-col sm:flex-row items-center gap-5 mb-6">
+                <div className="p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
+                   <h2 className="text-lg font-bold mb-6 flex items-center gap-2"><Icon name="user" size={20}/> Profil</h2>
+                   <div className="flex flex-col sm:flex-row items-center gap-6 mb-8">
                        <div className="relative shrink-0">
                            <div className="w-24 h-24 rounded-full overflow-hidden border-4 shadow-sm flex items-center justify-center bg-slate-100 dark:bg-zinc-800" style={{ borderColor: user.nameColor }}>
                                {user.avatar ? <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover scale-[1.02]" /> : <Icon name="user" size={40} className="opacity-30 text-slate-900 dark:text-white" />}
                            </div>
                        </div>
-                       <label className="w-full sm:flex-1 py-3 px-4 rounded-xl cursor-pointer shadow-sm font-bold text-sm text-center border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:scale-[1.02] transition-transform">
+                       <label className="w-full sm:flex-1 py-4 px-4 rounded-2xl cursor-pointer shadow-sm font-bold text-sm text-center border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 hover:scale-[1.02] active:scale-95 transition-transform">
                            Profilbild ändern <input type="file" accept="image/*" onChange={(e) => handleAvatarUpload(e)} className="hidden" />
                        </label>
                    </div>
-                   <input type="text" value={user.name} onChange={e=>setUser({...user, name: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-lg mb-4 focus:ring-2 focus:ring-slate-200 dark:focus:ring-zinc-700" placeholder="Dein Name" />
-                   <textarea value={user.motto} onChange={e=>setUser({...user, motto: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-medium text-sm resize-none h-24 focus:ring-2 focus:ring-slate-200 dark:focus:ring-zinc-700" placeholder="Lebensmotto..." />
+                   <input type="text" value={user.name} onChange={e=>setUser({...user, name: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-transparent outline-none font-bold text-lg mb-4 focus:border-slate-300 dark:focus:border-zinc-700 transition-colors" placeholder="Dein Name" />
+                   <textarea value={user.motto} onChange={e=>setUser({...user, motto: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-transparent outline-none font-medium text-sm resize-none h-24 focus:border-slate-300 dark:focus:border-zinc-700 transition-colors" placeholder="Lebensmotto..." />
                 </div>
 
-                <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
-                   <h2 className="text-base font-bold mb-4 flex items-center gap-2"><Icon name="moon" size={18}/> Design & Farben</h2>
-                   <div className="flex p-1 bg-slate-100 dark:bg-zinc-950 rounded-2xl mb-6">
+                <div className="p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
+                   <h2 className="text-lg font-bold mb-6 flex items-center gap-2"><Icon name="moon" size={20}/> Design & Farben</h2>
+                   <div className="flex p-1 bg-slate-100 dark:bg-zinc-950 rounded-2xl mb-8 border border-slate-200/50 dark:border-zinc-800">
                       <button onClick={() => setUser({...user, isDark: false})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${!user.isDark ? 'bg-white shadow-sm text-black' : 'text-slate-500'}`}>Hell</button>
                       <button onClick={() => setUser({...user, isDark: true})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${user.isDark ? 'bg-zinc-800 shadow-sm text-white' : 'text-slate-500'}`}>Dunkel</button>
                    </div>
                    
-                   <span className="text-xs font-bold uppercase tracking-widest opacity-60 mb-2 block">Hintergrund (App)</span>
-                   <div className="flex flex-wrap gap-2 mb-6">
-                      <button onClick={() => setUser({...user, appBgColor: null})} className={`w-8 h-8 rounded-full border-2 transition-transform flex items-center justify-center ${!user.appBgColor ? 'border-slate-400 dark:border-zinc-500 scale-110 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: user.isDark ? '#000000' : '#f8fafc' }}><Icon name="slash" size={14} className="opacity-50" /></button>
+                   <span className="text-xs font-bold uppercase tracking-widest opacity-60 mb-3 block">Hintergrund (App)</span>
+                   <div className="flex flex-wrap gap-3 mb-8">
+                      <button onClick={() => setUser({...user, appBgColor: null})} className={`w-10 h-10 rounded-full border-2 transition-transform flex items-center justify-center ${!user.appBgColor ? 'border-slate-400 dark:border-zinc-500 scale-110 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: user.isDark ? '#000000' : '#f8fafc' }}><Icon name="slash" size={16} className="opacity-50" /></button>
                       {COLORS.map(color => (
-                          <button key={color} onClick={() => setUser({...user, appBgColor: color})} className={`w-8 h-8 rounded-full border-2 transition-transform ${user.appBgColor === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
+                          <button key={color} onClick={() => setUser({...user, appBgColor: color})} className={`w-10 h-10 rounded-full border-2 transition-transform ${user.appBgColor === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
                       ))}
                    </div>
 
-                   <span className="text-xs font-bold uppercase tracking-widest opacity-60 mb-2 block">Schriftfarbe</span>
-                   <div className="flex flex-wrap gap-2">
-                      <button onClick={() => setUser({...user, textColor: null})} className={`w-8 h-8 rounded-full border-2 transition-transform flex items-center justify-center ${!user.textColor ? 'border-slate-400 dark:border-zinc-500 scale-110 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: user.isDark ? '#ffffff' : '#0f172a' }}><Icon name="slash" size={14} className={user.isDark ? 'text-black' : 'text-white'} /></button>
+                   <span className="text-xs font-bold uppercase tracking-widest opacity-60 mb-3 block">Schriftfarbe</span>
+                   <div className="flex flex-wrap gap-3">
+                      <button onClick={() => setUser({...user, textColor: null})} className={`w-10 h-10 rounded-full border-2 transition-transform flex items-center justify-center ${!user.textColor ? 'border-slate-400 dark:border-zinc-500 scale-110 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: user.isDark ? '#ffffff' : '#0f172a' }}><Icon name="slash" size={16} className={user.isDark ? 'text-black' : 'text-white'} /></button>
                       {COLORS.map(color => (
-                          <button key={color} onClick={() => setUser({...user, textColor: color, nameColor: color})} className={`w-8 h-8 rounded-full border-2 transition-transform ${user.textColor === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
+                          <button key={color} onClick={() => setUser({...user, textColor: color, nameColor: color})} className={`w-10 h-10 rounded-full border-2 transition-transform ${user.textColor === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
                       ))}
                    </div>
                 </div>
                 
-                <div className="p-6 rounded-[2rem] bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 shadow-sm">
-                   <h2 className="text-base font-bold mb-2 flex items-center gap-2 text-blue-600 dark:text-blue-400"><Icon name="cloud" size={18}/> Verschlüsselter Cloud-Tresor</h2>
-                   <p className="text-xs font-medium opacity-70 mb-4">Deine Daten werden AES-GCM verschlüsselt gesichert.</p>
+                <div className="p-8 rounded-[2.5rem] bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 shadow-sm">
+                   <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-blue-600 dark:text-blue-400"><Icon name="cloud" size={20}/> Verschlüsselter Cloud-Tresor</h2>
+                   <p className="text-sm font-medium opacity-70 mb-6">Deine Daten werden AES-GCM verschlüsselt in der Cloud gesichert.</p>
                    <button onClick={() => {
                       if (!user.pin) { showDialog({title:'PIN fehlt', message:'Bitte lege zuerst eine PIN fest.'}); return; }
                       setUser({...user, cloudSync: !user.cloudSync});
                       if (!user.cloudSync) { entries.forEach(e=>syncSingleEntryToCloud(e)); syncProfileToCloud({...user, cloudSync:true}); }
-                   }} className={`w-full p-4 rounded-2xl font-bold text-sm transition-transform hover:scale-[1.02] shadow-sm mb-3 ${user.cloudSync ? 'bg-blue-600 text-white' : 'bg-white dark:bg-zinc-900 text-slate-700 dark:text-white'}`}>{user.cloudSync ? 'Cloud Sync ist Aktiv' : 'Cloud Sync aktivieren'}</button>
-                   <button onClick={performCloudSync} className="w-full p-4 rounded-2xl font-bold text-sm bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 hover:scale-[1.02] shadow-sm transition-transform flex items-center justify-center gap-2">{syncingCloud ? 'Lädt...' : <><Icon name="download-cloud" size={18}/> Aus der Cloud wiederherstellen</>}</button>
+                   }} className={`w-full p-4 rounded-2xl font-bold text-base transition-transform active:scale-95 shadow-sm mb-4 ${user.cloudSync ? 'bg-blue-600 text-white' : 'bg-white dark:bg-zinc-900 text-slate-700 dark:text-white'}`}>{user.cloudSync ? 'Cloud Sync ist Aktiv' : 'Cloud Sync aktivieren'}</button>
+                   <button onClick={performCloudSync} className="w-full p-4 rounded-2xl font-bold text-base bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 active:scale-95 shadow-sm transition-transform flex items-center justify-center gap-2">{syncingCloud ? 'Lädt...' : <><Icon name="download-cloud" size={20}/> Aus der Cloud wiederherstellen</>}</button>
                 </div>
 
-                <div className="p-6 rounded-[2rem] bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 shadow-sm">
-                   <h2 className="text-base font-bold mb-2 flex items-center gap-2 text-indigo-600 dark:text-indigo-400"><Icon name="archive" size={18}/> Ewigkeits-Archiv (ZIP)</h2>
-                   <p className="text-xs font-medium opacity-70 mb-4">Exportiert alle deine Einträge als simple, für immer lesbare Textdateien (.md) und extrahiert alle Bilder.</p>
-                   <button onClick={exportEternityArchive} className="w-full p-4 rounded-2xl font-bold text-sm bg-indigo-600 text-white hover:scale-[1.02] shadow-sm transition-transform flex items-center justify-center gap-2 mb-3"><Icon name="folder-down" size={18}/> Als ZIP speichern</button>
+                <div className="p-8 rounded-[2.5rem] bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 shadow-sm">
+                   <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-indigo-600 dark:text-indigo-400"><Icon name="archive" size={20}/> Ewigkeits-Archiv (ZIP)</h2>
+                   <p className="text-sm font-medium opacity-70 mb-6">Exportiert alle deine Einträge als simple, für immer lesbare Textdateien (.md) und extrahiert alle Bilder.</p>
+                   <button onClick={exportEternityArchive} className="w-full p-4 rounded-2xl font-bold text-base bg-indigo-600 text-white active:scale-95 shadow-sm transition-transform flex items-center justify-center gap-2 mb-3"><Icon name="folder-down" size={20}/> Als ZIP speichern</button>
                 </div>
 
-                <div className="p-6 rounded-[2rem] bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 shadow-sm">
-                   <h2 className="text-base font-bold mb-2 flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><Icon name="smartphone" size={18}/> P2P Transfer (Ohne Cloud)</h2>
-                   <p className="text-xs font-medium opacity-70 mb-4">Scanne einen QR Code mit deinem neuen Handy, um Daten direkt zu senden.</p>
+                <div className="p-8 rounded-[2.5rem] bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 shadow-sm">
+                   <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><Icon name="smartphone" size={20}/> P2P Transfer (Ohne Cloud)</h2>
+                   <p className="text-sm font-medium opacity-70 mb-6">Scanne einen QR Code mit deinem neuen Handy, um Daten direkt zu senden.</p>
                    {!peerId ? (
                       <button onClick={() => {
                          const peer = new window.Peer(); setSyncStatus('WebRTC wird vorbereitet...');
                          peer.on('open', (id) => { setPeerId(id); setSyncStatus('Scanne den Code mit dem neuen Gerät.'); });
                          peer.on('connection', (c) => { setSyncStatus('Verbunden! Sende...'); c.on('data', (d) => { if(d==='request_data'){c.send(JSON.stringify({user,entries})); setSyncStatus('Erledigt!'); setTimeout(()=>{setPeerId(null);}, 4000);} }); });
                          setPeerInstance(peer);
-                      }} className="w-full p-4 rounded-2xl font-bold text-sm bg-emerald-600 text-white hover:scale-[1.02] shadow-sm transition-transform flex items-center justify-center gap-2"><Icon name="qr-code" size={18}/> QR-Code generieren</button>
+                      }} className="w-full p-4 rounded-2xl font-bold text-base bg-emerald-600 text-white active:scale-95 shadow-sm transition-transform flex items-center justify-center gap-2"><Icon name="qr-code" size={20}/> QR-Code generieren</button>
                    ) : (
-                      <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl flex flex-col items-center">
-                         <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin + window.location.pathname + '?import=' + peerId)}`} className="w-40 h-40 mb-3 rounded-lg" />
-                         <p className="text-[10px] font-bold text-center text-emerald-600 uppercase tracking-widest mb-1">Status</p>
-                         <p className="text-xs font-bold text-center text-slate-800 dark:text-slate-200 animate-pulse">{syncStatus}</p>
-                         <button onClick={()=>{peerInstance?.destroy(); setPeerId(null); setSyncStatus('');}} className="text-xs font-bold opacity-50">Abbrechen</button>
+                      <div className="bg-white dark:bg-zinc-900 p-6 rounded-[2rem] flex flex-col items-center">
+                         <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin + window.location.pathname + '?import=' + peerId)}`} className="w-48 h-48 mb-4 rounded-xl" />
+                         <p className="text-sm font-bold text-emerald-600 mb-4 animate-pulse">{syncStatus}</p>
+                         <button onClick={()=>{peerInstance?.destroy(); setPeerId(null); setSyncStatus('');}} className="text-sm font-bold opacity-50 px-4 py-2 bg-slate-100 dark:bg-zinc-800 rounded-lg">Abbrechen</button>
                       </div>
                    )}
                 </div>
 
-                <div className="p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
-                   <h2 className="text-base font-bold mb-4 flex items-center gap-2"><Icon name="key" size={18}/> Sicherheit & PIN</h2>
+                <div className="p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
+                   <h2 className="text-lg font-bold mb-6 flex items-center gap-2"><Icon name="key" size={20}/> Sicherheit & PIN</h2>
                    
                    {!user.pin ? (
                        <div className="space-y-4">
                            <p className="text-sm font-medium opacity-70">Lege eine PIN fest, um den Tresor zu nutzen.</p>
-                           <input type="password" inputMode="numeric" value={newPinInput} onChange={e=>setNewPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em]" placeholder="Neue PIN" />
-                           <input type="password" inputMode="numeric" value={confirmPinInput} onChange={e=>setConfirmPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em]" placeholder="Wiederholen" />
-                           <button onClick={handleSavePin} className="w-full py-4 rounded-xl font-bold" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>PIN speichern</button>
+                           <input type="password" inputMode="numeric" value={newPinInput} onChange={e=>setNewPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-transparent outline-none font-bold text-center tracking-[1em] focus:border-slate-300 dark:focus:border-zinc-700 transition-colors" placeholder="Neue PIN" />
+                           <input type="password" inputMode="numeric" value={confirmPinInput} onChange={e=>setConfirmPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-transparent outline-none font-bold text-center tracking-[1em] focus:border-slate-300 dark:focus:border-zinc-700 transition-colors" placeholder="Wiederholen" />
+                           <button onClick={handleSavePin} className="w-full py-4 rounded-2xl font-bold active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>PIN speichern</button>
                        </div>
                    ) : (
                        isChangingPin ? (
                            <div className="space-y-4">
-                               <input type="password" inputMode="numeric" value={oldPinInput} onChange={e=>setOldPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em]" placeholder="Alte PIN" />
-                               <input type="password" inputMode="numeric" value={newPinInput} onChange={e=>setNewPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em]" placeholder="Neue PIN" />
-                               <input type="password" inputMode="numeric" value={confirmPinInput} onChange={e=>setConfirmPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-center tracking-[1em]" placeholder="Wiederholen" />
+                               <input type="password" inputMode="numeric" value={oldPinInput} onChange={e=>setOldPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-transparent outline-none font-bold text-center tracking-[1em] focus:border-slate-300 dark:focus:border-zinc-700 transition-colors" placeholder="Alte PIN" />
+                               <input type="password" inputMode="numeric" value={newPinInput} onChange={e=>setNewPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-transparent outline-none font-bold text-center tracking-[1em] focus:border-slate-300 dark:focus:border-zinc-700 transition-colors" placeholder="Neue PIN" />
+                               <input type="password" inputMode="numeric" value={confirmPinInput} onChange={e=>setConfirmPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-transparent outline-none font-bold text-center tracking-[1em] focus:border-slate-300 dark:focus:border-zinc-700 transition-colors" placeholder="Wiederholen" />
                                <div className="flex gap-2">
-                                   <button onClick={() => setIsChangingPin(false)} className="flex-1 py-4 rounded-xl font-bold bg-slate-100 dark:bg-zinc-800">Abbrechen</button>
-                                   <button onClick={handleSavePin} className="flex-1 py-4 rounded-xl font-bold" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>Speichern</button>
+                                   <button onClick={() => setIsChangingPin(false)} className="flex-1 py-4 rounded-2xl font-bold bg-slate-100 dark:bg-zinc-800 active:scale-95 transition-transform">Abbrechen</button>
+                                   <button onClick={handleSavePin} className="flex-1 py-4 rounded-2xl font-bold active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>Speichern</button>
                                </div>
                            </div>
                        ) : (
@@ -1760,32 +1771,32 @@ function App() {
 
           {view === 'burn' && (
             <div className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-fade-in relative">
-              {isBurning && <div className="absolute inset-0 bg-rose-500/10 animate-pulse rounded-3xl pointer-events-none" />}
+              {isBurning && <div className="absolute inset-0 bg-rose-500/10 animate-pulse rounded-[3rem] pointer-events-none" />}
               <Icon name="flame" size={64} className={`mb-6 ${isBurning ? 'text-rose-500 animate-flame' : 'text-slate-300 dark:text-zinc-700'}`} />
-              <p className="opacity-60 mb-8 max-w-sm">Schreibe auf, was dich belastet. Wir übergeben es den Flammen. Es wird nirgendwo gespeichert.</p>
-              <textarea value={burnText} onChange={e=>setBurnText(e.target.value)} disabled={isBurning} className="w-full p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-rose-500 h-48 outline-none resize-none transition-all text-lg font-medium shadow-sm" placeholder="Lass es los..." />
-              <button onClick={triggerBurn} disabled={!burnText || isBurning} className="mt-6 px-8 py-4 bg-rose-600 text-white rounded-2xl font-bold shadow-lg shadow-rose-600/20 hover:scale-105 transition-transform disabled:opacity-50 flex items-center justify-center gap-2">
-                {isBurning ? 'Verbrennt...' : <><Icon name="flame" size={20}/> Dem Feuer übergeben</>}
+              <p className="opacity-60 font-medium mb-10 max-w-sm text-lg">Schreibe auf, was dich belastet. Wir übergeben es den Flammen. Es wird nirgendwo gespeichert.</p>
+              <textarea value={burnText} onChange={e=>setBurnText(e.target.value)} disabled={isBurning} className="w-full p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-rose-500 h-56 outline-none resize-none transition-all text-xl font-medium shadow-sm" placeholder="Lass es los..." />
+              <button onClick={triggerBurn} disabled={!burnText || isBurning} className="mt-8 px-10 py-5 bg-rose-600 text-white rounded-2xl font-bold text-lg shadow-lg shadow-rose-600/20 active:scale-95 transition-transform disabled:opacity-50 flex items-center justify-center gap-3">
+                {isBurning ? 'Verbrennt...' : <><Icon name="flame" size={24}/> Dem Feuer übergeben</>}
               </button>
             </div>
           )}
 
           {view === 'wisdom' && (
-             <div className="animate-slide-up space-y-6 pb-24">
-                <div className="p-6 rounded-3xl border text-center" style={{ backgroundColor: `${user.nameColor}15`, borderColor: `${user.nameColor}30` }}>
-                   <h3 className="font-bold mb-2" style={{ color: user.nameColor }}>Fortschritt deines Vermächtnisses</h3>
-                   <div className="flex justify-between text-sm font-bold opacity-70 mb-2" style={{ color: user.nameColor }}><span>{completedPillars} von {totalPillars}</span><span>{progressPercent}%</span></div>
-                   <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: `${user.nameColor}30` }}><div className="h-full transition-all duration-1000" style={{width:`${progressPercent}%`, backgroundColor: user.nameColor }}></div></div>
+             <div className="animate-slide-up space-y-8 pb-32">
+                <div className="p-8 rounded-[2.5rem] border text-center shadow-sm" style={{ backgroundColor: `${user.nameColor}15`, borderColor: `${user.nameColor}30` }}>
+                   <h3 className="font-extrabold text-xl mb-3" style={{ color: user.nameColor }}>Fortschritt deines Vermächtnisses</h3>
+                   <div className="flex justify-between text-sm font-bold opacity-70 mb-4" style={{ color: user.nameColor }}><span>{completedPillars} von {totalPillars}</span><span>{progressPercent}%</span></div>
+                   <div className="w-full h-3 rounded-full overflow-hidden" style={{ backgroundColor: `${user.nameColor}30` }}><div className="h-full transition-all duration-1000" style={{width:`${progressPercent}%`, backgroundColor: user.nameColor }}></div></div>
                 </div>
                 {['Fundament', 'Kommunikation', 'Struktur', 'Tiefe', 'Anpassung'].map(phase => (
-                   <div key={phase} className="space-y-3">
-                      <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-zinc-500 ml-2">{phase}</h4>
+                   <div key={phase} className="space-y-4">
+                      <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-zinc-500 ml-4 mb-2">{phase}</h4>
                       {PILLARS.filter(p=>p.phase===phase).map(pillar => {
                          const isCompleted = entries.some(e => e && e.title === pillar.title && !e.trashed);
                          return (
-                           <button key={pillar.id} onClick={() => openEditor(null, pillar)} className="w-full text-left p-5 rounded-3xl bg-white dark:bg-zinc-900 border shadow-sm flex gap-4 hover:scale-[1.02] transition-transform" style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isCompleted ? 'text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`} style={isCompleted ? { backgroundColor: user.nameColor } : {}}><Icon name={isCompleted?"check":"pen-tool"} size={16}/></div>
-                              <div><div className="font-bold text-sm mb-1">{pillar.title}</div><div className="text-xs opacity-60 line-clamp-2 leading-relaxed">{pillar.desc}</div></div>
+                           <button key={pillar.id} onClick={() => openEditor(null, pillar)} className="w-full text-left p-6 rounded-3xl bg-white dark:bg-zinc-900 border shadow-sm flex items-start gap-5 hover:scale-[1.02] active:scale-95 transition-transform" style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm ${isCompleted ? 'text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`} style={isCompleted ? { backgroundColor: user.nameColor } : {}}><Icon name={isCompleted?"check":"pen-tool"} size={18}/></div>
+                              <div><div className="font-bold text-lg leading-tight mb-2 text-slate-900 dark:text-white">{pillar.title}</div><div className="text-sm font-medium opacity-60 line-clamp-2 leading-relaxed">{pillar.desc}</div></div>
                            </button>
                          )
                       })}
@@ -1795,15 +1806,15 @@ function App() {
           )}
 
           {view === 'quotes' && (
-             <div className="animate-slide-up space-y-4 pb-24">
+             <div className="animate-slide-up space-y-6 pb-32">
                 {allQuotes.length === 0 ? (
-                   <div className="text-center py-20 opacity-40"><Icon name="quote" size={48} className="mx-auto mb-4"/><p className="font-bold">Noch keine Erkenntnisse zitiert.</p></div>
+                   <div className="text-center py-20 opacity-40"><Icon name="quote" size={56} className="mx-auto mb-6"/><p className="font-bold text-lg">Noch keine Erkenntnisse zitiert.</p></div>
                 ) : (
                    allQuotes.map(q => (
-                      <div key={q.id} onClick={()=>{const e=entries.find(x=>x && x.id===q.entryId); if(e){setView('dashboard'); handleOpenEntry(e);}}} className="p-6 rounded-3xl bg-white dark:bg-zinc-900 border shadow-sm cursor-pointer hover:scale-[1.02] transition-transform" style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
-                         <Icon name="quote" size={20} className="mb-4 opacity-50" style={{ color: user.nameColor }} />
-                         <p className="text-lg font-serif italic font-medium leading-relaxed mb-4">"{q.text}"</p>
-                         <div className="text-xs font-bold uppercase tracking-widest opacity-40">{q.title} • {new Date(q.date).toLocaleDateString('de-DE')}</div>
+                      <div key={q.id} onClick={()=>{const e=entries.find(x=>x && x.id===q.entryId); if(e){setView('dashboard'); handleOpenEntry(e);}}} className="p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border shadow-sm cursor-pointer hover:-translate-y-1 hover:shadow-md transition-all relative overflow-hidden" style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
+                         <Icon name="quote" size={32} className="absolute top-6 left-6 opacity-10" style={{ color: user.nameColor }} />
+                         <p className="relative z-10 text-xl font-serif italic font-medium leading-relaxed mb-6 text-slate-800 dark:text-slate-200">"{q.text}"</p>
+                         <div className="text-xs font-bold uppercase tracking-widest opacity-40 mt-auto pt-4 border-t border-slate-100 dark:border-zinc-800 text-slate-500">{q.title} • {new Date(q.date).toLocaleDateString('de-DE')}</div>
                       </div>
                    ))
                 )}
@@ -1811,35 +1822,24 @@ function App() {
           )}
 
           {['dashboard', 'vault', 'archive'].includes(view) && !searchQuery && (
-            <div className="flex overflow-x-auto gap-2 pb-2 mb-6 custom-scrollbar hide-scrollbar">
+            <div className="flex overflow-x-auto gap-3 pb-4 mb-8 custom-scrollbar hide-scrollbar snap-x">
               {['Alle', ...CATEGORIES].map(cat => (
-                <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-5 py-2 rounded-full whitespace-nowrap text-sm font-semibold transition-colors ${activeCategory === cat ? 'text-white dark:text-black shadow-md' : 'bg-slate-100 dark:bg-zinc-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-zinc-800'}`} style={activeCategory === cat ? { backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') } : {}}>
+                <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-6 py-3 rounded-2xl whitespace-nowrap text-sm font-bold transition-all snap-start ${activeCategory === cat ? 'text-white dark:text-black shadow-md scale-105' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-zinc-800 border border-slate-100 dark:border-zinc-800'}`} style={activeCategory === cat ? { backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') } : {}}>
                   {cat}
                 </button>
               ))}
             </div>
           )}
 
-          {view === 'dashboard' && !searchQuery && (
-             <div className="mb-8 p-6 rounded-3xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm flex flex-col justify-center animate-fade-in">
-                <div className="flex justify-between items-center mb-4"><span className="font-bold text-xs uppercase tracking-widest opacity-50">30-Tage Aktivität</span><Icon name="activity" size={16} className="opacity-30" /></div>
-                <div className="flex gap-1 justify-between items-end h-10">
-                   {heatmapData.map((d, i) => (
-                      <div key={i} className="flex-1 rounded-sm transition-colors" style={{ height: d.count===0?'20%':`${Math.min(100, 20+(d.count*40))}%`, backgroundColor: d.count===0 ? (user.isDark?'#27272a':'#f1f5f9') : (user.nameColor || '#f59e0b') }} />
-                   ))}
-                </div>
-             </div>
-          )}
-
           {['dashboard', 'vault', 'archive'].includes(view) && visibleEntries.length === 0 && !searchQuery && (
             <div className="flex flex-col items-center justify-center py-32 text-center opacity-40 animate-fade-in">
-              <Icon name={view === 'vault' ? "lock" : "book-open"} size={48} className="mb-4"/>
-              <p className="text-lg font-bold">{view === 'vault' ? 'Tresor leer.' : view === 'archive' ? 'Archiv leer.' : 'Noch keine Einträge.'}</p>
+              <Icon name={view === 'vault' ? "lock" : "book-open"} size={64} className="mb-6"/>
+              <p className="text-2xl font-bold font-serif">{view === 'vault' ? 'Tresor leer.' : view === 'archive' ? 'Archiv leer.' : 'Noch keine Einträge.'}</p>
             </div>
           )}
 
           {['dashboard', 'vault', 'archive'].includes(view) && (
-            <div className={`grid gap-6 pb-24 ${isGridView && view === 'dashboard' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            <div className={`grid gap-6 pb-32 ${isGridView && view === 'dashboard' ? 'grid-cols-2' : 'grid-cols-1'}`}>
               {renderEntries.map(entry => (
                  <EntryCard key={entry.id} entry={entry} onClick={handleOpenEntry} isGridView={isGridView && view === 'dashboard'} userColor={user.nameColor} isDarkTheme={user.isDark} searchQuery={searchQuery} />
               ))}
@@ -1847,18 +1847,20 @@ function App() {
           )}
         </main>
 
-        {/* --- FLOATING BOTTOM NAV --- */}
-        {!showEditor && (
-          <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-xs backdrop-blur-2xl bg-white/90 dark:bg-zinc-900/90 border border-slate-200/50 dark:border-zinc-700/50 rounded-[2rem] shadow-2xl flex justify-between items-center px-2 py-2 z-[60] no-print">
-            <button onClick={() => { setViewingEntry(null); if(view==='dashboard') setIsGridView(!isGridView); else setView('dashboard'); }} className={`flex-1 flex flex-col items-center justify-center py-2 transition-colors rounded-2xl ${view === 'dashboard' && !viewingEntry ? 'bg-slate-100 dark:bg-zinc-800 shadow-inner' : 'opacity-60 hover:opacity-100'}`} style={view === 'dashboard' && !viewingEntry ? { color: user.nameColor || '#000000' } : { color: 'inherit' }}>
-              <Icon name={isGridView && view === 'dashboard' ? "list" : "layout-grid"} size={22} />
-            </button>
-            <button onClick={() => { setViewingEntry(null); openEditor(); }} className="flex-none mx-2 w-14 h-14 rounded-full text-white dark:text-black shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shrink-0" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') }}>
-              <Icon name="plus" size={28} />
-            </button>
-            <button onClick={() => { setViewingEntry(null); setView('vault'); }} className={`flex-1 flex flex-col items-center justify-center py-2 transition-colors rounded-2xl ${view === 'vault' && !viewingEntry ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-500 shadow-inner' : 'text-slate-400 hover:text-rose-500'}`}>
-              <Icon name="lock" size={22} />
-            </button>
+        {/* --- FLOATING BOTTOM NAV (Premium Style) --- */}
+        {!showEditor && ['dashboard', 'menu'].includes(view) && (
+          <nav className="floating-nav">
+            <div className="flex justify-around items-center h-[72px] px-2">
+              <button onClick={() => { setViewingEntry(null); if(view==='dashboard') setIsGridView(!isGridView); else setView('dashboard'); }} className={`flex-1 flex flex-col items-center justify-center py-2 transition-all rounded-full ${view === 'dashboard' && !viewingEntry ? 'text-accent scale-110' : 'text-slate-400 opacity-60 hover:opacity-100 hover:scale-105'}`} style={view === 'dashboard' && !viewingEntry ? { color: user.nameColor || '#000000' } : { color: 'inherit' }}>
+                <Icon name={isGridView && view === 'dashboard' ? "list" : "layout-grid"} size={26} />
+              </button>
+              <button onClick={() => { setViewingEntry(null); openEditor(); }} className="flex-none mx-2 w-16 h-16 rounded-[1.5rem] text-white dark:text-black shadow-xl flex items-center justify-center hover:scale-110 active:scale-90 transition-transform shrink-0 border-[4px] border-slate-50 dark:border-black -mt-8" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') }}>
+                <Icon name="plus" size={32} />
+              </button>
+              <button onClick={() => { setViewingEntry(null); setView('vault'); }} className={`flex-1 flex flex-col items-center justify-center py-2 transition-all rounded-full ${view === 'vault' && !viewingEntry ? 'text-rose-500 scale-110 shadow-inner bg-rose-50 dark:bg-rose-500/10' : 'text-slate-400 hover:text-rose-500 hover:scale-105'}`}>
+                <Icon name="lock" size={26} />
+              </button>
+            </div>
           </nav>
         )}
 
@@ -1871,76 +1873,75 @@ function App() {
            const nextPage = cIdx < allBookEntries.length - 1 ? allBookEntries[cIdx + 1] : null;
 
            return (
-             <div className="fixed inset-0 z-[50] overflow-y-auto bg-white dark:bg-black animate-fade-in custom-scrollbar flex flex-col screen-only" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-               <div className="sticky top-0 z-40 flex justify-between items-center py-4 px-6 bg-white/90 dark:bg-black/90 backdrop-blur-md border-b border-slate-100 dark:border-zinc-900 shrink-0 no-print">
-                 <div className="flex gap-2">
-                   <button onClick={() => {setViewingEntry(null); setCurrentViewerImgIdx(0);}} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform"><Icon name="arrow-left" size={20}/></button>
+             <div className="fixed inset-0 z-[80] overflow-y-auto bg-white dark:bg-black animate-fade-in custom-scrollbar flex flex-col screen-only" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+               <div className="sticky top-0 z-40 flex justify-between items-center py-4 px-6 md:px-10 bg-white/90 dark:bg-black/90 backdrop-blur-xl border-b border-slate-100 dark:border-zinc-900 shrink-0 no-print transition-colors">
+                 <div className="flex gap-3">
+                   <button onClick={() => {setViewingEntry(null); setCurrentViewerImgIdx(0);}} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
                  </div>
-                 <div className="flex gap-2">
-                   <button onClick={() => window.print()} className="p-3 rounded-full bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform text-slate-500"><Icon name="printer" size={20}/></button>
-                   <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-full transition-transform ${isSpeaking ? 'text-white animate-pulse' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={20}/></button>
-                   <button onClick={() => { const e = viewingEntry; setViewingEntry(null); setTimeout(() => openEditor(e), 10); }} className="px-5 py-2.5 rounded-full font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
+                 <div className="flex gap-3">
+                   <button onClick={() => window.print()} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500"><Icon name="printer" size={22}/></button>
+                   <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
+                   <button onClick={() => { const e = viewingEntry; setViewingEntry(null); setTimeout(() => openEditor(e), 10); }} className="px-6 py-3 rounded-2xl font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
                  </div>
                </div>
 
-               {/* Single Entry View for Screen */}
-               <div className="max-w-2xl w-full mx-auto p-6 sm:p-12 pb-32 screen-only">
+               <div className="max-w-3xl w-full mx-auto p-6 sm:p-12 pb-32 screen-only flex-1 flex flex-col">
                   {viewingEntry.images && viewingEntry.images.length > 0 && (
-                    <div className="relative w-full aspect-video rounded-3xl overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-8 group bg-slate-100 dark:bg-zinc-900">
+                    <div className="relative w-full aspect-video rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-10 group bg-slate-100 dark:bg-zinc-900">
                         <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-cover transition-transform duration-700" alt="Cover" />
                         {viewingEntry.images.length > 1 && (
                             <>
-                                <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p - 1 + viewingEntry.images.length) % viewingEntry.images.length); }} className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print"><Icon name="chevron-left" size={24}/></button>
-                                <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p + 1) % viewingEntry.images.length); }} className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print"><Icon name="chevron-right" size={24}/></button>
-                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/30 px-3 py-1.5 rounded-full backdrop-blur-sm no-print">
-                                    {viewingEntry.images.map((_, i) => <div key={i} className={`w-2 h-2 rounded-full transition-colors ${i === currentViewerImgIdx ? 'bg-white' : 'bg-white/40'}`} />)}
+                                <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p - 1 + viewingEntry.images.length) % viewingEntry.images.length); }} className="absolute left-6 top-1/2 -translate-y-1/2 bg-black/50 text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print backdrop-blur-md hover:bg-black/70"><Icon name="chevron-left" size={24}/></button>
+                                <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p + 1) % viewingEntry.images.length); }} className="absolute right-6 top-1/2 -translate-y-1/2 bg-black/50 text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print backdrop-blur-md hover:bg-black/70"><Icon name="chevron-right" size={24}/></button>
+                                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 bg-black/40 px-4 py-2 rounded-full backdrop-blur-md no-print">
+                                    {viewingEntry.images.map((_, i) => <div key={i} className={`w-2.5 h-2.5 rounded-full transition-colors shadow-sm ${i === currentViewerImgIdx ? 'bg-white' : 'bg-white/40'}`} />)}
                                 </div>
                             </>
                         )}
                     </div>
                   )}
 
-                  <h1 className="text-4xl sm:text-5xl font-extrabold mb-6 tracking-tight leading-tight">{viewingEntry.title || 'Ohne Titel'}</h1>
-                  <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
-                    <span>{new Date(viewingEntry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                  <h1 className="text-4xl sm:text-6xl font-extrabold mb-8 tracking-tighter leading-[1.1] text-slate-900 dark:text-white">{viewingEntry.title || 'Ohne Titel'}</h1>
+                  <div className="flex gap-4 mb-8 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
+                    <span>{new Date(viewingEntry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
                     <span>•</span><span>{viewingEntry.category || 'Allgemein'}</span>
                     {viewingEntry.location && <span className="flex items-center gap-1 text-amber-500"><Icon name="map-pin" size={14}/> GPS-Siegel</span>}
                   </div>
                   
                   {/* Meta-Data Pills */}
-                  <div className="flex flex-wrap gap-2 mb-10 no-print">
+                  <div className="flex flex-wrap gap-2 mb-12 no-print">
                       {viewingEntry.tags && viewingEntry.tags.split(',').map(t => t.trim()).filter(t=>t).map((t, i) => (
-                          <span key={i} className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-bold flex items-center gap-1"><Icon name="tag" size={12}/> {t}</span>
+                          <span key={i} className="px-4 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="tag" size={14}/> {t}</span>
                       ))}
                       {viewingEntry.people && viewingEntry.people.split(',').map(p => p.trim()).filter(p=>p).map((p, i) => (
-                          <span key={i} className="px-3 py-1 bg-indigo-600 text-white rounded-lg text-xs font-bold flex items-center gap-1"><Icon name="user" size={12}/> {p}</span>
+                          <span key={i} className="px-4 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="user" size={14}/> {p}</span>
                       ))}
                       {viewingEntry.weather && (
-                          <span className="px-3 py-1 bg-orange-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 w-full sm:w-auto"><Icon name="sun" size={12}/> {viewingEntry.weather}</span>
+                          <span className="px-4 py-1.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-xl text-xs font-bold flex items-center gap-1.5 w-full sm:w-auto"><Icon name="sun" size={14}/> {viewingEntry.weather}</span>
                       )}
                       {viewingEntry.rating > 0 && (
-                          <div className="flex items-center gap-1 ml-auto">
-                              {[1,2,3,4,5].map(star => <Icon key={star} name="star" size={16} className={viewingEntry.rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300'} />)}
+                          <div className="flex items-center gap-1 ml-auto bg-amber-50 dark:bg-amber-900/30 px-4 py-1.5 rounded-xl">
+                              {[1,2,3,4,5].map(star => <Icon key={star} name="star" size={16} className={viewingEntry.rating >= star ? 'text-amber-500 fill-amber-500' : 'text-amber-200 dark:text-amber-900'} />)}
                           </div>
                       )}
                   </div>
 
-                  <div className="text-lg leading-relaxed font-medium opacity-90 legacy-content" dangerouslySetInnerHTML={createSafeHtml(viewingEntry.text)} />
-                  {viewingEntry.audio && <div className="mt-8 p-4 rounded-2xl bg-slate-100 dark:bg-zinc-900 no-print"><audio src={viewingEntry.audio} controls className="w-full" /></div>}
+                  <div className="text-xl leading-relaxed font-medium opacity-90 legacy-content text-slate-800 dark:text-slate-200" dangerouslySetInnerHTML={createSafeHtml(viewingEntry.text)} />
+                  {viewingEntry.audio && <div className="mt-12 p-6 rounded-[2rem] bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm no-print"><span className="text-xs font-bold uppercase tracking-widest opacity-50 mb-4 block">Audio-Log</span><audio src={viewingEntry.audio} controls className="w-full" /></div>}
                   
-                  <div className="mt-16 pt-8 border-t border-slate-200 dark:border-zinc-800 flex justify-center no-print">
-                      <button onClick={() => startNewChapter(viewingEntry)} className="px-6 py-3 font-bold rounded-2xl flex items-center gap-2 hover:scale-105 transition-transform shadow-md" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}><Icon name="plus" size={20}/> Neue Seite anfügen</button>
+                  <div className="mt-20 pt-10 border-t border-slate-100 dark:border-zinc-800 flex justify-center no-print">
+                      <button onClick={() => startNewChapter(viewingEntry)} className="px-8 py-4 font-bold rounded-full flex items-center gap-3 hover:scale-105 active:scale-95 transition-transform shadow-lg text-lg" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}><Icon name="plus" size={24}/> Neues Kapitel anfügen</button>
                   </div>
 
                   {/* Navigation für Buch-Seiten */}
                   {allBookEntries.length > 1 && (
-                      <div className="flex justify-between items-center mt-12 pt-8 border-t border-slate-200 dark:border-zinc-800 no-print pb-24">
+                      <div className="flex justify-between items-center mt-16 pt-8 border-t border-slate-100 dark:border-zinc-800 no-print pb-24">
                           {prevPage ? (
-                              <button onClick={() => setViewingEntry(prevPage)} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100 transition-colors" style={{ color: user.nameColor }}><Icon name="arrow-left" size={16}/> Vorherige Seite</button>
+                              <button onClick={() => setViewingEntry(prevPage)} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100 transition-colors" style={{ color: user.nameColor }}><Icon name="arrow-left" size={18}/> Vorherige Seite</button>
                           ) : <div/>}
-                          <span className="text-xs font-bold opacity-30">Seite {cIdx + 1} von {allBookEntries.length}</span>
+                          <span className="text-xs font-bold opacity-30 uppercase tracking-widest">Seite {cIdx + 1} von {allBookEntries.length}</span>
                           {nextPage ? (
-                              <button onClick={() => setViewingEntry(nextPage)} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100 transition-colors" style={{ color: user.nameColor }}>Nächste Seite <Icon name="arrow-right" size={16}/></button>
+                              <button onClick={() => setViewingEntry(nextPage)} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100 transition-colors" style={{ color: user.nameColor }}>Nächste Seite <Icon name="arrow-right" size={18}/></button>
                           ) : <div/>}
                       </div>
                   )}
@@ -2001,23 +2002,23 @@ function App() {
            const entriesOnSelectedDate = timelineSelectedDate ? bookEntries.filter(e => e && new Date(e.date).toDateString() === timelineSelectedDate) : [];
 
            return (
-             <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex justify-end animate-fade-in no-print" onClick={() => setShowTimeline(false)}>
-                <div className="w-full max-w-sm h-full bg-white dark:bg-zinc-950 shadow-2xl animate-slide-up flex flex-col" onClick={e=>e.stopPropagation()}>
+             <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex justify-end animate-fade-in no-print" onClick={() => setShowTimeline(false)}>
+                <div className="w-full max-w-md h-full bg-white dark:bg-zinc-950 shadow-2xl animate-slide-up flex flex-col" onClick={e=>e.stopPropagation()}>
                    <div className="p-6 border-b border-slate-100 dark:border-zinc-900 flex justify-between items-center shrink-0">
-                      <h3 className="font-bold text-xl flex items-center gap-2" style={{ color: user.nameColor }}><Icon name="calendar-days" /> Zeitreise</h3>
-                      <button onClick={()=>setShowTimeline(false)} className="p-2 rounded-full bg-slate-100 dark:bg-zinc-900"><Icon name="x" size={20}/></button>
+                      <h3 className="font-extrabold text-2xl flex items-center gap-3 tracking-tight" style={{ color: user.nameColor }}><Icon name="calendar-days" size={28}/> Zeitreise</h3>
+                      <button onClick={()=>setShowTimeline(false)} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="x" size={20}/></button>
                    </div>
                    
                    <div className="flex-1 overflow-y-auto custom-scrollbar">
                        <div className="p-6 border-b border-slate-100 dark:border-zinc-900">
-                          <div className="flex justify-between items-center mb-6">
-                              <button onClick={() => { const d = new Date(timelineMonth); d.setMonth(d.getMonth()-1); setTimelineMonth(d); }} className="p-2 rounded-full bg-slate-100 dark:bg-zinc-900"><Icon name="chevron-left" size={20}/></button>
-                              <span className="font-bold text-sm uppercase tracking-widest">{timelineMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}</span>
-                              <button onClick={() => { const d = new Date(timelineMonth); d.setMonth(d.getMonth()+1); setTimelineMonth(d); }} className="p-2 rounded-full bg-slate-100 dark:bg-zinc-900"><Icon name="chevron-right" size={20}/></button>
+                          <div className="flex justify-between items-center mb-8">
+                              <button onClick={() => { const d = new Date(timelineMonth); d.setMonth(d.getMonth()-1); setTimelineMonth(d); }} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="chevron-left" size={20}/></button>
+                              <span className="font-extrabold text-lg uppercase tracking-widest">{timelineMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}</span>
+                              <button onClick={() => { const d = new Date(timelineMonth); d.setMonth(d.getMonth()+1); setTimelineMonth(d); }} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="chevron-right" size={20}/></button>
                           </div>
                           
-                          <div className="grid grid-cols-7 gap-2 text-center">
-                              {['Mo','Di','Mi','Do','Fr','Sa','So'].map(d => <div key={d} className="text-[10px] font-bold opacity-50 py-2">{d}</div>)}
+                          <div className="grid grid-cols-7 gap-3 text-center">
+                              {['Mo','Di','Mi','Do','Fr','Sa','So'].map(d => <div key={d} className="text-xs font-bold opacity-40 py-2">{d}</div>)}
                               {Array(emptySlots).fill(null).map((_, i) => <div key={`empty-${i}`} />)}
                               {daysArray.map(day => {
                                   const dateStr = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth(), day).toDateString();
@@ -2027,64 +2028,45 @@ function App() {
                                   const isSelected = timelineSelectedDate === dateStr;
                                   
                                   return (
-                                      <button key={day} onClick={() => setTimelineSelectedDate(isSelected ? null : dateStr)} className={`relative p-2 text-sm rounded-xl transition-all flex items-center justify-center aspect-square overflow-hidden ${isSelected ? 'shadow-md font-bold scale-110' : ''}`} style={bgImg ? { backgroundImage: `url(${bgImg})`, backgroundSize: 'cover', backgroundPosition: 'center', border: isSelected ? `2px solid ${user.nameColor}` : 'none' } : (isSelected ? { backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000' } : { backgroundColor: 'transparent' })}>
+                                      <button key={day} onClick={() => setTimelineSelectedDate(isSelected ? null : dateStr)} className={`relative p-2 text-sm font-bold rounded-2xl transition-all flex items-center justify-center aspect-square overflow-hidden ${isSelected ? 'shadow-lg scale-110' : 'hover:scale-105'} ${hasEntry && !isSelected && !bgImg ? 'bg-slate-100 dark:bg-zinc-800' : ''}`} style={bgImg ? { backgroundImage: `url(${bgImg})`, backgroundSize: 'cover', backgroundPosition: 'center', border: isSelected ? `3px solid ${user.nameColor}` : 'none' } : (isSelected ? { backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000' } : { backgroundColor: 'transparent' })}>
                                           {!bgImg && <span>{day}</span>}
-                                          {hasEntry && !isSelected && !bgImg && <div className="absolute bottom-1 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: user.nameColor }}></div>}
+                                          {hasEntry && !isSelected && !bgImg && <div className="absolute bottom-2 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: user.nameColor }}></div>}
                                       </button>
                                   );
                               })}
                           </div>
                           {timelineSelectedDate && (
-                             <div className="mt-4 text-center">
-                                <button onClick={() => setTimelineSelectedDate(null)} className="text-[10px] uppercase font-bold tracking-widest opacity-60 hover:opacity-100">Filter aufheben</button>
+                             <div className="mt-8 text-center">
+                                <button onClick={() => setTimelineSelectedDate(null)} className="text-[10px] uppercase font-bold tracking-widest opacity-60 hover:opacity-100 transition-opacity bg-slate-100 dark:bg-zinc-900 px-4 py-2 rounded-xl">Filter aufheben</button>
                              </div>
                           )}
                        </div>
 
-                       <div className="p-6">
-                         {Object.keys(expandedNodes).length === 0 ? (
-                            <p className="text-center opacity-50 text-sm mt-8">Keine Einträge für diesen Filter gefunden.</p>
-                         ) : Object.keys(expandedNodes).sort((a,b)=>b-a).map(year => (
-                            <div key={year} className="mb-4 border-b pb-4 last:border-0 border-slate-100 dark:border-zinc-800">
-                               <button onClick={() => setExpandedNodes(p => ({...p, [year]: !p[year]}))} className="w-full flex justify-between items-center text-left py-2 hover:opacity-70 transition-opacity">
-                                  <h4 className="font-black text-3xl opacity-80">{year}</h4>
-                                  <Icon name={expandedNodes[year] ? "chevron-up" : "chevron-down"} size={24} />
-                               </button>
-                               
-                               {expandedNodes[year] && (
-                                 <div className="mt-4">
-                                   {Object.keys(expandedNodes).map(month => {
-                                      const monthKey = `${year}-${month}`;
-                                      return (
-                                      <div key={month} className="mb-4 pl-4 border-l-2" style={{ borderColor: `${user.nameColor}40` }}>
-                                         <button onClick={() => setExpandedNodes(p => ({...p, [monthKey]: !p[monthKey]}))} className="w-full flex justify-between items-center text-left py-2 hover:opacity-70 transition-opacity">
-                                           <h5 className="font-bold text-sm uppercase tracking-widest" style={{ color: user.nameColor }}>{month}</h5>
-                                           <Icon name={expandedNodes[monthKey] ? "chevron-up" : "chevron-down"} size={18} style={{ color: user.nameColor }} />
-                                         </button>
-
-                                         {expandedNodes[monthKey] && (
-                                         <div className="space-y-3 mt-4">
-                                            {entries.map(e => {
-                                               const eImg = e.images?.[0] || e.image;
-                                               return (
-                                               <button key={e.id} onClick={() => { setViewingEntry(e); setShowTimeline(false); }} className={`w-full text-left p-4 rounded-xl transition-colors flex items-center gap-4 ${viewingEntry?.id === e.id ? 'shadow-sm' : ''}`} style={viewingEntry?.id === e.id ? { backgroundColor: `${user.nameColor}20`, border: `1px solid ${user.nameColor}50` } : { backgroundColor: 'rgba(150,150,150,0.05)' }}>
-                                                  {eImg && <img src={eImg} className="w-14 h-14 rounded-lg object-cover shrink-0 shadow-sm" alt="Thumbnail" />}
-                                                  <div className="flex-1 min-w-0">
-                                                     <div className="font-bold text-base truncate mb-1">{e.title}</div>
-                                                     <div className="text-[10px] opacity-60 mt-1">{new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
-                                                  </div>
-                                               </button>
-                                               );
-                                            })}
-                                         </div>
-                                         )}
-                                      </div>
-                                      );
-                                   })}
-                                 </div>
-                               )}
-                            </div>
-                         ))}
+                       <div className="p-6 pb-20">
+                           {!timelineSelectedDate ? (
+                               <p className="text-center opacity-40 text-sm font-bold mt-12 flex flex-col items-center gap-4"><Icon name="calendar-search" size={48} className="opacity-50"/>Wähle einen markierten Tag aus.</p>
+                           ) : (
+                               <div className="space-y-4">
+                                   {entriesOnSelectedDate.length === 0 ? (
+                                       <p className="text-center opacity-40 text-sm font-bold mt-8 mb-8">Kein Eintrag an diesem Tag.</p>
+                                   ) : (
+                                       entriesOnSelectedDate.map((e) => (
+                                           <SwipeableTimelineEntry 
+                                                key={e.id} 
+                                                entry={e} 
+                                                onClick={(entry) => { setViewingEntry(entry); setShowTimeline(false); }} 
+                                                onArchive={(entry) => saveToDB({...entry, archived: true})}
+                                                onTrash={(entry) => saveToDB({...entry, trashed: true})}
+                                                showDialog={showDialog}
+                                                userColor={user.nameColor}
+                                           />
+                                       ))
+                                   )}
+                                   <button onClick={() => { setShowTimeline(false); openEditor(null, null, timelineSelectedDate); }} className="w-full flex items-center justify-center gap-3 p-5 bg-slate-100 dark:bg-zinc-900 rounded-[2rem] font-bold text-sm hover:scale-[1.02] active:scale-95 transition-transform mt-6 shadow-sm" style={{color: user.nameColor}}>
+                                       <Icon name="plus" size={20}/> Neuer Eintrag für diesen Tag
+                                   </button>
+                               </div>
+                           )}
                        </div>
                    </div>
                 </div>
@@ -2097,12 +2079,12 @@ function App() {
           <div className="fixed inset-0 z-[250] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setPicker(null)}>
             <div className="w-full max-w-sm rounded-[2.5rem] shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up flex flex-col overflow-hidden max-h-[70vh]" onClick={e => e.stopPropagation()}>
               <div className="p-6 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
-                 <h3 className="font-bold text-lg">{picker.title}</h3>
+                 <h3 className="font-extrabold text-xl tracking-tight">{picker.title}</h3>
                  <button onClick={()=>setPicker(null)} className="p-2 rounded-full bg-slate-100 dark:bg-zinc-800"><Icon name="x" size={20}/></button>
               </div>
               <div className="overflow-y-auto custom-scrollbar p-3 space-y-1">
                  {picker.options.map(opt => (
-                    <button key={opt.value} onClick={()=>{picker.onSelect(opt.value); setPicker(null);}} className={`w-full text-left p-4 rounded-2xl font-bold text-sm flex justify-between items-center transition-all ${picker.currentValue===opt.value ? 'text-white dark:text-black shadow-md scale-[1.02]' : 'hover:bg-slate-50 dark:hover:bg-zinc-800'}`} style={picker.currentValue === opt.value ? { backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') } : {}}>
+                    <button key={opt.value} onClick={()=>{picker.onSelect(opt.value); setPicker(null);}} className={`w-full text-left p-5 rounded-[1.5rem] font-bold text-sm flex justify-between items-center transition-all ${picker.currentValue===opt.value ? 'text-white dark:text-black shadow-md scale-[1.02]' : 'hover:bg-slate-50 dark:hover:bg-zinc-800'}`} style={picker.currentValue === opt.value ? { backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') } : {}}>
                        {opt.label} {picker.currentValue===opt.value && <Icon name="check" size={18}/>}
                     </button>
                  ))}
@@ -2116,7 +2098,7 @@ function App() {
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setDialog(null)}>
             <div className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up" onClick={e => e.stopPropagation()}>
               {dialog.icon && <div className={`w-20 h-20 bg-slate-50 dark:bg-zinc-950 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100 dark:border-zinc-800 ${dialog.iconColor || 'text-slate-900 dark:text-white'}`}><Icon name={dialog.icon} size={32}/></div>}
-              <h3 className="text-2xl font-bold tracking-tight mb-3">{dialog.title}</h3>
+              <h3 className="text-2xl font-extrabold tracking-tight mb-3">{dialog.title}</h3>
               <p className="text-sm font-medium opacity-70 mb-8 leading-relaxed px-2">{dialog.message}</p>
               <div className="flex flex-col gap-3 w-full">
                 <button onClick={() => { if(dialog.onConfirm) dialog.onConfirm(); setDialog(null); }} className="w-full py-4 rounded-2xl font-bold shadow-md active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>{dialog.confirmLabel || 'Okay'}</button>
@@ -2131,7 +2113,7 @@ function App() {
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setUnlockTarget(null)}>
             <div className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up" onClick={e => e.stopPropagation()}>
               <div className="w-20 h-20 bg-slate-50 dark:bg-zinc-950 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100 dark:border-zinc-800"><Icon name="lock" size={32} style={{ color: user.nameColor || '#f59e0b' }} /></div>
-              <h3 className="text-2xl font-bold tracking-tight mb-2">Tresor entsperren</h3>
+              <h3 className="text-2xl font-extrabold tracking-tight mb-2">Tresor entsperren</h3>
               <p className="text-xs font-bold uppercase tracking-widest opacity-40 mb-8 truncate w-full px-4">"{unlockTarget.title}"</p>
               <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submitPin()} className={`w-full p-4 text-center text-4xl tracking-[0.5em] rounded-2xl bg-slate-50 dark:bg-zinc-950 border-2 outline-none mb-6 transition-colors placeholder:opacity-30 ${pinError ? 'border-rose-500' : 'border-transparent focus:border-slate-300 dark:focus:border-zinc-700'}`} placeholder="••••" />
               <div className="flex gap-3 w-full mb-4">
