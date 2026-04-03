@@ -1455,7 +1455,12 @@ function App() {
   // KI Handschrift OCR Scanner (mit Exponential Backoff)
   const callGemini = async (payload, retries = 5) => {
       const delays = [1000, 2000, 4000, 8000, 16000];
-      const apiKey = "";
+      const apiKey = ""; // WICHTIG: Hier deinen Gemini API Key eintragen, wenn du Github Pages nutzt!
+      
+      if (!apiKey && window.location.hostname.includes('github.io')) {
+          throw new Error('API_KEY_MISSING');
+      }
+
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
       
       for (let i = 0; i < retries; i++) {
@@ -1521,7 +1526,11 @@ function App() {
                       setDialog({ title: 'Fehler', message: 'Konnte die Handschrift nicht lesen.', icon: 'x' });
                   }
               } catch(err) {
-                  setDialog({ title: 'Fehler', message: 'KI-Verbindung fehlgeschlagen. Versuche es mit einem anderen Bild.', icon: 'x' });
+                  if (err.message === 'API_KEY_MISSING') {
+                      setDialog({ title: 'API Key fehlt', message: 'Da du die App auf GitHub Pages hostest, musst du im Code deinen eigenen kostenlosen Gemini API Key eintragen (Suche nach: const apiKey = "").', icon: 'key' });
+                  } else {
+                      setDialog({ title: 'Fehler', message: 'KI-Verbindung fehlgeschlagen. Versuche es mit einem anderen Bild.', icon: 'x' });
+                  }
               }
           };
           img.src = event.target.result;
@@ -1538,11 +1547,12 @@ function App() {
       const delBtn = document.createElement('span');
       delBtn.className = 'delete-img-btn';
       delBtn.innerText = 'X';
-      const clonedImg = img.cloneNode(true);
-      clonedImg.removeAttribute('style'); 
-      clonedImg.style.width = '120px'; // Erzwingt eine kleine Größe für Samsung Sticker
-      clonedImg.style.height = 'auto';
-      wrapper.appendChild(clonedImg);
+      
+      // Sauberes Bild ohne Samsung-Tastatur Styles erstellen
+      const cleanImg = document.createElement('img');
+      cleanImg.src = img.src;
+      
+      wrapper.appendChild(cleanImg);
       wrapper.appendChild(delBtn);
       img.parentNode.replaceChild(wrapper, img);
       
@@ -1573,10 +1583,6 @@ function App() {
                           };
                           reader.readAsDataURL(blob);
                       }).catch(() => wrapImage(img));
-                  } else if (img.src.startsWith('data:')) {
-                      // Fängt direkte Base64 Sticker der Samsung Tastatur ab
-                      wrapImage(img);
-                      checkSaveEntry(false);
                   } else {
                       wrapImage(img);
                       checkSaveEntry(false);
