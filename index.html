@@ -373,11 +373,11 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
         )}
         <div className="p-6 relative z-10 flex-1 flex flex-col">
           <div className="flex items-center gap-2 mb-3 text-[10px] font-bold uppercase tracking-widest opacity-50 flex-wrap">
-            <span>{new Date(entry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+            <span>{new Date(entry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
             {!isGridView && <><span>•</span><span>{entry.category || 'Allgemein'}</span></>}
             {entry.tags && <span className="text-blue-500 flex items-center gap-0.5 ml-1"><Icon name="tag" size={10}/>{entry.tags.split(',').filter(x=>x.trim()).length}</span>}
             {entry.people && <span className="text-indigo-500 flex items-center gap-0.5 ml-1"><Icon name="user" size={10}/>{entry.people.split(',').filter(x=>x.trim()).length}</span>}
-            {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE')}</span></>}
+            {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span></>}
             {entry.locked && !isCapsuleLocked && <><span className="text-rose-500 flex items-center gap-1 ml-auto"><Icon name="lock" size={12}/> Tresor</span></>}
             {entry.audio && <><span className="text-emerald-500 flex items-center ml-1"><Icon name="mic" size={12}/></span></>}
             {entry.location && <span className="text-amber-500 flex items-center ml-1"><Icon name="map-pin" size={12}/></span>}
@@ -385,6 +385,7 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
           
           <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : 'text-slate-900 dark:text-white group-hover:text-accent transition-colors'}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery)} />
           
+          {/* Metadata Pills directly on Dashboard Card */}
           {!isGridView && (entry.tags || entry.people || entry.weather || entry.rating > 0) && (
              <div className="flex flex-wrap gap-1.5 mb-4">
                 {entry.tags && entry.tags.split(',').filter(x=>x.trim()).map((t, i) => <span key={`t-${i}`} className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="tag" size={10}/> {t.trim()}</span>)}
@@ -442,7 +443,7 @@ const SwipeableTimelineEntry = ({ entry, onArchive, onTrash, onClick, showDialog
     };
 
     return (
-        <div className="relative w-full rounded-2xl overflow-hidden bg-slate-200 dark:bg-zinc-800 shrink-0 mb-3">
+        <div className="relative w-full rounded-[2rem] overflow-hidden bg-slate-200 dark:bg-zinc-800 shrink-0 mb-3">
             <div className="absolute inset-0 flex justify-between items-center px-6">
                 <div className="text-emerald-600 font-bold flex items-center gap-2 opacity-80"><Icon name="archive" size={18}/> Archiv</div>
                 <div className="text-rose-600 font-bold flex items-center gap-2 opacity-80">Löschen <Icon name="trash-2" size={18}/></div>
@@ -659,7 +660,7 @@ function App() {
                  } else { signOut(auth); setView('auth'); }
              } else {
                  setAuthUser(null);
-                 setView('auth');
+                 setView('auth'); 
              }
              setIsLoaded(true);
           });
@@ -766,7 +767,7 @@ function App() {
       if (!pinValue) return;
       
       if (unlockTarget) {
-          if (pinValue === user.pin) { 
+          if (pinValue === user.pin || !user.pin) { 
               setViewingEntry(unlockTarget); setCurrentViewerImgIdx(0); setUnlockTarget(null); setPinInput(''); setPinError(false);
           } else { 
               setPinError(true); setTimeout(() => setPinError(false), 800); setPinInput(''); 
@@ -792,6 +793,7 @@ function App() {
       safeStorageSet('legacy_user', JSON.stringify(mergedUser));
       setView(mergedUser.name ? 'dashboard' : 'onboarding');
       
+      // Falls auf einem neuen Gerät gerade die PIN eingegeben wurde, ziehe sofort alle Backup-Daten!
       if (fb && authUser && db) performCloudSync();
   };
 
@@ -875,6 +877,7 @@ function App() {
                   setPinInput('');
                   setView('loading');
                   
+                  // Restore all entries directy
                   const cloudSnap = await fb.getDocs(fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries'));
                   const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries');
                   let count = 0;
@@ -909,6 +912,7 @@ function App() {
       }
   };
 
+  // Theme Sync
   useEffect(() => {
     const metaThemeColor = document.getElementById("meta-theme-color");
     
@@ -1037,6 +1041,7 @@ function App() {
     }
   }, [importId, isLoaded, db]);
 
+  // Robust Save Logic Update
   useEffect(() => {
      editingIdRef.current = editingId;
      currentEntryRef.current = { 
@@ -1125,6 +1130,7 @@ function App() {
             setTimeout(()=>setAutoSaveStatus(''), 2000); 
         }
     } catch (err) { 
+        console.error("Save error:", err);
         if (closeAndRead) closeEditor(entries.find(e => e && e.id === editingIdRef.current) || null); 
     }
   };
@@ -1260,7 +1266,21 @@ function App() {
 
   const renderEntries = visibleEntries; const now = new Date();
   
-  const allQuotes = useMemo(() => { if (view !== 'quotes') return []; let quotes = []; entries.filter(e => e && !e.archived && !e.trashed).forEach(entry => { if(!entry.text) return; const blockquoteRegex = /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi; let match; while ((match = blockquoteRegex.exec(entry.text)) !== null) { const rawText = match[1].replace(/<[^>]*>?/gm, '').trim(); if(rawText) quotes.push({ text: rawText, date: entry.date, title: entry.title, id: entry.id + match.index, entryId: entry.id }); } }); return quotes.sort((a,b) => new Date(b.date) - new Date(a.date)); }, [entries, view]);
+  const allQuotes = useMemo(() => { 
+      if (view !== 'quotes') return []; 
+      let quotes = []; 
+      entries.filter(e => e && !e.archived && !e.trashed).forEach(entry => { 
+          if(!entry.text) return; 
+          const blockquoteRegex = /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi; 
+          let match; 
+          while ((match = blockquoteRegex.exec(entry.text)) !== null) { 
+              const rawText = match[1].replace(/<[^>]*>?/gm, '').trim(); 
+              if(rawText) quotes.push({ text: rawText, date: entry.date, title: entry.title, id: entry.id + match.index, entryId: entry.id }); 
+          } 
+      }); 
+      return quotes.sort((a,b) => new Date(b.date) - new Date(a.date)); 
+  }, [entries, view]);
+  
   const heatmapData = useMemo(() => { return Array.from({ length: 30 }).map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (29 - i)); const dateStr = d.toDateString(); return { date: dateStr, count: entries.filter(e => e && !e.trashed && new Date(e.date || getLocalISO()).toDateString() === dateStr).length }; }); }, [entries]);
   const { completedPillars, totalPillars, progressPercent } = useMemo(() => { const completed = PILLARS.filter(p => entries.some(e => e && !e.trashed && (e.title || '') === p.title)).length; return { completedPillars: completed, totalPillars: PILLARS.length, progressPercent: Math.round((completed / PILLARS.length) * 100) }; }, [entries]);
   
@@ -1409,7 +1429,34 @@ function App() {
     e.target.value = null; 
   };
 
-  // Einfügen von Bildern / Stickern über die Handy-Tastatur oder Clipboard
+  // Einfügen von Bildern / Stickern über die Handy-Tastatur (WhatsApp-Style)
+  const handleEditorInput = () => {
+      isDirtyRef.current = true;
+      if (editorRef.current) {
+          const nakedImgs = editorRef.current.querySelectorAll('img:not(.inline-img-wrapper img)');
+          if (nakedImgs.length > 0) {
+              nakedImgs.forEach(img => {
+                  const wrapper = document.createElement('span');
+                  wrapper.className = 'inline-img-wrapper';
+                  wrapper.contentEditable = 'false';
+                  
+                  const delBtn = document.createElement('span');
+                  delBtn.className = 'delete-img-btn';
+                  delBtn.innerText = 'X';
+                  
+                  wrapper.appendChild(img.cloneNode(true));
+                  wrapper.appendChild(delBtn);
+                  
+                  img.parentNode.replaceChild(wrapper, img);
+                  
+                  const space = document.createTextNode('\u00A0');
+                  wrapper.parentNode.insertBefore(space, wrapper.nextSibling);
+              });
+              checkSaveEntry(false);
+          }
+      }
+  };
+
   const handleEditorPaste = (e) => {
       const clipboardData = e.clipboardData || window.clipboardData || (e.nativeEvent && e.nativeEvent.clipboardData);
       if (!clipboardData) return;
@@ -1705,7 +1752,6 @@ function App() {
             )}
           </div>
           <div className="flex gap-2 items-center">
-            {/* Kalender Button GLOBAL zugänglich */}
             <button type="button" onClick={() => { setViewingEntry(null); setShowTimeline(true); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="calendar-days" size={18}/></button>
             
             {view === 'dashboard' && (
@@ -2016,9 +2062,17 @@ function App() {
                 ) : (
                    allQuotes.map(q => (
                       <div key={q.id} onClick={()=>{const e=entries.find(x=>x && x.id===q.entryId); if(e){setView('dashboard'); handleOpenEntry(e);}}} className="p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border shadow-sm cursor-pointer hover:-translate-y-1 hover:shadow-md transition-all relative overflow-hidden" style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
-                         <Icon name="quote" size={32} className="absolute top-6 left-6 opacity-10" style={{ color: user.nameColor }} />
-                         <p className="relative z-10 text-xl font-serif italic font-medium leading-relaxed mb-6 text-slate-800 dark:text-slate-200">"{q.text}"</p>
-                         <div className="text-xs font-bold uppercase tracking-widest opacity-40 mt-auto pt-4 border-t border-slate-100 dark:border-zinc-800 text-slate-500">{q.title} • {new Date(q.date).toLocaleDateString('de-DE')}</div>
+                         <div className="flex gap-4">
+                             <div className="shrink-0 pt-1" style={{ color: user.nameColor }}><Icon name="quote" size={28} /></div>
+                             <div className="flex-1">
+                                 <p className="text-xl font-serif italic font-medium leading-relaxed mb-4 text-slate-800 dark:text-slate-200">
+                                    {q.text}
+                                 </p>
+                                 <div className="text-xs font-bold uppercase tracking-widest opacity-40 text-slate-500">
+                                    {q.title} • {new Date(q.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                 </div>
+                             </div>
+                         </div>
                       </div>
                    ))
                 )}
@@ -2284,9 +2338,9 @@ function App() {
                   contentEditable 
                   onClick={handleEditorClick}
                   onPaste={handleEditorPaste}
-                  onInput={()=>isDirtyRef.current=true} 
+                  onInput={handleEditorInput} 
                   className="flex-1 outline-none text-[1.05rem] leading-[1.8] legacy-editor-content text-slate-800 dark:text-slate-200 pb-32 min-h-[50vh]" 
-                  data-placeholder="Was wirst du hinterlassen? Füge Sticker über deine Handy-Tastatur ein..." 
+                  data-placeholder="Was wirst du hinterlassen? Füge Sticker direkt über deine Handy-Tastatur ein..." 
                   dangerouslySetInnerHTML={{__html: text}} 
               />
             </div>
@@ -2510,7 +2564,7 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
 </script>
 
-<!-- Statische Service Worker Registrierung (Sicherer Standort außerhalb von Babel) -->
+<!-- Statische Service Worker Registrierung -->
 <script>
   if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
     window.addEventListener('load', () => {
