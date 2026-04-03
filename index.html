@@ -117,10 +117,11 @@
     box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
   }
   
-  /* Inline Image Resizing Magic */
+  /* Inline Image Resizing Magic & Deletion X */
   .inline-img-wrapper { display: inline-block; vertical-align: text-bottom; margin: 4px; max-width: 100%; position: relative; }
   .inline-img-wrapper img { width: 100%; height: 100%; object-fit: contain; border-radius: 6px; border: 1px solid rgba(150,150,150,0.2); }
-  .delete-img-btn { position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border-radius: 50%; width: 22px; height: 22px; text-align: center; line-height: 22px; cursor: pointer; font-family: sans-serif; font-size: 12px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10; }
+  .delete-img-btn { position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border-radius: 50%; width: 24px; height: 24px; text-align: center; line-height: 24px; cursor: pointer; font-family: sans-serif; font-size: 14px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10; display: none; }
+  .inline-img-wrapper:hover .delete-img-btn { display: block; }
   
   .legacy-editor-content > img, .legacy-content > img { border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: inline-block; vertical-align: middle; max-width: 100%; }
   
@@ -353,7 +354,7 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
     const isCapsuleLocked = entry.unlockDate;
 
     return (
-      <div onClick={() => onClick(entry)} className={`group relative rounded-3xl overflow-hidden cursor-pointer border transition-transform active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col' : ''}`} style={{ borderColor: getSubtleBorderColor(userColor, isDarkTheme) }}>
+      <div onClick={() => onClick(entry)} className={`group relative rounded-[2rem] overflow-hidden cursor-pointer border transition-transform active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col' : ''}`} style={{ borderColor: getSubtleBorderColor(userColor, isDarkTheme) }}>
         {entry.manifested && (
           <div className="absolute top-4 right-4 z-20 bg-amber-400 text-amber-950 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
             <Icon name="sparkles" size={12}/> Highlight
@@ -361,7 +362,7 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
         )}
         {hasImages && (
           <div className="w-full aspect-video relative overflow-hidden bg-slate-100 dark:bg-zinc-800">
-            <img src={entry.images[0]} className="w-full h-full object-cover" alt="Cover" />
+            <img src={entry.images[0]} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
           </div>
         )}
@@ -377,19 +378,19 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
             {entry.location && <span className="text-amber-500 flex items-center ml-1"><Icon name="map-pin" size={12}/></span>}
           </div>
           
-          <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : ''}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery)} />
+          <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : 'text-slate-900 dark:text-white group-hover:text-accent transition-colors'}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery)} />
           
           {!isGridView && (entry.tags || entry.people || entry.weather || entry.rating > 0) && (
              <div className="flex flex-wrap gap-1.5 mb-4">
-                {entry.tags && entry.tags.split(',').filter(x=>x.trim()).map((t, i) => <span key={`t-${i}`} className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded text-[10px] font-bold flex items-center gap-1"><Icon name="tag" size={10}/> {t.trim()}</span>)}
-                {entry.people && entry.people.split(',').filter(x=>x.trim()).map((p, i) => <span key={`p-${i}`} className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded text-[10px] font-bold flex items-center gap-1"><Icon name="user" size={10}/> {p.trim()}</span>)}
-                {entry.weather && <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded text-[10px] font-bold flex items-center gap-1"><Icon name="sun" size={10}/> {entry.weather}</span>}
-                {entry.rating > 0 && <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded text-[10px] font-bold flex items-center gap-1"><Icon name="star" size={10}/> {entry.rating}</span>}
+                {entry.tags && entry.tags.split(',').filter(x=>x.trim()).map((t, i) => <span key={`t-${i}`} className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="tag" size={10}/> {t.trim()}</span>)}
+                {entry.people && entry.people.split(',').filter(x=>x.trim()).map((p, i) => <span key={`p-${i}`} className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="user" size={10}/> {p.trim()}</span>)}
+                {entry.weather && <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="sun" size={10}/> {entry.weather}</span>}
+                {entry.rating > 0 && <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="star" size={10}/> {entry.rating}</span>}
              </div>
           )}
 
           {!entry.locked && !isCapsuleLocked && entry.text && !isGridView && (
-            <div className="text-sm font-medium leading-relaxed opacity-70 line-clamp-3" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
+            <div className="text-sm font-medium leading-relaxed opacity-70 line-clamp-3 text-slate-600 dark:text-slate-400" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
           )}
           {(entry.locked || isCapsuleLocked) && !isGridView && (
              <div className="text-sm font-medium leading-relaxed opacity-40 italic mb-4">
@@ -436,7 +437,7 @@ const SwipeableTimelineEntry = ({ entry, onArchive, onTrash, onClick, showDialog
     };
 
     return (
-        <div className="relative w-full rounded-2xl overflow-hidden bg-slate-200 dark:bg-zinc-800 shrink-0 mb-3">
+        <div className="relative w-full rounded-[2rem] overflow-hidden bg-slate-200 dark:bg-zinc-800 shrink-0 mb-3">
             <div className="absolute inset-0 flex justify-between items-center px-6">
                 <div className="text-emerald-600 font-bold flex items-center gap-2 opacity-80"><Icon name="archive" size={18}/> Archiv</div>
                 <div className="text-rose-600 font-bold flex items-center gap-2 opacity-80">Löschen <Icon name="trash-2" size={18}/></div>
@@ -450,7 +451,7 @@ const SwipeableTimelineEntry = ({ entry, onArchive, onTrash, onClick, showDialog
                     onClick(entry);
                 }} 
                 style={{ transform: `translateX(${offsetX}px)`, transition: startX.current === null ? 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)' : 'none' }}
-                className="relative z-10 w-full text-left p-4 rounded-2xl flex items-center gap-4 bg-slate-50 dark:bg-zinc-900 shadow-sm border border-transparent"
+                className="relative z-10 w-full text-left p-4 rounded-[2rem] flex items-center gap-4 bg-slate-50 dark:bg-zinc-900 shadow-sm border border-transparent"
             >
                 {entry.images && entry.images.length > 0 && <img src={entry.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0 pointer-events-none" />}
                 <div className="flex-1 overflow-hidden pointer-events-none">
@@ -485,7 +486,6 @@ function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [dialog, setDialog] = useState(null);
   const [picker, setPicker] = useState(null);
-  const [installHint, setInstallHint] = useState('');
 
   const [viewingEntry, setViewingEntry] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
@@ -493,13 +493,10 @@ function App() {
   
   const [showTimeline, setShowTimeline] = useState(false); 
   const [timelineMonth, setTimelineMonth] = useState(() => new Date()); 
-  const [timelineSearchQuery, setTimelineSearchQuery] = useState(''); 
   const [timelineSelectedDate, setTimelineSelectedDate] = useState(null); 
   const [expandedNodes, setExpandedNodes] = useState({}); 
   
-  const [affirmation, setAffirmation] = useState(null);
   const [unlockTarget, setUnlockTarget] = useState(null);
-  
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
   
@@ -541,12 +538,10 @@ function App() {
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [mood, setMood] = useState(null);
   const [entryDate, setEntryDate] = useState('');
-  
   const [rating, setRating] = useState(0);
   const [tags, setTags] = useState('');
   const [people, setPeople] = useState('');
   const [weather, setWeather] = useState('');
-  
   const [parentId, setParentId] = useState('');
   const [inheritedFrom, setInheritedFrom] = useState(null);
   const [pillarGuidance, setPillarGuidance] = useState(null);
@@ -572,11 +567,6 @@ function App() {
       showTimelineRef.current = showTimeline;
       viewRef.current = view;
   }, [isDrawing, showEditor, viewingEntry, showTimeline, view]);
-
-  // Auto-save user to localStorage
-  useEffect(() => {
-    if (isLoaded) safeStorageSet('legacy_user', JSON.stringify(user));
-  }, [user, isLoaded]);
 
   // Hardware Back Button Logik
   useEffect(() => {
@@ -678,6 +668,13 @@ function App() {
     loadApp();
   }, []);
 
+  // Auto-save user to localStorage whenever it changes after load
+  useEffect(() => {
+    if (isLoaded && user.name) {
+       safeStorageSet('legacy_user', JSON.stringify(user));
+    }
+  }, [user, isLoaded]);
+
   const handleAuth = async () => {
       setAuthError(''); setAuthMsg('');
       if (!fb || !authEmail) { setAuthError('Bitte fülle deine E-Mail aus.'); return; }
@@ -706,7 +703,7 @@ function App() {
   };
 
   const handleLogout = async () => {
-      if(fb) { await fb.signOut(fb.auth); setUser({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: false, biometric: false }); localStorage.removeItem('legacy_user'); setEntries([]); setView('auth'); }
+      if(fb) { await fb.signOut(fb.auth); setUser({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false }); localStorage.removeItem('legacy_user'); setEntries([]); setView('auth'); }
   };
 
   const handleUnlockSubmit = (pinValue) => {
@@ -831,18 +828,29 @@ function App() {
   }, [user.appBgColor, user.textColor, user.isDark]);
 
   const syncSingleEntryToCloud = async (entry) => {
-      if (!fb || !fb.auth.currentUser || !user.pin) return;
+      // Firebase Hintergrundspeicherung läuft automatisch bei Änderungen, 
+      // auch OHNE PIN (schreibt dann rawData, sonst encryptedData).
+      if (!fb || !fb.auth.currentUser || !user.cloudSync) return;
       const appId = 'legacy-vision'; const userId = fb.auth.currentUser.uid;
-      try { const payload = JSON.stringify(entry); const encrypted = await encryptData(payload, user.pin); if (encrypted) { const docRef = fb.doc(fb.db, 'artifacts', appId, 'users', userId, 'entries', entry.id); await fb.setDoc(docRef, { id: entry.id, encryptedData: encrypted, timestamp: Date.now() }); } } catch(e) {}
+      try { 
+          let payloadToSave = { id: entry.id, timestamp: Date.now() };
+          if (user.pin) {
+              const encrypted = await encryptData(JSON.stringify(entry), user.pin); 
+              if (encrypted) payloadToSave.encryptedData = encrypted;
+          } else {
+              payloadToSave.rawData = entry;
+          }
+          await fb.setDoc(fb.doc(fb.db, 'artifacts', appId, 'users', userId, 'entries', entry.id), payloadToSave); 
+      } catch(e) {}
   };
   
   const deleteSingleEntryFromCloud = async (id) => {
-      if (!fb || !fb.auth.currentUser) return;
+      if (!fb || !fb.auth.currentUser || !user.cloudSync) return;
       try { await fb.deleteDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', fb.auth.currentUser.uid, 'entries', id)); } catch(e) {}
   };
   
   const syncProfileToCloud = async (userData) => {
-      if (!fb || !fb.auth.currentUser || !userData.pin) return;
+      if (!fb || !fb.auth.currentUser || !userData.cloudSync || !userData.pin) return;
       try { const encrypted = await encryptData(JSON.stringify(userData), userData.pin); if (encrypted) await fb.setDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', fb.auth.currentUser.uid, 'profile', 'data'), { encryptedData: encrypted, timestamp: Date.now() }); } catch(e) {}
   };
 
@@ -1299,6 +1307,7 @@ function App() {
               const base64 = canvas.toDataURL('image/jpeg', 0.6);
               if (editorRef.current) {
                   editorRef.current.focus();
+                  // Custom HTML mit Delete Button, der von React verarbeitet werden kann (wird über Click-Listener abgefangen)
                   document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false" style="display:inline-block; position:relative; margin:4px; max-width:100%;"><img src="${base64}" style="border-radius:8px; width:100%;" /><span class="delete-img-btn" style="position:absolute; top:-8px; right:-8px; background:red; color:white; border-radius:50%; width:20px; height:20px; text-align:center; line-height:20px; cursor:pointer; font-family:sans-serif; font-size:12px; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">X</span></span>&nbsp;`);
                   isDirtyRef.current = true;
                   checkSaveEntry(false);
@@ -1310,6 +1319,7 @@ function App() {
       e.target.value = null;
   };
 
+  // Klick-Listener für Editor (Löschen von Inline-Bildern)
   const handleEditorClick = (e) => {
       if (e.target.classList.contains('delete-img-btn')) {
           e.target.closest('.inline-img-wrapper').remove();
@@ -1541,7 +1551,6 @@ function App() {
             )}
           </div>
           <div className="flex gap-2 items-center">
-            {/* Kalender Button GLOBAL zugänglich */}
             <button type="button" onClick={() => { setViewingEntry(null); setShowTimeline(true); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="calendar-days" size={18}/></button>
             
             {view === 'dashboard' && (
@@ -1769,7 +1778,7 @@ function App() {
 
           {view === 'burn' && (
             <div className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-fade-in relative">
-              {isBurning && <div className="absolute inset-0 bg-rose-500/10 animate-pulse rounded-[3rem] pointer-events-none" />}
+              {isBurning && <div className="absolute inset-0 bg-rose-500/10 animate-pulse rounded-3xl pointer-events-none" />}
               <Icon name="flame" size={64} className={`mb-6 ${isBurning ? 'text-rose-500 animate-flame' : 'text-slate-300 dark:text-zinc-700'}`} />
               <p className="opacity-60 mb-8 max-w-sm text-sm">Schreibe auf, was dich belastet. Wir übergeben es den Flammen. Es wird nirgendwo gespeichert.</p>
               <textarea value={burnText} onChange={e=>setBurnText(e.target.value)} disabled={isBurning} className="w-full p-6 rounded-[2rem] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-rose-500 h-56 outline-none resize-none transition-all text-xl font-medium shadow-sm" placeholder="Lass es los..." />
@@ -2121,6 +2130,129 @@ function App() {
               {safeStorageGet('legacy_bio_pin') && (
                 <button onClick={handleBiometricUnlock} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm flex items-center justify-center gap-2"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* --- EDITOR --- */}
+        {showEditor && (
+          <div className="fixed inset-0 bg-white dark:bg-black z-[200] flex flex-col page-transition">
+            
+            {/* Editor Top Bar (Fixed) */}
+            <header className="flex justify-between items-center p-4 sm:p-6 border-b border-slate-100 dark:border-zinc-900 bg-white/90 dark:bg-black/90 backdrop-blur-xl shrink-0 z-50 pt-safe">
+                <button onClick={()=>checkSaveEntry(true)} className="p-3 bg-slate-100 dark:bg-zinc-900 rounded-2xl text-slate-900 dark:text-white hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
+                <div className="flex items-center gap-4">
+                    <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">{autoSaveStatus}</span>
+                    <button onClick={()=>checkSaveEntry(false)} className="px-6 py-3 bg-accent text-white rounded-2xl font-bold text-sm shadow-xl shadow-accent/20 hover:scale-105 active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || '#000000', color: isDarkColor(user.nameColor || '#000000') ? '#ffffff' : '#000000' }}>Sichern</button>
+                </div>
+            </header>
+
+            {/* Sticky Editor Toolbar (Immer sichtbar) */}
+            <div className="flex gap-2 p-3 px-4 overflow-x-auto hide-scrollbar border-b border-slate-50 dark:border-zinc-900 bg-white/95 dark:bg-black/95 backdrop-blur-md shrink-0 z-40 shadow-sm sticky top-0">
+                
+                {/* Headings & Text */}
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'H1'); isDirtyRef.current=true;}} className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0"><span className="font-extrabold text-sm">H1</span></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'H2'); isDirtyRef.current=true;}} className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0"><span className="font-bold text-sm">H2</span></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'P'); isDirtyRef.current=true;}} className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0"><span className="font-medium text-sm">T</span></button>
+                
+                <div className="w-px bg-slate-200 dark:bg-zinc-800 mx-1 shrink-0"></div>
+
+                {/* Formats */}
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('bold'); isDirtyRef.current=true;}} className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0"><Icon name="bold" size={18} /></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('italic'); isDirtyRef.current=true;}} className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0"><Icon name="italic" size={18} /></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current=true;}} className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0"><Icon name="quote" size={18} /></button>
+                
+                {/* Lists */}
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('insertUnorderedList'); isDirtyRef.current=true;}} className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0"><Icon name="list" size={18} /></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('insertOrderedList'); isDirtyRef.current=true;}} className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0"><Icon name="list-ordered" size={18} /></button>
+
+                <div className="w-px bg-slate-200 dark:bg-zinc-800 mx-1 shrink-0"></div>
+
+                {/* Color & Media */}
+                <label className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm cursor-pointer flex items-center justify-center relative overflow-hidden shrink-0">
+                    <Icon name="palette" size={18} />
+                    <input type="color" className="absolute opacity-0 w-[200%] h-[200%] top-0 left-0 cursor-pointer" onChange={(e) => { document.execCommand('foreColor', false, e.target.value); isDirtyRef.current = true; }} />
+                </label>
+                <label className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm cursor-pointer shrink-0"><Icon name="image" size={18} /><input type="file" accept="image/*" multiple onChange={e=>handleFileUpload(e,'image')} className="hidden" /></label>
+                <label className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm cursor-pointer shrink-0" title="Bild im Text (Inline)"><Icon name="image-plus" size={18} /><input type="file" accept="image/*" onChange={handleInlineImage} className="hidden" /></label>
+                <button onClick={() => setIsDrawing(true)} className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0"><Icon name="pen-tool" size={18} /></button>
+                <button onClick={isRecording ? stopRecording : startRecording} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 ${isRecording ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-50 dark:bg-zinc-900 text-slate-500 hover:text-accent'}`}>{isRecording ? <Icon name="square" size={18}/> : <Icon name="mic" size={18}/>}</button>
+                
+                <div className="w-px bg-slate-200 dark:bg-zinc-800 mx-1 shrink-0"></div>
+
+                {/* Locks */}
+                <button onClick={()=>{setIsLocked(!isLocked); isDirtyRef.current=true;}} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 ${isLocked ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-500 border border-rose-200 dark:border-rose-900/50' : 'bg-slate-50 dark:bg-zinc-900 text-slate-500 hover:text-rose-500'}`}><Icon name="lock" size={18}/></button>
+                <button onClick={()=>{setIsManifested(!isManifested); isDirtyRef.current=true;}} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 ${isManifested ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-500 border border-amber-200 dark:border-amber-900/50' : 'bg-slate-50 dark:bg-zinc-900 text-slate-500 hover:text-amber-500'}`}><Icon name="sparkles" size={18}/></button>
+            </div>
+            
+            {/* Editor Content Area */}
+            <div className="flex-1 p-4 md:p-8 overflow-y-auto custom-scrollbar flex flex-col max-w-3xl mx-auto w-full relative">
+              
+              {selectedImages.length > 0 && (
+                  <div className="flex gap-4 mb-6 overflow-x-auto hide-scrollbar snap-x pb-4">
+                      {selectedImages.map((img, i) => (
+                          <div key={i} className="relative w-48 aspect-video rounded-2xl overflow-hidden shadow-sm shrink-0 snap-start group border border-slate-200 dark:border-zinc-800">
+                              <img src={img} className="w-full h-full object-cover" />
+                              <button onClick={()=>{setSelectedImages(prev=>prev.filter((_,idx)=>idx!==i)); isDirtyRef.current=true;}} className="absolute top-2 right-2 p-2 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"><Icon name="x" size={14}/></button>
+                          </div>
+                      ))}
+                  </div>
+              )}
+
+              {pillarGuidance && (
+                  <div className="p-4 rounded-3xl bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-900/30 text-amber-700 dark:text-amber-400 font-medium text-sm mb-6 flex gap-4 leading-relaxed">
+                      <Icon name="book-open" size={24} className="shrink-0 mt-0.5 opacity-80" /> {pillarGuidance}
+                  </div>
+              )}
+
+              <input type="text" placeholder="Titel der Vision..." value={title} onChange={e=>{setTitle(e.target.value); isDirtyRef.current=true;}} className="w-full bg-transparent text-3xl sm:text-5xl font-extrabold tracking-tighter outline-none mb-6 placeholder-slate-300 dark:placeholder-zinc-700 text-slate-900 dark:text-white" />
+
+              {audioUrl && (
+                  <div className="mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 relative">
+                     <span className="text-[10px] font-bold uppercase tracking-widest opacity-50 mb-3 block">Audio-Log</span>
+                     <audio src={audioUrl} controls className="w-full" />
+                     <button onClick={()=>{setAudioUrl(null); isDirtyRef.current=true;}} className="absolute top-4 right-4 p-2 bg-slate-200 dark:bg-zinc-800 rounded-full text-slate-500 hover:text-rose-500"><Icon name="x" size={14}/></button>
+                  </div>
+              )}
+
+              <div 
+                  ref={editorRef} 
+                  contentEditable 
+                  onClick={handleEditorClick}
+                  onInput={()=>isDirtyRef.current=true} 
+                  className="flex-1 outline-none text-[1.05rem] leading-[1.8] legacy-editor-content text-slate-800 dark:text-slate-200 pb-32 min-h-[50vh]" 
+                  data-placeholder="Was wirst du hinterlassen?" 
+                  dangerouslySetInnerHTML={{__html: text}} 
+              />
+            </div>
+
+            {/* Editor Meta Bottom Bar (Tags, Rating, Location, Date) */}
+            <div className="p-3 border-t border-slate-100 dark:border-zinc-900 bg-white/90 dark:bg-black/90 backdrop-blur-xl shrink-0 flex items-center gap-3 overflow-x-auto hide-scrollbar z-50 pb-safe">
+               <button onClick={()=>setPicker({title:'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c, value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;}})} className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs font-bold flex items-center gap-2 shrink-0">{category} <Icon name="chevron-down" size={12}/></button>
+               
+               {/* Rating Component */}
+               <div className="flex items-center gap-1 bg-slate-50 dark:bg-zinc-900 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0">
+                  {[1,2,3,4,5].map(star => (
+                      <Icon key={star} name="star" size={14} className={`cursor-pointer transition-colors ${rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-zinc-700'}`} onClick={() => {setRating(rating === star ? 0 : star); isDirtyRef.current=true;}} />
+                  ))}
+               </div>
+
+               {/* Tags Input */}
+               <div className="flex items-center bg-slate-50 dark:bg-zinc-900 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
+                   <Icon name="tag" size={12} className="text-slate-400 mr-2 shrink-0" />
+                   <input type="text" placeholder="Tags (Komma...)" value={tags} onChange={e=>{setTags(e.target.value); isDirtyRef.current=true;}} className="bg-transparent border-none outline-none text-xs font-bold placeholder:opacity-50 w-full text-slate-900 dark:text-white" />
+               </div>
+
+               <div className={`relative px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 cursor-pointer overflow-hidden ${unlockDate ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}>
+                  <Icon name="calendar-clock" size={14}/> {unlockDate ? new Date(unlockDate).toLocaleDateString('de-DE') : 'Zeitsiegel'}
+                  <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); isDirtyRef.current=true;}} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+               </div>
+               
+               <button onClick={()=>{
+                   if(location){setLocation(null); isDirtyRef.current=true; return;}
+                   if(!("geolocation" in navigator)){showDialog({title:'Fehler', message:'Ortung nicht unterstützt.'}); return;}
+                   navigator.geolocation.getCurrentPosition(p => { setLocation({lat: p.coords.latitude, lng: p.coords.longitude}); isDirtyRef.current=true; showDialog({title:'GPS erfasst', message:'Ort wurde gesichert.', icon:'map-pin'}); }, ()=>showDialog({title:'Fehler', message:'Ortung fehlgeschlagen.'}));
+               }} className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 ${location ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-900/50 text-amber-600 dark:text-amber-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}><Icon name="map-pin" size={14}/> {location ? 'Ort gesichert' : 'GPS-Siegel'}</button>
             </div>
           </div>
         )}
