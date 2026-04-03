@@ -476,6 +476,7 @@ function App() {
   
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authMsg, setAuthMsg] = useState('');
   const [authMode, setAuthMode] = useState('login');
@@ -606,10 +607,16 @@ function App() {
           const firebaseConfig = { apiKey: "AIzaSyBs7DoO5z8cuIc3DtdArgorKRx_FX7JX-U", authDomain: "tagebuch-og.firebaseapp.com", projectId: "tagebuch-og", storageBucket: "tagebuch-og.firebasestorage.app", messagingSenderId: "418864246292", appId: "1:418864246292:web:957b604fe7ce4380c24101" };
           const nativeImport = new Function('url', 'return import(url)');
           const { initializeApp } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
-          const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
+          const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, setPersistence, inMemoryPersistence } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
           const { getFirestore, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
           
-          const app = initializeApp(firebaseConfig); const auth = getAuth(app); const firestoreDb = getFirestore(app);
+          const app = initializeApp(firebaseConfig); 
+          const auth = getAuth(app); 
+          
+          // Erzwingt bei jedem Neuladen/Schließen des Tabs einen frischen Login!
+          await setPersistence(auth, inMemoryPersistence);
+          
+          const firestoreDb = getFirestore(app);
           setFb({ db: firestoreDb, auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot });
 
           const handleUserLoad = async (u) => {
