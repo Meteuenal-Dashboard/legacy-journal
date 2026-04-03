@@ -1130,7 +1130,6 @@ function App() {
             setTimeout(()=>setAutoSaveStatus(''), 2000); 
         }
     } catch (err) { 
-        console.error("Save error:", err);
         if (closeAndRead) closeEditor(entries.find(e => e && e.id === editingIdRef.current) || null); 
     }
   };
@@ -1214,13 +1213,13 @@ function App() {
               const realTime = new Date(data.datetime);
               const unlockTime = new Date(entry.unlockDate);
               if (realTime < unlockTime) {
-                  setDialog(null); setTimeout(() => showDialog({title: 'Zeitkapsel versiegelt', message: `Das kryptografische Zeitsiegel ist intakt. Die Kapsel öffnet erst am ${unlockTime.toLocaleDateString('de-DE')}.`, icon: 'lock', iconColor: 'text-indigo-500'}), 300);
+                  setDialog(null); setTimeout(() => showDialog({title: 'Zeitkapsel versiegelt', message: `Das kryptografische Zeitsiegel ist intakt. Die Kapsel öffnet erst am ${unlockTime.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}.`, icon: 'lock', iconColor: 'text-indigo-500'}), 300);
                   return; 
               }
               setDialog(null);
           } catch(e) {
               if (new Date() < new Date(entry.unlockDate)) {
-                  showDialog({title: 'Zeitkapsel versiegelt', message: `Öffnet erst am ${new Date(entry.unlockDate).toLocaleDateString('de-DE')}.`, icon: 'lock', iconColor: 'text-indigo-500'});
+                  showDialog({title: 'Zeitkapsel versiegelt', message: `Öffnet erst am ${new Date(entry.unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}.`, icon: 'lock', iconColor: 'text-indigo-500'});
                   return; 
               }
               setDialog(null);
@@ -1429,34 +1428,7 @@ function App() {
     e.target.value = null; 
   };
 
-  // Einfügen von Bildern / Stickern über die Handy-Tastatur (WhatsApp-Style)
-  const handleEditorInput = () => {
-      isDirtyRef.current = true;
-      if (editorRef.current) {
-          const nakedImgs = editorRef.current.querySelectorAll('img:not(.inline-img-wrapper img)');
-          if (nakedImgs.length > 0) {
-              nakedImgs.forEach(img => {
-                  const wrapper = document.createElement('span');
-                  wrapper.className = 'inline-img-wrapper';
-                  wrapper.contentEditable = 'false';
-                  
-                  const delBtn = document.createElement('span');
-                  delBtn.className = 'delete-img-btn';
-                  delBtn.innerText = 'X';
-                  
-                  wrapper.appendChild(img.cloneNode(true));
-                  wrapper.appendChild(delBtn);
-                  
-                  img.parentNode.replaceChild(wrapper, img);
-                  
-                  const space = document.createTextNode('\u00A0');
-                  wrapper.parentNode.insertBefore(space, wrapper.nextSibling);
-              });
-              checkSaveEntry(false);
-          }
-      }
-  };
-
+  // Einfügen von Bildern / Stickern über die Handy-Tastatur oder Clipboard
   const handleEditorPaste = (e) => {
       const clipboardData = e.clipboardData || window.clipboardData || (e.nativeEvent && e.nativeEvent.clipboardData);
       if (!clipboardData) return;
@@ -1494,9 +1466,10 @@ function App() {
           isDirtyRef.current = true;
           checkSaveEntry(false);
       } else if (e.target.tagName === 'IMG' && e.target.closest('.inline-img-wrapper')) {
+          const wrapper = e.target.closest('.inline-img-wrapper');
           const img = e.target;
           setPicker({
-              title: 'Bild anpassen',
+              title: 'Sticker / Bild anpassen',
               currentValue: null,
               options: [
                   {label: 'Klein', value: '120px'},
@@ -1505,6 +1478,25 @@ function App() {
               ],
               onSelect: (val) => {
                   img.style.width = val;
+                  isDirtyRef.current = true;
+                  checkSaveEntry(false);
+              }
+          });
+      } else if (e.target.tagName === 'IMG' && !e.target.closest('.inline-img-wrapper')) {
+          // Fallback, falls die Tastatur ein nacktes Bild einfügt (z.B. Gboard auf einigen Androids)
+          const img = e.target;
+          setPicker({
+              title: 'Sticker / Bild anpassen',
+              currentValue: null,
+              options: [
+                  {label: 'Klein', value: '120px'},
+                  {label: 'Mittel', value: '250px'},
+                  {label: 'Groß', value: '100%'},
+                  {label: '❌ Löschen', value: 'delete'}
+              ],
+              onSelect: (val) => {
+                  if (val === 'delete') { img.remove(); }
+                  else { img.style.width = val; img.style.height = 'auto'; }
                   isDirtyRef.current = true;
                   checkSaveEntry(false);
               }
@@ -1522,7 +1514,7 @@ function App() {
 
           let imgCounter = 1;
           entries.filter(e => e && !e.trashed).forEach(e => {
-              let mdContent = `# ${e.title || 'Ohne Titel'}\n\nDatum: ${new Date(e.date).toLocaleDateString('de-DE')}\nKategorie: ${e.category}\n\n${(e.text || '').replace(/<[^>]*>?/gm, '')}`;
+              let mdContent = `# ${e.title || 'Ohne Titel'}\n\nDatum: ${new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}\nKategorie: ${e.category}\n\n${(e.text || '').replace(/<[^>]*>?/gm, '')}`;
               if (e.images && e.images.length > 0) {
                   e.images.forEach(imgBase64 => {
                       const base64Data = imgBase64.split(',')[1];
@@ -1600,7 +1592,7 @@ function App() {
                     </div>`;
                   const icon = window.L.divIcon({ html: iconHtml, className: 'avatar-marker', iconSize: [54, 54], iconAnchor: [27, 27] });
                   const marker = window.L.marker([group.lat, group.lng], { icon }).addTo(map);
-                  marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b><br/><span style="color:#000;">Letzter: ${new Date(e.date).toLocaleDateString('de-DE')}</span>`);
+                  marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b><br/><span style="color:#000;">Letzter: ${new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>`);
                   marker.on('click', () => { setView('dashboard'); handleOpenEntry(e); });
               } else {
                   const iconHtml = `
@@ -1610,7 +1602,7 @@ function App() {
                     </div>`;
                   const icon = window.L.divIcon({ html: iconHtml, className: 'avatar-marker', iconSize: [16, 16], iconAnchor: [8, 8] });
                   const marker = window.L.marker([group.lat, group.lng], { icon }).addTo(map);
-                  marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b><br/><span style="color:#000;">Letzter: ${new Date(e.date).toLocaleDateString('de-DE')}</span>`);
+                  marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b><br/><span style="color:#000;">Letzter: ${new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>`);
                   marker.on('click', () => { setView('dashboard'); handleOpenEntry(e); });
               }
           });
@@ -1752,6 +1744,7 @@ function App() {
             )}
           </div>
           <div className="flex gap-2 items-center">
+            {/* Kalender Button GLOBAL zugänglich */}
             <button type="button" onClick={() => { setViewingEntry(null); setShowTimeline(true); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="calendar-days" size={18}/></button>
             
             {view === 'dashboard' && (
@@ -1800,10 +1793,10 @@ function App() {
                   ) : (
                       <div className="grid gap-4">
                           {visibleEntries.map(e => (
-                              <div key={e.id} className="p-5 bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-slate-100 dark:border-zinc-800 flex justify-between items-center gap-4">
+                              <div key={e.id} className="p-5 bg-white dark:bg-zinc-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-zinc-800 flex justify-between items-center gap-4">
                                   <div className="overflow-hidden flex-1 cursor-pointer" onClick={() => handleOpenEntry(e)}>
                                       <h4 className="font-bold truncate text-lg hover:text-accent transition-colors">{e.title || 'Ohne Titel'}</h4>
-                                      <p className="text-xs font-bold uppercase tracking-widest opacity-50 mt-1">{new Date(e.date).toLocaleDateString('de-DE')} • {e.category}</p>
+                                      <p className="text-xs font-bold uppercase tracking-widest opacity-50 mt-1">{new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category}</p>
                                   </div>
                                   <div className="flex gap-2 shrink-0">
                                       <button onClick={() => saveToDB({...e, archived: false})} className="w-12 h-12 flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Wiederherstellen"><Icon name="rotate-ccw" size={20}/></button>
@@ -1850,10 +1843,10 @@ function App() {
                   ) : (
                       <div className="grid gap-4">
                           {visibleEntries.map(e => (
-                              <div key={e.id} className="p-5 bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-slate-100 dark:border-zinc-800 flex justify-between items-center gap-4">
-                                  <div className="overflow-hidden flex-1">
-                                      <h4 className="font-bold truncate text-lg">{e.title || 'Ohne Titel'}</h4>
-                                      <p className="text-xs font-bold uppercase tracking-widest opacity-50 mt-1">{new Date(e.date).toLocaleDateString('de-DE')} • {e.category}</p>
+                              <div key={e.id} className="p-5 bg-white dark:bg-zinc-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-zinc-800 flex justify-between items-center gap-4">
+                                  <div className="overflow-hidden flex-1 cursor-pointer" onClick={() => handleOpenEntry(e)}>
+                                      <h4 className="font-bold truncate text-lg hover:text-accent transition-colors">{e.title || 'Ohne Titel'}</h4>
+                                      <p className="text-xs font-bold uppercase tracking-widest opacity-50 mt-1">{new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category}</p>
                                   </div>
                                   <div className="flex gap-2 shrink-0">
                                       <button onClick={() => saveToDB({...e, trashed: false})} className="w-12 h-12 flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Wiederherstellen"><Icon name="rotate-ccw" size={20}/></button>
@@ -2062,8 +2055,8 @@ function App() {
                 ) : (
                    allQuotes.map(q => (
                       <div key={q.id} onClick={()=>{const e=entries.find(x=>x && x.id===q.entryId); if(e){setView('dashboard'); handleOpenEntry(e);}}} className="p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border shadow-sm cursor-pointer hover:-translate-y-1 hover:shadow-md transition-all relative overflow-hidden" style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
-                         <div className="flex gap-4">
-                             <div className="shrink-0 pt-1" style={{ color: user.nameColor }}><Icon name="quote" size={28} /></div>
+                         <div className="flex gap-4 items-start">
+                             <div className="shrink-0 mt-1" style={{ color: user.nameColor }}><Icon name="quote" size={28} /></div>
                              <div className="flex-1">
                                  <p className="text-xl font-serif italic font-medium leading-relaxed mb-4 text-slate-800 dark:text-slate-200">
                                     {q.text}
@@ -2250,7 +2243,7 @@ function App() {
 
         {/* --- EDITOR MODAL --- */}
         {showEditor && (
-          <div className="fixed inset-0 bg-white dark:bg-black z-[200] flex flex-col page-transition">
+          <div className="fixed inset-0 bg-white dark:bg-black z-[200] flex flex-col h-[100dvh] overflow-hidden page-transition">
             
             {/* 1. Header (Immer ganz oben) */}
             <header className="flex justify-between items-center p-4 sm:p-6 shrink-0 z-50 pt-safe bg-white/95 dark:bg-black/95 border-b border-slate-100 dark:border-zinc-900">
@@ -2263,7 +2256,7 @@ function App() {
 
             {/* 2. Titel Eingabe (Durchgehende Linie) */}
             <div className="px-4 sm:px-8 pt-6 pb-2 shrink-0 bg-white dark:bg-black z-40">
-              <input type="text" placeholder="Titel der Vision..." value={title} onChange={e=>{setTitle(e.target.value); isDirtyRef.current=true;}} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tighter outline-none border-b-[3px] border-slate-200 dark:border-zinc-800 pb-3 placeholder-slate-300 dark:placeholder-zinc-700 text-slate-900 dark:text-white transition-colors focus:border-accent" />
+              <input type="text" placeholder="Titel der Vision..." value={title} onChange={e=>{setTitle(e.target.value); isDirtyRef.current=true;}} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tighter outline-none border-b-2 border-slate-200 dark:border-zinc-800 pb-3 placeholder-slate-300 dark:placeholder-zinc-700 text-slate-900 dark:text-white transition-colors focus:border-accent" />
             </div>
 
             {/* 3. STICKY TOOLBAR (Immer sichtbar über dem Text) */}
@@ -2286,13 +2279,6 @@ function App() {
 
                 <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
 
-                {/* Farben (Rund) */}
-                {EDITOR_COLORS.map(c => (
-                    <button key={c} onMouseDown={e=>{e.preventDefault(); document.execCommand('foreColor', false, c); isDirtyRef.current=true;}} className="w-8 h-8 rounded-full border-2 shadow-sm shrink-0 transition-transform hover:scale-110 active:scale-95" style={{backgroundColor: c, borderColor: isDarkColor(c) ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}}></button>
-                ))}
-
-                <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
-
                 {/* Medien & Zeichnen */}
                 <label className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm cursor-pointer flex items-center justify-center relative overflow-hidden shrink-0 border border-slate-100 dark:border-zinc-800" title="Bild für Hauptkarte (Cover)"><Icon name="image" size={18} /><input type="file" accept="image/*" multiple onChange={e=>handleFileUpload(e,'image')} className="absolute opacity-0 w-[200%] h-[200%] top-0 left-0 cursor-pointer" /></label>
                 <button onClick={() => setIsDrawing(true)} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="pen-tool" size={18} /></button>
@@ -2303,10 +2289,17 @@ function App() {
                 {/* Sicherheit */}
                 <button onClick={()=>{setIsLocked(!isLocked); isDirtyRef.current=true;}} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 border ${isLocked ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-500 border-rose-200 dark:border-rose-900/50' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:text-rose-500 border-slate-100 dark:border-zinc-800'}`}><Icon name="lock" size={18}/></button>
                 <button onClick={()=>{setIsManifested(!isManifested); isDirtyRef.current=true;}} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 border ${isManifested ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-500 border-amber-200 dark:border-amber-900/50' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:text-amber-500 border-slate-100 dark:border-zinc-800'}`}><Icon name="sparkles" size={18}/></button>
+
+                <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
+
+                {/* Farben (Rund am Ende) */}
+                {EDITOR_COLORS.map(c => (
+                    <button key={c} onMouseDown={e=>{e.preventDefault(); document.execCommand('foreColor', false, c); isDirtyRef.current=true;}} className="w-8 h-8 rounded-full border-2 shadow-sm shrink-0 transition-transform hover:scale-110 active:scale-95" style={{backgroundColor: c, borderColor: isDarkColor(c) ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}}></button>
+                ))}
             </div>
             
             {/* 4. Text-Eingabebereich */}
-            <div className="flex-1 p-4 md:p-8 overflow-y-auto custom-scrollbar flex flex-col max-w-3xl mx-auto w-full relative bg-white dark:bg-black">
+            <div className="flex-1 p-4 md:p-8 overflow-y-auto custom-scrollbar flex flex-col w-full bg-white dark:bg-black relative">
               
               {selectedImages.length > 0 && (
                   <div className="flex gap-4 mb-6 overflow-x-auto hide-scrollbar snap-x pb-4">
@@ -2338,7 +2331,7 @@ function App() {
                   contentEditable 
                   onClick={handleEditorClick}
                   onPaste={handleEditorPaste}
-                  onInput={handleEditorInput} 
+                  onInput={()=>isDirtyRef.current=true} 
                   className="flex-1 outline-none text-[1.05rem] leading-[1.8] legacy-editor-content text-slate-800 dark:text-slate-200 pb-32 min-h-[50vh]" 
                   data-placeholder="Was wirst du hinterlassen? Füge Sticker direkt über deine Handy-Tastatur ein..." 
                   dangerouslySetInnerHTML={{__html: text}} 
@@ -2370,7 +2363,7 @@ function App() {
 
                {/* Zeitsiegel */}
                <div className={`h-10 relative px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 cursor-pointer overflow-hidden ${unlockDate ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}>
-                  <Icon name="calendar-clock" size={14}/> {unlockDate ? new Date(unlockDate).toLocaleDateString('de-DE') : 'Zeitsiegel'}
+                  <Icon name="calendar-clock" size={14}/> {unlockDate ? new Date(unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Zeitsiegel'}
                   <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); isDirtyRef.current=true;}} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
                </div>
                
@@ -2551,6 +2544,25 @@ function App() {
                 <button onClick={() => { if(dialog.onConfirm) dialog.onConfirm(); setDialog(null); }} className="w-full py-4 rounded-2xl font-bold shadow-md active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>{dialog.confirmLabel || 'Okay'}</button>
                 {dialog.onCancel && <button onClick={() => { if(dialog.onCancel) dialog.onCancel(); setDialog(null); }} className="w-full py-4 rounded-2xl font-bold bg-slate-100 dark:bg-zinc-800 active:scale-95 transition-transform">Abbrechen</button>}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- PIN UNLOCK MODAL --- */}
+        {unlockTarget && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setUnlockTarget(null)}>
+            <div className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up" onClick={e => e.stopPropagation()}>
+              <div className="w-20 h-20 bg-slate-50 dark:bg-zinc-950 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100 dark:border-zinc-800"><Icon name="lock" size={32} style={{ color: user.nameColor || '#f59e0b' }} /></div>
+              <h3 className="text-2xl font-extrabold tracking-tight mb-2">Tresor entsperren</h3>
+              <p className="text-xs font-bold uppercase tracking-widest opacity-40 mb-8 truncate w-full px-4">"{unlockTarget.title}"</p>
+              <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submitPin()} className={`w-full p-4 text-center text-4xl tracking-[0.5em] rounded-2xl bg-slate-50 dark:bg-zinc-950 border-2 outline-none mb-6 transition-colors placeholder:opacity-30 ${pinError ? 'border-rose-500' : 'border-transparent focus:border-slate-300 dark:focus:border-zinc-700'}`} placeholder="••••" />
+              <div className="flex gap-3 w-full mb-4">
+                <button onClick={() => setUnlockTarget(null)} className="flex-1 py-4 font-bold rounded-2xl bg-slate-100 dark:bg-zinc-800 active:scale-95 transition-transform">Abbrechen</button>
+                <button onClick={submitPin} className="flex-1 py-4 rounded-2xl font-bold shadow-md active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || '#f59e0b', color: isDarkColor(user.nameColor || '#f59e0b') ? '#ffffff' : '#000000' }}>Öffnen</button>
+              </div>
+              {safeStorageGet('legacy_bio_pin') && (
+                <button onClick={handleBiometricUnlock} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm flex items-center justify-center gap-2"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
+              )}
             </div>
           </div>
         )}
