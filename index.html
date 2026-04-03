@@ -1458,7 +1458,7 @@ function App() {
   // KI Handschrift OCR Scanner (mit Exponential Backoff)
   const callGemini = async (payload, retries = 5) => {
       const delays = [1000, 2000, 4000, 8000, 16000];
-      const apiKey = ""; // WICHTIG: Das System injiziert den Schlüssel hier, wenn du es extern hostest musst du ihn hart eintragen
+      const apiKey = "AIzaSyC4z8nQq_N7bK7lgyyox8jM_Vbnuz_SP3E"; // Dein eingefügter API-Key für GitHub Pages
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
       
       for (let i = 0; i < retries; i++) {
@@ -2641,7 +2641,7 @@ function App() {
                                            <SwipeableTimelineEntry 
                                                 key={e.id} 
                                                 entry={e} 
-                                                onClick={(entry) => { setViewingEntry(entry); setShowTimeline(false); }} 
+                                                onClick={(entry) => { setShowTimeline(false); handleOpenEntry(entry); }} 
                                                 onArchive={(entry) => saveToDB({...entry, archived: true})}
                                                 onTrash={(entry) => saveToDB({...entry, trashed: true})}
                                                 showDialog={showDialog}
