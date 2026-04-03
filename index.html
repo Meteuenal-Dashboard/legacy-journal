@@ -1644,6 +1644,25 @@ function App() {
                   checkSaveEntry(false);
               }
           });
+      } else if (e.target.tagName === 'IMG' && !e.target.closest('.inline-img-wrapper')) {
+          // Fallback, falls die Tastatur ein nacktes Bild eingefügt hat
+          const img = e.target;
+          setPicker({
+              title: 'Sticker / Bild anpassen',
+              currentValue: null,
+              options: [
+                  {label: 'Klein', value: '120px'},
+                  {label: 'Mittel', value: '250px'},
+                  {label: 'Groß', value: '100%'},
+                  {label: '❌ Löschen', value: 'delete'}
+              ],
+              onSelect: (val) => {
+                  if (val === 'delete') { img.remove(); }
+                  else { img.style.width = val; img.style.height = 'auto'; }
+                  isDirtyRef.current = true;
+                  checkSaveEntry(false);
+              }
+          });
       }
   };
 
