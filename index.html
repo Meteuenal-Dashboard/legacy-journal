@@ -194,6 +194,13 @@ const { useState, useEffect, useRef, useMemo } = React;
 const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
 const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
 
+// Robuste Datumssortierung (fängt leere oder fehlerhafte Zeitstempel ab)
+const sortEntriesDesc = (a, b) => {
+    const tA = new Date(a.orderTimestamp || a.date || 0).getTime();
+    const tB = new Date(b.orderTimestamp || b.date || 0).getTime();
+    return (isNaN(tB) ? 0 : tB) - (isNaN(tA) ? 0 : tA);
+};
+
 // Lokale Zeit für Speicherung sichern
 const getLocalISO = () => {
     const now = new Date();
@@ -404,7 +411,7 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
         <div className="p-6 relative z-10 flex-1 flex flex-col">
           <div className="flex items-center gap-2 mb-3 text-[10px] font-bold uppercase tracking-widest opacity-50 flex-wrap">
             <span>{new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-            {!isGridView && <><span>•</span><span>{entry.category}</span></>}
+            {!isGridView && <><span>•</span><span>{entry.category || 'Allgemein'}</span></>}
             {entry.tags && <span className="text-blue-500 flex items-center gap-0.5 ml-1"><Icon name="tag" size={10}/>{entry.tags.split(',').filter(x=>x.trim()).length}</span>}
             {entry.people && <span className="text-indigo-500 flex items-center gap-0.5 ml-1"><Icon name="user" size={10}/>{entry.people.split(',').filter(x=>x.trim()).length}</span>}
             {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE')}</span></>}
@@ -429,7 +436,7 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
             <div className="text-sm font-medium leading-relaxed opacity-70 line-clamp-3" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
           )}
           {(entry.locked || isCapsuleLocked) && !isGridView && (
-             <div className="text-sm font-medium leading-relaxed opacity-40 italic">
+             <div className="text-sm font-medium leading-relaxed opacity-40 italic mb-4">
                 {isCapsuleLocked ? 'Inhalt durch Zeitsiegel geschützt.' : 'Inhalt durch Tresor-PIN geschützt.'}
              </div>
           )}
@@ -648,11 +655,30 @@ function App() {
                      const savedStr = localStorage.getItem('legacy_user');
                      if (savedStr) {
                          const parsed = JSON.parse(savedStr);
-                         if (parsed.pin) { setUser(parsed); setView(parsed.name ? 'dashboard' : 'onboarding'); } 
-                         else setView('pin_entry');
+                         if (parsed.pin) { 
+                             setUser(parsed); 
+                             setView('pin_entry'); 
+                         } else {
+                             setUser(parsed);
+                             setView(parsed.name ? 'dashboard' : 'onboarding');
+                         }
                      } else setView('pin_entry');
                  } else { signOut(auth); setView('auth'); }
-             } else setView('auth');
+             } else {
+                 const savedStr = localStorage.getItem('legacy_user');
+                 if (savedStr) {
+                     const parsed = JSON.parse(savedStr);
+                     if (parsed.pin) { 
+                         setUser(parsed); 
+                         setView('pin_entry'); 
+                     } else {
+                         setUser(parsed);
+                         setView(parsed.name ? 'dashboard' : 'onboarding');
+                     }
+                 } else {
+                     setView('auth');
+                 }
+             }
           });
        } catch(e) { console.error(e); }
     };
@@ -681,7 +707,7 @@ function App() {
               return e;
             }));
           }
-          setEntries(loadedEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)));
+          setEntries(loadedEntries.sort(sortEntriesDesc));
           setIsLoaded(true);
         };
       } catch (e) { setIsLoaded(true); }
@@ -732,10 +758,22 @@ function App() {
           return;
       }
       
-      const newUserObj = {...user, pin: pinValue};
-      setUser(newUserObj);
-      safeStorageSet('legacy_user', JSON.stringify(newUserObj));
-      setView(newUserObj.name ? 'dashboard' : 'onboarding');
+      // Global Unlock Check
+      if (user.pin && pinValue !== user.pin) {
+          setPinError(true); setTimeout(() => setPinError(false), 800); setPinInput('');
+          return;
+      }
+
+      const savedStr = safeStorageGet('legacy_user');
+      let mergedUser = { ...user, pin: pinValue };
+      if (savedStr) {
+          const parsed = JSON.parse(savedStr);
+          mergedUser = { ...parsed, pin: pinValue };
+      }
+
+      setUser(mergedUser);
+      safeStorageSet('legacy_user', JSON.stringify(mergedUser));
+      setView(mergedUser.name ? 'dashboard' : 'onboarding');
   };
 
   const toggleBiometric = async () => {
@@ -876,7 +914,7 @@ function App() {
                   let loadedEntries = req.result || [];
                   loadedEntries = loadedEntries.map(e => ({ ...e, images: e.images || (e.image ? [e.image] : []) }));
                   if (user.pin) loadedEntries = await Promise.all(loadedEntries.map(async (e) => { if (e.locked && e.encryptedData) { const decStr = await decryptData(e.encryptedData, user.pin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, text: parsed.text, title: parsed.title }; } catch(err){} } } return e; }));
-                  setEntries(loadedEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)));
+                  setEntries(loadedEntries.sort(sortEntriesDesc));
                   if (failedDecrypt > 0) showDialog({ title: 'Entschlüsselung unvollständig', message: `${failedDecrypt} Einträge fehlgeschlagen. PIN falsch?`, icon: 'shield-alert' });
                   else showDialog({ title: 'Wiederhergestellt', message: `${recoveredCount} Einträge geladen.`, icon: 'check' });
               };
@@ -911,9 +949,12 @@ function App() {
   // Robust Save Logic Update
   useEffect(() => {
      editingIdRef.current = editingId;
-     // Synchronisiere alle Zustände
-     currentEntryRef.current = { title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, rating, tags, people, weather, date: entryDate };
-  }, [editingId, title, text, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, rating, tags, people, weather, entryDate]);
+     // Synchronisiere Zustand, um Overwrites zu verhindern! Text bleibt sicher im editorRef.
+     currentEntryRef.current = { 
+         ...currentEntryRef.current,
+         title, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, rating, tags, people, weather, date: entryDate 
+     };
+  }, [editingId, title, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, rating, tags, people, weather, entryDate]);
 
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; let dbEntry = { ...entry };
@@ -925,8 +966,8 @@ function App() {
           tx.oncomplete = () => { 
               setEntries(prev => { 
                   const exists = prev.find(e => e.id === entry.id); 
-                  if (exists) return prev.map(e => e.id === entry.id ? entry : e).sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); 
-                  return [entry, ...prev].sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date)); 
+                  let nextEntries = exists ? prev.map(e => e.id === entry.id ? entry : e) : [entry, ...prev];
+                  return nextEntries.sort(sortEntriesDesc);
               }); 
               syncSingleEntryToCloud(entry); 
           }; 
@@ -961,8 +1002,8 @@ function App() {
         
         const newEntry = { 
             id: entryId, title: titleSafe || '', text: currentText, color: state.selectedColor, images: state.selectedImages, audio: state.audioUrl, locked: state.isLocked, archived: false, trashed: false, manifested: state.isManifested, category: state.category, mood: state.mood, unlockDate: state.unlockDate, location: state.location, parentId: state.parentId, inheritedFrom: state.inheritedFrom, rating: state.rating, tags: state.tags, people: state.people, weather: state.weather, 
-            date: editingIdRef.current ? (entries.find(e => e.id === editingIdRef.current)?.date || state.date || getLocalISO()) : (state.date || getLocalISO()), 
-            orderTimestamp: editingIdRef.current ? (entries.find(e => e.id === editingIdRef.current)?.orderTimestamp || getLocalISO()) : getLocalISO() 
+            date: state.date || getLocalISO(), 
+            orderTimestamp: state.orderTimestamp || state.date || getLocalISO() 
         };
         
         if (!editingIdRef.current) { setEditingId(entryId); editingIdRef.current = entryId; }
@@ -1004,6 +1045,15 @@ function App() {
     });
   };
 
+  const handleSavePin = () => {
+      if (newPinInput.length < 4) { showDialog({title: 'Fehler', message: 'Die neue PIN muss mindestens 4 Zeichen lang sein.', icon: 'x'}); return; }
+      if (newPinInput !== confirmPinInput) { showDialog({title: 'Fehler', message: 'Die neuen PINs stimmen nicht überein.', icon: 'x'}); return; }
+      if (user.pin && oldPinInput !== user.pin) { showDialog({title: 'Fehler', message: 'Die alte PIN ist falsch.', icon: 'x'}); return; }
+      
+      setUser({...user, pin: newPinInput}); setIsChangingPin(false); setOldPinInput(''); setNewPinInput(''); setConfirmPinInput('');
+      showDialog({title: 'Erfolg', message: 'Deine PIN wurde erfolgreich gespeichert.', icon: 'check'});
+  };
+
   const closeEditor = (savedEntry = null) => { setShowEditor(false); if(isRecording) stopRecording(); setViewingEntry(savedEntry); };
 
   const openEditor = (entry = null, pillar = null, customDate = null) => {
@@ -1011,9 +1061,9 @@ function App() {
     const targetDate = entry && entry.id ? (entry.date || getLocalISO()) : (customDate ? new Date(customDate).toISOString().slice(0, -1) : getLocalISO());
 
     const newEntryState = entry && entry.id ? {
-        title: entry.title || '', text: entry.text || '', selectedColor: entry.color || (user.isDark ? COLORS[8] : COLORS[0]), selectedImages: entry.images || [], isLocked: entry.locked || false, isManifested: entry.manifested || false, category: entry.category || CATEGORIES[0], mood: entry.mood || null, audioUrl: entry.audio || null, unlockDate: entry.unlockDate || '', location: entry.location || null, parentId: entry.parentId || '', inheritedFrom: entry.inheritedFrom || null, rating: entry.rating || 0, tags: entry.tags || '', people: entry.people || '', weather: entry.weather || '', date: targetDate
+        title: entry.title || '', text: entry.text || '', selectedColor: entry.color || (user.isDark ? COLORS[8] : COLORS[0]), selectedImages: entry.images || [], isLocked: entry.locked || false, isManifested: entry.manifested || false, category: entry.category || CATEGORIES[0], mood: entry.mood || null, audioUrl: entry.audio || null, unlockDate: entry.unlockDate || '', location: entry.location || null, parentId: entry.parentId || '', inheritedFrom: entry.inheritedFrom || null, rating: entry.rating || 0, tags: entry.tags || '', people: entry.people || '', weather: entry.weather || '', date: targetDate, orderTimestamp: entry.orderTimestamp || targetDate
     } : {
-        title: pillar ? pillar.title : '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isLocked: view === 'vault', isManifested: false, category: pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory), mood: null, audioUrl: null, unlockDate: '', location: null, parentId: '', inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: targetDate
+        title: pillar ? pillar.title : '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isLocked: view === 'vault', isManifested: false, category: pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory), mood: null, audioUrl: null, unlockDate: '', location: null, parentId: '', inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: targetDate, orderTimestamp: targetDate
     };
 
     currentEntryRef.current = newEntryState;
@@ -1028,7 +1078,7 @@ function App() {
   const startNewChapter = (parent) => { 
     isDirtyRef.current = false; setViewingEntry(null); 
     const newEntryState = {
-        title: parent.title || '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isLocked: parent.locked || false, isManifested: false, category: parent.category || CATEGORIES[0], mood: null, audioUrl: null, unlockDate: '', location: null, parentId: parent.id, inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: getLocalISO()
+        title: parent.title || '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isLocked: parent.locked || false, isManifested: false, category: parent.category || CATEGORIES[0], mood: null, audioUrl: null, unlockDate: '', location: null, parentId: parent.id, inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: getLocalISO(), orderTimestamp: getLocalISO()
     };
     currentEntryRef.current = newEntryState; editingIdRef.current = null;
     
@@ -1073,8 +1123,6 @@ function App() {
       setCurrentViewerImgIdx(0);
   };
 
-  const submitPin = () => { if (pinInput === user.pin) { setViewingEntry(unlockTarget); setCurrentViewerImgIdx(0); setUnlockTarget(null); setPinInput(''); setPinError(false); } else { setPinError(true); setTimeout(() => setPinError(false), 800); setPinInput(''); } };
-
   const visibleEntries = useMemo(() => {
     return entries.filter(e => {
       if (view === 'trash') return e.trashed;
@@ -1091,11 +1139,11 @@ function App() {
 
       if (!searchQuery && e.parentId) return false; 
 
-      const matchesCategory = activeCategory === 'Alle' || e.category === activeCategory; 
+      const matchesCategory = activeCategory === 'Alle' || e.category === activeCategory || (!e.category && activeCategory === 'Allgemein'); 
       if (!searchQuery && !matchesCategory) return false;
       
       if (view === 'dashboard') return !e.locked; 
-      if (view === 'vault') return e.locked; 
+      if (view === 'vault') return !!e.locked; 
       
       return false;
     });
@@ -1116,7 +1164,7 @@ function App() {
           const entry = entries.find(e => e.id === id && !e.trashed); 
           if (entry && !result.find(r => r.id === entry.id)) { 
               result.push(entry); 
-              entries.filter(e => e.parentId === id && !e.trashed).sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(c => traverse(c.id, depth+1)); 
+              entries.filter(e => e.parentId === id && !e.trashed).sort(sortEntriesDesc).forEach(c => traverse(c.id, depth+1)); 
           } 
       }; 
       traverse(rootId); 
@@ -1143,7 +1191,7 @@ function App() {
       const touchEnd = e.changedTouches[0].clientX; const distance = touchStart - touchEnd;
       
       let swipeNext = null, swipePrev = null;
-      const sorted = visibleEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date));
+      const sorted = visibleEntries.sort(sortEntriesDesc);
       const cIdx = sorted.findIndex(ex => ex.id === viewingEntry.id);
       if (cIdx > 0) swipePrev = sorted[cIdx - 1]; 
       if (cIdx < sorted.length - 1) swipeNext = sorted[cIdx + 1]; 
@@ -1156,7 +1204,6 @@ function App() {
   const getCanvasCoordinates = (e) => {
       if (!canvasRef.current) return { x: 0, y: 0 };
       const rect = canvasRef.current.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
       if (e.touches && e.touches.length > 0) return { x: (e.touches[0].clientX - rect.left), y: (e.touches[0].clientY - rect.top) };
       return { x: (e.clientX - rect.left), y: (e.clientY - rect.top) };
   };
@@ -1289,7 +1336,7 @@ function App() {
 
   const downloadFullApp = () => { const cloneDocument = document.cloneNode(true); const rootDiv = cloneDocument.getElementById('root'); if (rootDiv) rootDiv.innerHTML = ''; const existingInjected = cloneDocument.getElementById('legacy-injected-data'); if (existingInjected) existingInjected.remove(); const data = { user, entries }; const scriptEl = cloneDocument.createElement('script'); scriptEl.id = 'legacy-injected-data'; scriptEl.type = 'application/json'; scriptEl.textContent = JSON.stringify(data); cloneDocument.head.appendChild(scriptEl); const htmlContent = "<!DOCTYPE html>\n" + cloneDocument.documentElement.outerHTML; const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Legacy_${new Date().toISOString().split('T')[0]}.html`; a.click(); URL.revokeObjectURL(a.href); showDialog({ title: 'Erledigt!', message: 'App als HTML-Backup gespeichert.', icon: 'download' }); };
 
-  const importBackup = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async (e) => { try { let data = null; if (file.name.toLowerCase().endsWith('.html')) { const doc = new DOMParser().parseFromString(e.target.result, 'text/html'); const script = doc.getElementById('legacy-injected-data'); if (script && script.textContent && script.textContent !== 'null') data = JSON.parse(script.textContent); else throw new Error("Keine Daten"); } else data = JSON.parse(e.target.result); if (data && data.entries && db) { const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); let mergedCount = 0; const pinToUse = data.user ? data.user.pin : user.pin; const entriesToSave = await Promise.all(data.entries.map(async (en) => { let dbE = { ...en }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []); if (dbE.locked && pinToUse) { const payload = JSON.stringify({ text: dbE.text||'', title: dbE.title||'' }); dbE.encryptedData = await encryptData(payload, pinToUse); dbE.text = ''; dbE.title = 'Verschlüsselt'; } return dbE; })); entriesToSave.forEach(en => { if (!entries.find(ex => ex.id === en.id)) { if (data.user && data.user.name !== user.name) en.inheritedFrom = data.user.name; store.put(en); mergedCount++; } }); const req = store.getAll(); req.onsuccess = async () => { let loadedEntries = req.result || []; if (user.pin) loadedEntries = await Promise.all(loadedEntries.map(async (en) => { if (en.locked && en.encryptedData) { const decStr = await decryptData(en.encryptedData, user.pin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...en, text: parsed.text, title: parsed.title }; } catch(err){} } } return en; })); setEntries(loadedEntries.sort((a,b) => new Date(b.orderTimestamp || b.date) - new Date(a.orderTimestamp || a.date))); showDialog({ title: 'Erfolg', message: `${mergedCount} neue Seiten importiert.`, icon: 'check' }); }; } } catch (err) { showDialog({ title: 'Fehler', message: 'Ungültige Datei.', icon: 'x' }); } }; reader.readAsText(file); };
+  const importBackup = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async (e) => { try { let data = null; if (file.name.toLowerCase().endsWith('.html')) { const doc = new DOMParser().parseFromString(e.target.result, 'text/html'); const script = doc.getElementById('legacy-injected-data'); if (script && script.textContent && script.textContent !== 'null') data = JSON.parse(script.textContent); else throw new Error("Keine Daten"); } else data = JSON.parse(e.target.result); if (data && data.entries && db) { const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); let mergedCount = 0; const pinToUse = data.user ? data.user.pin : user.pin; const entriesToSave = await Promise.all(data.entries.map(async (en) => { let dbE = { ...en }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []); if (dbE.locked && pinToUse) { const payload = JSON.stringify({ text: dbE.text||'', title: dbE.title||'' }); dbE.encryptedData = await encryptData(payload, pinToUse); dbE.text = ''; dbE.title = 'Verschlüsselt'; } return dbE; })); entriesToSave.forEach(en => { if (!entries.find(ex => ex.id === en.id)) { if (data.user && data.user.name !== user.name) en.inheritedFrom = data.user.name; store.put(en); mergedCount++; } }); const req = store.getAll(); req.onsuccess = async () => { let loadedEntries = req.result || []; if (user.pin) loadedEntries = await Promise.all(loadedEntries.map(async (en) => { if (en.locked && en.encryptedData) { const decStr = await decryptData(en.encryptedData, user.pin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...en, text: parsed.text, title: parsed.title }; } catch(err){} } } return en; })); setEntries(loadedEntries.sort(sortEntriesDesc)); showDialog({ title: 'Erfolg', message: `${mergedCount} neue Seiten importiert.`, icon: 'check' }); }; } } catch (err) { showDialog({ title: 'Fehler', message: 'Ungültige Datei.', icon: 'x' }); } }; reader.readAsText(file); };
 
   useEffect(() => { 
       if (showEditor && editorRef.current) { 
@@ -1572,7 +1619,7 @@ function App() {
                            </div>
                        </div>
                        <label className="w-full sm:flex-1 py-3 px-4 rounded-xl cursor-pointer shadow-sm font-bold text-sm text-center border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:scale-[1.02] transition-transform">
-                           Profilbild ändern <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'image')} className="hidden" />
+                           Profilbild ändern <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
                        </label>
                    </div>
                    <input type="text" value={user.name} onChange={e=>setUser({...user, name: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border-none outline-none font-bold text-lg mb-4 focus:ring-2 focus:ring-slate-200 dark:focus:ring-zinc-700" placeholder="Dein Name" />
@@ -1791,7 +1838,7 @@ function App() {
         </main>
 
         {/* --- FLOATING BOTTOM NAV --- */}
-        {!showEditor && !viewingEntry && (
+        {!showEditor && (
           <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-xs backdrop-blur-2xl bg-white/90 dark:bg-zinc-900/90 border border-slate-200/50 dark:border-zinc-700/50 rounded-[2rem] shadow-2xl flex justify-between items-center px-2 py-2 z-[60] no-print">
             <button onClick={() => { setViewingEntry(null); if(view==='dashboard') setIsGridView(!isGridView); else setView('dashboard'); }} className={`flex-1 flex flex-col items-center justify-center py-2 transition-colors rounded-2xl ${view === 'dashboard' && !viewingEntry ? 'bg-slate-100 dark:bg-zinc-800 shadow-inner' : 'opacity-60 hover:opacity-100'}`} style={view === 'dashboard' && !viewingEntry ? { color: user.nameColor || '#000000' } : { color: 'inherit' }}>
               <Icon name={isGridView && view === 'dashboard' ? "list" : "layout-grid"} size={22} />
