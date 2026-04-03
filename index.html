@@ -118,7 +118,7 @@
     box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
   }
   
-  /* Inline Image Resizing Magic & Deletion X */
+  /* Inline Image / Sticker Resizing Magic & Deletion X */
   .inline-img-wrapper { display: inline-block; vertical-align: text-bottom; margin: 4px; max-width: 100%; position: relative; }
   .inline-img-wrapper img { width: 120px; height: auto; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
   .delete-img-btn { position: absolute; top: -10px; right: -10px; background: #ef4444; color: white; border-radius: 50%; width: 24px; height: 24px; text-align: center; line-height: 24px; cursor: pointer; font-family: sans-serif; font-size: 12px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10; display: none; }
@@ -359,14 +359,14 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
     const isCapsuleLocked = entry.unlockDate;
 
     return (
-      <div onClick={() => onClick(entry)} className={`group relative rounded-[2rem] overflow-hidden cursor-pointer border hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col' : ''}`}>
+      <div onClick={() => onClick(entry)} className={`group relative rounded-[2rem] overflow-hidden cursor-pointer border hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col' : ''}`} style={{ borderColor: getSubtleBorderColor(userColor, isDarkTheme) }}>
         {entry.manifested && (
           <div className="absolute top-4 right-4 z-20 bg-amber-400 text-amber-950 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
             <Icon name="sparkles" size={12}/> Highlight
           </div>
         )}
         {hasImages && (
-          <div className="w-full aspect-video relative overflow-hidden bg-slate-100 dark:bg-zinc-800">
+          <div className="w-full h-48 sm:h-56 relative overflow-hidden bg-slate-100 dark:bg-zinc-800">
             <img src={entry.images[0]} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
           </div>
@@ -407,13 +407,75 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
     );
 };
 
+const SwipeableTimelineEntry = ({ entry, onArchive, onTrash, onClick, showDialog, userColor }) => {
+    const [offsetX, setOffsetX] = useState(0);
+    const startX = useRef(null);
+    const dragged = useRef(false);
+
+    const handleTouchStart = (evt) => {
+        startX.current = evt.touches[0].clientX;
+        dragged.current = false;
+    };
+
+    const handleTouchMove = (evt) => {
+        if (startX.current === null) return;
+        const diff = evt.touches[0].clientX - startX.current;
+        if (Math.abs(diff) > 10) dragged.current = true;
+        
+        if (diff > 120) setOffsetX(120);
+        else if (diff < -120) setOffsetX(-120);
+        else setOffsetX(diff);
+    };
+
+    const handleTouchEnd = () => {
+        if (offsetX > 60) {
+            onArchive(entry);
+            showDialog({title: 'Archiviert', message: 'Der Eintrag wurde ins Archiv verschoben.', icon: 'archive', iconColor: 'text-emerald-500'});
+        }
+        else if (offsetX < -60) {
+            onTrash(entry);
+            showDialog({title: 'Papierkorb', message: 'Der Eintrag wurde gelöscht.', icon: 'trash-2', iconColor: 'text-rose-500'});
+        }
+        setOffsetX(0);
+        startX.current = null;
+        setTimeout(() => { dragged.current = false; }, 100);
+    };
+
+    return (
+        <div className="relative w-full rounded-2xl overflow-hidden bg-slate-200 dark:bg-zinc-800 shrink-0 mb-3">
+            <div className="absolute inset-0 flex justify-between items-center px-6">
+                <div className="text-emerald-600 font-bold flex items-center gap-2 opacity-80"><Icon name="archive" size={18}/> Archiv</div>
+                <div className="text-rose-600 font-bold flex items-center gap-2 opacity-80">Löschen <Icon name="trash-2" size={18}/></div>
+            </div>
+            <button 
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onClick={(e) => {
+                    if (dragged.current) { e.preventDefault(); return; }
+                    onClick(entry);
+                }} 
+                style={{ transform: `translateX(${offsetX}px)`, transition: startX.current === null ? 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)' : 'none' }}
+                className="relative z-10 w-full text-left p-4 rounded-[2rem] flex items-center gap-4 bg-slate-50 dark:bg-zinc-900 shadow-sm border border-transparent"
+            >
+                {entry.images && entry.images.length > 0 && <img src={entry.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0 pointer-events-none" />}
+                <div className="flex-1 overflow-hidden pointer-events-none">
+                    <span className="font-bold text-sm truncate block" style={{ color: userColor }}>{entry.title || 'Ohne Titel'}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">{new Date(entry.date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
+                </div>
+            </button>
+        </div>
+    );
+};
+
 function App() {
   const [db, setDb] = useState(null);
   const [fb, setFb] = useState(null);
   const [authUser, setAuthUser] = useState(null);
   
-  const [entries, setEntries] = useState([]);
   const [user, setUser] = useState({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false, uiScale: 1 });
+  const [entries, setEntries] = useState([]);
+  
   const [view, setView] = useState('loading'); 
   const [isLoaded, setIsLoaded] = useState(false);
   const [isGridView, setIsGridView] = useState(false); 
@@ -552,10 +614,10 @@ function App() {
           const nativeImport = new Function('url', 'return import(url)');
           const { initializeApp } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
           const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
-          const { getFirestore, collection, doc, setDoc, deleteDoc, getDocs, getDoc } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+          const { getFirestore, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
           
           const app = initializeApp(firebaseConfig); const auth = getAuth(app); const firestoreDb = getFirestore(app);
-          setFb({ db: firestoreDb, auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, collection, doc, setDoc, deleteDoc, getDocs, getDoc });
+          setFb({ db: firestoreDb, auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot });
 
           const handleUserLoad = async (u) => {
               const savedStr = localStorage.getItem('legacy_user');
@@ -570,12 +632,19 @@ function App() {
                       }
                   } catch(e) { setView('auth'); }
               } else {
-                  // NEW DEVICE: Let's check if there is a profile in the cloud
                   try {
                       const profileSnap = await getDoc(doc(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'profile', 'data'));
-                      if (profileSnap.exists() && profileSnap.data().encryptedData) {
-                          setView('cloud_pin_sync');
-                          return;
+                      if (profileSnap.exists()) {
+                          const data = profileSnap.data();
+                          if (data.encryptedData) {
+                              setView('cloud_pin_sync'); 
+                              return;
+                          } else if (data.rawData) {
+                              setUser({ ...user, ...data.rawData });
+                              safeStorageSet('legacy_user', JSON.stringify(data.rawData));
+                              setView('dashboard');
+                              return;
+                          }
                       }
                   } catch(e) {}
                   setView('onboarding'); 
@@ -631,6 +700,36 @@ function App() {
     };
     loadApp();
   }, []);
+
+  // REALTIME CLOUD SYNC
+  useEffect(() => {
+    if (!fb || !fb.onSnapshot || !authUser || !user.cloudSync) return;
+    const q = fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries');
+    const unsubscribe = fb.onSnapshot(q, async (snapshot) => {
+        const rawEntries = [];
+        snapshot.forEach(d => rawEntries.push(d.data()));
+        const decEntries = await Promise.all(rawEntries.map(async (docData) => {
+            if (docData.encryptedData && user.pin) {
+               const decStr = await decryptData(docData.encryptedData, user.pin);
+               if (decStr) { 
+                   try { return { ...JSON.parse(decStr), id: docData.id }; } catch(e){} 
+               }
+            } else if (docData.rawData) {
+                return { ...docData.rawData, id: docData.id };
+            }
+            return null;
+        }));
+        
+        const validCloudEntries = decEntries.filter(Boolean);
+        setEntries(prev => {
+            const map = new Map();
+            prev.forEach(e => map.set(e.id, e));
+            validCloudEntries.forEach(e => map.set(e.id, e));
+            return Array.from(map.values()).sort(sortEntriesDesc);
+        });
+    });
+    return () => unsubscribe();
+  }, [fb, authUser, user.pin, user.cloudSync]);
 
   const handleAuthAction = async () => {
       setAuthError(''); setAuthMsg('');
@@ -692,6 +791,8 @@ function App() {
       setUser(mergedUser);
       safeStorageSet('legacy_user', JSON.stringify(mergedUser));
       setView(mergedUser.name ? 'dashboard' : 'onboarding');
+      
+      if (fb && authUser && db) performCloudSync();
   };
 
   const submitPin = () => handleUnlockSubmit(pinInput);
@@ -774,7 +875,6 @@ function App() {
                   setPinInput('');
                   setView('loading');
                   
-                  // Restore all entries
                   const cloudSnap = await fb.getDocs(fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries'));
                   const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries');
                   let count = 0;
@@ -809,7 +909,6 @@ function App() {
       }
   };
 
-  // Theme Sync
   useEffect(() => {
     const metaThemeColor = document.getElementById("meta-theme-color");
     
@@ -855,8 +954,17 @@ function App() {
   };
   
   const syncProfileToCloud = async (userData) => {
-      if (!fb || !fb.auth.currentUser || !userData.cloudSync || !userData.pin) return;
-      try { const encrypted = await encryptData(JSON.stringify(userData), userData.pin); if (encrypted) await fb.setDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', fb.auth.currentUser.uid, 'profile', 'data'), { encryptedData: encrypted, timestamp: Date.now() }); } catch(e) {}
+      if (!fb || !fb.auth.currentUser || !userData.cloudSync) return;
+      try { 
+          let payload = { timestamp: Date.now() };
+          if (userData.pin) {
+              const encrypted = await encryptData(JSON.stringify(userData), userData.pin); 
+              if (encrypted) payload.encryptedData = encrypted; 
+          } else {
+              payload.rawData = userData;
+          }
+          await fb.setDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', fb.auth.currentUser.uid, 'profile', 'data'), payload); 
+      } catch(e) {}
   };
 
   const performCloudSync = async () => {
@@ -929,7 +1037,6 @@ function App() {
     }
   }, [importId, isLoaded, db]);
 
-  // Robust Save Logic Update
   useEffect(() => {
      editingIdRef.current = editingId;
      currentEntryRef.current = { 
@@ -952,6 +1059,7 @@ function App() {
 
     if (!db) {
         updateMemory();
+        syncSingleEntryToCloud(entry); 
         return;
     }
 
@@ -962,9 +1070,10 @@ function App() {
           updateMemory();
           syncSingleEntryToCloud(entry); 
       }; 
-      tx.onerror = () => updateMemory();
+      tx.onerror = () => { updateMemory(); syncSingleEntryToCloud(entry); }
     } catch (e) {
         updateMemory();
+        syncSingleEntryToCloud(entry);
     }
   };
 
@@ -989,8 +1098,8 @@ function App() {
         const currentText = editorRef.current ? editorRef.current.innerHTML : (state.text || ''); 
         const titleSafe = state.title || '';
         
-        // Leere Einträge verhindern Abstürze
-        const isEmpty = !titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && (!state.selectedImages || state.selectedImages.length === 0) && !state.audioUrl && !state.weather && !state.tags && !state.people;
+        const hasInlineImage = currentText.includes('<img');
+        const isEmpty = !titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && !hasInlineImage && (!state.selectedImages || state.selectedImages.length === 0) && !state.audioUrl && !state.weather && !state.tags && !state.people;
         
         if (isEmpty && closeAndRead) { 
             closeEditor(entries.find(e => e && e.id === editingIdRef.current) || null); 
@@ -1027,6 +1136,33 @@ function App() {
       }, 3000); 
       return () => clearInterval(timer); 
   }, [showEditor, view]);
+
+  const confirmDelete = (id) => {
+    showDialog({ 
+        type: 'confirm', 
+        title: 'In den Papierkorb?', 
+        message: 'Dieser Eintrag wird in den Papierkorb verschoben.', 
+        icon: 'trash-2', 
+        iconColor: 'text-rose-500', 
+        onConfirm: () => { 
+            const entryToTrash = entries.find(e => e && e.id === id);
+            if(entryToTrash) { saveToDB({...entryToTrash, trashed: true}); }
+            closeEditor(null); 
+        } 
+    });
+  };
+
+  const handleSavePin = () => {
+      if (newPinInput.length < 4) { showDialog({title: 'Fehler', message: 'Die neue PIN muss mindestens 4 Zeichen lang sein.', icon: 'x'}); return; }
+      if (newPinInput !== confirmPinInput) { showDialog({title: 'Fehler', message: 'Die neuen PINs stimmen nicht überein.', icon: 'x'}); return; }
+      if (user.pin && oldPinInput !== user.pin) { showDialog({title: 'Fehler', message: 'Die alte PIN ist falsch.', icon: 'x'}); return; }
+      
+      const newUserData = {...user, pin: newPinInput};
+      setUser(newUserData); 
+      setIsChangingPin(false); setOldPinInput(''); setNewPinInput(''); setConfirmPinInput('');
+      syncProfileToCloud(newUserData);
+      showDialog({title: 'Erfolg', message: 'Deine PIN wurde erfolgreich gespeichert.', icon: 'check'});
+  };
 
   const closeEditor = (savedEntry = null) => { setShowEditor(false); if(isRecording) stopRecording(); setViewingEntry(savedEntry); };
 
@@ -1125,7 +1261,7 @@ function App() {
   const renderEntries = visibleEntries; const now = new Date();
   
   const allQuotes = useMemo(() => { if (view !== 'quotes') return []; let quotes = []; entries.filter(e => e && !e.archived && !e.trashed).forEach(entry => { if(!entry.text) return; const blockquoteRegex = /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi; let match; while ((match = blockquoteRegex.exec(entry.text)) !== null) { const rawText = match[1].replace(/<[^>]*>?/gm, '').trim(); if(rawText) quotes.push({ text: rawText, date: entry.date, title: entry.title, id: entry.id + match.index, entryId: entry.id }); } }); return quotes.sort((a,b) => new Date(b.date) - new Date(a.date)); }, [entries, view]);
-  const heatmapData = useMemo(() => { return Array.from({ length: 30 }).map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (29 - i)); const dateStr = d.toDateString(); return { date: dateStr, count: entries.filter(e => e && !e.trashed && new Date(e.date).toDateString() === dateStr).length }; }); }, [entries]);
+  const heatmapData = useMemo(() => { return Array.from({ length: 30 }).map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (29 - i)); const dateStr = d.toDateString(); return { date: dateStr, count: entries.filter(e => e && !e.trashed && new Date(e.date || getLocalISO()).toDateString() === dateStr).length }; }); }, [entries]);
   const { completedPillars, totalPillars, progressPercent } = useMemo(() => { const completed = PILLARS.filter(p => entries.some(e => e && !e.trashed && (e.title || '') === p.title)).length; return { completedPillars: completed, totalPillars: PILLARS.length, progressPercent: Math.round((completed / PILLARS.length) * 100) }; }, [entries]);
   
   const getAllBookEntries = (rootId) => { 
@@ -1226,6 +1362,7 @@ function App() {
                   setUser(prev => {
                       const updated = { ...prev, avatar: newAvatarUrl };
                       safeStorageSet('legacy_user', JSON.stringify(updated));
+                      syncProfileToCloud(updated);
                       return updated;
                   }); 
               }; 
@@ -1274,33 +1411,57 @@ function App() {
 
   // Einfügen von Bildern / Stickern über die Handy-Tastatur oder Clipboard
   const handleEditorPaste = (e) => {
-      const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-      for (let index in items) {
-          const item = items[index];
-          if (item.kind === 'file' && item.type.startsWith('image/')) {
-              e.preventDefault();
-              const blob = item.getAsFile();
-              const reader = new FileReader();
-              reader.onload = (event) => {
-                  const base64 = event.target.result;
-                  if (editorRef.current) {
-                      editorRef.current.focus();
-                      document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false"><img src="${base64}" /><span class="delete-img-btn">X</span></span>&nbsp;`);
-                      isDirtyRef.current = true;
-                      checkSaveEntry(false);
-                  }
-              };
-              reader.readAsDataURL(blob);
+      const clipboardData = e.clipboardData || window.clipboardData || (e.nativeEvent && e.nativeEvent.clipboardData);
+      if (!clipboardData) return;
+      
+      let hasImage = false;
+      if (clipboardData.items) {
+          for (let i = 0; i < clipboardData.items.length; i++) {
+              if (clipboardData.items[i].type.indexOf('image') !== -1) {
+                  hasImage = true;
+                  const blob = clipboardData.items[i].getAsFile();
+                  if (!blob) continue;
+                  e.preventDefault();
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                      const base64 = event.target.result;
+                      if (editorRef.current) {
+                          editorRef.current.focus();
+                          document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false"><img src="${base64}" /><span class="delete-img-btn">X</span></span>&nbsp;`);
+                          isDirtyRef.current = true;
+                          checkSaveEntry(false);
+                      }
+                  };
+                  reader.readAsDataURL(blob);
+                  break; 
+              }
           }
       }
+      if (hasImage) return; 
   };
 
-  // Klick-Listener für Editor (Löschen von Inline-Bildern/Stickern)
+  // Klick-Listener für Editor (Löschen & Vergrößern von Inline-Bildern/Stickern)
   const handleEditorClick = (e) => {
       if (e.target.classList.contains('delete-img-btn')) {
           e.target.closest('.inline-img-wrapper').remove();
           isDirtyRef.current = true;
           checkSaveEntry(false);
+      } else if (e.target.tagName === 'IMG' && e.target.closest('.inline-img-wrapper')) {
+          const img = e.target;
+          setPicker({
+              title: 'Bild anpassen',
+              currentValue: null,
+              options: [
+                  {label: 'Klein', value: '120px'},
+                  {label: 'Mittel', value: '250px'},
+                  {label: 'Groß', value: '100%'}
+              ],
+              onSelect: (val) => {
+                  img.style.width = val;
+                  isDirtyRef.current = true;
+                  checkSaveEntry(false);
+              }
+          });
       }
   };
 
@@ -1487,6 +1648,7 @@ function App() {
              <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockSubmit(pinInput); }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none mb-6 bg-slate-100 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-zinc-600 transition-colors placeholder:opacity-30" placeholder="••••" />
              <button onClick={() => handleUnlockSubmit(pinInput)} className="w-full py-4 font-bold rounded-2xl bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-transform shadow-md mb-3">Entsperren</button>
              
+             {/* Biometric Fallback UI in PIN view if enabled */}
              {safeStorageGet('legacy_bio_pin') && (
                 <button onClick={handleBiometricUnlock} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm flex items-center justify-center gap-2 mb-3"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
              )}
@@ -1717,6 +1879,37 @@ function App() {
                    </div>
                 </div>
                 
+                <div className="p-8 rounded-[2.5rem] bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 shadow-sm">
+                   <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-blue-600 dark:text-blue-400"><Icon name="cloud" size={20}/> Verschlüsselter Cloud-Tresor</h2>
+                   <p className="text-sm font-medium opacity-70 mb-6">Deine Daten werden in Echtzeit synchronisiert. Wenn du dich neu einloggst, lädt die App automatisch alle Daten herunter.</p>
+                   <button onClick={performCloudSync} className="w-full p-4 rounded-2xl font-bold text-base bg-blue-600 text-white active:scale-95 shadow-sm transition-transform flex items-center justify-center gap-2">{syncingCloud ? 'Lädt...' : <><Icon name="download-cloud" size={20}/> Jetzt Cloud aktualisieren</>}</button>
+                </div>
+
+                <div className="p-8 rounded-[2.5rem] bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 shadow-sm">
+                   <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-indigo-600 dark:text-indigo-400"><Icon name="archive" size={20}/> Ewigkeits-Archiv (ZIP)</h2>
+                   <p className="text-sm font-medium opacity-70 mb-6">Exportiert alle deine Einträge als simple, für immer lesbare Textdateien (.md) und extrahiert alle Bilder.</p>
+                   <button onClick={exportEternityArchive} className="w-full p-4 rounded-2xl font-bold text-base bg-indigo-600 text-white active:scale-95 shadow-sm transition-transform flex items-center justify-center gap-2 mb-3"><Icon name="folder-down" size={20}/> Als ZIP speichern</button>
+                </div>
+
+                <div className="p-8 rounded-[2.5rem] bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 shadow-sm">
+                   <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><Icon name="smartphone" size={20}/> P2P Transfer (Ohne Cloud)</h2>
+                   <p className="text-sm font-medium opacity-70 mb-6">Scanne einen QR Code mit deinem neuen Handy, um Daten direkt zu senden.</p>
+                   {!peerId ? (
+                      <button onClick={() => {
+                         const peer = new window.Peer(); setSyncStatus('WebRTC wird vorbereitet...');
+                         peer.on('open', (id) => { setPeerId(id); setSyncStatus('Scanne den Code mit dem neuen Gerät.'); });
+                         peer.on('connection', (c) => { setSyncStatus('Verbunden! Sende...'); c.on('data', (d) => { if(d==='request_data'){c.send(JSON.stringify({user,entries})); setSyncStatus('Erledigt!'); setTimeout(()=>{setPeerId(null);}, 4000);} }); });
+                         setPeerInstance(peer);
+                      }} className="w-full p-4 rounded-2xl font-bold text-base bg-emerald-600 text-white active:scale-95 shadow-sm transition-transform flex items-center justify-center gap-2"><Icon name="qr-code" size={20}/> QR-Code generieren</button>
+                   ) : (
+                      <div className="bg-white dark:bg-zinc-900 p-6 rounded-[2rem] flex flex-col items-center">
+                         <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin + window.location.pathname + '?import=' + peerId)}`} className="w-48 h-48 mb-4 rounded-xl" />
+                         <p className="text-sm font-bold text-emerald-600 mb-4 animate-pulse">{syncStatus}</p>
+                         <button onClick={()=>{peerInstance?.destroy(); setPeerId(null); setSyncStatus('');}} className="text-sm font-bold opacity-50 px-4 py-2 bg-slate-100 dark:bg-zinc-800 rounded-lg">Abbrechen</button>
+                      </div>
+                   )}
+                </div>
+
                 <div className="p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
                    <h2 className="text-lg font-bold mb-6 flex items-center gap-2"><Icon name="key" size={20}/> Sicherheit & PIN</h2>
                    
@@ -1763,37 +1956,6 @@ function App() {
                                <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${user.biometric ? 'left-7' : 'left-1'}`} />
                            </button>
                        </div>
-                   )}
-                </div>
-
-                <div className="p-8 rounded-[2.5rem] bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 shadow-sm">
-                   <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-blue-600 dark:text-blue-400"><Icon name="cloud" size={20}/> Verschlüsselter Cloud-Tresor</h2>
-                   <p className="text-sm font-medium opacity-70 mb-6">Deine Daten werden in Echtzeit synchronisiert. Wenn du dich neu einloggst, lädt die App automatisch alle Daten herunter.</p>
-                   <button onClick={performCloudSync} className="w-full p-4 rounded-2xl font-bold text-base bg-blue-600 text-white active:scale-95 shadow-sm transition-transform flex items-center justify-center gap-2">{syncingCloud ? 'Lädt...' : <><Icon name="download-cloud" size={20}/> Jetzt Cloud aktualisieren</>}</button>
-                </div>
-
-                <div className="p-8 rounded-[2.5rem] bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 shadow-sm">
-                   <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-indigo-600 dark:text-indigo-400"><Icon name="archive" size={20}/> Ewigkeits-Archiv (ZIP)</h2>
-                   <p className="text-sm font-medium opacity-70 mb-6">Exportiert alle deine Einträge als simple, für immer lesbare Textdateien (.md) und extrahiert alle Bilder.</p>
-                   <button onClick={exportEternityArchive} className="w-full p-4 rounded-2xl font-bold text-base bg-indigo-600 text-white active:scale-95 shadow-sm transition-transform flex items-center justify-center gap-2 mb-3"><Icon name="folder-down" size={20}/> Als ZIP speichern</button>
-                </div>
-
-                <div className="p-8 rounded-[2.5rem] bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 shadow-sm">
-                   <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><Icon name="smartphone" size={20}/> P2P Transfer (Ohne Cloud)</h2>
-                   <p className="text-sm font-medium opacity-70 mb-6">Scanne einen QR Code mit deinem neuen Handy, um Daten direkt zu senden.</p>
-                   {!peerId ? (
-                      <button onClick={() => {
-                         const peer = new window.Peer(); setSyncStatus('WebRTC wird vorbereitet...');
-                         peer.on('open', (id) => { setPeerId(id); setSyncStatus('Scanne den Code mit dem neuen Gerät.'); });
-                         peer.on('connection', (c) => { setSyncStatus('Verbunden! Sende...'); c.on('data', (d) => { if(d==='request_data'){c.send(JSON.stringify({user,entries})); setSyncStatus('Erledigt!'); setTimeout(()=>{setPeerId(null);}, 4000);} }); });
-                         setPeerInstance(peer);
-                      }} className="w-full p-4 rounded-2xl font-bold text-base bg-emerald-600 text-white active:scale-95 shadow-sm transition-transform flex items-center justify-center gap-2"><Icon name="qr-code" size={20}/> QR-Code generieren</button>
-                   ) : (
-                      <div className="bg-white dark:bg-zinc-900 p-6 rounded-[2rem] flex flex-col items-center">
-                         <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin + window.location.pathname + '?import=' + peerId)}`} className="w-48 h-48 mb-4 rounded-xl" />
-                         <p className="text-sm font-bold text-emerald-600 mb-4 animate-pulse">{syncStatus}</p>
-                         <button onClick={()=>{peerInstance?.destroy(); setPeerId(null); setSyncStatus('');}} className="text-sm font-bold opacity-50 px-4 py-2 bg-slate-100 dark:bg-zinc-800 rounded-lg">Abbrechen</button>
-                      </div>
                    )}
                 </div>
              </div>
@@ -2047,7 +2209,7 @@ function App() {
 
             {/* 2. Titel Eingabe (Durchgehende Linie) */}
             <div className="px-4 sm:px-8 pt-6 pb-2 shrink-0 bg-white dark:bg-black z-40">
-              <input type="text" placeholder="Titel der Vision..." value={title} onChange={e=>{setTitle(e.target.value); isDirtyRef.current=true;}} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tighter outline-none border-b-2 border-slate-200 dark:border-zinc-800 pb-3 placeholder-slate-300 dark:placeholder-zinc-700 text-slate-900 dark:text-white transition-colors focus:border-accent" />
+              <input type="text" placeholder="Titel der Vision..." value={title} onChange={e=>{setTitle(e.target.value); isDirtyRef.current=true;}} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tighter outline-none border-b-[3px] border-slate-200 dark:border-zinc-800 pb-3 placeholder-slate-300 dark:placeholder-zinc-700 text-slate-900 dark:text-white transition-colors focus:border-accent" />
             </div>
 
             {/* 3. STICKY TOOLBAR (Immer sichtbar über dem Text) */}
@@ -2335,25 +2497,6 @@ function App() {
                 <button onClick={() => { if(dialog.onConfirm) dialog.onConfirm(); setDialog(null); }} className="w-full py-4 rounded-2xl font-bold shadow-md active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>{dialog.confirmLabel || 'Okay'}</button>
                 {dialog.onCancel && <button onClick={() => { if(dialog.onCancel) dialog.onCancel(); setDialog(null); }} className="w-full py-4 rounded-2xl font-bold bg-slate-100 dark:bg-zinc-800 active:scale-95 transition-transform">Abbrechen</button>}
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* --- PIN UNLOCK MODAL --- */}
-        {unlockTarget && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setUnlockTarget(null)}>
-            <div className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up" onClick={e => e.stopPropagation()}>
-              <div className="w-20 h-20 bg-slate-50 dark:bg-zinc-950 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100 dark:border-zinc-800"><Icon name="lock" size={32} style={{ color: user.nameColor || '#f59e0b' }} /></div>
-              <h3 className="text-2xl font-extrabold tracking-tight mb-2">Tresor entsperren</h3>
-              <p className="text-xs font-bold uppercase tracking-widest opacity-40 mb-8 truncate w-full px-4">"{unlockTarget.title}"</p>
-              <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submitPin()} className={`w-full p-4 text-center text-4xl tracking-[0.5em] rounded-2xl bg-slate-50 dark:bg-zinc-950 border-2 outline-none mb-6 transition-colors placeholder:opacity-30 ${pinError ? 'border-rose-500' : 'border-transparent focus:border-slate-300 dark:focus:border-zinc-700'}`} placeholder="••••" />
-              <div className="flex gap-3 w-full mb-4">
-                <button onClick={() => setUnlockTarget(null)} className="flex-1 py-4 font-bold rounded-2xl bg-slate-100 dark:bg-zinc-800 active:scale-95 transition-transform">Abbrechen</button>
-                <button onClick={submitPin} className="flex-1 py-4 rounded-2xl font-bold shadow-md active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || '#f59e0b', color: isDarkColor(user.nameColor || '#f59e0b') ? '#ffffff' : '#000000' }}>Öffnen</button>
-              </div>
-              {safeStorageGet('legacy_bio_pin') && (
-                <button onClick={handleBiometricUnlock} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm flex items-center justify-center gap-2"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
-              )}
             </div>
           </div>
         )}
