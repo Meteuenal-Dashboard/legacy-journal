@@ -355,19 +355,19 @@ const initDB = () => {
 const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQuery }) => {
     if (!entry) return null;
     const hasImages = entry.images && entry.images.length > 0;
-    const cardBgClass = isDarkTheme ? 'bg-zinc-900' : 'bg-white shadow-md';
+    const cardBgClass = isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-slate-100 shadow-sm';
     const isCapsuleLocked = entry.unlockDate;
 
     return (
-      <div onClick={() => onClick(entry)} className={`group relative rounded-[2rem] overflow-hidden cursor-pointer border transition-transform active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col' : ''}`} style={{ borderColor: getSubtleBorderColor(userColor, isDarkTheme) }}>
+      <div onClick={() => onClick(entry)} className={`group relative rounded-[2rem] overflow-hidden cursor-pointer border hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col' : ''}`}>
         {entry.manifested && (
           <div className="absolute top-4 right-4 z-20 bg-amber-400 text-amber-950 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
             <Icon name="sparkles" size={12}/> Highlight
           </div>
         )}
         {hasImages && (
-          <div className="w-full h-48 sm:h-56 relative overflow-hidden bg-slate-100 dark:bg-zinc-800">
-            <img src={entry.images[0]} className="w-full h-full object-contain bg-slate-100 dark:bg-zinc-900 transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
+          <div className="w-full aspect-video relative overflow-hidden bg-slate-100 dark:bg-zinc-800">
+            <img src={entry.images[0]} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
           </div>
         )}
@@ -385,7 +385,6 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
           
           <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : 'text-slate-900 dark:text-white group-hover:text-accent transition-colors'}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery)} />
           
-          {/* Metadata Pills directly on Dashboard Card */}
           {!isGridView && (entry.tags || entry.people || entry.weather || entry.rating > 0) && (
              <div className="flex flex-wrap gap-1.5 mb-4">
                 {entry.tags && entry.tags.split(',').filter(x=>x.trim()).map((t, i) => <span key={`t-${i}`} className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="tag" size={10}/> {t.trim()}</span>)}
@@ -408,82 +407,17 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
     );
 };
 
-// --- Swipeable Timeline Item Component ---
-const SwipeableTimelineEntry = ({ entry, onArchive, onTrash, onClick, showDialog, userColor }) => {
-    const [offsetX, setOffsetX] = useState(0);
-    const startX = useRef(null);
-    const dragged = useRef(false);
-
-    const handleTouchStart = (evt) => {
-        startX.current = evt.touches[0].clientX;
-        dragged.current = false;
-    };
-
-    const handleTouchMove = (evt) => {
-        if (startX.current === null) return;
-        const diff = evt.touches[0].clientX - startX.current;
-        if (Math.abs(diff) > 10) dragged.current = true;
-        
-        if (diff > 120) setOffsetX(120);
-        else if (diff < -120) setOffsetX(-120);
-        else setOffsetX(diff);
-    };
-
-    const handleTouchEnd = () => {
-        if (offsetX > 60) {
-            onArchive(entry);
-            showDialog({title: 'Archiviert', message: 'Der Eintrag wurde ins Archiv verschoben.', icon: 'archive', iconColor: 'text-emerald-500'});
-        }
-        else if (offsetX < -60) {
-            onTrash(entry);
-            showDialog({title: 'Papierkorb', message: 'Der Eintrag wurde gelöscht.', icon: 'trash-2', iconColor: 'text-rose-500'});
-        }
-        setOffsetX(0);
-        startX.current = null;
-        setTimeout(() => { dragged.current = false; }, 100);
-    };
-
-    return (
-        <div className="relative w-full rounded-2xl overflow-hidden bg-slate-200 dark:bg-zinc-800 shrink-0 mb-3">
-            <div className="absolute inset-0 flex justify-between items-center px-6">
-                <div className="text-emerald-600 font-bold flex items-center gap-2 opacity-80"><Icon name="archive" size={18}/> Archiv</div>
-                <div className="text-rose-600 font-bold flex items-center gap-2 opacity-80">Löschen <Icon name="trash-2" size={18}/></div>
-            </div>
-            <button 
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-                onClick={(e) => {
-                    if (dragged.current) { e.preventDefault(); return; }
-                    onClick(entry);
-                }} 
-                style={{ transform: `translateX(${offsetX}px)`, transition: startX.current === null ? 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)' : 'none' }}
-                className="relative z-10 w-full text-left p-4 rounded-2xl flex items-center gap-4 bg-slate-50 dark:bg-zinc-900 shadow-sm border border-transparent"
-            >
-                {entry.images && entry.images.length > 0 && <img src={entry.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0 pointer-events-none" />}
-                <div className="flex-1 overflow-hidden pointer-events-none">
-                    <span className="font-bold text-sm truncate block" style={{ color: userColor }}>{entry.title || 'Ohne Titel'}</span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">{new Date(entry.date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
-                </div>
-            </button>
-        </div>
-    );
-};
-
 function App() {
   const [db, setDb] = useState(null);
   const [fb, setFb] = useState(null);
   const [authUser, setAuthUser] = useState(null);
   
-  // Settings / User State
-  const [user, setUser] = useState({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false, uiScale: 1 });
   const [entries, setEntries] = useState([]);
-  
+  const [user, setUser] = useState({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false, uiScale: 1 });
   const [view, setView] = useState('loading'); 
   const [isLoaded, setIsLoaded] = useState(false);
   const [isGridView, setIsGridView] = useState(false); 
   
-  // Auth Form State
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authError, setAuthError] = useState('');
@@ -503,7 +437,6 @@ function App() {
   
   const [showTimeline, setShowTimeline] = useState(false); 
   const [timelineMonth, setTimelineMonth] = useState(() => new Date()); 
-  const [timelineSearchQuery, setTimelineSearchQuery] = useState(''); 
   const [timelineSelectedDate, setTimelineSelectedDate] = useState(null); 
   const [expandedNodes, setExpandedNodes] = useState({}); 
   
@@ -586,14 +519,12 @@ function App() {
       document.documentElement.style.fontSize = `${(user.uiScale || 1) * 100}%`;
   }, [user.uiScale]);
 
-  // Auto-save user to localStorage
   useEffect(() => {
     if (isLoaded && user.name) {
        safeStorageSet('legacy_user', JSON.stringify(user));
     }
   }, [user, isLoaded]);
 
-  // Hardware Back Button Logik
   useEffect(() => {
     try { window.history.pushState({ isApp: true }, ''); } catch(e) {}
     const handlePopState = (e) => {
@@ -603,7 +534,7 @@ function App() {
       else if (showEditorRef.current) { checkSaveEntry(true); trapped = true; } 
       else if (viewingEntryRef.current) { setViewingEntry(null); setCurrentViewerImgIdx(0); trapped = true; }
       else if (showTimelineRef.current) { setShowTimeline(false); trapped = true; }
-      else if (viewRef.current !== 'dashboard' && viewRef.current !== 'loading' && viewRef.current !== 'auth' && viewRef.current !== 'pin_entry' && viewRef.current !== 'onboarding') { setView('dashboard'); trapped = true; }
+      else if (viewRef.current !== 'dashboard' && viewRef.current !== 'loading' && viewRef.current !== 'auth' && viewRef.current !== 'pin_entry' && viewRef.current !== 'onboarding' && viewRef.current !== 'cloud_pin_sync') { setView('dashboard'); trapped = true; }
 
       if (trapped) {
           try { window.history.pushState({ isApp: true }, ''); } catch(e) {}
@@ -626,7 +557,7 @@ function App() {
           const app = initializeApp(firebaseConfig); const auth = getAuth(app); const firestoreDb = getFirestore(app);
           setFb({ db: firestoreDb, auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, collection, doc, setDoc, deleteDoc, getDocs, getDoc });
 
-          const handleUserLoad = () => {
+          const handleUserLoad = async (u) => {
               const savedStr = localStorage.getItem('legacy_user');
               if (savedStr) {
                   try {
@@ -639,7 +570,15 @@ function App() {
                       }
                   } catch(e) { setView('auth'); }
               } else {
-                  setView('auth'); 
+                  // NEW DEVICE: Let's check if there is a profile in the cloud
+                  try {
+                      const profileSnap = await getDoc(doc(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'profile', 'data'));
+                      if (profileSnap.exists() && profileSnap.data().encryptedData) {
+                          setView('cloud_pin_sync');
+                          return;
+                      }
+                  } catch(e) {}
+                  setView('onboarding'); 
               }
           };
 
@@ -647,11 +586,11 @@ function App() {
              if (u) {
                  if (u.emailVerified) {
                      setAuthUser(u);
-                     handleUserLoad();
+                     handleUserLoad(u);
                  } else { signOut(auth); setView('auth'); }
              } else {
                  setAuthUser(null);
-                 setView('auth'); // Forces login to ensure Firebase save
+                 setView('auth');
              }
              setIsLoaded(true);
           });
@@ -705,7 +644,7 @@ function App() {
               if (!authPassword) { setAuthError('Passwort fehlt.'); return; }
               const cred = await fb.createUserWithEmailAndPassword(fb.auth, authEmail, authPassword);
               await fb.sendEmailVerification(cred.user);
-              setAuthMsg('Erfolg! Bitte prüfe deine E-Mails.'); await fb.signOut(fb.auth); setAuthMode('login');
+              setAuthMsg('Erfolg! Bitte prüfe deine E-Mails zur Bestätigung.'); await fb.signOut(fb.auth); setAuthMode('login');
           } else if (authMode === 'reset') {
               await fb.sendPasswordResetEmail(fb.auth, authEmail);
               setAuthMsg('Passwort-Reset-Link gesendet!'); setTimeout(() => setAuthMode('login'), 3000);
@@ -714,8 +653,8 @@ function App() {
           let errorMsg = 'Fehler aufgetreten.';
           if (e.code === 'auth/email-already-in-use') errorMsg = 'E-Mail wird bereits verwendet.';
           else if (e.code === 'auth/invalid-email') errorMsg = 'E-Mail ungültig.';
-          else if (e.code === 'auth/weak-password') errorMsg = 'Passwort zu schwach.';
-          else if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') errorMsg = 'Daten falsch.';
+          else if (e.code === 'auth/weak-password') errorMsg = 'Passwort zu schwach (min. 6 Zeichen).';
+          else if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') errorMsg = 'Daten falsch oder nicht bestätigt.';
           setAuthError(errorMsg);
       }
   };
@@ -820,6 +759,56 @@ function App() {
       } catch(e) { showDialog({title: 'Fehler', message: 'Biometrische Prüfung fehlgeschlagen.', icon: 'x'}); }
   };
 
+  const handleCloudRestore = async (pinValue) => {
+      if (!pinValue) return;
+      setPinError(false);
+      try {
+          const profileSnap = await fb.getDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'profile', 'data'));
+          if (profileSnap.exists() && profileSnap.data().encryptedData) {
+              const decProfile = await decryptData(profileSnap.data().encryptedData, pinValue);
+              if (decProfile) {
+                  const parsedUser = JSON.parse(decProfile);
+                  const mergedUser = { ...parsedUser, pin: pinValue, cloudSync: true };
+                  setUser(mergedUser);
+                  safeStorageSet('legacy_user', JSON.stringify(mergedUser));
+                  setPinInput('');
+                  setView('loading');
+                  
+                  // Restore all entries
+                  const cloudSnap = await fb.getDocs(fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries'));
+                  const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries');
+                  let count = 0;
+                  const cloudDocs = []; cloudSnap.forEach(d => cloudDocs.push(d.data()));
+                  for (let cloudDoc of cloudDocs) {
+                      if (cloudDoc.encryptedData) {
+                          const decryptedStr = await decryptData(cloudDoc.encryptedData, pinValue);
+                          if (decryptedStr) {
+                              store.put({ ...JSON.parse(decryptedStr) });
+                              count++;
+                          }
+                      } else if (cloudDoc.rawData) {
+                          store.put(cloudDoc.rawData); count++;
+                      }
+                  }
+                  tx.oncomplete = () => {
+                      const req = db.transaction('entries', 'readonly').objectStore('entries').getAll();
+                      req.onsuccess = async () => {
+                          let loadedEntries = req.result || [];
+                          loadedEntries = loadedEntries.map(e => ({ ...e, images: e.images || (e.image ? [e.image] : []) }));
+                          setEntries(loadedEntries.sort(sortEntriesDesc));
+                          setView('dashboard');
+                          showDialog({ title: 'Willkommen zurück', message: `Deine Daten (${count} Einträge) wurden erfolgreich synchronisiert!`, icon: 'cloud-download' });
+                      };
+                  }
+              } else {
+                  setPinError(true); setTimeout(() => setPinError(false), 1000); setPinInput('');
+              }
+          }
+      } catch(e) {
+          showDialog({title: 'Fehler', message: 'Verbindungsfehler zur Cloud.', icon: 'x'});
+      }
+  };
+
   // Theme Sync
   useEffect(() => {
     const metaThemeColor = document.getElementById("meta-theme-color");
@@ -846,8 +835,6 @@ function App() {
   }, [user.appBgColor, user.textColor, user.isDark]);
 
   const syncSingleEntryToCloud = async (entry) => {
-      // Firebase Hintergrundspeicherung läuft automatisch bei Änderungen, 
-      // auch OHNE PIN (schreibt dann rawData, sonst encryptedData).
       if (!fb || !fb.auth.currentUser || !user.cloudSync) return;
       const appId = 'legacy-vision'; const userId = fb.auth.currentUser.uid;
       try { 
@@ -1029,7 +1016,6 @@ function App() {
             setTimeout(()=>setAutoSaveStatus(''), 2000); 
         }
     } catch (err) { 
-        console.error("Save error:", err);
         if (closeAndRead) closeEditor(entries.find(e => e && e.id === editingIdRef.current) || null); 
     }
   };
@@ -1041,30 +1027,6 @@ function App() {
       }, 3000); 
       return () => clearInterval(timer); 
   }, [showEditor, view]);
-
-  const confirmDelete = (id) => {
-    showDialog({ 
-        type: 'confirm', 
-        title: 'In den Papierkorb?', 
-        message: 'Dieser Eintrag wird in den Papierkorb verschoben.', 
-        icon: 'trash-2', 
-        iconColor: 'text-rose-500', 
-        onConfirm: () => { 
-            const entryToTrash = entries.find(e => e && e.id === id);
-            if(entryToTrash) { saveToDB({...entryToTrash, trashed: true}); }
-            closeEditor(null); 
-        } 
-    });
-  };
-
-  const handleSavePin = () => {
-      if (newPinInput.length < 4) { showDialog({title: 'Fehler', message: 'Die neue PIN muss mindestens 4 Zeichen lang sein.', icon: 'x'}); return; }
-      if (newPinInput !== confirmPinInput) { showDialog({title: 'Fehler', message: 'Die neuen PINs stimmen nicht überein.', icon: 'x'}); return; }
-      if (user.pin && oldPinInput !== user.pin) { showDialog({title: 'Fehler', message: 'Die alte PIN ist falsch.', icon: 'x'}); return; }
-      
-      setUser({...user, pin: newPinInput}); setIsChangingPin(false); setOldPinInput(''); setNewPinInput(''); setConfirmPinInput('');
-      showDialog({title: 'Erfolg', message: 'Deine PIN wurde erfolgreich gespeichert.', icon: 'check'});
-  };
 
   const closeEditor = (savedEntry = null) => { setShowEditor(false); if(isRecording) stopRecording(); setViewingEntry(savedEntry); };
 
@@ -1497,6 +1459,23 @@ function App() {
     );
   }
 
+  if (view === 'cloud_pin_sync') {
+      return (
+        <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-black text-slate-900 dark:text-white">
+          <div className="max-w-sm w-full space-y-8 animate-slide-up text-center">
+            <div className="w-24 h-24 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-10 text-blue-500">
+                <Icon name="cloud-download" size={36} />
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight mb-4 text-slate-900 dark:text-white">Backup gefunden</h1>
+            <p className="text-slate-500 dark:text-slate-400 mb-12 px-4 leading-relaxed">Wir haben deine verschlüsselten Daten in der Cloud gefunden. Gib deine PIN ein, um sie auf diesem Gerät wiederherzustellen.</p>
+            <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleCloudRestore(pinInput); }} className={`w-full p-4 text-center text-4xl tracking-[0.5em] rounded-2xl bg-white dark:bg-zinc-900 border-2 outline-none mb-6 transition-colors shadow-sm placeholder:opacity-30 ${pinError ? 'border-rose-500' : 'border-slate-100 dark:border-zinc-800 focus:border-blue-500'}`} placeholder="••••" />
+            <button onClick={() => handleCloudRestore(pinInput)} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg active:scale-95 transition-all shadow-lg shadow-blue-500/20">Wiederherstellen</button>
+            <button onClick={handleLogout} className="mt-8 text-rose-500 font-bold opacity-60 hover:opacity-100 transition-opacity">Abbrechen & Abmelden</button>
+          </div>
+        </div>
+      );
+  }
+
   if (view === 'pin_entry') {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-black text-slate-900 dark:text-white">
@@ -1508,7 +1487,6 @@ function App() {
              <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockSubmit(pinInput); }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none mb-6 bg-slate-100 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-zinc-600 transition-colors placeholder:opacity-30" placeholder="••••" />
              <button onClick={() => handleUnlockSubmit(pinInput)} className="w-full py-4 font-bold rounded-2xl bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-transform shadow-md mb-3">Entsperren</button>
              
-             {/* Biometric Fallback UI in PIN view if enabled */}
              {safeStorageGet('legacy_bio_pin') && (
                 <button onClick={handleBiometricUnlock} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm flex items-center justify-center gap-2 mb-3"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
              )}
@@ -1597,6 +1575,45 @@ function App() {
               <button onClick={() => setView('trash')} className="p-6 rounded-[2rem] flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-[1.02] active:scale-95 transition-transform"><Icon name="trash-2" size={32} className="text-rose-400" /><span className="font-bold text-sm text-rose-500">Papierkorb</span></button>
               <button onClick={() => setView('settings')} className="col-span-2 p-6 rounded-[2rem] flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-[1.02] active:scale-95 transition-transform"><Icon name="settings" size={32} className="opacity-50" /><span className="font-bold text-sm">Einstellungen</span></button>
             </div>
+          )}
+
+          {/* --- ARCHIVE VIEW --- */}
+          {view === 'archive' && (
+              <div className="space-y-4 animate-slide-up pb-24">
+                  <div className="flex justify-between items-center p-6 bg-slate-100 dark:bg-zinc-900 rounded-[2rem] mb-6 border border-slate-200 dark:border-zinc-800 shadow-sm">
+                      <div>
+                          <h2 className="text-xl font-extrabold flex items-center gap-2"><Icon name="archive" size={24}/> Archiv</h2>
+                          <p className="text-xs opacity-70 font-medium mt-1">{visibleEntries.length} archivierte Einträge</p>
+                      </div>
+                  </div>
+                  
+                  {visibleEntries.length === 0 ? (
+                      <div className="text-center py-20 opacity-40"><Icon name="archive" size={48} className="mx-auto mb-4"/><p className="font-bold">Archiv ist leer.</p></div>
+                  ) : (
+                      <div className="grid gap-4">
+                          {visibleEntries.map(e => (
+                              <div key={e.id} className="p-5 bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-slate-100 dark:border-zinc-800 flex justify-between items-center gap-4">
+                                  <div className="overflow-hidden flex-1 cursor-pointer" onClick={() => handleOpenEntry(e)}>
+                                      <h4 className="font-bold truncate text-lg hover:text-accent transition-colors">{e.title || 'Ohne Titel'}</h4>
+                                      <p className="text-xs font-bold uppercase tracking-widest opacity-50 mt-1">{new Date(e.date).toLocaleDateString('de-DE')} • {e.category}</p>
+                                  </div>
+                                  <div className="flex gap-2 shrink-0">
+                                      <button onClick={() => saveToDB({...e, archived: false})} className="w-12 h-12 flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Wiederherstellen"><Icon name="rotate-ccw" size={20}/></button>
+                                      <button onClick={() => {
+                                          showDialog({
+                                              title: 'Endgültig löschen?',
+                                              message: `"${e.title || 'Ohne Titel'}" wird für immer gelöscht.`,
+                                              icon: 'trash-2',
+                                              iconColor: 'text-rose-500',
+                                              onConfirm: () => deleteFromDB(e.id)
+                                          });
+                                      }} className="w-12 h-12 flex items-center justify-center bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Endgültig löschen"><Icon name="x" size={20}/></button>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  )}
+              </div>
           )}
 
           {/* --- TRASH VIEW --- */}
@@ -1700,42 +1717,6 @@ function App() {
                    </div>
                 </div>
                 
-                <div className="p-8 rounded-[2.5rem] bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 shadow-sm">
-                   <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-blue-600 dark:text-blue-400"><Icon name="cloud" size={20}/> Verschlüsselter Cloud-Tresor</h2>
-                   <p className="text-sm font-medium opacity-70 mb-6">Deine Daten werden AES-GCM verschlüsselt in der Cloud gesichert.</p>
-                   <button onClick={() => {
-                      if (!user.pin) { showDialog({title:'PIN fehlt', message:'Bitte lege zuerst eine PIN fest.'}); return; }
-                      setUser({...user, cloudSync: !user.cloudSync});
-                      if (!user.cloudSync) { entries.forEach(e=>syncSingleEntryToCloud(e)); syncProfileToCloud({...user, cloudSync:true}); }
-                   }} className={`w-full p-4 rounded-2xl font-bold text-base transition-transform active:scale-95 shadow-sm mb-4 ${user.cloudSync ? 'bg-blue-600 text-white' : 'bg-white dark:bg-zinc-900 text-slate-700 dark:text-white'}`}>{user.cloudSync ? 'Cloud Sync ist Aktiv' : 'Cloud Sync aktivieren'}</button>
-                   <button onClick={performCloudSync} className="w-full p-4 rounded-2xl font-bold text-base bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 active:scale-95 shadow-sm transition-transform flex items-center justify-center gap-2">{syncingCloud ? 'Lädt...' : <><Icon name="download-cloud" size={20}/> Aus der Cloud wiederherstellen</>}</button>
-                </div>
-
-                <div className="p-8 rounded-[2.5rem] bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 shadow-sm">
-                   <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-indigo-600 dark:text-indigo-400"><Icon name="archive" size={20}/> Ewigkeits-Archiv (ZIP)</h2>
-                   <p className="text-sm font-medium opacity-70 mb-6">Exportiert alle deine Einträge als simple, für immer lesbare Textdateien (.md) und extrahiert alle Bilder.</p>
-                   <button onClick={exportEternityArchive} className="w-full p-4 rounded-2xl font-bold text-base bg-indigo-600 text-white active:scale-95 shadow-sm transition-transform flex items-center justify-center gap-2 mb-3"><Icon name="folder-down" size={20}/> Als ZIP speichern</button>
-                </div>
-
-                <div className="p-8 rounded-[2.5rem] bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 shadow-sm">
-                   <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><Icon name="smartphone" size={20}/> P2P Transfer (Ohne Cloud)</h2>
-                   <p className="text-sm font-medium opacity-70 mb-6">Scanne einen QR Code mit deinem neuen Handy, um Daten direkt zu senden.</p>
-                   {!peerId ? (
-                      <button onClick={() => {
-                         const peer = new window.Peer(); setSyncStatus('WebRTC wird vorbereitet...');
-                         peer.on('open', (id) => { setPeerId(id); setSyncStatus('Scanne den Code mit dem neuen Gerät.'); });
-                         peer.on('connection', (c) => { setSyncStatus('Verbunden! Sende...'); c.on('data', (d) => { if(d==='request_data'){c.send(JSON.stringify({user,entries})); setSyncStatus('Erledigt!'); setTimeout(()=>{setPeerId(null);}, 4000);} }); });
-                         setPeerInstance(peer);
-                      }} className="w-full p-4 rounded-2xl font-bold text-base bg-emerald-600 text-white active:scale-95 shadow-sm transition-transform flex items-center justify-center gap-2"><Icon name="qr-code" size={20}/> QR-Code generieren</button>
-                   ) : (
-                      <div className="bg-white dark:bg-zinc-900 p-6 rounded-[2rem] flex flex-col items-center">
-                         <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin + window.location.pathname + '?import=' + peerId)}`} className="w-48 h-48 mb-4 rounded-xl" />
-                         <p className="text-sm font-bold text-emerald-600 mb-4 animate-pulse">{syncStatus}</p>
-                         <button onClick={()=>{peerInstance?.destroy(); setPeerId(null); setSyncStatus('');}} className="text-sm font-bold opacity-50 px-4 py-2 bg-slate-100 dark:bg-zinc-800 rounded-lg">Abbrechen</button>
-                      </div>
-                   )}
-                </div>
-
                 <div className="p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
                    <h2 className="text-lg font-bold mb-6 flex items-center gap-2"><Icon name="key" size={20}/> Sicherheit & PIN</h2>
                    
@@ -1782,6 +1763,37 @@ function App() {
                                <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${user.biometric ? 'left-7' : 'left-1'}`} />
                            </button>
                        </div>
+                   )}
+                </div>
+
+                <div className="p-8 rounded-[2.5rem] bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 shadow-sm">
+                   <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-blue-600 dark:text-blue-400"><Icon name="cloud" size={20}/> Verschlüsselter Cloud-Tresor</h2>
+                   <p className="text-sm font-medium opacity-70 mb-6">Deine Daten werden in Echtzeit synchronisiert. Wenn du dich neu einloggst, lädt die App automatisch alle Daten herunter.</p>
+                   <button onClick={performCloudSync} className="w-full p-4 rounded-2xl font-bold text-base bg-blue-600 text-white active:scale-95 shadow-sm transition-transform flex items-center justify-center gap-2">{syncingCloud ? 'Lädt...' : <><Icon name="download-cloud" size={20}/> Jetzt Cloud aktualisieren</>}</button>
+                </div>
+
+                <div className="p-8 rounded-[2.5rem] bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 shadow-sm">
+                   <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-indigo-600 dark:text-indigo-400"><Icon name="archive" size={20}/> Ewigkeits-Archiv (ZIP)</h2>
+                   <p className="text-sm font-medium opacity-70 mb-6">Exportiert alle deine Einträge als simple, für immer lesbare Textdateien (.md) und extrahiert alle Bilder.</p>
+                   <button onClick={exportEternityArchive} className="w-full p-4 rounded-2xl font-bold text-base bg-indigo-600 text-white active:scale-95 shadow-sm transition-transform flex items-center justify-center gap-2 mb-3"><Icon name="folder-down" size={20}/> Als ZIP speichern</button>
+                </div>
+
+                <div className="p-8 rounded-[2.5rem] bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 shadow-sm">
+                   <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><Icon name="smartphone" size={20}/> P2P Transfer (Ohne Cloud)</h2>
+                   <p className="text-sm font-medium opacity-70 mb-6">Scanne einen QR Code mit deinem neuen Handy, um Daten direkt zu senden.</p>
+                   {!peerId ? (
+                      <button onClick={() => {
+                         const peer = new window.Peer(); setSyncStatus('WebRTC wird vorbereitet...');
+                         peer.on('open', (id) => { setPeerId(id); setSyncStatus('Scanne den Code mit dem neuen Gerät.'); });
+                         peer.on('connection', (c) => { setSyncStatus('Verbunden! Sende...'); c.on('data', (d) => { if(d==='request_data'){c.send(JSON.stringify({user,entries})); setSyncStatus('Erledigt!'); setTimeout(()=>{setPeerId(null);}, 4000);} }); });
+                         setPeerInstance(peer);
+                      }} className="w-full p-4 rounded-2xl font-bold text-base bg-emerald-600 text-white active:scale-95 shadow-sm transition-transform flex items-center justify-center gap-2"><Icon name="qr-code" size={20}/> QR-Code generieren</button>
+                   ) : (
+                      <div className="bg-white dark:bg-zinc-900 p-6 rounded-[2rem] flex flex-col items-center">
+                         <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin + window.location.pathname + '?import=' + peerId)}`} className="w-48 h-48 mb-4 rounded-xl" />
+                         <p className="text-sm font-bold text-emerald-600 mb-4 animate-pulse">{syncStatus}</p>
+                         <button onClick={()=>{peerInstance?.destroy(); setPeerId(null); setSyncStatus('');}} className="text-sm font-bold opacity-50 px-4 py-2 bg-slate-100 dark:bg-zinc-800 rounded-lg">Abbrechen</button>
+                      </div>
                    )}
                 </div>
              </div>
@@ -2124,33 +2136,53 @@ function App() {
                {/* Rating Component */}
                <div className="h-10 flex items-center gap-1 bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0">
                   {[1,2,3,4,5].map(star => (
-                      <Icon key={star} name="star" size={16} className={`cursor-pointer transition-colors ${rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-zinc-700'}`} onClick={() => {setRating(rating === star ? 0 : star); isDirtyRef.current=true;}} />
+                      <Icon key={star} name="star" size={14} className={`cursor-pointer transition-colors ${rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-zinc-700'}`} onClick={() => {setRating(rating === star ? 0 : star); isDirtyRef.current=true;}} />
                   ))}
                </div>
 
                {/* Tags Input */}
                <div className="h-10 flex items-center bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
-                   <Icon name="tag" size={14} className="text-slate-400 mr-2 shrink-0" />
+                   <Icon name="tag" size={12} className="text-slate-400 mr-2 shrink-0" />
                    <input type="text" placeholder="Tags (Komma...)" value={tags} onChange={e=>{setTags(e.target.value); isDirtyRef.current=true;}} className="bg-transparent border-none outline-none text-xs font-bold placeholder:opacity-50 w-full text-slate-900 dark:text-white" />
                </div>
 
                {/* Personen Eingabe */}
                <div className="h-10 flex items-center bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
-                   <Icon name="user" size={14} className="text-slate-400 mr-2 shrink-0" />
+                   <Icon name="user" size={12} className="text-slate-400 mr-2 shrink-0" />
                    <input type="text" placeholder="Personen..." value={people} onChange={e=>{setPeople(e.target.value); isDirtyRef.current=true;}} className="bg-transparent border-none outline-none text-xs font-bold placeholder:opacity-50 w-full text-slate-900 dark:text-white" />
                </div>
 
                {/* Zeitsiegel */}
                <div className={`h-10 relative px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 cursor-pointer overflow-hidden ${unlockDate ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}>
-                  <Icon name="calendar-clock" size={16}/> {unlockDate ? new Date(unlockDate).toLocaleDateString('de-DE') : 'Zeitsiegel'}
+                  <Icon name="calendar-clock" size={14}/> {unlockDate ? new Date(unlockDate).toLocaleDateString('de-DE') : 'Zeitsiegel'}
                   <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); isDirtyRef.current=true;}} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
                </div>
                
-               <button onClick={()=>{
-                   if(location){setLocation(null); isDirtyRef.current=true; return;}
+               <button onClick={async ()=>{
+                   if(location){setLocation(null); setWeather(''); isDirtyRef.current=true; return;}
                    if(!("geolocation" in navigator)){showDialog({title:'Fehler', message:'Ortung nicht unterstützt.'}); return;}
-                   navigator.geolocation.getCurrentPosition(p => { setLocation({lat: p.coords.latitude, lng: p.coords.longitude}); isDirtyRef.current=true; showDialog({title:'GPS erfasst', message:'Ort wurde gesichert.', icon:'map-pin'}); }, ()=>showDialog({title:'Fehler', message:'Ortung fehlgeschlagen.'}));
-               }} className={`h-10 px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 ${location ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-900/50 text-amber-600 dark:text-amber-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}><Icon name="map-pin" size={16}/> {location ? 'Ort gesichert' : 'GPS-Siegel'}</button>
+                   navigator.geolocation.getCurrentPosition(async (p) => { 
+                       const lat = p.coords.latitude;
+                       const lng = p.coords.longitude;
+                       setLocation({lat, lng}); 
+                       try {
+                           const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`);
+                           const data = await res.json();
+                           const temp = Math.round(data.current_weather.temperature);
+                           const wcode = data.current_weather.weathercode;
+                           let wStr = `${temp}°C`;
+                           if (wcode === 0) wStr += ' ☀️';
+                           else if (wcode <= 3) wStr += ' ⛅';
+                           else if (wcode <= 48) wStr += ' ☁️';
+                           else if (wcode <= 67) wStr += ' 🌧️';
+                           else if (wcode <= 79) wStr += ' 🌨️';
+                           else if (wcode <= 99) wStr += ' ⛈️';
+                           setWeather(wStr);
+                       } catch(e) {}
+                       isDirtyRef.current=true; 
+                       showDialog({title:'GPS erfasst', message:'Ort und Wetter wurden gesichert.', icon:'map-pin'}); 
+                   }, ()=>showDialog({title:'Fehler', message:'Ortung fehlgeschlagen.'}));
+               }} className={`h-10 px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 ${location ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-900/50 text-amber-600 dark:text-amber-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}><Icon name="map-pin" size={14}/> {location ? 'Ort gesichert' : 'GPS-Siegel'}</button>
             </div>
           </div>
         )}
