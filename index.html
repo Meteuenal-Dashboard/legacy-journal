@@ -602,25 +602,6 @@ function App() {
   // --- Login Bypass & Firebase Setup ---
   useEffect(() => {
     const initFB = async () => {
-       // Sicherheitsnetz: Wenn Firebase im Browser (z.B. Laptop) geblockt wird,
-       // brechen wir das endlose Laden nach 5 Sekunden ab und starten offline!
-       let authTimeout = setTimeout(() => {
-           if (!isLoaded) {
-               console.warn("Firebase Auth Timeout - Fallback to Local");
-               const savedStr = safeStorageGet('legacy_user');
-               if (savedStr) {
-                   try {
-                       const parsed = JSON.parse(savedStr);
-                       setUser(parsed);
-                       setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
-                   } catch(e) { setView('onboarding'); }
-               } else {
-                   setView('onboarding');
-               }
-               setIsLoaded(true);
-           }
-       }, 5000);
-
        try {
           const firebaseConfig = { apiKey: "AIzaSyBs7DoO5z8cuIc3DtdArgorKRx_FX7JX-U", authDomain: "tagebuch-og.firebaseapp.com", projectId: "tagebuch-og", storageBucket: "tagebuch-og.firebasestorage.app", messagingSenderId: "418864246292", appId: "1:418864246292:web:957b604fe7ce4380c24101" };
           const nativeImport = new Function('url', 'return import(url)');
@@ -664,7 +645,6 @@ function App() {
           };
 
           onAuthStateChanged(auth, (u) => {
-             clearTimeout(authTimeout);
              if (u) {
                  if (u.emailVerified) {
                      setAuthUser(u);
@@ -678,16 +658,8 @@ function App() {
           });
        } catch(e) { 
            console.error("Firebase init error:", e);
-           const savedStr = safeStorageGet('legacy_user');
-           if (savedStr) {
-               try {
-                   const parsed = JSON.parse(savedStr);
-                   setUser(parsed);
-                   setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
-               } catch(err) { setView('onboarding'); }
-           } else {
-               setView('onboarding');
-           }
+           setView('auth');
+           setAuthError('Verbindung zu Firebase blockiert. Bitte Internet oder Adblocker prüfen.');
            setIsLoaded(true); 
        }
     };
@@ -1541,7 +1513,7 @@ function App() {
   const callGemini = async (payload, retries = 5) => {
       const delays = [1000, 2000, 4000, 8000, 16000];
       const apiKey = "AIzaSyC4z8nQq_N7bK7lgyyox8jM_Vbnuz_SP3E";
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
       
       for (let i = 0; i < retries; i++) {
           try {
@@ -2347,6 +2319,8 @@ function App() {
               <div 
                   ref={editorRef} 
                   contentEditable 
+                  role="textbox"
+                  aria-multiline="true"
                   onClick={handleEditorClick}
                   onPaste={handleEditorPaste}
                   onInput={handleEditorInput} 
