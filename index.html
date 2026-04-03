@@ -120,11 +120,12 @@
   
   /* Inline Image / Sticker Resizing Magic & Deletion X */
   .inline-img-wrapper { display: inline-block; vertical-align: text-bottom; margin: 4px; max-width: 100%; position: relative; }
-  .inline-img-wrapper img { width: 120px; height: auto; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+  .inline-img-wrapper img { width: 120px; height: auto; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s; }
+  .inline-img-wrapper img:hover { transform: scale(1.02); border: 2px dashed #f59e0b; }
   .delete-img-btn { position: absolute; top: -10px; right: -10px; background: #ef4444; color: white; border-radius: 50%; width: 24px; height: 24px; text-align: center; line-height: 24px; cursor: pointer; font-family: sans-serif; font-size: 12px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10; display: none; }
   .inline-img-wrapper:hover .delete-img-btn, .inline-img-wrapper:active .delete-img-btn { display: block; }
   
-  .legacy-editor-content > img, .legacy-content > img { border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: inline-block; vertical-align: middle; max-width: 100%; }
+  .legacy-editor-content > img, .legacy-content > img { border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: inline-block; vertical-align: middle; max-width: 100%; margin: 4px; }
   
   [contenteditable="true"]:empty:before { content: attr(data-placeholder); opacity: 0.3; pointer-events: none; display: block; font-weight: 400; }
   html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
@@ -600,21 +601,24 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // --- Login Bypass & Firebase Setup ---
+  // --- Firebase Setup mit strikter Login-Abfrage ---
   useEffect(() => {
     const initFB = async () => {
        try {
           const firebaseConfig = { apiKey: "AIzaSyBs7DoO5z8cuIc3DtdArgorKRx_FX7JX-U", authDomain: "tagebuch-og.firebaseapp.com", projectId: "tagebuch-og", storageBucket: "tagebuch-og.firebasestorage.app", messagingSenderId: "418864246292", appId: "1:418864246292:web:957b604fe7ce4380c24101" };
           const nativeImport = new Function('url', 'return import(url)');
           const { initializeApp } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
-          const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, setPersistence, inMemoryPersistence } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
+          const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, setPersistence, browserSessionPersistence } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
           const { getFirestore, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
           
           const app = initializeApp(firebaseConfig); 
           const auth = getAuth(app); 
           
-          // Erzwingt bei jedem Neuladen/Schließen des Tabs einen frischen Login!
-          await setPersistence(auth, inMemoryPersistence);
+          // ERZWINGT DEN LOGIN BEI NEUEM TAB/APP-START
+          if (!sessionStorage.getItem('legacy_session_active')) {
+              sessionStorage.setItem('legacy_session_active', 'true');
+              await signOut(auth);
+          }
           
           const firestoreDb = getFirestore(app);
           setFb({ db: firestoreDb, auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot });
@@ -797,7 +801,6 @@ function App() {
       safeStorageSet('legacy_user', JSON.stringify(mergedUser));
       setView(mergedUser.name ? 'dashboard' : 'onboarding');
       
-      // Falls auf einem neuen Gerät gerade die PIN eingegeben wurde, ziehe sofort alle Backup-Daten!
       if (fb && authUser && db) performCloudSync();
   };
 
@@ -1520,7 +1523,7 @@ function App() {
   const callGemini = async (payload, retries = 5) => {
       const delays = [1000, 2000, 4000, 8000, 16000];
       const apiKey = "AIzaSyC4z8nQq_N7bK7lgyyox8jM_Vbnuz_SP3E";
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
       
       for (let i = 0; i < retries; i++) {
           try {
@@ -2559,7 +2562,10 @@ function App() {
               <div className="w-20 h-20 bg-slate-50 dark:bg-zinc-950 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100 dark:border-zinc-800"><Icon name="lock" size={32} style={{ color: user.nameColor || '#f59e0b' }} /></div>
               <h3 className="text-2xl font-extrabold tracking-tight mb-2">Tresor entsperren</h3>
               <p className="text-xs font-bold uppercase tracking-widest opacity-40 mb-8 truncate w-full px-4">"{unlockTarget.title}"</p>
-              <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submitPin()} className={`w-full p-4 text-center text-4xl tracking-[0.5em] rounded-2xl bg-slate-50 dark:bg-zinc-950 border-2 outline-none mb-6 transition-colors placeholder:opacity-30 ${pinError ? 'border-rose-500' : 'border-transparent focus:border-slate-300 dark:focus:border-zinc-700'}`} placeholder="••••" />
+              <div className="relative mb-6">
+                <input type={showPassword ? "text" : "password"} inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submitPin()} className={`w-full p-4 text-center text-4xl tracking-[0.5em] rounded-2xl bg-slate-50 dark:bg-zinc-950 border-2 outline-none transition-colors placeholder:opacity-30 ${pinError ? 'border-rose-500' : 'border-transparent focus:border-slate-300 dark:focus:border-zinc-700'}`} placeholder="••••" />
+                <button onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"><Icon name={showPassword ? "eye-off" : "eye"} size={24} /></button>
+              </div>
               <div className="flex gap-3 w-full mb-4">
                 <button onClick={() => setUnlockTarget(null)} className="flex-1 py-4 font-bold rounded-2xl bg-slate-100 dark:bg-zinc-800 active:scale-95 transition-transform">Abbrechen</button>
                 <button onClick={submitPin} className="flex-1 py-4 rounded-2xl font-bold shadow-md active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || '#f59e0b', color: isDarkColor(user.nameColor || '#f59e0b') ? '#ffffff' : '#000000' }}>Öffnen</button>
