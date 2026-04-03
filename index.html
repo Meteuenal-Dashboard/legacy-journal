@@ -501,7 +501,6 @@ function App() {
   const [showTimeline, setShowTimeline] = useState(false); 
   const [timelineMonth, setTimelineMonth] = useState(() => new Date()); 
   const [timelineSelectedDate, setTimelineSelectedDate] = useState(null); 
-  const [expandedNodes, setExpandedNodes] = useState({}); 
   
   const [unlockTarget, setUnlockTarget] = useState(null);
   const [pinInput, setPinInput] = useState('');
@@ -513,7 +512,6 @@ function App() {
   const [confirmPinInput, setConfirmPinInput] = useState('');
 
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const audioPlayerRef = useRef(new Audio());
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -610,6 +608,25 @@ function App() {
   // --- Login Bypass & Firebase Setup ---
   useEffect(() => {
     const initFB = async () => {
+       // Sicherheitsnetz: Wenn Firebase im Browser (z.B. Laptop) geblockt wird,
+       // brechen wir das endlose Laden nach 5 Sekunden ab und starten offline!
+       let authTimeout = setTimeout(() => {
+           if (!isLoaded) {
+               console.warn("Firebase Auth Timeout - Fallback to Local");
+               const savedStr = safeStorageGet('legacy_user');
+               if (savedStr) {
+                   try {
+                       const parsed = JSON.parse(savedStr);
+                       setUser(parsed);
+                       setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
+                   } catch(e) { setView('onboarding'); }
+               } else {
+                   setView('onboarding');
+               }
+               setIsLoaded(true);
+           }
+       }, 5000);
+
        try {
           const firebaseConfig = { apiKey: "AIzaSyBs7DoO5z8cuIc3DtdArgorKRx_FX7JX-U", authDomain: "tagebuch-og.firebaseapp.com", projectId: "tagebuch-og", storageBucket: "tagebuch-og.firebasestorage.app", messagingSenderId: "418864246292", appId: "1:418864246292:web:957b604fe7ce4380c24101" };
           const nativeImport = new Function('url', 'return import(url)');
@@ -621,7 +638,7 @@ function App() {
           setFb({ db: firestoreDb, auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot });
 
           const handleUserLoad = async (u) => {
-              const savedStr = localStorage.getItem('legacy_user');
+              const savedStr = safeStorageGet('legacy_user');
               if (savedStr) {
                   try {
                       const parsed = JSON.parse(savedStr);
@@ -653,6 +670,7 @@ function App() {
           };
 
           onAuthStateChanged(auth, (u) => {
+             clearTimeout(authTimeout);
              if (u) {
                  if (u.emailVerified) {
                      setAuthUser(u);
@@ -664,7 +682,20 @@ function App() {
              }
              setIsLoaded(true);
           });
-       } catch(e) { console.error(e); setIsLoaded(true); }
+       } catch(e) { 
+           console.error("Firebase init error:", e);
+           const savedStr = safeStorageGet('legacy_user');
+           if (savedStr) {
+               try {
+                   const parsed = JSON.parse(savedStr);
+                   setUser(parsed);
+                   setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
+               } catch(err) { setView('onboarding'); }
+           } else {
+               setView('onboarding');
+           }
+           setIsLoaded(true); 
+       }
     };
     initFB();
   }, []);
@@ -1428,7 +1459,37 @@ function App() {
     e.target.value = null; 
   };
 
-  // Einfügen von Bildern / Stickern über die Handy-Tastatur oder Clipboard
+  // Einfügen von Bildern / Stickern über die Handy-Tastatur
+  const handleEditorInput = () => {
+      isDirtyRef.current = true;
+      if (editorRef.current) {
+          const nakedImgs = editorRef.current.querySelectorAll('img:not(.inline-img-wrapper img)');
+          if (nakedImgs.length > 0) {
+              nakedImgs.forEach(img => {
+                  const wrapper = document.createElement('span');
+                  wrapper.className = 'inline-img-wrapper';
+                  wrapper.contentEditable = 'false';
+                  
+                  const delBtn = document.createElement('span');
+                  delBtn.className = 'delete-img-btn';
+                  delBtn.innerText = 'X';
+                  
+                  const clonedImg = img.cloneNode(true);
+                  clonedImg.removeAttribute('style'); // WICHTIG: Entfernt Gboard Styles
+                  
+                  wrapper.appendChild(clonedImg);
+                  wrapper.appendChild(delBtn);
+                  
+                  img.parentNode.replaceChild(wrapper, img);
+                  
+                  const space = document.createTextNode('\u00A0');
+                  wrapper.parentNode.insertBefore(space, wrapper.nextSibling);
+              });
+              checkSaveEntry(false);
+          }
+      }
+  };
+
   const handleEditorPaste = (e) => {
       const clipboardData = e.clipboardData || window.clipboardData || (e.nativeEvent && e.nativeEvent.clipboardData);
       if (!clipboardData) return;
@@ -1467,7 +1528,7 @@ function App() {
           checkSaveEntry(false);
       } else if (e.target.tagName === 'IMG' && e.target.closest('.inline-img-wrapper')) {
           const wrapper = e.target.closest('.inline-img-wrapper');
-          const img = e.target;
+          const img = wrapper.querySelector('img');
           setPicker({
               title: 'Sticker / Bild anpassen',
               currentValue: null,
@@ -1483,7 +1544,7 @@ function App() {
               }
           });
       } else if (e.target.tagName === 'IMG' && !e.target.closest('.inline-img-wrapper')) {
-          // Fallback, falls die Tastatur ein nacktes Bild einfügt (z.B. Gboard auf einigen Androids)
+          // Fallback, falls die Tastatur ein nacktes Bild einfügt
           const img = e.target;
           setPicker({
               title: 'Sticker / Bild anpassen',
@@ -2256,7 +2317,7 @@ function App() {
 
             {/* 2. Titel Eingabe (Durchgehende Linie) */}
             <div className="px-4 sm:px-8 pt-6 pb-2 shrink-0 bg-white dark:bg-black z-40">
-              <input type="text" placeholder="Titel der Vision..." value={title} onChange={e=>{setTitle(e.target.value); isDirtyRef.current=true;}} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tighter outline-none border-b-2 border-slate-200 dark:border-zinc-800 pb-3 placeholder-slate-300 dark:placeholder-zinc-700 text-slate-900 dark:text-white transition-colors focus:border-accent" />
+              <input type="text" placeholder="Titel der Vision..." value={title} onChange={e=>{setTitle(e.target.value); isDirtyRef.current=true;}} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tighter outline-none border-b-[3px] border-slate-200 dark:border-zinc-800 pb-3 placeholder-slate-300 dark:placeholder-zinc-700 text-slate-900 dark:text-white transition-colors focus:border-accent" />
             </div>
 
             {/* 3. STICKY TOOLBAR (Immer sichtbar über dem Text) */}
@@ -2331,7 +2392,7 @@ function App() {
                   contentEditable 
                   onClick={handleEditorClick}
                   onPaste={handleEditorPaste}
-                  onInput={()=>isDirtyRef.current=true} 
+                  onInput={handleEditorInput} 
                   className="flex-1 outline-none text-[1.05rem] leading-[1.8] legacy-editor-content text-slate-800 dark:text-slate-200 pb-32 min-h-[50vh]" 
                   data-placeholder="Was wirst du hinterlassen? Füge Sticker direkt über deine Handy-Tastatur ein..." 
                   dangerouslySetInnerHTML={{__html: text}} 
@@ -2576,7 +2637,7 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
 </script>
 
-<!-- Statische Service Worker Registrierung -->
+<!-- Statische Service Worker Registrierung (Sicherer Standort außerhalb von Babel) -->
 <script>
   if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
     window.addEventListener('load', () => {
