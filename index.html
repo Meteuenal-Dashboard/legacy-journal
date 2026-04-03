@@ -68,6 +68,7 @@
   html.dark body { background-color: #000000 !important; color: #f8fafc !important; }
 
   .pb-safe { padding-bottom: env(safe-area-inset-bottom, 32px); }
+  .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
   .floating-nav-spacing { padding-bottom: calc(120px + env(safe-area-inset-bottom, 20px)); }
 
   /* Fließtext extrem leserlich, Überschriften fett/klar */
@@ -119,8 +120,8 @@
   
   /* Inline Image Resizing Magic & Deletion X */
   .inline-img-wrapper { display: inline-block; vertical-align: text-bottom; margin: 4px; max-width: 100%; position: relative; }
-  .inline-img-wrapper img { width: 100%; height: 100%; object-fit: contain; border-radius: 6px; border: 1px solid rgba(150,150,150,0.2); }
-  .delete-img-btn { position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border-radius: 50%; width: 24px; height: 24px; text-align: center; line-height: 24px; cursor: pointer; font-family: sans-serif; font-size: 14px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10; display: none; }
+  .inline-img-wrapper img { width: 100%; height: auto; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+  .delete-img-btn { position: absolute; top: -10px; right: -10px; background: #ef4444; color: white; border-radius: 50%; width: 24px; height: 24px; text-align: center; line-height: 24px; cursor: pointer; font-family: sans-serif; font-size: 12px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10; display: none; }
   .inline-img-wrapper:hover .delete-img-btn { display: block; }
   
   .legacy-editor-content > img, .legacy-content > img { border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: inline-block; vertical-align: middle; max-width: 100%; }
@@ -268,6 +269,10 @@ const COLORS = [
   '#10b981', '#047857', '#e9d5ff', '#8b5cf6', '#6d28d9'
 ];
 
+const EDITOR_COLORS = [
+  '#0f172a', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#a8a29e', '#ffffff'
+];
+
 const isDarkColor = (color) => {
   if (!color) return true;
   const hex = color.replace('#', '');
@@ -350,18 +355,18 @@ const initDB = () => {
 const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQuery }) => {
     if (!entry) return null;
     const hasImages = entry.images && entry.images.length > 0;
-    const cardBgClass = isDarkTheme ? 'bg-zinc-900' : 'bg-white shadow-md';
+    const cardBgClass = isDarkTheme ? 'bg-zinc-900' : 'bg-white shadow-sm';
     const isCapsuleLocked = entry.unlockDate;
 
     return (
-      <div onClick={() => onClick(entry)} className={`group relative rounded-[2rem] overflow-hidden cursor-pointer border transition-transform active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col' : ''}`} style={{ borderColor: getSubtleBorderColor(userColor, isDarkTheme) }}>
+      <div onClick={() => onClick(entry)} className={`group relative rounded-[2rem] overflow-hidden cursor-pointer border hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col' : ''}`} style={{ borderColor: getSubtleBorderColor(userColor, isDarkTheme) }}>
         {entry.manifested && (
           <div className="absolute top-4 right-4 z-20 bg-amber-400 text-amber-950 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
             <Icon name="sparkles" size={12}/> Highlight
           </div>
         )}
         {hasImages && (
-          <div className="w-full aspect-video relative overflow-hidden bg-slate-100 dark:bg-zinc-800">
+          <div className="w-full h-48 sm:h-56 relative overflow-hidden bg-slate-100 dark:bg-zinc-800">
             <img src={entry.images[0]} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
           </div>
@@ -382,10 +387,10 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
           
           {!isGridView && (entry.tags || entry.people || entry.weather || entry.rating > 0) && (
              <div className="flex flex-wrap gap-1.5 mb-4">
-                {entry.tags && entry.tags.split(',').filter(x=>x.trim()).map((t, i) => <span key={`t-${i}`} className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="tag" size={10}/> {t.trim()}</span>)}
-                {entry.people && entry.people.split(',').filter(x=>x.trim()).map((p, i) => <span key={`p-${i}`} className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="user" size={10}/> {p.trim()}</span>)}
-                {entry.weather && <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="sun" size={10}/> {entry.weather}</span>}
-                {entry.rating > 0 && <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="star" size={10}/> {entry.rating}</span>}
+                {entry.tags && entry.tags.split(',').filter(x=>x.trim()).map((t, i) => <span key={`t-${i}`} className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="tag" size={10}/> {t.trim()}</span>)}
+                {entry.people && entry.people.split(',').filter(x=>x.trim()).map((p, i) => <span key={`p-${i}`} className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="user" size={10}/> {p.trim()}</span>)}
+                {entry.weather && <span className="px-2 py-0.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="sun" size={10}/> {entry.weather}</span>}
+                {entry.rating > 0 && <span className="px-2 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="star" size={10}/> {entry.rating}</span>}
              </div>
           )}
 
@@ -393,7 +398,7 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
             <div className="text-sm font-medium leading-relaxed opacity-70 line-clamp-3 text-slate-600 dark:text-slate-400" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
           )}
           {(entry.locked || isCapsuleLocked) && !isGridView && (
-             <div className="text-sm font-medium leading-relaxed opacity-40 italic mb-4">
+             <div className="text-sm font-medium leading-relaxed opacity-40 italic mt-auto">
                 {isCapsuleLocked ? 'Inhalt durch Zeitsiegel geschützt.' : 'Inhalt durch Tresor-PIN geschützt.'}
              </div>
           )}
@@ -486,6 +491,7 @@ function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [dialog, setDialog] = useState(null);
   const [picker, setPicker] = useState(null);
+  const [installHint, setInstallHint] = useState('');
 
   const [viewingEntry, setViewingEntry] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
@@ -493,9 +499,11 @@ function App() {
   
   const [showTimeline, setShowTimeline] = useState(false); 
   const [timelineMonth, setTimelineMonth] = useState(() => new Date()); 
+  const [timelineSearchQuery, setTimelineSearchQuery] = useState(''); 
   const [timelineSelectedDate, setTimelineSelectedDate] = useState(null); 
   const [expandedNodes, setExpandedNodes] = useState({}); 
   
+  const [affirmation, setAffirmation] = useState(null);
   const [unlockTarget, setUnlockTarget] = useState(null);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
@@ -538,10 +546,12 @@ function App() {
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [mood, setMood] = useState(null);
   const [entryDate, setEntryDate] = useState('');
+  
   const [rating, setRating] = useState(0);
   const [tags, setTags] = useState('');
   const [people, setPeople] = useState('');
   const [weather, setWeather] = useState('');
+  
   const [parentId, setParentId] = useState('');
   const [inheritedFrom, setInheritedFrom] = useState(null);
   const [pillarGuidance, setPillarGuidance] = useState(null);
@@ -612,9 +622,9 @@ function App() {
                       } else {
                           setView(parsed.name ? 'dashboard' : 'onboarding');
                       }
-                  } catch(e) { setView('auth'); }
+                  } catch(e) { setView('onboarding'); }
               } else {
-                  setView('auth'); 
+                  setView('onboarding'); 
               }
           };
 
@@ -984,6 +994,7 @@ function App() {
         const currentText = editorRef.current ? editorRef.current.innerHTML : (state.text || ''); 
         const titleSafe = state.title || '';
         
+        // Leere Einträge verhindern Abstürze
         const isEmpty = !titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && (!state.selectedImages || state.selectedImages.length === 0) && !state.audioUrl && !state.weather && !state.tags && !state.people;
         
         if (isEmpty && closeAndRead) { 
@@ -1551,6 +1562,7 @@ function App() {
             )}
           </div>
           <div className="flex gap-2 items-center">
+            {/* Kalender Button GLOBAL zugänglich */}
             <button type="button" onClick={() => { setViewingEntry(null); setShowTimeline(true); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="calendar-days" size={18}/></button>
             
             {view === 'dashboard' && (
@@ -2134,11 +2146,11 @@ function App() {
           </div>
         )}
 
-        {/* --- EDITOR --- */}
+        {/* --- EDITOR MODAL --- */}
         {showEditor && (
           <div className="fixed inset-0 bg-white dark:bg-black z-[200] flex flex-col page-transition">
             
-            {/* Editor Top Bar (Fixed) */}
+            {/* 1. Header (Immer ganz oben) */}
             <header className="flex justify-between items-center p-4 sm:p-6 border-b border-slate-100 dark:border-zinc-900 bg-white/90 dark:bg-black/90 backdrop-blur-xl shrink-0 z-50 pt-safe">
                 <button onClick={()=>checkSaveEntry(true)} className="p-3 bg-slate-100 dark:bg-zinc-900 rounded-2xl text-slate-900 dark:text-white hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
                 <div className="flex items-center gap-4">
@@ -2147,46 +2159,53 @@ function App() {
                 </div>
             </header>
 
-            {/* Sticky Editor Toolbar (Immer sichtbar) */}
-            <div className="flex gap-2 p-3 px-4 overflow-x-auto hide-scrollbar border-b border-slate-50 dark:border-zinc-900 bg-white/95 dark:bg-black/95 backdrop-blur-md shrink-0 z-40 shadow-sm sticky top-0">
-                
-                {/* Headings & Text */}
-                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'H1'); isDirtyRef.current=true;}} className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0"><span className="font-extrabold text-sm">H1</span></button>
-                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'H2'); isDirtyRef.current=true;}} className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0"><span className="font-bold text-sm">H2</span></button>
-                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'P'); isDirtyRef.current=true;}} className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0"><span className="font-medium text-sm">T</span></button>
-                
-                <div className="w-px bg-slate-200 dark:bg-zinc-800 mx-1 shrink-0"></div>
+            {/* 2. Titel Eingabe (Durchgehende Linie) */}
+            <div className="px-4 sm:px-8 pt-6 pb-2 shrink-0 bg-white dark:bg-black">
+              <input type="text" placeholder="Titel der Vision..." value={title} onChange={e=>{setTitle(e.target.value); isDirtyRef.current=true;}} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tighter outline-none border-b-2 border-slate-200 dark:border-zinc-800 pb-3 placeholder-slate-300 dark:placeholder-zinc-700 text-slate-900 dark:text-white transition-colors focus:border-accent" />
+            </div>
 
-                {/* Formats */}
-                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('bold'); isDirtyRef.current=true;}} className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0"><Icon name="bold" size={18} /></button>
-                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('italic'); isDirtyRef.current=true;}} className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0"><Icon name="italic" size={18} /></button>
-                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current=true;}} className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0"><Icon name="quote" size={18} /></button>
+            {/* 3. STICKY TOOLBAR (Immer sichtbar über dem Text) */}
+            <div className="flex items-center gap-2 p-2 px-4 overflow-x-auto hide-scrollbar border-b border-slate-100 dark:border-zinc-900 bg-slate-50 dark:bg-zinc-950 shrink-0 shadow-sm z-40">
+                {/* Textgrößen */}
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'H1'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><span className="font-extrabold text-sm">H1</span></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'H2'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><span className="font-bold text-sm">H2</span></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'P'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><span className="font-medium text-sm">T</span></button>
                 
-                {/* Lists */}
-                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('insertUnorderedList'); isDirtyRef.current=true;}} className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0"><Icon name="list" size={18} /></button>
-                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('insertOrderedList'); isDirtyRef.current=true;}} className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0"><Icon name="list-ordered" size={18} /></button>
+                <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
 
-                <div className="w-px bg-slate-200 dark:bg-zinc-800 mx-1 shrink-0"></div>
-
-                {/* Color & Media */}
-                <label className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm cursor-pointer flex items-center justify-center relative overflow-hidden shrink-0">
-                    <Icon name="palette" size={18} />
-                    <input type="color" className="absolute opacity-0 w-[200%] h-[200%] top-0 left-0 cursor-pointer" onChange={(e) => { document.execCommand('foreColor', false, e.target.value); isDirtyRef.current = true; }} />
-                </label>
-                <label className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm cursor-pointer shrink-0"><Icon name="image" size={18} /><input type="file" accept="image/*" multiple onChange={e=>handleFileUpload(e,'image')} className="hidden" /></label>
-                <label className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm cursor-pointer shrink-0" title="Bild im Text (Inline)"><Icon name="image-plus" size={18} /><input type="file" accept="image/*" onChange={handleInlineImage} className="hidden" /></label>
-                <button onClick={() => setIsDrawing(true)} className="p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0"><Icon name="pen-tool" size={18} /></button>
-                <button onClick={isRecording ? stopRecording : startRecording} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 ${isRecording ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-50 dark:bg-zinc-900 text-slate-500 hover:text-accent'}`}>{isRecording ? <Icon name="square" size={18}/> : <Icon name="mic" size={18}/>}</button>
+                {/* Formate */}
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('bold'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="bold" size={18} /></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('italic'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="italic" size={18} /></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="quote" size={18} /></button>
                 
-                <div className="w-px bg-slate-200 dark:bg-zinc-800 mx-1 shrink-0"></div>
+                {/* Listen */}
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('insertUnorderedList'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="list" size={18} /></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('insertOrderedList'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="list-ordered" size={18} /></button>
 
-                {/* Locks */}
-                <button onClick={()=>{setIsLocked(!isLocked); isDirtyRef.current=true;}} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 ${isLocked ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-500 border border-rose-200 dark:border-rose-900/50' : 'bg-slate-50 dark:bg-zinc-900 text-slate-500 hover:text-rose-500'}`}><Icon name="lock" size={18}/></button>
-                <button onClick={()=>{setIsManifested(!isManifested); isDirtyRef.current=true;}} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 ${isManifested ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-500 border border-amber-200 dark:border-amber-900/50' : 'bg-slate-50 dark:bg-zinc-900 text-slate-500 hover:text-amber-500'}`}><Icon name="sparkles" size={18}/></button>
+                <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
+
+                {/* Farben (Rund) */}
+                {EDITOR_COLORS.map(c => (
+                    <button key={c} onMouseDown={e=>{e.preventDefault(); document.execCommand('foreColor', false, c); isDirtyRef.current=true;}} className="w-8 h-8 rounded-full border-2 shadow-sm shrink-0 transition-transform hover:scale-110 active:scale-95" style={{backgroundColor: c, borderColor: isDarkColor(c) ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}}></button>
+                ))}
+
+                <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
+
+                {/* Medien & Zeichnen */}
+                <label className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm cursor-pointer shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="image" size={18} /><input type="file" accept="image/*" multiple onChange={e=>handleFileUpload(e,'image')} className="hidden" /></label>
+                <label className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm cursor-pointer shrink-0 border border-slate-100 dark:border-zinc-800" title="Bild im Text"><Icon name="image-plus" size={18} /><input type="file" accept="image/*" onChange={handleInlineImage} className="hidden" /></label>
+                <button onClick={() => setIsDrawing(true)} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="pen-tool" size={18} /></button>
+                <button onClick={isRecording ? stopRecording : startRecording} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800 ${isRecording ? 'bg-rose-500 text-white animate-pulse' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:text-accent'}`}>{isRecording ? <Icon name="square" size={18}/> : <Icon name="mic" size={18}/>}</button>
+                
+                <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
+
+                {/* Sicherheit */}
+                <button onClick={()=>{setIsLocked(!isLocked); isDirtyRef.current=true;}} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 border ${isLocked ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-500 border-rose-200 dark:border-rose-900/50' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:text-rose-500 border-slate-100 dark:border-zinc-800'}`}><Icon name="lock" size={18}/></button>
+                <button onClick={()=>{setIsManifested(!isManifested); isDirtyRef.current=true;}} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 border ${isManifested ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-500 border-amber-200 dark:border-amber-900/50' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:text-amber-500 border-slate-100 dark:border-zinc-800'}`}><Icon name="sparkles" size={18}/></button>
             </div>
             
-            {/* Editor Content Area */}
-            <div className="flex-1 p-4 md:p-8 overflow-y-auto custom-scrollbar flex flex-col max-w-3xl mx-auto w-full relative">
+            {/* 4. Text-Eingabebereich */}
+            <div className="flex-1 p-4 md:p-8 overflow-y-auto custom-scrollbar flex flex-col max-w-3xl mx-auto w-full relative bg-white dark:bg-black">
               
               {selectedImages.length > 0 && (
                   <div className="flex gap-4 mb-6 overflow-x-auto hide-scrollbar snap-x pb-4">
@@ -2204,8 +2223,6 @@ function App() {
                       <Icon name="book-open" size={24} className="shrink-0 mt-0.5 opacity-80" /> {pillarGuidance}
                   </div>
               )}
-
-              <input type="text" placeholder="Titel der Vision..." value={title} onChange={e=>{setTitle(e.target.value); isDirtyRef.current=true;}} className="w-full bg-transparent text-3xl sm:text-5xl font-extrabold tracking-tighter outline-none mb-6 placeholder-slate-300 dark:placeholder-zinc-700 text-slate-900 dark:text-white" />
 
               {audioUrl && (
                   <div className="mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 relative">
@@ -2226,21 +2243,25 @@ function App() {
               />
             </div>
 
-            {/* Editor Meta Bottom Bar (Tags, Rating, Location, Date) */}
+            {/* 5. Footer (Tags, People, Rating, TimeSeal, Location) */}
             <div className="p-3 border-t border-slate-100 dark:border-zinc-900 bg-white/90 dark:bg-black/90 backdrop-blur-xl shrink-0 flex items-center gap-3 overflow-x-auto hide-scrollbar z-50 pb-safe">
                <button onClick={()=>setPicker({title:'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c, value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;}})} className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs font-bold flex items-center gap-2 shrink-0">{category} <Icon name="chevron-down" size={12}/></button>
                
-               {/* Rating Component */}
                <div className="flex items-center gap-1 bg-slate-50 dark:bg-zinc-900 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0">
                   {[1,2,3,4,5].map(star => (
                       <Icon key={star} name="star" size={14} className={`cursor-pointer transition-colors ${rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-zinc-700'}`} onClick={() => {setRating(rating === star ? 0 : star); isDirtyRef.current=true;}} />
                   ))}
                </div>
 
-               {/* Tags Input */}
                <div className="flex items-center bg-slate-50 dark:bg-zinc-900 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
                    <Icon name="tag" size={12} className="text-slate-400 mr-2 shrink-0" />
                    <input type="text" placeholder="Tags (Komma...)" value={tags} onChange={e=>{setTags(e.target.value); isDirtyRef.current=true;}} className="bg-transparent border-none outline-none text-xs font-bold placeholder:opacity-50 w-full text-slate-900 dark:text-white" />
+               </div>
+
+               {/* Personen Eingabe am unteren Rand */}
+               <div className="flex items-center bg-slate-50 dark:bg-zinc-900 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
+                   <Icon name="user" size={12} className="text-slate-400 mr-2 shrink-0" />
+                   <input type="text" placeholder="Personen..." value={people} onChange={e=>{setPeople(e.target.value); isDirtyRef.current=true;}} className="bg-transparent border-none outline-none text-xs font-bold placeholder:opacity-50 w-full text-slate-900 dark:text-white" />
                </div>
 
                <div className={`relative px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 cursor-pointer overflow-hidden ${unlockDate ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}>
@@ -2252,7 +2273,36 @@ function App() {
                    if(location){setLocation(null); isDirtyRef.current=true; return;}
                    if(!("geolocation" in navigator)){showDialog({title:'Fehler', message:'Ortung nicht unterstützt.'}); return;}
                    navigator.geolocation.getCurrentPosition(p => { setLocation({lat: p.coords.latitude, lng: p.coords.longitude}); isDirtyRef.current=true; showDialog({title:'GPS erfasst', message:'Ort wurde gesichert.', icon:'map-pin'}); }, ()=>showDialog({title:'Fehler', message:'Ortung fehlgeschlagen.'}));
-               }} className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 ${location ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-900/50 text-amber-600 dark:text-amber-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}><Icon name="map-pin" size={14}/> {location ? 'Ort gesichert' : 'GPS-Siegel'}</button>
+               }} className={`px-3 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 ${location ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-900/50 text-amber-600 dark:text-amber-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}><Icon name="map-pin" size={14}/> {location ? 'Ort gesichert' : 'GPS-Siegel'}</button>
+            </div>
+          </div>
+        )}
+
+        {/* --- ZEICHNEN MODAL --- */}
+        {isDrawing && (
+          <div className="fixed inset-0 z-[300] bg-slate-900 flex flex-col no-print">
+            <header className="flex justify-between items-center p-4 bg-slate-950 text-white pt-safe border-b border-white/10">
+              <button onClick={() => setIsDrawing(false)} className="p-3 bg-white/10 rounded-2xl hover:bg-white/20 transition-colors"><Icon name="x"/></button>
+              <span className="font-bold">Zeichnen</span>
+              <button onClick={() => {
+                  if(canvasRef.current) {
+                      setSelectedImages(prev => [...prev, canvasRef.current.toDataURL()]);
+                      setIsDrawing(false);
+                      isDirtyRef.current = true;
+                  }
+              }} className="px-6 py-2 bg-accent text-black font-bold rounded-2xl">Fertig</button>
+            </header>
+            <div className="flex-1 bg-white relative touch-none">
+              <canvas ref={canvasRef} className="absolute inset-0 w-full h-full cursor-crosshair touch-none" onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing} onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
+            </div>
+            <div className="p-4 pb-safe bg-slate-950 flex justify-center border-t border-white/10">
+              <button onClick={() => {
+                  if(canvasRef.current){
+                      const ctx = canvasRef.current.getContext('2d');
+                      ctx.fillStyle = user.isDark ? '#18181b' : '#ffffff';
+                      ctx.fillRect(0,0,canvasRef.current.width, canvasRef.current.height);
+                  }
+              }} className="p-4 bg-white/10 rounded-2xl text-white hover:bg-white/20"><Icon name="eraser"/></button>
             </div>
           </div>
         )}
@@ -2266,7 +2316,7 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
 </script>
 
-<!-- Statische Service Worker Registrierung (Sicherer Standort außerhalb von Babel) -->
+<!-- Statische Service Worker Registrierung -->
 <script>
   if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
     window.addEventListener('load', () => {
