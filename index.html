@@ -560,6 +560,20 @@ function App() {
   const showTimelineRef = useRef(showTimeline);
   const viewRef = useRef(view);
 
+  const syncProfileToCloud = async (userData) => {
+      if (!fb || !fb.auth || !fb.auth.currentUser || !userData.cloudSync) return;
+      try { 
+          let payload = { timestamp: Date.now() };
+          if (userData.pin) {
+              const encrypted = await encryptData(JSON.stringify(userData), userData.pin); 
+              if (encrypted) payload.encryptedData = encrypted; 
+          } else {
+              payload.rawData = userData;
+          }
+          await fb.setDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', fb.auth.currentUser.uid, 'profile', 'data'), payload); 
+      } catch(e) {}
+  };
+
   // Sync state refs for popstate
   useEffect(() => {
       isDrawingRef.current = isDrawing;
@@ -577,6 +591,10 @@ function App() {
   useEffect(() => {
     if (isLoaded && user.name) {
        safeStorageSet('legacy_user', JSON.stringify(user));
+       const timer = setTimeout(() => {
+           syncProfileToCloud(user);
+       }, 1500);
+       return () => clearTimeout(timer);
     }
   }, [user, isLoaded]);
 
@@ -983,20 +1001,6 @@ function App() {
   const deleteSingleEntryFromCloud = async (id) => {
       if (!fb || !fb.auth.currentUser || !user.cloudSync) return;
       try { await fb.deleteDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', fb.auth.currentUser.uid, 'entries', id)); } catch(e) {}
-  };
-  
-  const syncProfileToCloud = async (userData) => {
-      if (!fb || !fb.auth.currentUser || !userData.cloudSync) return;
-      try { 
-          let payload = { timestamp: Date.now() };
-          if (userData.pin) {
-              const encrypted = await encryptData(JSON.stringify(userData), userData.pin); 
-              if (encrypted) payload.encryptedData = encrypted; 
-          } else {
-              payload.rawData = userData;
-          }
-          await fb.setDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', fb.auth.currentUser.uid, 'profile', 'data'), payload); 
-      } catch(e) {}
   };
 
   const performCloudSync = async () => {
@@ -2253,7 +2257,7 @@ function App() {
               </button>
               
               {/* Centered Floating Plus Button */}
-              <div className="absolute left-1/2 -translate-x-1/2 -top-5">
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
                   <button onClick={() => { setViewingEntry(null); openEditor(); }} className="w-16 h-16 rounded-[1.5rem] text-white dark:text-black shadow-xl flex items-center justify-center hover:scale-110 active:scale-90 transition-transform border-[4px] border-white dark:border-zinc-800" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') }}>
                     <Icon name="plus" size={32} />
                   </button>
@@ -2290,7 +2294,7 @@ function App() {
                    <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
                    
                    {/* Neuer Button: Cover ändern */}
-                   <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500 cursor-pointer hidden sm:flex items-center justify-center shadow-sm" title="Tagebuch-Cover ändern">
+                   <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500 cursor-pointer flex items-center justify-center shadow-sm" title="Tagebuch-Cover ändern">
                        <Icon name="image" size={22}/>
                        <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id)} className="hidden" />
                    </label>
@@ -2303,12 +2307,6 @@ function App() {
                   {viewingEntry.images && viewingEntry.images.length > 0 && (
                     <div className="relative w-full aspect-video rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-10 group bg-slate-100 dark:bg-zinc-900">
                         <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-contain transition-transform duration-700" alt="Cover" />
-                        
-                        {/* Cover ändern Button für Mobile Ansicht (sichtbar im Bild) */}
-                        <label className="absolute top-4 right-4 p-3 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md cursor-pointer sm:hidden z-10">
-                            <Icon name="image" size={16}/>
-                            <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id)} className="hidden" />
-                        </label>
 
                         {viewingEntry.images.length > 1 && (
                             <>
