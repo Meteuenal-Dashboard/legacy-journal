@@ -145,10 +145,10 @@
     .page-break-after { page-break-after: always; }
     .group { box-shadow: none !important; border: none !important; background: #ffffff !important; color: #000000 !important; page-break-inside: avoid; margin-bottom: 24px !important; }
     img { max-width: 100% !important; max-height: 500px !important; object-fit: contain !important; margin-bottom: 2rem !important; page-break-inside: avoid; border-radius: 0.5rem !important; }
-    * { color: #000000 !important; } 
-    h1, h2, h3 { page-break-after: avoid; }
+    * { color: #000000 !important; font-family: 'Inter', sans-serif !important; } 
+    h1, h2, h3 { page-break-after: avoid; font-family: 'Inter', sans-serif !important; }
     .print-title-page { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; text-align: center; }
-    .legacy-content { text-align: justify; hyphens: auto; }
+    .legacy-content { text-align: justify; hyphens: auto; font-family: 'Inter', sans-serif !important; }
   }
 </style>
 </head>
@@ -637,11 +637,7 @@ function App() {
                   try {
                       const parsed = JSON.parse(savedStr);
                       setUser(parsed);
-                      if (parsed.pin) {
-                          setView('pin_entry');
-                      } else {
-                          setView(parsed.name ? 'dashboard' : 'onboarding');
-                      }
+                      setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
                   } catch(e) { setView('auth'); }
               } else {
                   try {
@@ -655,6 +651,12 @@ function App() {
                               setUser({ ...user, ...data.rawData });
                               safeStorageSet('legacy_user', JSON.stringify(data.rawData));
                               setView('dashboard');
+                              return;
+                          }
+                      } else {
+                          const entriesSnap = await getDocs(collection(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'entries'));
+                          if (!entriesSnap.empty) {
+                              setView('cloud_pin_sync'); 
                               return;
                           }
                       }
@@ -1341,6 +1343,14 @@ function App() {
       return current; 
   };
 
+  const handleBackNavigation = () => {
+      if (['wisdom', 'map', 'burn', 'quotes', 'archive', 'trash', 'settings'].includes(view)) {
+          setView('menu');
+      } else {
+          setView('dashboard');
+      }
+  };
+
   const handleTouchStart = (e) => { setTouchStart(e.touches[0].clientX); };
   const handleTouchEnd = (e) => {
       if (!touchStart || !viewingEntry) return;
@@ -1429,7 +1439,7 @@ function App() {
       } 
   };
 
-  const handleBookCoverUpload = (e, rootId) => {
+  const handleBookCoverUpload = (e, targetId) => {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
@@ -1445,12 +1455,12 @@ function App() {
               canvas.getContext('2d').drawImage(img, 0, 0, width, height);
               const base64 = canvas.toDataURL('image/jpeg', 0.6);
 
-              const rootEntry = entries.find(ex => ex.id === rootId);
-              if (rootEntry) {
-                  const newImages = [base64, ...(rootEntry.images ? rootEntry.images.slice(1) : [])];
-                  saveToDB({...rootEntry, images: newImages});
-                  showDialog({ title: 'Cover aktualisiert', message: 'Das Hauptbild des Tagebuchs wurde geändert.', icon: 'check' });
-                  if (viewingEntry && viewingEntry.id === rootId) {
+              const targetEntry = entries.find(ex => ex.id === targetId);
+              if (targetEntry) {
+                  const newImages = [base64, ...(targetEntry.images ? targetEntry.images.slice(1) : [])];
+                  saveToDB({...targetEntry, images: newImages});
+                  showDialog({ title: 'Cover aktualisiert', message: 'Das Hauptbild dieses Eintrags wurde geändert.', icon: 'check' });
+                  if (viewingEntry && viewingEntry.id === targetId) {
                       setViewingEntry({...viewingEntry, images: newImages});
                   }
               }
@@ -1817,7 +1827,7 @@ function App() {
              <button onClick={() => handleUnlockSubmit(pinInput)} className="w-full py-4 font-bold rounded-2xl bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-transform shadow-md mb-3">Entsperren</button>
              
              {/* Biometric Fallback UI in PIN view if enabled */}
-             {safeStorageGet('legacy_bio_pin') && (
+             {user.biometric && safeStorageGet('legacy_bio_pin') && (
                 <button onClick={handleBiometricUnlock} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm flex items-center justify-center gap-2 mb-3"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
              )}
 
@@ -1882,7 +1892,7 @@ function App() {
                 <button type="button" onClick={() => setView('menu')} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="menu" size={18}/></button>
               </>
             )}
-            {view !== 'dashboard' && <button type="button" onClick={() => setView('dashboard')} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="x" size={18} /></button>}
+            {view !== 'dashboard' && <button type="button" onClick={handleBackNavigation} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="x" size={18} /></button>}
           </div>
 
           {isSearchOpen && view === 'dashboard' && (
@@ -2237,14 +2247,19 @@ function App() {
         {/* --- FLOATING BOTTOM NAV (Premium Style) --- */}
         {!showEditor && ['dashboard', 'menu'].includes(view) && (
           <nav className="floating-nav">
-            <div className="flex justify-around items-center h-[72px] px-2">
-              <button onClick={() => { setViewingEntry(null); if(view==='dashboard') setIsGridView(!isGridView); else setView('dashboard'); }} className={`flex-1 flex flex-col items-center justify-center py-2 transition-all rounded-full ${view === 'dashboard' && !viewingEntry ? 'text-accent scale-110' : 'text-slate-400 opacity-60 hover:opacity-100 hover:scale-105'}`} style={view === 'dashboard' && !viewingEntry ? { color: user.nameColor || '#000000' } : { color: 'inherit' }}>
+            <div className="relative flex justify-between items-center h-[72px] px-6">
+              <button onClick={() => { setViewingEntry(null); if(view==='dashboard') setIsGridView(!isGridView); else setView('dashboard'); }} className={`p-2 transition-all rounded-full ${view === 'dashboard' && !viewingEntry ? 'text-accent scale-110' : 'text-slate-400 opacity-60 hover:opacity-100 hover:scale-105'}`} style={view === 'dashboard' && !viewingEntry ? { color: user.nameColor || '#000000' } : { color: 'inherit' }}>
                 <Icon name={isGridView && view === 'dashboard' ? "list" : "layout-grid"} size={26} />
               </button>
-              <button onClick={() => { setViewingEntry(null); openEditor(); }} className="flex-none mx-2 w-16 h-16 rounded-[1.5rem] text-white dark:text-black shadow-xl flex items-center justify-center hover:scale-110 active:scale-90 transition-transform shrink-0 border-[4px] border-slate-50 dark:border-black -mt-8" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') }}>
-                <Icon name="plus" size={32} />
-              </button>
-              <button onClick={() => { setViewingEntry(null); setView('vault'); }} className={`flex-1 flex flex-col items-center justify-center py-2 transition-all rounded-full ${view === 'vault' && !viewingEntry ? 'text-rose-500 scale-110 shadow-inner bg-rose-50 dark:bg-rose-500/10' : 'text-slate-400 hover:text-rose-500 hover:scale-105'}`}>
+              
+              {/* Centered Floating Plus Button */}
+              <div className="absolute left-1/2 -translate-x-1/2 -top-5">
+                  <button onClick={() => { setViewingEntry(null); openEditor(); }} className="w-16 h-16 rounded-[1.5rem] text-white dark:text-black shadow-xl flex items-center justify-center hover:scale-110 active:scale-90 transition-transform border-[4px] border-white dark:border-zinc-800" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') }}>
+                    <Icon name="plus" size={32} />
+                  </button>
+              </div>
+
+              <button onClick={() => { setViewingEntry(null); setView('vault'); }} className={`p-2 transition-all rounded-full ${view === 'vault' && !viewingEntry ? 'text-rose-500 scale-110 shadow-inner bg-rose-50 dark:bg-rose-500/10' : 'text-slate-400 hover:text-rose-500 hover:scale-105'}`}>
                 <Icon name="lock" size={26} />
               </button>
             </div>
@@ -2261,6 +2276,11 @@ function App() {
 
            return (
              <div className="fixed inset-0 z-[80] overflow-y-auto bg-white dark:bg-black animate-fade-in custom-scrollbar flex flex-col screen-only" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+               
+               {/* Left/Right Floating Navigation for Desktop */}
+               {prevPage && <button onClick={() => setViewingEntry(prevPage)} className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 p-4 bg-white/50 dark:bg-black/50 backdrop-blur-md shadow-sm rounded-full hover:scale-110 active:scale-95 transition-transform z-50 text-slate-800 dark:text-white"><Icon name="chevron-left" size={24}/></button>}
+               {nextPage && <button onClick={() => setViewingEntry(nextPage)} className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 p-4 bg-white/50 dark:bg-black/50 backdrop-blur-md shadow-sm rounded-full hover:scale-110 active:scale-95 transition-transform z-50 text-slate-800 dark:text-white"><Icon name="chevron-right" size={24}/></button>}
+
                <div className="sticky top-0 z-40 flex justify-between items-center py-4 px-6 md:px-10 bg-white/90 dark:bg-black/90 backdrop-blur-xl border-b border-slate-100 dark:border-zinc-900 shrink-0 no-print transition-colors">
                  <div className="flex gap-3">
                    <button onClick={() => {setViewingEntry(null); setCurrentViewerImgIdx(0);}} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
@@ -2272,7 +2292,7 @@ function App() {
                    {/* Neuer Button: Cover ändern */}
                    <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500 cursor-pointer hidden sm:flex items-center justify-center shadow-sm" title="Tagebuch-Cover ändern">
                        <Icon name="image" size={22}/>
-                       <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, bookRoot?.id || viewingEntry.id)} className="hidden" />
+                       <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id)} className="hidden" />
                    </label>
 
                    <button onClick={() => { const e = viewingEntry; setViewingEntry(null); setTimeout(() => openEditor(e), 10); }} className="px-4 sm:px-6 py-3 rounded-2xl font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
@@ -2287,7 +2307,7 @@ function App() {
                         {/* Cover ändern Button für Mobile Ansicht (sichtbar im Bild) */}
                         <label className="absolute top-4 right-4 p-3 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md cursor-pointer sm:hidden z-10">
                             <Icon name="image" size={16}/>
-                            <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, bookRoot?.id || viewingEntry.id)} className="hidden" />
+                            <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id)} className="hidden" />
                         </label>
 
                         {viewingEntry.images.length > 1 && (
@@ -2700,51 +2720,4 @@ function App() {
               <h3 className="text-2xl font-extrabold tracking-tight mb-3">{dialog.title}</h3>
               <p className="text-sm font-medium opacity-70 mb-8 leading-relaxed px-2" dangerouslySetInnerHTML={{__html: dialog.message}}></p>
               <div className="flex flex-col gap-3 w-full">
-                <button onClick={() => { if(dialog.onConfirm) dialog.onConfirm(); setDialog(null); }} className="w-full py-4 rounded-2xl font-bold shadow-md active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>{dialog.confirmLabel || 'Okay'}</button>
-                {dialog.onCancel && <button onClick={() => { if(dialog.onCancel) dialog.onCancel(); setDialog(null); }} className="w-full py-4 rounded-2xl font-bold bg-slate-100 dark:bg-zinc-800 active:scale-95 transition-transform">Abbrechen</button>}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* --- PIN UNLOCK MODAL --- */}
-        {unlockTarget && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setUnlockTarget(null)}>
-            <div className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up" onClick={e => e.stopPropagation()}>
-              <div className="w-20 h-20 bg-slate-50 dark:bg-zinc-950 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100 dark:border-zinc-800"><Icon name="lock" size={32} style={{ color: user.nameColor || '#f59e0b' }} /></div>
-              <h3 className="text-2xl font-extrabold tracking-tight mb-2">Tresor entsperren</h3>
-              <p className="text-xs font-bold uppercase tracking-widest opacity-40 mb-8 truncate w-full px-4">"{unlockTarget.title}"</p>
-              <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submitPin()} className={`w-full p-4 text-center text-4xl tracking-[0.5em] rounded-2xl bg-slate-50 dark:bg-zinc-950 border-2 outline-none mb-6 transition-colors placeholder:opacity-30 ${pinError ? 'border-rose-500' : 'border-transparent focus:border-slate-300 dark:focus:border-zinc-700'}`} placeholder="••••" />
-              <div className="flex gap-3 w-full mb-4">
-                <button onClick={() => setUnlockTarget(null)} className="flex-1 py-4 font-bold rounded-2xl bg-slate-100 dark:bg-zinc-800 active:scale-95 transition-transform">Abbrechen</button>
-                <button onClick={submitPin} className="flex-1 py-4 rounded-2xl font-bold shadow-md active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || '#f59e0b', color: isDarkColor(user.nameColor || '#f59e0b') ? '#ffffff' : '#000000' }}>Öffnen</button>
-              </div>
-              {safeStorageGet('legacy_bio_pin') && (
-                <button onClick={handleBiometricUnlock} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm flex items-center justify-center gap-2"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
-              )}
-            </div>
-          </div>
-        )}
-
-      </div>
-    </ErrorBoundary>
-  );
-}
-
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
-</script>
-
-<!-- Statische Service Worker Registrierung (Sicherer Standort außerhalb von Babel) -->
-<script>
-  if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then(reg => console.log('SW Aktiv'))
-        .catch(err => console.warn('SW Registrierung übersprungen'));
-    });
-  }
-</script>
-
-</body>
-</html>
+                <button onClick={() => { if(dialog.onConfirm) dialog.onConfirm(); setDialog(null); }}
