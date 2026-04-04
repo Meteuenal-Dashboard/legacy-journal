@@ -2375,14 +2375,14 @@ function App() {
         {viewingEntry && !showEditor && (
           <div className="print-only w-full max-w-4xl mx-auto p-8">
             <div className="print-title-page page-break-after">
-               <h1 style={{fontSize: '56px', marginBottom: '20px'}}>{user.appName || 'Legacy Vision Journal'}</h1>
+               <h1 style={{fontSize: '56px', marginBottom: '20px', fontFamily: 'Inter, sans-serif'}}>{user.appName || 'Legacy Vision Journal'}</h1>
                <h3 style={{fontSize: '24px', opacity: 0.6}}>Verfasst von {user.name}</h3>
                {user.motto && <p style={{marginTop: '40px', fontStyle: 'italic'}}>{user.motto}</p>}
                <p style={{position: 'absolute', bottom: '40px', left: '0', right: '0', textAlign: 'center'}}>Generiert am {new Date().toLocaleDateString('de-DE')}</p>
             </div>
             
             <div className="print-toc page-break-after">
-               <h2 style={{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px'}}>Inhaltsverzeichnis</h2>
+               <h2 style={{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px', fontFamily: 'Inter, sans-serif'}}>Inhaltsverzeichnis</h2>
                <ul style={{listStyle: 'none', padding: 0}}>
                    {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
                        <li key={idx} style={{marginBottom: '15px', fontSize: '18px'}}><strong>{idx+1}.</strong> {e.title || 'Ohne Titel'}</li>
@@ -2394,7 +2394,7 @@ function App() {
                {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
                    <div key={e.id} className="page-break-after" style={{ marginBottom: '60px', paddingTop: '20px' }}>
                        <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
-                           <h1 style={{ fontSize: '36px', fontWeight: 'bold', marginBottom: '10px' }}>{e.title || 'Ohne Titel'}</h1>
+                           <h1 style={{ fontSize: '36px', fontWeight: 'bold', marginBottom: '10px', fontFamily: 'Inter, sans-serif' }}>{e.title || 'Ohne Titel'}</h1>
                            <p style={{ opacity: 0.6, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '12px' }}>
                                {new Date(e.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category || 'Allgemein'}
                            </p>
@@ -2720,4 +2720,51 @@ function App() {
               <h3 className="text-2xl font-extrabold tracking-tight mb-3">{dialog.title}</h3>
               <p className="text-sm font-medium opacity-70 mb-8 leading-relaxed px-2" dangerouslySetInnerHTML={{__html: dialog.message}}></p>
               <div className="flex flex-col gap-3 w-full">
-                <button onClick={() => { if(dialog.onConfirm) dialog.onConfirm(); setDialog(null); }}
+                <button onClick={() => { if(dialog.onConfirm) dialog.onConfirm(); setDialog(null); }} className="w-full py-4 rounded-2xl font-bold shadow-md active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>{dialog.confirmLabel || 'Okay'}</button>
+                {dialog.onCancel && <button onClick={() => { if(dialog.onCancel) dialog.onCancel(); setDialog(null); }} className="w-full py-4 rounded-2xl font-bold bg-slate-100 dark:bg-zinc-800 active:scale-95 transition-transform">Abbrechen</button>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- PIN UNLOCK MODAL --- */}
+        {unlockTarget && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setUnlockTarget(null)}>
+            <div className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up" onClick={e => e.stopPropagation()}>
+              <div className="w-20 h-20 bg-slate-50 dark:bg-zinc-950 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100 dark:border-zinc-800"><Icon name="lock" size={32} style={{ color: user.nameColor || '#f59e0b' }} /></div>
+              <h3 className="text-2xl font-extrabold tracking-tight mb-2">Tresor entsperren</h3>
+              <p className="text-xs font-bold uppercase tracking-widest opacity-40 mb-8 truncate w-full px-4">"{unlockTarget.title}"</p>
+              <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submitPin()} className={`w-full p-4 text-center text-4xl tracking-[0.5em] rounded-2xl bg-slate-50 dark:bg-zinc-950 border-2 outline-none mb-6 transition-colors placeholder:opacity-30 ${pinError ? 'border-rose-500' : 'border-transparent focus:border-slate-300 dark:focus:border-zinc-700'}`} placeholder="••••" />
+              <div className="flex gap-3 w-full mb-4">
+                <button onClick={() => setUnlockTarget(null)} className="flex-1 py-4 font-bold rounded-2xl bg-slate-100 dark:bg-zinc-800 active:scale-95 transition-transform">Abbrechen</button>
+                <button onClick={submitPin} className="flex-1 py-4 rounded-2xl font-bold shadow-md active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || '#f59e0b', color: isDarkColor(user.nameColor || '#f59e0b') ? '#ffffff' : '#000000' }}>Öffnen</button>
+              </div>
+              {user.biometric && safeStorageGet('legacy_bio_pin') && (
+                <button onClick={handleBiometricUnlock} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm flex items-center justify-center gap-2"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
+              )}
+            </div>
+          </div>
+        )}
+
+      </div>
+    </ErrorBoundary>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+
+<!-- Statische Service Worker Registrierung (Sicherer Standort außerhalb von Babel) -->
+<script>
+  if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('SW Aktiv'))
+        .catch(err => console.warn('SW Registrierung übersprungen'));
+    });
+  }
+</script>
+
+</body>
+</html>
