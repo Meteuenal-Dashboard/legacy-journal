@@ -666,9 +666,27 @@ function App() {
                               setView('cloud_pin_sync'); 
                               return;
                           } else if (data.rawData) {
-                              setUser({ ...user, ...data.rawData });
-                              safeStorageSet('legacy_user', JSON.stringify(data.rawData));
-                              setView('dashboard');
+                              const loadedUser = { ...user, ...data.rawData };
+                              setUser(loadedUser);
+                              safeStorageSet('legacy_user', JSON.stringify(loadedUser));
+                              
+                              const entriesSnap = await getDocs(collection(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'entries'));
+                              if (!entriesSnap.empty) {
+                                  const tx = db.transaction('entries', 'readwrite'); 
+                                  const store = tx.objectStore('entries');
+                                  entriesSnap.forEach(d => {
+                                      if (d.data().rawData) store.put(d.data().rawData);
+                                  });
+                                  tx.oncomplete = () => {
+                                      const req = db.transaction('entries', 'readonly').objectStore('entries').getAll();
+                                      req.onsuccess = () => {
+                                          setEntries((req.result || []).sort(sortEntriesDesc));
+                                          setView('dashboard');
+                                      };
+                                  };
+                              } else {
+                                  setView('dashboard');
+                              }
                               return;
                           }
                       } else {
@@ -919,7 +937,7 @@ function App() {
               const decProfile = await decryptData(profileSnap.data().encryptedData, pinValue);
               if (decProfile) {
                   const parsedUser = JSON.parse(decProfile);
-                  const mergedUser = { ...parsedUser, pin: pinValue, cloudSync: true };
+                  const mergedUser = { ...user, ...parsedUser, pin: pinValue, cloudSync: true };
                   setUser(mergedUser);
                   safeStorageSet('legacy_user', JSON.stringify(mergedUser));
                   setPinInput('');
@@ -1009,9 +1027,19 @@ function App() {
       try {
           try {
               const profileSnap = await fb.getDoc(fb.doc(fb.db, 'artifacts', appId, 'users', userId, 'profile', 'data'));
-              if (profileSnap.exists() && profileSnap.data().encryptedData && user.pin) {
-                  const decProfile = await decryptData(profileSnap.data().encryptedData, user.pin);
-                  if (decProfile) setUser({ ...user, ...JSON.parse(decProfile), cloudSync: true });
+              if (profileSnap.exists()) {
+                  if (profileSnap.data().encryptedData && user.pin) {
+                      const decProfile = await decryptData(profileSnap.data().encryptedData, user.pin);
+                      if (decProfile) {
+                          const parsed = JSON.parse(decProfile);
+                          setUser(prev => ({ ...prev, ...parsed, cloudSync: true }));
+                          safeStorageSet('legacy_user', JSON.stringify(parsed));
+                      }
+                  } else if (profileSnap.data().rawData) {
+                      const raw = profileSnap.data().rawData;
+                      setUser(prev => ({ ...prev, ...raw, cloudSync: true }));
+                      safeStorageSet('legacy_user', JSON.stringify(raw));
+                  }
               }
           } catch(e) {}
 
@@ -2307,6 +2335,12 @@ function App() {
                   {viewingEntry.images && viewingEntry.images.length > 0 && (
                     <div className="relative w-full aspect-video rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-10 group bg-slate-100 dark:bg-zinc-900">
                         <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-contain transition-transform duration-700" alt="Cover" />
+                        
+                        {/* Cover ändern Button für Mobile Ansicht (sichtbar im Bild) */}
+                        <label className="absolute top-4 right-4 p-3 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md cursor-pointer sm:hidden z-10">
+                            <Icon name="image" size={16}/>
+                            <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id)} className="hidden" />
+                        </label>
 
                         {viewingEntry.images.length > 1 && (
                             <>
