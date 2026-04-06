@@ -360,7 +360,7 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
         )}
         {hasImages && (
           <div className="w-full h-48 sm:h-56 relative overflow-hidden bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
-            <img src={entry.images[0]} className="w-full h-full object-contain transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
+            <img src={entry.images[0]} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
           </div>
         )}
         <div className="p-6 relative z-10 flex-1 flex flex-col">
@@ -770,15 +770,19 @@ function App() {
     const q = fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries');
     const unsubscribe = fb.onSnapshot(q, async (snapshot) => {
         const rawEntries = [];
-        snapshot.forEach(d => rawEntries.push(d.data()));
+        snapshot.forEach(d => rawEntries.push({ ...d.data(), firestoreId: d.id }));
         const decEntries = await Promise.all(rawEntries.map(async (docData) => {
-            if (docData.encryptedData && user.pin) {
-               const decStr = await decryptData(docData.encryptedData, user.pin);
-               if (decStr) { 
-                   try { return { ...JSON.parse(decStr), id: docData.id }; } catch(e){} 
+            if (docData.encryptedData) {
+               if (user.pin) {
+                   const decStr = await decryptData(docData.encryptedData, user.pin);
+                   if (decStr) { 
+                       try { return { ...JSON.parse(decStr), id: docData.id || docData.firestoreId, encryptedData: docData.encryptedData }; } catch(e){} 
+                   }
                }
+               // Tresor Eintrag sichern, falls PIN noch nicht aktiv ist, anstatt ihn zu verwerfen
+               return { id: docData.id || docData.firestoreId, locked: true, encryptedData: docData.encryptedData, title: 'Verschlüsselter Eintrag', date: docData.timestamp || getLocalISO(), orderTimestamp: docData.timestamp || getLocalISO() };
             } else if (docData.rawData) {
-                return { ...docData.rawData, id: docData.id };
+                return { ...docData.rawData, id: docData.id || docData.firestoreId };
             }
             return null;
         }));
@@ -976,11 +980,14 @@ function App() {
               if (cData.encryptedData) {
                   const decStr = await decryptData(cData.encryptedData, pinValue);
                   if (decStr) { 
-                      entriesToSave.push(JSON.parse(decStr)); 
+                      entriesToSave.push({ ...JSON.parse(decStr), id: doc.id, encryptedData: cData.encryptedData }); 
                       successCount++; 
-                  } else { failCount++; }
+                  } else { 
+                      entriesToSave.push({ id: doc.id, locked: true, encryptedData: cData.encryptedData, title: 'Verschlüsselter Eintrag', date: cData.timestamp || getLocalISO(), orderTimestamp: cData.timestamp || getLocalISO() });
+                      failCount++; 
+                  }
               } else if (cData.rawData) {
-                  entriesToSave.push(cData.rawData); 
+                  entriesToSave.push({ ...cData.rawData, id: doc.id }); 
                   successCount++;
               }
           }
@@ -1078,23 +1085,25 @@ function App() {
           } catch(e) {}
 
           const cloudSnap = await fb.getDocs(fb.collection(fb.db, 'artifacts', appId, 'users', userId, 'entries'));
-          const cloudEntries = []; cloudSnap.forEach(doc => cloudEntries.push(doc.data()));
+          const cloudEntries = []; cloudSnap.forEach(doc => cloudEntries.push({ ...doc.data(), firestoreId: doc.id }));
           if (cloudEntries.length === 0) { showDialog({ title: 'Cloud leer', message: 'Keine Cloud-Einträge gefunden.', icon: 'cloud-off' }); setSyncingCloud(false); return; }
 
           let recoveredCount = 0; let failedDecrypt = 0; const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries');
           for (let cloudDoc of cloudEntries) {
               if (cloudDoc.encryptedData) {
                   try {
-                      if (!user.pin) { failedDecrypt++; continue; }
-                      const decryptedStr = await decryptData(cloudDoc.encryptedData, user.pin);
-                      if (decryptedStr) {
-                          let dbItem = { ...JSON.parse(decryptedStr) };
-                          if (dbItem.locked) { const payload = JSON.stringify({ text: dbItem.text || '', title: dbItem.title || '' }); dbItem.encryptedData = await encryptData(payload, user.pin); dbItem.text = ''; dbItem.title = 'Verschlüsselter Eintrag'; }
-                          store.put(dbItem); recoveredCount++;
-                      } else failedDecrypt++;
+                      let dbItem = { id: cloudDoc.id || cloudDoc.firestoreId, locked: true, encryptedData: cloudDoc.encryptedData, title: 'Verschlüsselter Eintrag', date: cloudDoc.timestamp || getLocalISO(), orderTimestamp: cloudDoc.timestamp || getLocalISO() };
+                      if (user.pin) {
+                          const decryptedStr = await decryptData(cloudDoc.encryptedData, user.pin);
+                          if (decryptedStr) {
+                              dbItem = { ...JSON.parse(decryptedStr), id: cloudDoc.id || cloudDoc.firestoreId, encryptedData: cloudDoc.encryptedData };
+                              recoveredCount++;
+                          } else { failedDecrypt++; }
+                      } else { failedDecrypt++; }
+                      store.put(dbItem);
                   } catch(e) { failedDecrypt++; }
               } else if (cloudDoc.rawData) {
-                  store.put(cloudDoc.rawData); recoveredCount++;
+                  store.put({ ...cloudDoc.rawData, id: cloudDoc.id || cloudDoc.firestoreId }); recoveredCount++;
               }
           }
           tx.oncomplete = () => {
@@ -1513,13 +1522,13 @@ function App() {
           const img = new Image();
           img.onload = () => {
               const canvas = document.createElement('canvas');
-              const MAX_SIZE = 800;
+              const MAX_SIZE = 1920;
               let width = img.width; let height = img.height;
               if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } }
               else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
               canvas.width = width; canvas.height = height;
               canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-              const base64 = canvas.toDataURL('image/jpeg', 0.6);
+              const base64 = canvas.toDataURL('image/jpeg', 0.95);
 
               const targetEntry = entries.find(ex => ex.id === targetId);
               if (targetEntry) {
@@ -1541,7 +1550,7 @@ function App() {
     const files = Array.from(e.target.files);
     if (!files.length) return;
     if (type === 'image') {
-      const MAX_SIZE = 800; 
+      const MAX_SIZE = 1920; 
       const processedPromises = files.map(file => {
           return new Promise((resolve) => {
               const reader = new FileReader();
@@ -1554,7 +1563,7 @@ function App() {
                       else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
                       canvas.width = width; canvas.height = height;
                       canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                      resolve(canvas.toDataURL('image/jpeg', 0.6)); 
+                      resolve(canvas.toDataURL('image/jpeg', 0.95)); 
                   };
                   img.src = event.target.result;
               };
@@ -2632,10 +2641,19 @@ function App() {
                            else if (wcode <= 67) wStr += ' 🌧️';
                            else if (wcode <= 79) wStr += ' 🌨️';
                            else if (wcode <= 99) wStr += ' ⛈️';
-                           setWeather(wStr);
+                           
+                           let cityStr = "Ort unbekannt";
+                           try {
+                               const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+                               const geoData = await geoRes.json();
+                               cityStr = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.county || "Ort";
+                           } catch(err) {}
+                           
+                           const timeStr = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                           setWeather(`${cityStr} • ${timeStr} Uhr • ${wStr}`);
                        } catch(e) {}
                        isDirtyRef.current=true; 
-                       showDialog({title:'GPS erfasst', message:'Ort und Wetter wurden gesichert.', icon:'map-pin'}); 
+                       showDialog({title:'GPS erfasst', message:'Ort, Zeit und Wetter wurden gesichert.', icon:'map-pin'}); 
                    }, ()=>showDialog({title:'Fehler', message:'Ortung fehlgeschlagen.'}));
                }} className={`h-10 px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 ${location ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-900/50 text-amber-600 dark:text-amber-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}><Icon name="map-pin" size={14}/> {location ? 'Ort gesichert' : 'GPS-Siegel'}</button>
             </div>
