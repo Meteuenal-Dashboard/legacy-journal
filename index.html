@@ -359,9 +359,8 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
           </div>
         )}
         {hasImages && (
-          <div className="w-full h-48 sm:h-56 relative overflow-hidden bg-slate-100 dark:bg-zinc-800">
-            <img src={entry.images[0]} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+          <div className="w-full h-48 sm:h-56 relative overflow-hidden bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
+            <img src={entry.images[0]} className="w-full h-full object-contain transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
           </div>
         )}
         <div className="p-6 relative z-10 flex-1 flex flex-col">
@@ -931,48 +930,83 @@ function App() {
   const handleCloudRestore = async (pinValue) => {
       if (!pinValue) return;
       setPinError(false);
+      setView('loading');
+      
       try {
+          let restoredUser = { ...user, pin: pinValue, cloudSync: true };
+          
+          // 1. Profil abrufen
           const profileSnap = await fb.getDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'profile', 'data'));
-          if (profileSnap.exists() && profileSnap.data().encryptedData) {
-              const decProfile = await decryptData(profileSnap.data().encryptedData, pinValue);
-              if (decProfile) {
-                  const parsedUser = JSON.parse(decProfile);
-                  const mergedUser = { ...user, ...parsedUser, pin: pinValue, cloudSync: true };
-                  setUser(mergedUser);
-                  safeStorageSet('legacy_user', JSON.stringify(mergedUser));
-                  setPinInput('');
-                  setView('loading');
-                  
-                  const cloudSnap = await fb.getDocs(fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries'));
-                  const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries');
-                  let count = 0;
-                  const cloudDocs = []; cloudSnap.forEach(d => cloudDocs.push(d.data()));
-                  for (let cloudDoc of cloudDocs) {
-                      if (cloudDoc.encryptedData) {
-                          const decryptedStr = await decryptData(cloudDoc.encryptedData, pinValue);
-                          if (decryptedStr) {
-                              store.put({ ...JSON.parse(decryptedStr) });
-                              count++;
-                          }
-                      } else if (cloudDoc.rawData) {
-                          store.put(cloudDoc.rawData); count++;
-                      }
+          if (profileSnap.exists()) {
+              const pData = profileSnap.data();
+              if (pData.encryptedData) {
+                  const decP = await decryptData(pData.encryptedData, pinValue);
+                  if (decP) {
+                      restoredUser = { ...restoredUser, ...JSON.parse(decP) };
+                  } else {
+                      setPinError(true); setTimeout(() => setPinError(false), 1000); setPinInput('');
+                      setView('cloud_pin_sync');
+                      return; // Falsche PIN
                   }
-                  tx.oncomplete = () => {
-                      const req = db.transaction('entries', 'readonly').objectStore('entries').getAll();
-                      req.onsuccess = async () => {
-                          let loadedEntries = req.result || [];
-                          loadedEntries = loadedEntries.map(e => ({ ...e, images: e.images || (e.image ? [e.image] : []) }));
-                          setEntries(loadedEntries.sort(sortEntriesDesc));
-                          setView('dashboard');
-                          showDialog({ title: 'Willkommen zurück', message: `Deine Daten (${count} Einträge) wurden erfolgreich synchronisiert!`, icon: 'cloud-download' });
-                      };
-                  }
-              } else {
-                  setPinError(true); setTimeout(() => setPinError(false), 1000); setPinInput('');
+              } else if (pData.rawData) {
+                  restoredUser = { ...restoredUser, ...pData.rawData };
               }
           }
+
+          // User lokal speichern
+          setUser(restoredUser);
+          safeStorageSet('legacy_user', JSON.stringify(restoredUser));
+          setPinInput('');
+          
+          // 2. Einträge abrufen
+          const cloudSnap = await fb.getDocs(fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries'));
+          
+          if (cloudSnap.empty) {
+              setView('dashboard');
+              showDialog({ title: 'Erfolg', message: 'Profil wiederhergestellt. Keine Einträge gefunden.', icon: 'check' });
+              return;
+          }
+
+          // 3. Einträge entschlüsseln & in DB speichern
+          let successCount = 0; let failCount = 0;
+          const entriesToSave = [];
+          
+          for (let doc of cloudSnap.docs) {
+              const cData = doc.data();
+              if (cData.encryptedData) {
+                  const decStr = await decryptData(cData.encryptedData, pinValue);
+                  if (decStr) { 
+                      entriesToSave.push(JSON.parse(decStr)); 
+                      successCount++; 
+                  } else { failCount++; }
+              } else if (cData.rawData) {
+                  entriesToSave.push(cData.rawData); 
+                  successCount++;
+              }
+          }
+
+          // 4. Batch-Put in IndexedDB
+          const tx = db.transaction('entries', 'readwrite');
+          const store = tx.objectStore('entries');
+          entriesToSave.forEach(e => store.put(e));
+          
+          tx.oncomplete = () => {
+              const req = db.transaction('entries', 'readonly').objectStore('entries').getAll();
+              req.onsuccess = () => {
+                  let loadedEntries = req.result || [];
+                  loadedEntries = loadedEntries.filter(e => e != null);
+                  loadedEntries = loadedEntries.map(e => ({ ...e, images: e.images || (e.image ? [e.image] : []) }));
+                  setEntries(loadedEntries.sort(sortEntriesDesc));
+                  setView('dashboard');
+                  if (failCount > 0) {
+                      showDialog({ title: 'Teilweiser Erfolg', message: `${successCount} geladen, aber ${failCount} fehlgeschlagen. Falsche PIN?`, icon: 'shield-alert' });
+                  } else {
+                      showDialog({ title: 'Willkommen zurück', message: `Deine Daten (${successCount} Einträge) wurden erfolgreich synchronisiert!`, icon: 'cloud-download' });
+                  }
+              };
+          };
       } catch(e) {
+          setView('cloud_pin_sync');
           showDialog({title: 'Fehler', message: 'Verbindungsfehler zur Cloud.', icon: 'x'});
       }
   };
@@ -2232,7 +2266,7 @@ function App() {
                    <div className="text-center py-20 opacity-40"><Icon name="quote" size={56} className="mx-auto mb-6"/><p className="font-bold text-lg">Noch keine Erkenntnisse zitiert.</p></div>
                 ) : (
                    allQuotes.map(q => (
-                      <div key={q.id} onClick={()=>{const e=entries.find(x=>x && x.id===q.entryId); if(e){setView('dashboard'); handleOpenEntry(e);}}} className="p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border shadow-sm cursor-pointer hover:-translate-y-1 hover:shadow-md transition-all relative overflow-hidden" style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
+                      <div key={q.id} onClick={()=>{const e=entries.find(x=>x && x.id===q.entryId); if(e){ handleOpenEntry(e);}}} className="p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border shadow-sm cursor-pointer hover:-translate-y-1 hover:shadow-md transition-all relative overflow-hidden" style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
                          <div className="flex gap-4 items-start">
                              <div className="shrink-0 mt-1" style={{ color: user.nameColor }}><Icon name="quote" size={28} /></div>
                              <div className="flex-1">
@@ -2322,9 +2356,9 @@ function App() {
                    <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
                    
                    {/* Neuer Button: Cover ändern */}
-                   <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500 cursor-pointer flex items-center justify-center shadow-sm" title="Tagebuch-Cover ändern">
+                   <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500 cursor-pointer hidden sm:flex items-center justify-center shadow-sm" title="Tagebuch-Cover ändern">
                        <Icon name="image" size={22}/>
-                       <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id)} className="hidden" />
+                       <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, bookRoot?.id || viewingEntry.id)} className="hidden" />
                    </label>
 
                    <button onClick={() => { const e = viewingEntry; setViewingEntry(null); setTimeout(() => openEditor(e), 10); }} className="px-4 sm:px-6 py-3 rounded-2xl font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
@@ -2333,13 +2367,13 @@ function App() {
 
                <div className="max-w-3xl w-full mx-auto p-6 sm:p-12 pb-32 screen-only flex-1 flex flex-col">
                   {viewingEntry.images && viewingEntry.images.length > 0 && (
-                    <div className="relative w-full aspect-video rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-10 group bg-slate-100 dark:bg-zinc-900">
+                    <div className="relative w-full aspect-video rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-10 group bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
                         <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-contain transition-transform duration-700" alt="Cover" />
                         
                         {/* Cover ändern Button für Mobile Ansicht (sichtbar im Bild) */}
                         <label className="absolute top-4 right-4 p-3 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md cursor-pointer sm:hidden z-10">
                             <Icon name="image" size={16}/>
-                            <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id)} className="hidden" />
+                            <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, bookRoot?.id || viewingEntry.id)} className="hidden" />
                         </label>
 
                         {viewingEntry.images.length > 1 && (
@@ -2445,10 +2479,10 @@ function App() {
 
         {/* --- EDITOR MODAL --- */}
         {showEditor && (
-          <div className="fixed inset-0 bg-white dark:bg-black z-[200] flex flex-col h-[100dvh] overflow-hidden page-transition">
+          <div className="fixed top-0 left-0 right-0 bottom-0 bg-white dark:bg-black z-[200] flex flex-col overflow-hidden page-transition">
             
             {/* 1. Header (Immer ganz oben) */}
-            <header className="flex justify-between items-center p-4 sm:p-6 shrink-0 z-50 pt-safe bg-white/95 dark:bg-black/95 border-b border-slate-100 dark:border-zinc-900">
+            <header className="flex-none flex justify-between items-center p-4 sm:p-6 shrink-0 z-50 pt-safe bg-white/95 dark:bg-black/95 border-b border-slate-100 dark:border-zinc-900">
                 <button onClick={()=>checkSaveEntry(true)} className="p-3 bg-slate-100 dark:bg-zinc-900 rounded-2xl text-slate-900 dark:text-white hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
                 <div className="flex items-center gap-4">
                     <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">{autoSaveStatus}</span>
@@ -2457,12 +2491,12 @@ function App() {
             </header>
 
             {/* 2. Titel Eingabe (Durchgehende Linie) */}
-            <div className="px-4 sm:px-8 pt-6 pb-2 shrink-0 bg-white dark:bg-black z-40 border-b-[3px] border-slate-200 dark:border-zinc-800 focus-within:border-accent transition-colors">
+            <div className="flex-none px-4 sm:px-8 pt-6 pb-2 shrink-0 bg-white dark:bg-black z-40 border-b-[3px] border-slate-200 dark:border-zinc-800 focus-within:border-accent transition-colors">
               <input type="text" placeholder="Titel der Vision..." value={title} onChange={e=>{setTitle(e.target.value); isDirtyRef.current=true;}} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tighter outline-none pb-3 placeholder-slate-300 dark:placeholder-zinc-700 text-slate-900 dark:text-white" />
             </div>
 
             {/* 3. STICKY TOOLBAR (Immer sichtbar über dem Text) */}
-            <div className="flex items-center gap-2 p-2 px-4 overflow-x-auto hide-scrollbar border-b border-slate-100 dark:border-zinc-900 bg-slate-50 dark:bg-zinc-950 shrink-0 shadow-sm z-40">
+            <div className="flex-none flex items-center gap-2 p-2 px-4 overflow-x-auto hide-scrollbar border-b border-slate-100 dark:border-zinc-900 bg-slate-50 dark:bg-zinc-950 shrink-0 shadow-sm z-40">
                 {/* Textgrößen */}
                 <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'H1'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><span className="font-extrabold text-sm">H1</span></button>
                 <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'H2'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><span className="font-bold text-sm">H2</span></button>
@@ -2501,56 +2535,57 @@ function App() {
             </div>
             
             {/* 4. Text-Eingabebereich */}
-            <div className="flex-1 p-4 md:p-8 overflow-y-auto custom-scrollbar flex flex-col w-full bg-white dark:bg-black relative">
-              
-              {/* Cover-Bilder GANZ OBEN im Editor, zentriert und groß */}
-              {selectedImages.length > 0 && (
-                  <div className="mb-8 w-full max-w-3xl mx-auto flex flex-col items-center">
-                      <div className="relative w-full h-48 sm:h-64 rounded-[2rem] overflow-hidden shadow-sm group border border-slate-200 dark:border-zinc-800 shrink-0">
-                          <img src={selectedImages[0]} className="w-full h-full object-cover" />
-                          <button onClick={()=>{setSelectedImages(prev=>prev.slice(1)); isDirtyRef.current=true;}} className="absolute top-4 right-4 p-3 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"><Icon name="x" size={16}/></button>
-                      </div>
-                      {selectedImages.length > 1 && (
-                          <div className="flex gap-3 mt-4 overflow-x-auto hide-scrollbar snap-x w-full max-w-full">
-                              {selectedImages.slice(1).map((img, i) => (
-                                  <div key={i+1} className="relative w-24 h-24 rounded-2xl overflow-hidden shadow-sm shrink-0 snap-start group border border-slate-200 dark:border-zinc-800">
-                                      <img src={img} className="w-full h-full object-cover" />
-                                      <button onClick={()=>{setSelectedImages(prev=>prev.filter((_,idx)=>idx!==i+1)); isDirtyRef.current=true;}} className="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"><Icon name="x" size={10}/></button>
-                                  </div>
-                              ))}
+            <div className="flex-auto overflow-y-auto relative bg-white dark:bg-black custom-scrollbar">
+              <div className="p-4 md:p-8 max-w-3xl mx-auto w-full flex flex-col">
+                  {/* Cover-Bilder GANZ OBEN im Editor, zentriert und groß */}
+                  {selectedImages.length > 0 && (
+                      <div className="mb-8 w-full flex flex-col items-center">
+                          <div className="relative w-full h-48 sm:h-64 rounded-[2rem] overflow-hidden shadow-sm group border border-slate-200 dark:border-zinc-800 shrink-0 bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
+                              <img src={selectedImages[0]} className="w-full h-full object-contain" />
+                              <button onClick={()=>{setSelectedImages(prev=>prev.slice(1)); isDirtyRef.current=true;}} className="absolute top-4 right-4 p-3 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"><Icon name="x" size={16}/></button>
                           </div>
-                      )}
-                  </div>
-              )}
+                          {selectedImages.length > 1 && (
+                              <div className="flex gap-3 mt-4 overflow-x-auto hide-scrollbar snap-x w-full max-w-full">
+                                  {selectedImages.slice(1).map((img, i) => (
+                                      <div key={i+1} className="relative w-24 h-24 rounded-2xl overflow-hidden shadow-sm shrink-0 snap-start group border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800">
+                                          <img src={img} className="w-full h-full object-contain" />
+                                          <button onClick={()=>{setSelectedImages(prev=>prev.filter((_,idx)=>idx!==i+1)); isDirtyRef.current=true;}} className="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"><Icon name="x" size={10}/></button>
+                                      </div>
+                                  ))}
+                              </div>
+                          )}
+                      </div>
+                  )}
 
-              {pillarGuidance && (
-                  <div className="p-4 rounded-3xl bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-900/30 text-amber-700 dark:text-amber-400 font-medium text-sm mb-6 flex gap-4 leading-relaxed max-w-3xl mx-auto">
-                      <Icon name="book-open" size={24} className="shrink-0 mt-0.5 opacity-80" /> {pillarGuidance}
-                  </div>
-              )}
+                  {pillarGuidance && (
+                      <div className="p-4 rounded-3xl bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-900/30 text-amber-700 dark:text-amber-400 font-medium text-sm mb-6 flex gap-4 leading-relaxed">
+                          <Icon name="book-open" size={24} className="shrink-0 mt-0.5 opacity-80" /> {pillarGuidance}
+                      </div>
+                  )}
 
-              {audioUrl && (
-                  <div className="mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 relative max-w-3xl mx-auto w-full">
-                     <span className="text-[10px] font-bold uppercase tracking-widest opacity-50 mb-3 block">Audio-Log</span>
-                     <audio src={audioUrl} controls className="w-full" />
-                     <button onClick={()=>{setAudioUrl(null); isDirtyRef.current=true;}} className="absolute top-4 right-4 p-2 bg-slate-200 dark:bg-zinc-800 rounded-full text-slate-500 hover:text-rose-500"><Icon name="x" size={14}/></button>
-                  </div>
-              )}
+                  {audioUrl && (
+                      <div className="mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 relative w-full">
+                         <span className="text-[10px] font-bold uppercase tracking-widest opacity-50 mb-3 block">Audio-Log</span>
+                         <audio src={audioUrl} controls className="w-full" />
+                         <button onClick={()=>{setAudioUrl(null); isDirtyRef.current=true;}} className="absolute top-4 right-4 p-2 bg-slate-200 dark:bg-zinc-800 rounded-full text-slate-500 hover:text-rose-500"><Icon name="x" size={14}/></button>
+                      </div>
+                  )}
 
-              <div 
-                  ref={editorRef} 
-                  contentEditable 
-                  onClick={handleEditorClick}
-                  onPaste={handleEditorPaste}
-                  onInput={handleEditorInput} 
-                  className="flex-1 outline-none text-[1.05rem] leading-[1.8] legacy-editor-content text-slate-800 dark:text-slate-200 pb-32 min-h-[50vh] max-w-3xl mx-auto w-full" 
-                  data-placeholder="Was wirst du hinterlassen? Du kannst auch Sticker per Tastatur einfügen..." 
-                  dangerouslySetInnerHTML={{__html: text}} 
-              />
+                  <div 
+                      ref={editorRef} 
+                      contentEditable 
+                      onClick={handleEditorClick}
+                      onPaste={handleEditorPaste}
+                      onInput={handleEditorInput} 
+                      className="outline-none text-[1.05rem] leading-[1.8] legacy-editor-content text-slate-800 dark:text-slate-200 pb-8 min-h-full w-full" 
+                      data-placeholder="Was wirst du hinterlassen? Du kannst auch Sticker per Tastatur einfügen..." 
+                      dangerouslySetInnerHTML={{__html: text}} 
+                  />
+              </div>
             </div>
 
             {/* 5. Footer (Tags, People, Rating, TimeSeal, Location) */}
-            <div className="p-3 border-t border-slate-100 dark:border-zinc-900 bg-white/95 dark:bg-black/95 backdrop-blur-xl shrink-0 flex items-center gap-3 overflow-x-auto hide-scrollbar z-50 pb-safe shadow-[0_-4px_6px_rgba(0,0,0,0.02)]">
+            <div className="flex-none p-3 border-t border-slate-100 dark:border-zinc-900 bg-white/95 dark:bg-black/95 backdrop-blur-xl shrink-0 flex items-center gap-3 overflow-x-auto hide-scrollbar z-50 pb-safe shadow-[0_-4px_6px_rgba(0,0,0,0.02)]">
                <button onClick={()=>setPicker({title:'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c, value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;}})} className="h-10 px-4 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs font-bold flex items-center gap-2 shrink-0">{category} <Icon name="chevron-down" size={12}/></button>
                
                {/* Rating Component */}
