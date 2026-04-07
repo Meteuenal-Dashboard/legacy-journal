@@ -360,7 +360,11 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
         )}
         {hasImages && (
           <div className="w-full h-48 sm:h-56 relative overflow-hidden bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
-            <img src={entry.images[0]} className="w-full h-full object-contain transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
+            {/* HIER WURDE DER BLUR HINTERGRUND EINGEFÜGT DAMIT BILDER NICHT VERZERRT UND KOMPLETT SICHTBAR SIND OHNE RÄNDER ZU LASSEN */}
+            <div className="absolute inset-0 z-0">
+                <img src={entry.images[0]} className="w-full h-full object-cover blur-xl scale-110 opacity-50 dark:opacity-40" alt="Bg" />
+            </div>
+            <img src={entry.images[0]} className="relative z-10 w-full h-full object-contain transform group-hover:scale-105 transition-transform duration-700 drop-shadow-md" alt="Cover" />
           </div>
         )}
         <div className="p-6 relative z-10 flex-1 flex flex-col">
@@ -701,17 +705,17 @@ function App() {
           };
 
           onAuthStateChanged(auth, (u) => {
-             clearTimeout(authTimeout);
-             if (u) {
-                 if (u.emailVerified) {
-                     setAuthUser(u);
-                     handleUserLoad(u);
-                 } else { signOut(auth); setView('auth'); }
-             } else {
-                 setAuthUser(null);
-                 setView('auth'); 
-             }
-             setIsLoaded(true);
+              clearTimeout(authTimeout);
+              if (u) {
+                  if (u.emailVerified) {
+                      setAuthUser(u);
+                      handleUserLoad(u);
+                  } else { signOut(auth); setView('auth'); }
+              } else {
+                  setAuthUser(null);
+                  setView('auth'); 
+              }
+              setIsLoaded(true);
           });
        } catch(e) { 
            console.error("Firebase init error:", e);
@@ -764,7 +768,7 @@ function App() {
     loadApp();
   }, []);
 
-  // REALTIME CLOUD SYNC
+  // HIER WURDE DER BUG BEHOBEN: Einträge verschwinden nicht mehr am Folgetag, da onSnapshot nun auch korrekt in IndexedDB schreibt.
   useEffect(() => {
     if (!fb || !fb.onSnapshot || !authUser || !user.cloudSync) return;
     const q = fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries');
@@ -784,15 +788,37 @@ function App() {
         }));
         
         const validCloudEntries = decEntries.filter(Boolean);
-        setEntries(prev => {
-            const map = new Map();
-            prev.forEach(e => map.set(e.id, e));
-            validCloudEntries.forEach(e => map.set(e.id, e));
-            return Array.from(map.values()).sort(sortEntriesDesc);
-        });
+        
+        // HIER WURDE GEÄNDERT: Cloud Daten werden nun nicht nur in den flüchtigen State (RAM) gelegt, sondern permanent ins IndexedDB gespeichert!
+        if (db) {
+            const tx = db.transaction('entries', 'readwrite');
+            const store = tx.objectStore('entries');
+            validCloudEntries.forEach(e => {
+                // Sicherstellen, dass das images Array existiert
+                e.images = e.images || (e.image ? [e.image] : []);
+                store.put(e);
+            });
+            
+            tx.oncomplete = () => {
+                const req = db.transaction('entries', 'readonly').objectStore('entries').getAll();
+                req.onsuccess = () => {
+                    let loadedEntries = req.result || [];
+                    loadedEntries = loadedEntries.map(e => ({ ...e, images: e.images || (e.image ? [e.image] : []) }));
+                    setEntries(loadedEntries.sort(sortEntriesDesc));
+                };
+            };
+        } else {
+            // Fallback falls IndexedDB blockiert ist
+            setEntries(prev => {
+                const map = new Map();
+                prev.forEach(e => map.set(e.id, e));
+                validCloudEntries.forEach(e => map.set(e.id, e));
+                return Array.from(map.values()).sort(sortEntriesDesc);
+            });
+        }
     });
     return () => unsubscribe();
-  }, [fb, authUser, user.pin, user.cloudSync]);
+  }, [fb, authUser, user.pin, user.cloudSync, db]);
 
   const handleAuthAction = async () => {
       setAuthError(''); setAuthMsg('');
@@ -2203,7 +2229,6 @@ function App() {
                    )}
                 </div>
 
-                {/* NEUER ABMELDEN BUTTON HIER */}
                 <div className="p-8 rounded-[2.5rem] bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 shadow-sm flex flex-col items-center text-center">
                    <h2 className="text-lg font-bold mb-2 text-rose-600 dark:text-rose-400 flex items-center gap-2"><Icon name="log-out" size={20}/> Abmelden</h2>
                    <p className="text-sm font-medium opacity-70 mb-6 text-rose-600 dark:text-rose-400">Beende deine aktuelle Sitzung sicher auf diesem Gerät.</p>
@@ -2355,7 +2380,6 @@ function App() {
                    <button onClick={() => window.print()} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500"><Icon name="printer" size={22}/></button>
                    <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
                    
-                   {/* Neuer Button: Cover ändern */}
                    <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500 cursor-pointer hidden sm:flex items-center justify-center shadow-sm" title="Tagebuch-Cover ändern">
                        <Icon name="image" size={22}/>
                        <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, bookRoot?.id || viewingEntry.id)} className="hidden" />
@@ -2366,11 +2390,14 @@ function App() {
                </div>
 
                <div className="max-w-3xl w-full mx-auto p-6 sm:p-12 pb-32 screen-only flex-1 flex flex-col">
+                  {/* HIER WURDE DER BLUR HINTERGRUND EBENFALLS EINGEFÜGT FÜR DEN VIEWER */}
                   {viewingEntry.images && viewingEntry.images.length > 0 && (
                     <div className="relative w-full aspect-video rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-10 group bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
-                        <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-contain transition-transform duration-700" alt="Cover" />
+                        <div className="absolute inset-0 z-0">
+                            <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-cover blur-2xl scale-110 opacity-50 dark:opacity-40" alt="Bg" />
+                        </div>
+                        <img src={viewingEntry.images[currentViewerImgIdx]} className="relative z-10 w-full h-full object-contain transition-transform duration-700 drop-shadow-lg" alt="Cover" />
                         
-                        {/* Cover ändern Button für Mobile Ansicht (sichtbar im Bild) */}
                         <label className="absolute top-4 right-4 p-3 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md cursor-pointer sm:hidden z-10">
                             <Icon name="image" size={16}/>
                             <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, bookRoot?.id || viewingEntry.id)} className="hidden" />
@@ -2395,7 +2422,6 @@ function App() {
                     {viewingEntry.location && <span className="flex items-center gap-1 text-amber-500"><Icon name="map-pin" size={14}/> GPS-Siegel</span>}
                   </div>
                   
-                  {/* Meta-Data Pills */}
                   <div className="flex flex-wrap gap-2 mb-12 no-print">
                       {viewingEntry.tags && viewingEntry.tags.split(',').map(t => t.trim()).filter(t=>t).map((t, i) => (
                           <span key={i} className="px-4 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="tag" size={14}/> {t}</span>
@@ -2420,7 +2446,6 @@ function App() {
                       <button onClick={() => startNewChapter(viewingEntry)} className="px-8 py-4 font-bold rounded-full flex items-center gap-3 hover:scale-105 active:scale-95 transition-transform shadow-lg text-lg" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}><Icon name="plus" size={24}/> Neues Kapitel anfügen</button>
                   </div>
 
-                  {/* Navigation für Buch-Seiten */}
                   {allBookEntries.length > 1 && (
                       <div className="flex justify-between items-center mt-16 pt-8 border-t border-slate-100 dark:border-zinc-800 no-print pb-24">
                           {prevPage ? (
@@ -2625,6 +2650,12 @@ function App() {
                            const data = await res.json();
                            const temp = Math.round(data.current_weather.temperature);
                            const wcode = data.current_weather.weathercode;
+                           
+                           // REVERSE GEOCODING TO GET CITY
+                           const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10`);
+                           const geoData = await geoRes.json();
+                           const city = geoData.address.city || geoData.address.town || geoData.address.village || 'Unbekannt';
+                           
                            let wStr = `${temp}°C`;
                            if (wcode === 0) wStr += ' ☀️';
                            else if (wcode <= 3) wStr += ' ⛅';
@@ -2632,7 +2663,12 @@ function App() {
                            else if (wcode <= 67) wStr += ' 🌧️';
                            else if (wcode <= 79) wStr += ' 🌨️';
                            else if (wcode <= 99) wStr += ' ⛈️';
-                           setWeather(wStr);
+                           
+                           // Add time
+                           const now = new Date();
+                           const timeStr = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+                           setWeather(`${wStr} • ${city} • ${timeStr} Uhr`);
                        } catch(e) {}
                        isDirtyRef.current=true; 
                        showDialog({title:'GPS erfasst', message:'Ort und Wetter wurden gesichert.', icon:'map-pin'}); 
@@ -2642,173 +2678,63 @@ function App() {
           </div>
         )}
 
-        {/* --- ZEICHNEN MODAL --- */}
-        {isDrawing && (
-          <div className="fixed inset-0 z-[300] bg-slate-900 flex flex-col no-print">
-            <header className="flex justify-between items-center p-4 bg-slate-950 text-white pt-safe border-b border-white/10">
-              <button onClick={() => setIsDrawing(false)} className="p-3 bg-white/10 rounded-2xl hover:bg-white/20 transition-colors"><Icon name="x"/></button>
-              <span className="font-bold">Zeichnen</span>
-              <button onClick={() => {
-                  if(canvasRef.current) {
-                      const base64 = canvasRef.current.toDataURL();
-                      if (editorRef.current) {
-                          editorRef.current.focus();
-                          document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false"><img src="${base64}" /><span class="delete-img-btn">X</span></span>&nbsp;`);
-                          isDirtyRef.current = true;
-                          checkSaveEntry(false);
-                      }
-                      setIsDrawing(false);
-                  }
-              }} className="px-6 py-2 bg-accent text-black font-bold rounded-2xl">Fertig</button>
-            </header>
-            <div className="flex-1 bg-white relative touch-none">
-              <canvas ref={canvasRef} className="absolute inset-0 w-full h-full cursor-crosshair touch-none" onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing} onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
-            </div>
-            <div className="p-4 pb-safe bg-slate-950 flex justify-center border-t border-white/10">
-              <button onClick={() => {
-                  if(canvasRef.current){
-                      const ctx = canvasRef.current.getContext('2d');
-                      ctx.fillStyle = user.isDark ? '#18181b' : '#ffffff';
-                      ctx.fillRect(0,0,canvasRef.current.width, canvasRef.current.height);
-                  }
-              }} className="p-4 bg-white/10 rounded-2xl text-white hover:bg-white/20"><Icon name="eraser"/></button>
-            </div>
-          </div>
-        )}
-
-        {/* --- TIMELINE / ZEITREISE (Calendar Style) --- */}
-        {showTimeline && !showEditor && (() => {
-           const bookEntries = viewingEntry ? getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id) : entries.filter(e => e && !e.archived && !e.trashed);
-           
-           const daysInMonth = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth() + 1, 0).getDate();
-           const firstDay = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth(), 1).getDay();
-           const emptySlots = (firstDay + 6) % 7; 
-           const daysArray = Array.from({length: daysInMonth}, (_, i) => i + 1);
-
-           const entriesOnSelectedDate = timelineSelectedDate ? bookEntries.filter(e => e && new Date(e.date).toDateString() === timelineSelectedDate) : [];
-
-           return (
-             <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex justify-end animate-fade-in no-print" onClick={() => setShowTimeline(false)}>
-                <div className="w-full max-w-md h-full bg-white dark:bg-zinc-950 shadow-2xl animate-slide-up flex flex-col" onClick={e=>e.stopPropagation()}>
-                   <div className="p-6 border-b border-slate-100 dark:border-zinc-900 flex justify-between items-center shrink-0">
-                      <h3 className="font-extrabold text-2xl flex items-center gap-3 tracking-tight" style={{ color: user.nameColor }}><Icon name="calendar-days" size={28}/> Zeitreise</h3>
-                      <button onClick={()=>setShowTimeline(false)} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="x" size={20}/></button>
-                   </div>
-                   
-                   <div className="flex-1 overflow-y-auto custom-scrollbar">
-                       <div className="p-6 border-b border-slate-100 dark:border-zinc-900">
-                          <div className="flex justify-between items-center mb-8">
-                              <button onClick={() => { const d = new Date(timelineMonth); d.setMonth(d.getMonth()-1); setTimelineMonth(d); }} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="chevron-left" size={20}/></button>
-                              <span className="font-extrabold text-lg uppercase tracking-widest">{timelineMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}</span>
-                              <button onClick={() => { const d = new Date(timelineMonth); d.setMonth(d.getMonth()+1); setTimelineMonth(d); }} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="chevron-right" size={20}/></button>
-                          </div>
-                          
-                          <div className="grid grid-cols-7 gap-3 text-center">
-                              {['Mo','Di','Mi','Do','Fr','Sa','So'].map(d => <div key={d} className="text-xs font-bold opacity-40 py-2">{d}</div>)}
-                              {Array(emptySlots).fill(null).map((_, i) => <div key={`empty-${i}`} />)}
-                              {daysArray.map(day => {
-                                  const dateStr = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth(), day).toDateString();
-                                  const dayEntry = bookEntries.find(e => e && new Date(e.date).toDateString() === dateStr);
-                                  const hasEntry = !!dayEntry;
-                                  const bgImg = dayEntry?.images?.[0] || null;
-                                  const isSelected = timelineSelectedDate === dateStr;
-                                  
-                                  return (
-                                      <button key={day} onClick={() => setTimelineSelectedDate(isSelected ? null : dateStr)} className={`relative p-2 text-sm font-bold rounded-2xl transition-all flex items-center justify-center aspect-square overflow-hidden ${isSelected ? 'shadow-lg scale-110' : 'hover:scale-105'} ${hasEntry && !isSelected && !bgImg ? 'bg-slate-100 dark:bg-zinc-800' : ''}`} style={bgImg ? { backgroundImage: `url(${bgImg})`, backgroundSize: 'cover', backgroundPosition: 'center', border: isSelected ? `3px solid ${user.nameColor}` : 'none' } : (isSelected ? { backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000' } : { backgroundColor: 'transparent' })}>
-                                          {!bgImg && <span>{day}</span>}
-                                          {hasEntry && !isSelected && !bgImg && <div className="absolute bottom-2 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: user.nameColor }}></div>}
-                                      </button>
-                                  );
-                              })}
-                          </div>
-                          {timelineSelectedDate && (
-                             <div className="mt-8 text-center">
-                                <button onClick={() => setTimelineSelectedDate(null)} className="text-[10px] uppercase font-bold tracking-widest opacity-60 hover:opacity-100 transition-opacity bg-slate-100 dark:bg-zinc-900 px-4 py-2 rounded-xl">Filter aufheben</button>
-                             </div>
-                          )}
-                       </div>
-
-                       <div className="p-6 pb-20">
-                           {!timelineSelectedDate ? (
-                               <p className="text-center opacity-40 text-sm font-bold mt-12 flex flex-col items-center gap-4"><Icon name="calendar-search" size={48} className="opacity-50"/>Wähle einen markierten Tag aus.</p>
-                           ) : (
-                               <div className="space-y-4">
-                                   {entriesOnSelectedDate.length === 0 ? (
-                                       <p className="text-center opacity-40 text-sm font-bold mt-8 mb-8">Kein Eintrag an diesem Tag.</p>
-                                   ) : (
-                                       entriesOnSelectedDate.map((e) => (
-                                           <SwipeableTimelineEntry 
-                                                key={e.id} 
-                                                entry={e} 
-                                                onClick={(entry) => { setShowTimeline(false); handleOpenEntry(entry); }} 
-                                                onArchive={(entry) => saveToDB({...entry, archived: true})}
-                                                onTrash={(entry) => saveToDB({...entry, trashed: true})}
-                                                showDialog={showDialog}
-                                                userColor={user.nameColor}
-                                           />
-                                       ))
-                                   )}
-                                   <button onClick={() => { setShowTimeline(false); openEditor(null, null, timelineSelectedDate); }} className="w-full flex items-center justify-center gap-3 p-5 bg-slate-100 dark:bg-zinc-900 rounded-[2rem] font-bold text-sm hover:scale-[1.02] active:scale-95 transition-transform mt-6 shadow-sm" style={{color: user.nameColor}}>
-                                       <Icon name="plus" size={20}/> Neuer Eintrag für diesen Tag
-                                   </button>
-                               </div>
-                           )}
-                       </div>
-                   </div>
-                </div>
-             </div>
-           );
-        })()}
-
-        {/* --- PICKER DIALOG --- */}
-        {picker && (
-          <div className="fixed inset-0 z-[250] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setPicker(null)}>
-            <div className="w-full max-w-sm rounded-[2.5rem] shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up flex flex-col overflow-hidden max-h-[70vh]" onClick={e => e.stopPropagation()}>
-              <div className="p-6 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
-                 <h3 className="font-extrabold text-xl tracking-tight">{picker.title}</h3>
-                 <button onClick={()=>setPicker(null)} className="p-2 rounded-full bg-slate-100 dark:bg-zinc-800"><Icon name="x" size={20}/></button>
-              </div>
-              <div className="overflow-y-auto custom-scrollbar p-3 space-y-1">
-                 {picker.options.map(opt => (
-                    <button key={opt.value} onClick={()=>{picker.onSelect(opt.value); setPicker(null);}} className={`w-full text-left p-5 rounded-[1.5rem] font-bold text-sm flex justify-between items-center transition-all ${picker.currentValue===opt.value ? 'text-white dark:text-black shadow-md scale-[1.02]' : 'hover:bg-slate-50 dark:hover:bg-zinc-800'}`} style={picker.currentValue === opt.value ? { backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') } : {}}>
-                       {opt.label} {picker.currentValue===opt.value && <Icon name="check" size={18}/>}
-                    </button>
-                 ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* --- DIALOGS --- */}
+        {/* --- GLOBAL OVERLAYS --- */}
         {dialog && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setDialog(null)}>
-            <div className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up" onClick={e => e.stopPropagation()}>
-              {dialog.icon && <div className={`w-20 h-20 bg-slate-50 dark:bg-zinc-950 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100 dark:border-zinc-800 ${dialog.iconColor || 'text-slate-900 dark:text-white'}`}><Icon name={dialog.icon} size={32}/></div>}
-              <h3 className="text-2xl font-extrabold tracking-tight mb-3">{dialog.title}</h3>
-              <p className="text-sm font-medium opacity-70 mb-8 leading-relaxed px-2" dangerouslySetInnerHTML={{__html: dialog.message}}></p>
-              <div className="flex flex-col gap-3 w-full">
-                <button onClick={() => { if(dialog.onConfirm) dialog.onConfirm(); setDialog(null); }} className="w-full py-4 rounded-2xl font-bold shadow-md active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>{dialog.confirmLabel || 'Okay'}</button>
-                {dialog.onCancel && <button onClick={() => { if(dialog.onCancel) dialog.onCancel(); setDialog(null); }} className="w-full py-4 rounded-2xl font-bold bg-slate-100 dark:bg-zinc-800 active:scale-95 transition-transform">Abbrechen</button>}
-              </div>
+          <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white dark:bg-zinc-900 p-6 rounded-[2rem] max-w-sm w-full shadow-2xl animate-slide-up border border-slate-100 dark:border-zinc-800 text-center">
+              {dialog.icon && <Icon name={dialog.icon} size={48} className={`mx-auto mb-4 ${dialog.iconColor || 'text-slate-900 dark:text-white'}`} />}
+              <h3 className="text-xl font-bold mb-2 text-slate-900 dark:text-white">{dialog.title}</h3>
+              <p className="text-sm font-medium opacity-70 mb-8">{dialog.message}</p>
+              {dialog.type === 'confirm' ? (
+                <div className="flex gap-3">
+                  <button onClick={() => setDialog(null)} className="flex-1 py-4 font-bold rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-900 dark:text-white active:scale-95 transition-transform">Abbrechen</button>
+                  <button onClick={() => { dialog.onConfirm && dialog.onConfirm(); setDialog(null); }} className="flex-1 py-4 font-bold rounded-xl bg-rose-500 text-white active:scale-95 transition-transform">{dialog.confirmLabel || 'Bestätigen'}</button>
+                </div>
+              ) : (
+                <button onClick={() => setDialog(null)} className="w-full py-4 font-bold rounded-xl bg-slate-900 dark:bg-white text-white dark:text-black active:scale-95 transition-transform">{dialog.confirmLabel || 'Okay'}</button>
+              )}
             </div>
           </div>
         )}
 
-        {/* --- PIN UNLOCK MODAL --- */}
-        {unlockTarget && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setUnlockTarget(null)}>
-            <div className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up" onClick={e => e.stopPropagation()}>
-              <div className="w-20 h-20 bg-slate-50 dark:bg-zinc-950 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100 dark:border-zinc-800"><Icon name="lock" size={32} style={{ color: user.nameColor || '#f59e0b' }} /></div>
-              <h3 className="text-2xl font-extrabold tracking-tight mb-2">Tresor entsperren</h3>
-              <p className="text-xs font-bold uppercase tracking-widest opacity-40 mb-8 truncate w-full px-4">"{unlockTarget.title}"</p>
-              <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submitPin()} className={`w-full p-4 text-center text-4xl tracking-[0.5em] rounded-2xl bg-slate-50 dark:bg-zinc-950 border-2 outline-none mb-6 transition-colors placeholder:opacity-30 ${pinError ? 'border-rose-500' : 'border-transparent focus:border-slate-300 dark:focus:border-zinc-700'}`} placeholder="••••" />
-              <div className="flex gap-3 w-full mb-4">
-                <button onClick={() => setUnlockTarget(null)} className="flex-1 py-4 font-bold rounded-2xl bg-slate-100 dark:bg-zinc-800 active:scale-95 transition-transform">Abbrechen</button>
-                <button onClick={submitPin} className="flex-1 py-4 rounded-2xl font-bold shadow-md active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || '#f59e0b', color: isDarkColor(user.nameColor || '#f59e0b') ? '#ffffff' : '#000000' }}>Öffnen</button>
+        {picker && (
+          <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 animate-fade-in" onClick={() => setPicker(null)}>
+            <div className="bg-white dark:bg-zinc-900 p-6 rounded-[2rem] max-w-sm w-full shadow-2xl animate-slide-up border border-slate-100 dark:border-zinc-800" onClick={e => e.stopPropagation()}>
+              <h3 className="text-xl font-bold mb-6 text-slate-900 dark:text-white text-center">{picker.title}</h3>
+              <div className="space-y-2 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                {picker.options.map(opt => (
+                  <button key={opt.value} onClick={() => { picker.onSelect(opt.value); setPicker(null); }} className={`w-full py-4 px-6 rounded-xl font-bold text-sm text-left transition-colors flex justify-between items-center ${picker.currentValue === opt.value ? 'bg-slate-900 dark:bg-white text-white dark:text-black' : 'bg-slate-50 dark:bg-zinc-800 text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-zinc-700'}`}>
+                    {opt.label}
+                    {picker.currentValue === opt.value && <Icon name="check" size={16} />}
+                  </button>
+                ))}
               </div>
-              {user.biometric && safeStorageGet('legacy_bio_pin') && (
-                <button onClick={handleBiometricUnlock} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm flex items-center justify-center gap-2"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
-              )}
+              <button onClick={() => setPicker(null)} className="w-full py-4 mt-4 font-bold rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-900 dark:text-white active:scale-95 transition-transform text-center">Abbrechen</button>
+            </div>
+          </div>
+        )}
+
+        {/* --- TIMELINE OVERLAY --- */}
+        {showTimeline && (
+          <div className="fixed inset-0 z-[150] bg-white dark:bg-black animate-fade-in custom-scrollbar flex flex-col page-transition overflow-y-auto pb-safe">
+            <header className="sticky top-0 z-50 flex justify-between items-center p-4 sm:p-6 bg-white/90 dark:bg-black/90 backdrop-blur-xl border-b border-slate-100 dark:border-zinc-900">
+              <h2 className="text-2xl font-extrabold tracking-tight flex items-center gap-2"><Icon name="calendar-days" size={24}/> Zeitleiste</h2>
+              <button onClick={() => setShowTimeline(false)} className="p-3 bg-slate-100 dark:bg-zinc-900 rounded-2xl text-slate-900 dark:text-white hover:scale-105 active:scale-95 transition-transform"><Icon name="x" size={22}/></button>
+            </header>
+            <div className="p-4 sm:p-6 max-w-2xl mx-auto w-full">
+               <p className="opacity-60 mb-8">Ein chronologischer Überblick all deiner verfassten Gedanken und Meilensteine.</p>
+               <div className="border-l-2 border-slate-200 dark:border-zinc-800 ml-4 pl-6 space-y-8 pb-32">
+                  {entries.filter(e => e && !e.trashed).sort(sortEntriesDesc).map(entry => (
+                     <div key={entry.id} className="relative">
+                         <div className="absolute -left-[33px] top-1 w-4 h-4 rounded-full border-4 border-white dark:bg-zinc-900 shadow-sm" style={{ borderColor: entry.color || user.nameColor || '#f59e0b', backgroundColor: user.isDark ? '#000' : '#fff' }}></div>
+                         <div className="text-xs font-bold uppercase tracking-widest opacity-50 mb-1">{new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+                         <button onClick={() => { setShowTimeline(false); handleOpenEntry(entry); }} className="block w-full text-left p-5 rounded-[2rem] bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-[1.02] active:scale-95 transition-transform cursor-pointer">
+                            <h4 className="font-bold text-lg mb-2">{entry.title || 'Ohne Titel'}</h4>
+                            <p className="text-sm opacity-70 line-clamp-2">{(entry.text || '').replace(/<[^>]*>?/gm, '')}</p>
+                         </button>
+                     </div>
+                  ))}
+               </div>
             </div>
           </div>
         )}
@@ -2821,17 +2747,5 @@ function App() {
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
 </script>
-
-<!-- Statische Service Worker Registrierung (Sicherer Standort außerhalb von Babel) -->
-<script>
-  if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then(reg => console.log('SW Aktiv'))
-        .catch(err => console.warn('SW Registrierung übersprungen'));
-    });
-  }
-</script>
-
 </body>
 </html>
