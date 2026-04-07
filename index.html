@@ -372,7 +372,7 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
             {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span></>}
             {entry.locked && !isCapsuleLocked && <><span className="text-rose-500 flex items-center gap-1 ml-auto"><Icon name="lock" size={12}/> Tresor</span></>}
             {entry.audio && <><span className="text-emerald-500 flex items-center ml-1"><Icon name="mic" size={12}/></span></>}
-            {entry.location && <span className="text-amber-500 flex items-center ml-1"><Icon name="map-pin" size={12}/></span>}
+            {entry.location && <span className="text-amber-500 flex items-center ml-1 gap-1"><Icon name="map-pin" size={12}/> {entry.location.name ? entry.location.name : ''}</span>}
           </div>
           
           <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : 'text-slate-900 dark:text-white group-hover:text-accent transition-colors'}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery)} />
@@ -701,17 +701,17 @@ function App() {
           };
 
           onAuthStateChanged(auth, (u) => {
-             clearTimeout(authTimeout);
-             if (u) {
-                 if (u.emailVerified) {
-                     setAuthUser(u);
-                     handleUserLoad(u);
-                 } else { signOut(auth); setView('auth'); }
-             } else {
-                 setAuthUser(null);
-                 setView('auth'); 
-             }
-             setIsLoaded(true);
+              clearTimeout(authTimeout);
+              if (u) {
+                  if (u.emailVerified) {
+                      setAuthUser(u);
+                      handleUserLoad(u);
+                  } else { signOut(auth); setView('auth'); }
+              } else {
+                  setAuthUser(null);
+                  setView('auth'); 
+              }
+              setIsLoaded(true);
           });
        } catch(e) { 
            console.error("Firebase init error:", e);
@@ -764,7 +764,7 @@ function App() {
     loadApp();
   }, []);
 
-  // REALTIME CLOUD SYNC
+  // REALTIME CLOUD SYNC - Mit fixiertem IndexedDB Local-Sync Support
   useEffect(() => {
     if (!fb || !fb.onSnapshot || !authUser || !user.cloudSync) return;
     const q = fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries');
@@ -784,6 +784,30 @@ function App() {
         }));
         
         const validCloudEntries = decEntries.filter(Boolean);
+
+        // Update Local IndexedDB to perfectly match Cloud State (Fix für Verschwindende Einträge nach 10 Tagen)
+        if (db) {
+            const syncToLocalDB = async () => {
+                // Pre-process local encryption BEFORE opening the transaction to prevent auto-commit closure
+                const entriesToPut = await Promise.all(validCloudEntries.map(async (cloudEntry) => {
+                    let dbItem = { ...cloudEntry };
+                    if (dbItem.locked && user.pin) {
+                        try {
+                            const payload = JSON.stringify({ text: dbItem.text || '', title: dbItem.title || '' });
+                            dbItem.encryptedData = await encryptData(payload, user.pin);
+                            dbItem.text = ''; dbItem.title = 'Verschlüsselter Eintrag';
+                        } catch(e) {}
+                    }
+                    return dbItem;
+                }));
+
+                const tx = db.transaction('entries', 'readwrite');
+                const store = tx.objectStore('entries');
+                entriesToPut.forEach(item => store.put(item));
+            };
+            syncToLocalDB();
+        }
+
         setEntries(prev => {
             const map = new Map();
             prev.forEach(e => map.set(e.id, e));
@@ -792,7 +816,7 @@ function App() {
         });
     });
     return () => unsubscribe();
-  }, [fb, authUser, user.pin, user.cloudSync]);
+  }, [fb, authUser, user.pin, user.cloudSync, db]);
 
   const handleAuthAction = async () => {
       setAuthError(''); setAuthMsg('');
@@ -2122,12 +2146,6 @@ function App() {
                       <button onClick={() => setUser({...user, uiScale: 1.1})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${user.uiScale === 1.1 ? 'bg-black dark:bg-white text-white dark:text-black shadow-sm' : 'bg-slate-100 dark:bg-zinc-950 text-slate-500'}`}>A+</button>
                    </div>
                 </div>
-                
-                <div className="p-8 rounded-[2.5rem] bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 shadow-sm">
-                   <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-blue-600 dark:text-blue-400"><Icon name="cloud" size={20}/> Verschlüsselter Cloud-Tresor</h2>
-                   <p className="text-sm font-medium opacity-70 mb-6">Deine Daten werden in Echtzeit synchronisiert. Wenn du dich neu einloggst, lädt die App automatisch alle Daten herunter.</p>
-                   <button onClick={performCloudSync} className="w-full p-4 rounded-2xl font-bold text-base bg-blue-600 text-white active:scale-95 shadow-sm transition-transform flex items-center justify-center gap-2">{syncingCloud ? 'Lädt...' : <><Icon name="download-cloud" size={20}/> Jetzt Cloud aktualisieren</>}</button>
-                </div>
 
                 <div className="p-8 rounded-[2.5rem] bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 shadow-sm">
                    <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-indigo-600 dark:text-indigo-400"><Icon name="archive" size={20}/> Ewigkeits-Archiv (ZIP)</h2>
@@ -2203,7 +2221,7 @@ function App() {
                    )}
                 </div>
 
-                {/* NEUER ABMELDEN BUTTON HIER */}
+                {/* Abmelden Button (ersetzt manuellen Cloud Sync Button) */}
                 <div className="p-8 rounded-[2.5rem] bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 shadow-sm flex flex-col items-center text-center">
                    <h2 className="text-lg font-bold mb-2 text-rose-600 dark:text-rose-400 flex items-center gap-2"><Icon name="log-out" size={20}/> Abmelden</h2>
                    <p className="text-sm font-medium opacity-70 mb-6 text-rose-600 dark:text-rose-400">Beende deine aktuelle Sitzung sicher auf diesem Gerät.</p>
@@ -2392,7 +2410,7 @@ function App() {
                   <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
                     <span>{new Date(viewingEntry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
                     <span>•</span><span>{viewingEntry.category || 'Allgemein'}</span>
-                    {viewingEntry.location && <span className="flex items-center gap-1 text-amber-500"><Icon name="map-pin" size={14}/> GPS-Siegel</span>}
+                    {viewingEntry.location && <span className="flex items-center gap-1 text-amber-500"><Icon name="map-pin" size={14}/> {viewingEntry.location.name ? `${viewingEntry.location.name} (${viewingEntry.location.time})` : 'GPS-Siegel'}</span>}
                   </div>
                   
                   {/* Meta-Data Pills */}
@@ -2619,7 +2637,18 @@ function App() {
                    navigator.geolocation.getCurrentPosition(async (p) => { 
                        const lat = p.coords.latitude;
                        const lng = p.coords.longitude;
-                       setLocation({lat, lng}); 
+                       let locName = "";
+                       let formattedTime = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + " Uhr";
+                       try {
+                           const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                           const geoData = await geoRes.json();
+                           if(geoData && geoData.address) {
+                               locName = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.road || "Unbekannter Ort";
+                           }
+                       } catch(e) { locName = "GPS Standort"; }
+
+                       setLocation({lat, lng, name: locName, time: formattedTime}); 
+                       
                        try {
                            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`);
                            const data = await res.json();
@@ -2635,9 +2664,9 @@ function App() {
                            setWeather(wStr);
                        } catch(e) {}
                        isDirtyRef.current=true; 
-                       showDialog({title:'GPS erfasst', message:'Ort und Wetter wurden gesichert.', icon:'map-pin'}); 
+                       showDialog({title:'GPS erfasst', message:`Ort (${locName}) und Wetter wurden um ${formattedTime} gesichert.`, icon:'map-pin'}); 
                    }, ()=>showDialog({title:'Fehler', message:'Ortung fehlgeschlagen.'}));
-               }} className={`h-10 px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 ${location ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-900/50 text-amber-600 dark:text-amber-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}><Icon name="map-pin" size={14}/> {location ? 'Ort gesichert' : 'GPS-Siegel'}</button>
+               }} className={`h-10 px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 ${location ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-900/50 text-amber-600 dark:text-amber-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}><Icon name="map-pin" size={14}/> {location ? (location.name ? location.name : 'Ort gesichert') : 'GPS-Siegel'}</button>
             </div>
           </div>
         )}
