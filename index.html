@@ -161,16 +161,21 @@ const { useState, useEffect, useRef, useMemo } = React;
 const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
 const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
 
+// Robuste Datums-Sortierung (Ignoriert orderTimestamp und nutzt explizit das geparste Datum)
 const sortEntriesDesc = (a, b) => {
-    const tA = new Date(a.orderTimestamp || a.date || 0).getTime();
-    const tB = new Date(b.orderTimestamp || b.date || 0).getTime();
-    return (isNaN(tB) ? 0 : tB) - (isNaN(tA) ? 0 : tA);
+    const getT = (d) => {
+        if (!d) return 0;
+        let time = new Date(d).getTime();
+        // Fallback für iOS Safari, falls 'Z' am Ende vom ISO-String fehlt
+        if (isNaN(time)) time = new Date(d + 'Z').getTime();
+        return isNaN(time) ? 0 : time;
+    };
+    return getT(b.date) - getT(a.date);
 };
 
+// Korrekte Standard ISO Formatierung (Vermeidet NaN Fehler auf iOS)
 const getLocalISO = () => {
-    const now = new Date();
-    const tzOffset = now.getTimezoneOffset() * 60000;
-    return new Date(now.getTime() - tzOffset).toISOString().slice(0, -1); 
+    return new Date().toISOString(); 
 };
 
 const createSafeHtml = (htmlStr) => {
@@ -367,22 +372,20 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
           <div className="flex items-center gap-2 mb-3 text-[10px] font-bold uppercase tracking-widest opacity-50 flex-wrap">
             <span>{new Date(entry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
             {!isGridView && <><span>•</span><span>{entry.category || 'Allgemein'}</span></>}
-            {entry.tags && <span className="text-blue-500 flex items-center gap-0.5 ml-1"><Icon name="tag" size={10}/>{entry.tags.split(',').filter(x=>x.trim()).length}</span>}
-            {entry.people && <span className="text-indigo-500 flex items-center gap-0.5 ml-1"><Icon name="user" size={10}/>{entry.people.split(',').filter(x=>x.trim()).length}</span>}
             {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span></>}
             {entry.locked && !isCapsuleLocked && <><span className="text-rose-500 flex items-center gap-1 ml-auto"><Icon name="lock" size={12}/> Tresor</span></>}
             {entry.audio && <><span className="text-emerald-500 flex items-center ml-1"><Icon name="mic" size={12}/></span></>}
-            {entry.location && <span className="text-amber-500 flex items-center ml-1 gap-1"><Icon name="map-pin" size={12}/> {entry.location.name ? entry.location.name : ''}</span>}
           </div>
           
           <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : 'text-slate-900 dark:text-white group-hover:text-accent transition-colors'}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery)} />
           
           {/* Metadata Pills directly on Dashboard Card */}
-          {!isGridView && (entry.tags || entry.people || entry.weather || entry.rating > 0) && (
+          {!isGridView && (entry.tags || entry.people || entry.weather || entry.rating > 0 || entry.location) && (
              <div className="flex flex-wrap gap-1.5 mb-4">
                 {entry.tags && entry.tags.split(',').filter(x=>x.trim()).map((t, i) => <span key={`t-${i}`} className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="tag" size={10}/> {t.trim()}</span>)}
                 {entry.people && entry.people.split(',').filter(x=>x.trim()).map((p, i) => <span key={`p-${i}`} className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="user" size={10}/> {p.trim()}</span>)}
                 {entry.weather && <span className="px-2 py-0.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="sun" size={10}/> {entry.weather}</span>}
+                {entry.location && <span className="px-2 py-0.5 bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="map-pin" size={10}/> {entry.location.name || 'GPS'}</span>}
                 {entry.rating > 0 && <span className="px-2 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="star" size={10}/> {entry.rating}</span>}
              </div>
           )}
@@ -619,8 +622,6 @@ function App() {
   // --- Login Bypass & Firebase Setup ---
   useEffect(() => {
     const initFB = async () => {
-       // Sicherheitsnetz: Wenn Firebase im Browser (z.B. Laptop) geblockt wird,
-       // brechen wir das endlose Laden nach 5 Sekunden ab und starten offline!
        let authTimeout = setTimeout(() => {
            if (!isLoaded) {
                console.warn("Firebase Auth Timeout - Fallback to Local");
@@ -668,24 +669,7 @@ function App() {
                               const loadedUser = { ...user, ...data.rawData };
                               setUser(loadedUser);
                               safeStorageSet('legacy_user', JSON.stringify(loadedUser));
-                              
-                              const entriesSnap = await getDocs(collection(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'entries'));
-                              if (!entriesSnap.empty) {
-                                  const tx = db.transaction('entries', 'readwrite'); 
-                                  const store = tx.objectStore('entries');
-                                  entriesSnap.forEach(d => {
-                                      if (d.data().rawData) store.put(d.data().rawData);
-                                  });
-                                  tx.oncomplete = () => {
-                                      const req = db.transaction('entries', 'readonly').objectStore('entries').getAll();
-                                      req.onsuccess = () => {
-                                          setEntries((req.result || []).sort(sortEntriesDesc));
-                                          setView('dashboard');
-                                      };
-                                  };
-                              } else {
-                                  setView('dashboard');
-                              }
+                              setView('dashboard');
                               return;
                           }
                       } else {
@@ -731,7 +715,7 @@ function App() {
     initFB();
   }, []);
 
-  // Initialize DB
+  // Initialize DB & Repair Invalid Dates
   useEffect(() => {
     const loadApp = async () => {
       try {
@@ -741,6 +725,18 @@ function App() {
         request.onsuccess = async () => {
           let loadedEntries = request.result || [];
           loadedEntries = loadedEntries.filter(e => e != null);
+
+          // Datum-Reparatur für alte iOS Einträge
+          loadedEntries = loadedEntries.map(e => {
+              if (e.date) {
+                  const d = new Date(e.date);
+                  if (isNaN(d.getTime())) {
+                      const repaired = new Date(e.date + 'Z');
+                      if (!isNaN(repaired.getTime())) e.date = repaired.toISOString();
+                  }
+              }
+              return e;
+          });
 
           const savedUser = safeStorageGet('legacy_user');
           let currentUser = user;
@@ -764,19 +760,32 @@ function App() {
     loadApp();
   }, []);
 
-  // REALTIME CLOUD SYNC - Mit fixiertem IndexedDB Local-Sync Support
+  // REALTIME CLOUD SYNC - Mit Fallback für unentschlüsselbare Tresor-Einträge
   useEffect(() => {
     if (!fb || !fb.onSnapshot || !authUser || !user.cloudSync) return;
     const q = fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries');
     const unsubscribe = fb.onSnapshot(q, async (snapshot) => {
         const rawEntries = [];
         snapshot.forEach(d => rawEntries.push(d.data()));
+        
         const decEntries = await Promise.all(rawEntries.map(async (docData) => {
-            if (docData.encryptedData && user.pin) {
-               const decStr = await decryptData(docData.encryptedData, user.pin);
-               if (decStr) { 
-                   try { return { ...JSON.parse(decStr), id: docData.id }; } catch(e){} 
+            if (docData.encryptedData) {
+               if (user.pin) {
+                   const decStr = await decryptData(docData.encryptedData, user.pin);
+                   if (decStr) { 
+                       try { return { ...JSON.parse(decStr), id: docData.id }; } catch(e){} 
+                   }
                }
+               // Wenn Entschlüsselung fehlschlägt oder PIN fehlt, behalte den Eintrag als gesperrt! (Fix für verschwindende Tresor-Einträge)
+               return {
+                   id: docData.id,
+                   title: 'Verschlüsselter Tresor-Eintrag',
+                   text: 'Entschlüsselung fehlgeschlagen. Bitte prüfe deine PIN.',
+                   locked: true,
+                   date: docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString(),
+                   encryptedData: docData.encryptedData,
+                   category: 'Tresor'
+               };
             } else if (docData.rawData) {
                 return { ...docData.rawData, id: docData.id };
             }
@@ -785,13 +794,12 @@ function App() {
         
         const validCloudEntries = decEntries.filter(Boolean);
 
-        // Update Local IndexedDB to perfectly match Cloud State (Fix für Verschwindende Einträge nach 10 Tagen)
+        // Update Local IndexedDB
         if (db) {
             const syncToLocalDB = async () => {
-                // Pre-process local encryption BEFORE opening the transaction to prevent auto-commit closure
                 const entriesToPut = await Promise.all(validCloudEntries.map(async (cloudEntry) => {
                     let dbItem = { ...cloudEntry };
-                    if (dbItem.locked && user.pin) {
+                    if (dbItem.locked && user.pin && !dbItem.text.includes('Entschlüsselung fehlgeschlagen')) {
                         try {
                             const payload = JSON.stringify({ text: dbItem.text || '', title: dbItem.title || '' });
                             dbItem.encryptedData = await encryptData(payload, user.pin);
@@ -800,10 +808,11 @@ function App() {
                     }
                     return dbItem;
                 }));
-
-                const tx = db.transaction('entries', 'readwrite');
-                const store = tx.objectStore('entries');
-                entriesToPut.forEach(item => store.put(item));
+                try {
+                    const tx = db.transaction('entries', 'readwrite');
+                    const store = tx.objectStore('entries');
+                    entriesToPut.forEach(item => store.put(item));
+                } catch(err) { console.warn("IndexedDB sync skipped", err); }
             };
             syncToLocalDB();
         }
@@ -882,8 +891,6 @@ function App() {
       setUser(mergedUser);
       safeStorageSet('legacy_user', JSON.stringify(mergedUser));
       setView(mergedUser.name ? 'dashboard' : 'onboarding');
-      
-      if (fb && authUser && db) performCloudSync();
   };
 
   const submitPin = () => handleUnlockSubmit(pinInput);
@@ -951,6 +958,7 @@ function App() {
       } catch(e) { showDialog({title: 'Fehler', message: 'Biometrische Prüfung fehlgeschlagen.', icon: 'x'}); }
   };
 
+  // Login-Loop Fix: Verlässt sich jetzt auf Echtzeit-Sync statt blockierender IndexedDB Befehle im Vorfeld
   const handleCloudRestore = async (pinValue) => {
       if (!pinValue) return;
       setPinError(false);
@@ -959,7 +967,6 @@ function App() {
       try {
           let restoredUser = { ...user, pin: pinValue, cloudSync: true };
           
-          // 1. Profil abrufen
           const profileSnap = await fb.getDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'profile', 'data'));
           if (profileSnap.exists()) {
               const pData = profileSnap.data();
@@ -970,68 +977,25 @@ function App() {
                   } else {
                       setPinError(true); setTimeout(() => setPinError(false), 1000); setPinInput('');
                       setView('cloud_pin_sync');
-                      return; // Falsche PIN
+                      return; 
                   }
               } else if (pData.rawData) {
                   restoredUser = { ...restoredUser, ...pData.rawData };
               }
           }
 
-          // User lokal speichern
           setUser(restoredUser);
           safeStorageSet('legacy_user', JSON.stringify(restoredUser));
           setPinInput('');
           
-          // 2. Einträge abrufen
-          const cloudSnap = await fb.getDocs(fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries'));
-          
-          if (cloudSnap.empty) {
-              setView('dashboard');
-              showDialog({ title: 'Erfolg', message: 'Profil wiederhergestellt. Keine Einträge gefunden.', icon: 'check' });
-              return;
-          }
+          // Gehe direkt ins Dashboard, das onSnapshot-Hook übernimmt das sichere Laden & Entschlüsseln im Hintergrund!
+          setView('dashboard');
+          showDialog({ title: 'Willkommen zurück', message: 'Dein Profil wurde geladen. Daten werden synchronisiert...', icon: 'check' });
 
-          // 3. Einträge entschlüsseln & in DB speichern
-          let successCount = 0; let failCount = 0;
-          const entriesToSave = [];
-          
-          for (let doc of cloudSnap.docs) {
-              const cData = doc.data();
-              if (cData.encryptedData) {
-                  const decStr = await decryptData(cData.encryptedData, pinValue);
-                  if (decStr) { 
-                      entriesToSave.push(JSON.parse(decStr)); 
-                      successCount++; 
-                  } else { failCount++; }
-              } else if (cData.rawData) {
-                  entriesToSave.push(cData.rawData); 
-                  successCount++;
-              }
-          }
-
-          // 4. Batch-Put in IndexedDB
-          const tx = db.transaction('entries', 'readwrite');
-          const store = tx.objectStore('entries');
-          entriesToSave.forEach(e => store.put(e));
-          
-          tx.oncomplete = () => {
-              const req = db.transaction('entries', 'readonly').objectStore('entries').getAll();
-              req.onsuccess = () => {
-                  let loadedEntries = req.result || [];
-                  loadedEntries = loadedEntries.filter(e => e != null);
-                  loadedEntries = loadedEntries.map(e => ({ ...e, images: e.images || (e.image ? [e.image] : []) }));
-                  setEntries(loadedEntries.sort(sortEntriesDesc));
-                  setView('dashboard');
-                  if (failCount > 0) {
-                      showDialog({ title: 'Teilweiser Erfolg', message: `${successCount} geladen, aber ${failCount} fehlgeschlagen. Falsche PIN?`, icon: 'shield-alert' });
-                  } else {
-                      showDialog({ title: 'Willkommen zurück', message: `Deine Daten (${successCount} Einträge) wurden erfolgreich synchronisiert!`, icon: 'cloud-download' });
-                  }
-              };
-          };
       } catch(e) {
+          console.error(e);
           setView('cloud_pin_sync');
-          showDialog({title: 'Fehler', message: 'Verbindungsfehler zur Cloud.', icon: 'x'});
+          showDialog({title: 'Verbindungsfehler', message: 'Ein Fehler ist aufgetreten. Bitte versuche es erneut.', icon: 'x'});
       }
   };
 
@@ -1291,7 +1255,7 @@ function App() {
 
   const openEditor = (entry = null, pillar = null, customDate = null) => {
     isDirtyRef.current = false;
-    const targetDate = entry && entry.id ? (entry.date || getLocalISO()) : (customDate ? new Date(customDate).toISOString().slice(0, -1) : getLocalISO());
+    const targetDate = entry && entry.id ? (entry.date || getLocalISO()) : (customDate ? new Date(customDate).toISOString() : getLocalISO());
 
     const newEntryState = entry && entry.id ? {
         title: entry.title || '', text: entry.text || '', selectedColor: entry.color || (user.isDark ? COLORS[8] : COLORS[0]), selectedImages: entry.images || [], isLocked: entry.locked || false, isManifested: entry.manifested || false, category: entry.category || CATEGORIES[0], mood: entry.mood || null, audioUrl: entry.audio || null, unlockDate: entry.unlockDate || '', location: entry.location || null, parentId: entry.parentId || '', inheritedFrom: entry.inheritedFrom || null, rating: entry.rating || 0, tags: entry.tags || '', people: entry.people || '', weather: entry.weather || '', date: targetDate, orderTimestamp: entry.orderTimestamp || targetDate
@@ -1684,8 +1648,6 @@ function App() {
               }
           }
       }
-      // Wenn kein reines Bild-Item gefunden wurde (Samsung Keyboard HTML Payload)
-      // dann kümmert sich handleEditorInput via Mutation-Erfassung um den Rest.
   };
 
   // Klick-Listener für Editor (Löschen & Vergrößern von Inline-Bildern/Stickern)
@@ -2410,7 +2372,6 @@ function App() {
                   <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
                     <span>{new Date(viewingEntry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
                     <span>•</span><span>{viewingEntry.category || 'Allgemein'}</span>
-                    {viewingEntry.location && <span className="flex items-center gap-1 text-amber-500"><Icon name="map-pin" size={14}/> {viewingEntry.location.name ? `${viewingEntry.location.name} (${viewingEntry.location.time})` : 'GPS-Siegel'}</span>}
                   </div>
                   
                   {/* Meta-Data Pills */}
@@ -2423,6 +2384,9 @@ function App() {
                       ))}
                       {viewingEntry.weather && (
                           <span className="px-4 py-1.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-xl text-xs font-bold flex items-center gap-1.5 w-full sm:w-auto"><Icon name="sun" size={14}/> {viewingEntry.weather}</span>
+                      )}
+                      {viewingEntry.location && (
+                          <span className="px-4 py-1.5 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="map-pin" size={14}/> {viewingEntry.location.name ? `${viewingEntry.location.name} (${viewingEntry.location.time})` : 'GPS-Siegel'}</span>
                       )}
                       {viewingEntry.rating > 0 && (
                           <div className="flex items-center gap-1 ml-auto bg-amber-50 dark:bg-amber-900/30 px-4 py-1.5 rounded-xl">
