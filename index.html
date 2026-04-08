@@ -55,38 +55,22 @@
 
 <style>
   /* --- DESIGN UPGRADE (Premium Apple/Meta/Google UI) --- */
-  html, body {
-    overscroll-behavior-y: none;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    -webkit-tap-highlight-color: transparent;
-    transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
+  html, body { overscroll-behavior-y: none; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; transition: background-color 0.4s, color 0.4s; }
   body.modal-open { overflow: hidden !important; }
-
   html:not(.dark) body { background-color: #f8fafc !important; color: #0f172a !important; }
   html.dark body { background-color: #000000 !important; color: #f8fafc !important; }
-
   .pb-safe { padding-bottom: env(safe-area-inset-bottom, 32px); }
   .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
   .floating-nav-spacing { padding-bottom: calc(120px + env(safe-area-inset-bottom, 20px)); }
-
-  /* Fließtext extrem leserlich, Überschriften fett/klar */
   h1, h2, h3, h4, h5, h6 { font-weight: 800; letter-spacing: -0.03em; }
-
   @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } } 
   .animate-fade-in { animation: fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-  
   @keyframes slide-up { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } 
   .animate-slide-up { animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-  
   @keyframes pulse-flame { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.05); } } 
   .animate-flame { animation: pulse-flame 2s infinite ease-in-out; }
-
   .custom-scrollbar::-webkit-scrollbar { display: none; }
   .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-  /* Premium Editor Typography */
   .legacy-editor-content p, .legacy-content p { line-height: 1.8; margin-bottom: 1.2rem; font-size: 1.05rem; }
   .legacy-editor-content h1, .legacy-content h1 { font-size: 2.25rem; font-weight: 800; margin-top: 1.5rem; margin-bottom: 1rem; line-height: 1.2; }
   .legacy-editor-content h2, .legacy-content h2 { font-size: 1.75rem; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.75rem; line-height: 1.3; }
@@ -95,47 +79,19 @@
   .legacy-editor-content ol, .legacy-content ol { list-style-type: decimal; padding-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.5rem; }
   .legacy-editor-content li, .legacy-content li { margin-bottom: 0.25rem; }
   .legacy-editor-content blockquote, .legacy-content blockquote { border-left: 4px solid currentColor; padding-left: 1.5rem; font-style: normal; font-weight: 500; opacity: 0.8; background: transparent; margin: 1.5rem 0; font-size: 1.1em; }
-  
-  /* Floating Bottom Navigation - Sauber & Halbtransparent */
-  .floating-nav {
-    position: fixed;
-    bottom: 32px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: calc(100% - 48px);
-    max-width: 400px;
-    background: rgba(255, 255, 255, 0.75);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(226, 232, 240, 0.6);
-    border-radius: 2rem;
-    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1);
-    z-index: 100;
-  }
-  html.dark .floating-nav {
-    background: rgba(24, 24, 27, 0.75);
-    border-color: rgba(39, 39, 42, 0.6);
-    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
-  }
-  
-  /* Inline Image / Sticker Resizing Magic & Deletion X */
+  .floating-nav { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); width: calc(100% - 48px); max-width: 400px; background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(226, 232, 240, 0.6); border-radius: 2rem; box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1); z-index: 100; }
+  html.dark .floating-nav { background: rgba(24, 24, 27, 0.75); border-color: rgba(39, 39, 42, 0.6); box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5); }
   .inline-img-wrapper { display: inline-block; vertical-align: text-bottom; margin: 4px; max-width: 100%; position: relative; }
   .inline-img-wrapper img { width: 120px; height: auto; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
   .delete-img-btn { position: absolute; top: -10px; right: -10px; background: #ef4444; color: white; border-radius: 50%; width: 24px; height: 24px; text-align: center; line-height: 24px; cursor: pointer; font-family: sans-serif; font-size: 12px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10; display: none; }
   .inline-img-wrapper:hover .delete-img-btn, .inline-img-wrapper:active .delete-img-btn { display: block; }
-  
   .legacy-editor-content > img, .legacy-content > img { border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: inline-block; vertical-align: middle; max-width: 100%; }
-  
   [contenteditable="true"]:empty:before { content: attr(data-placeholder); opacity: 0.3; pointer-events: none; display: block; font-weight: 400; }
   html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
   .search-highlight { background-color: rgba(245, 158, 11, 0.3); padding: 0 2px; border-radius: 3px; border-bottom: 1px solid #f59e0b; }
-
-  /* Map Container & Fix Leaflet Attribution/Markers */
   .map-container { height: 100%; width: 100%; border-radius: 1.5rem; z-index: 1; }
   .leaflet-marker-icon.avatar-marker { border: none !important; background: transparent !important; }
   .leaflet-control-attribution { display: none !important; }
-
-  /* --- BUCHDRUCK-MODUS --- */
   .print-only { display: none; }
   @media print {
     @page { margin: 2cm; @bottom-center { content: counter(page); font-family: 'Inter', sans-serif; font-size: 12px; color: #888; } }
@@ -161,23 +117,19 @@ const { useState, useEffect, useRef, useMemo } = React;
 const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
 const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
 
-// Robuste Datums-Sortierung (Chronologisch aufsteigend: 05.04. -> 06.04. -> 07.04.)
+// Robuste Datums-Sortierung (Chronologisch aufsteigend)
 const sortEntriesChronological = (a, b) => {
     const getT = (entry) => {
         let d = entry.orderTimestamp || entry.date;
         if (!d) return 0;
         let time = new Date(d).getTime();
-        // Fallback für iOS Safari, falls 'Z' am Ende vom ISO-String fehlt
         if (isNaN(time)) time = new Date(d + 'Z').getTime();
         return isNaN(time) ? 0 : time;
     };
     return getT(a) - getT(b);
 };
 
-// Korrekte Standard ISO Formatierung (Vermeidet NaN Fehler auf iOS)
-const getLocalISO = () => {
-    return new Date().toISOString(); 
-};
+const getLocalISO = () => new Date().toISOString();
 
 const createSafeHtml = (htmlStr) => {
   const safeStr = htmlStr || '';
@@ -219,8 +171,11 @@ const encryptData = async (text, pin) => {
         const ivStr = btoa(String.fromCharCode(...iv));
         const key = await getCryptoKey(pin, saltStr);
         const encrypted = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, encHelper.encode(text));
-        return { cipher: btoa(String.fromCharCode(...new Uint8Array(encrypted))), iv: ivStr, salt: saltStr };
-    } catch(e) { return null; }
+        const bytes = new Uint8Array(encrypted);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+        return { cipher: btoa(binary), iv: ivStr, salt: saltStr };
+    } catch(e) { console.error("Encryption failed", e); return null; }
 };
 
 const decryptData = async (encryptedObj, pin) => {
@@ -228,7 +183,9 @@ const decryptData = async (encryptedObj, pin) => {
     try {
         const salt = Uint8Array.from(atob(encryptedObj.salt), c => c.charCodeAt(0));
         const iv = Uint8Array.from(atob(encryptedObj.iv), c => c.charCodeAt(0));
-        const cipher = Uint8Array.from(atob(encryptedObj.cipher), c => c.charCodeAt(0));
+        const atobCipher = atob(encryptedObj.cipher);
+        const cipher = new Uint8Array(atobCipher.length);
+        for (let i = 0; i < atobCipher.length; i++) cipher[i] = atobCipher.charCodeAt(i);
         const keyMaterial = await window.crypto.subtle.importKey("raw", encHelper.encode(pin), { name: "PBKDF2" }, false, ["deriveBits", "deriveKey"]);
         const key = await window.crypto.subtle.deriveKey({ name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" }, keyMaterial, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
         const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, cipher);
@@ -267,17 +224,8 @@ const Icon = ({ name, size = 24, className = '', ...props }) => {
   return <span ref={spanRef} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} {...props}></span>;
 };
 
-const COLORS = [
-  '#ffffff', '#f8fafc', '#e4e4e7', '#a1a1aa', '#52525b', 
-  '#27272a', '#18181b', '#09090b', '#fef08a', '#fbbf24', 
-  '#f59e0b', '#d97706', '#fecdd3', '#fb7185', '#f43f5e', 
-  '#e11d48', '#bfdbfe', '#3b82f6', '#1d4ed8', '#a7f3d0', 
-  '#10b981', '#047857', '#e9d5ff', '#8b5cf6', '#6d28d9'
-];
-
-const EDITOR_COLORS = [
-  '#0f172a', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#a8a29e', '#ffffff'
-];
+const COLORS = ['#ffffff', '#f8fafc', '#e4e4e7', '#a1a1aa', '#52525b', '#27272a', '#18181b', '#09090b', '#fef08a', '#fbbf24', '#f59e0b', '#d97706', '#fecdd3', '#fb7185', '#f43f5e', '#e11d48', '#bfdbfe', '#3b82f6', '#1d4ed8', '#a7f3d0', '#10b981', '#047857', '#e9d5ff', '#8b5cf6', '#6d28d9'];
+const EDITOR_COLORS = ['#0f172a', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#a8a29e', '#ffffff'];
 
 const isDarkColor = (color) => {
   if (!color) return true;
@@ -331,14 +279,6 @@ const PILLARS = [
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
-const getDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371e3;
-  const p1 = lat1 * Math.PI/180, p2 = lat2 * Math.PI/180;
-  const dp = (lat2-lat1) * Math.PI/180, dl = (lon2-lon1) * Math.PI/180;
-  const a = Math.sin(dp/2) * Math.sin(dp/2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2) * Math.sin(dl/2);
-  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
-};
-
 const initDB = () => {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('LegacyVisionDB', 4);
@@ -385,7 +325,6 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
           
           <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : 'text-slate-900 dark:text-white group-hover:text-accent transition-colors'}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery)} />
           
-          {/* Metadata Pills directly on Dashboard Card */}
           {!isGridView && (entry.tags || entry.people || entry.weather || entry.rating > 0 || entry.location || (entry.locations && entry.locations.length > 0)) && (
              <div className="flex flex-wrap gap-1.5 mb-4">
                 {entry.tags && entry.tags.split(',').filter(x=>x.trim()).map((t, i) => <span key={`t-${i}`} className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="tag" size={10}/> {t.trim()}</span>)}
@@ -434,7 +373,6 @@ const SwipeableTimelineEntry = ({ entry, onArchive, onTrash, onClick, showDialog
         if (startX.current === null) return;
         const diff = evt.touches[0].clientX - startX.current;
         if (Math.abs(diff) > 10) dragged.current = true;
-        
         if (diff > 120) setOffsetX(120);
         else if (diff < -120) setOffsetX(-120);
         else setOffsetX(diff);
@@ -553,7 +491,7 @@ function App() {
   const [isManifested, setIsManifested] = useState(false);
   const [unlockDate, setUnlockDate] = useState('');
   const [location, setLocation] = useState(null);
-  const [locations, setLocations] = useState([]); // Neu: Multi-GPS Array
+  const [locations, setLocations] = useState([]); // Multi-GPS Array
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [mood, setMood] = useState(null);
   const [entryDate, setEntryDate] = useState('');
