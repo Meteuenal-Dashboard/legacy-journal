@@ -161,16 +161,17 @@ const { useState, useEffect, useRef, useMemo } = React;
 const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
 const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
 
-// Robuste Datums-Sortierung (Ignoriert orderTimestamp und nutzt explizit das geparste Datum)
-const sortEntriesDesc = (a, b) => {
-    const getT = (d) => {
+// Robuste Datums-Sortierung (Chronologisch aufsteigend: 05.04. -> 06.04. -> 07.04.)
+const sortEntriesChronological = (a, b) => {
+    const getT = (entry) => {
+        let d = entry.orderTimestamp || entry.date;
         if (!d) return 0;
         let time = new Date(d).getTime();
         // Fallback für iOS Safari, falls 'Z' am Ende vom ISO-String fehlt
         if (isNaN(time)) time = new Date(d + 'Z').getTime();
         return isNaN(time) ? 0 : time;
     };
-    return getT(b.date) - getT(a.date);
+    return getT(a) - getT(b);
 };
 
 // Korrekte Standard ISO Formatierung (Vermeidet NaN Fehler auf iOS)
@@ -353,11 +354,16 @@ const initDB = () => {
 const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQuery }) => {
     if (!entry) return null;
     const hasImages = entry.images && entry.images.length > 0;
-    const cardBgClass = isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-slate-100 shadow-sm';
+    
+    // Goldener Rahmen wenn Highlight (manifested) aktiv ist
+    const cardBgClass = entry.manifested 
+        ? 'bg-amber-50/30 dark:bg-amber-900/20 border-amber-400 dark:border-amber-500 border-2 shadow-lg shadow-amber-500/20' 
+        : (isDarkTheme ? 'bg-zinc-900 border-zinc-800 border' : 'bg-white border-slate-100 border shadow-sm');
+        
     const isCapsuleLocked = entry.unlockDate;
 
     return (
-      <div onClick={() => onClick(entry)} className={`group relative rounded-[2rem] overflow-hidden cursor-pointer border hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col h-full' : ''}`}>
+      <div onClick={() => onClick(entry)} className={`group relative rounded-[2rem] overflow-hidden cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col h-full' : ''}`}>
         {entry.manifested && (
           <div className="absolute top-4 right-4 z-20 bg-amber-400 text-amber-950 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
             <Icon name="sparkles" size={12}/> Highlight
@@ -380,12 +386,23 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
           <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : 'text-slate-900 dark:text-white group-hover:text-accent transition-colors'}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery)} />
           
           {/* Metadata Pills directly on Dashboard Card */}
-          {!isGridView && (entry.tags || entry.people || entry.weather || entry.rating > 0 || entry.location) && (
+          {!isGridView && (entry.tags || entry.people || entry.weather || entry.rating > 0 || entry.location || (entry.locations && entry.locations.length > 0)) && (
              <div className="flex flex-wrap gap-1.5 mb-4">
                 {entry.tags && entry.tags.split(',').filter(x=>x.trim()).map((t, i) => <span key={`t-${i}`} className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="tag" size={10}/> {t.trim()}</span>)}
                 {entry.people && entry.people.split(',').filter(x=>x.trim()).map((p, i) => <span key={`p-${i}`} className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="user" size={10}/> {p.trim()}</span>)}
                 {entry.weather && <span className="px-2 py-0.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="sun" size={10}/> {entry.weather}</span>}
-                {entry.location && <span className="px-2 py-0.5 bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="map-pin" size={10}/> {entry.location.name || 'GPS'}</span>}
+                
+                {/* Multi-GPS Stempel: Dunkelgrün */}
+                {entry.locations && entry.locations.length > 0 ? entry.locations.map((loc, i) => (
+                    <span key={`loc-${i}`} className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 rounded-md text-[10px] font-bold flex items-center gap-1">
+                        <Icon name="map-pin" size={10}/> {loc.name || 'GPS'}
+                    </span>
+                )) : (entry.location && (
+                    <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 rounded-md text-[10px] font-bold flex items-center gap-1">
+                        <Icon name="map-pin" size={10}/> {entry.location.name || 'GPS'}
+                    </span>
+                ))}
+
                 {entry.rating > 0 && <span className="px-2 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="star" size={10}/> {entry.rating}</span>}
              </div>
           )}
@@ -536,6 +553,7 @@ function App() {
   const [isManifested, setIsManifested] = useState(false);
   const [unlockDate, setUnlockDate] = useState('');
   const [location, setLocation] = useState(null);
+  const [locations, setLocations] = useState([]); // Neu: Multi-GPS Array
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [mood, setMood] = useState(null);
   const [entryDate, setEntryDate] = useState('');
@@ -753,14 +771,14 @@ function App() {
               return e;
             }));
           }
-          setEntries(loadedEntries.sort(sortEntriesDesc));
+          setEntries(loadedEntries.sort(sortEntriesChronological));
         };
       } catch (e) { console.warn("DB Load failed", e); }
     };
     loadApp();
   }, []);
 
-  // REALTIME CLOUD SYNC - Mit Fallback für unentschlüsselbare Tresor-Einträge
+  // REALTIME CLOUD SYNC - Local-First Architecture Guarantee
   useEffect(() => {
     if (!fb || !fb.onSnapshot || !authUser || !user.cloudSync) return;
     const q = fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries');
@@ -776,7 +794,7 @@ function App() {
                        try { return { ...JSON.parse(decStr), id: docData.id }; } catch(e){} 
                    }
                }
-               // Wenn Entschlüsselung fehlschlägt oder PIN fehlt, behalte den Eintrag als gesperrt! (Fix für verschwindende Tresor-Einträge)
+               // Wenn Entschlüsselung fehlschlägt oder PIN fehlt, behalte den Eintrag als gesperrt
                return {
                    id: docData.id,
                    title: 'Verschlüsselter Tresor-Eintrag',
@@ -794,7 +812,7 @@ function App() {
         
         const validCloudEntries = decEntries.filter(Boolean);
 
-        // Update Local IndexedDB
+        // Backup to Local IndexedDB to ensure no data loss even offline
         if (db) {
             const syncToLocalDB = async () => {
                 const entriesToPut = await Promise.all(validCloudEntries.map(async (cloudEntry) => {
@@ -821,7 +839,7 @@ function App() {
             const map = new Map();
             prev.forEach(e => map.set(e.id, e));
             validCloudEntries.forEach(e => map.set(e.id, e));
-            return Array.from(map.values()).sort(sortEntriesDesc);
+            return Array.from(map.values()).sort(sortEntriesChronological);
         });
     });
     return () => unsubscribe();
@@ -958,7 +976,6 @@ function App() {
       } catch(e) { showDialog({title: 'Fehler', message: 'Biometrische Prüfung fehlgeschlagen.', icon: 'x'}); }
   };
 
-  // Login-Loop Fix: Verlässt sich jetzt auf Echtzeit-Sync statt blockierender IndexedDB Befehle im Vorfeld
   const handleCloudRestore = async (pinValue) => {
       if (!pinValue) return;
       setPinError(false);
@@ -988,7 +1005,6 @@ function App() {
           safeStorageSet('legacy_user', JSON.stringify(restoredUser));
           setPinInput('');
           
-          // Gehe direkt ins Dashboard, das onSnapshot-Hook übernimmt das sichere Laden & Entschlüsseln im Hintergrund!
           setView('dashboard');
           showDialog({ title: 'Willkommen zurück', message: 'Dein Profil wurde geladen. Daten werden synchronisiert...', icon: 'check' });
 
@@ -1091,7 +1107,7 @@ function App() {
                   let loadedEntries = req.result || [];
                   loadedEntries = loadedEntries.map(e => ({ ...e, images: e.images || (e.image ? [e.image] : []) }));
                   if (user.pin) loadedEntries = await Promise.all(loadedEntries.map(async (e) => { if (e.locked && e.encryptedData) { const decStr = await decryptData(e.encryptedData, user.pin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, text: parsed.text, title: parsed.title }; } catch(err){} } } return e; }));
-                  setEntries(loadedEntries.sort(sortEntriesDesc));
+                  setEntries(loadedEntries.sort(sortEntriesChronological));
                   if (failedDecrypt > 0) showDialog({ title: 'Entschlüsselung unvollständig', message: `${failedDecrypt} Einträge fehlgeschlagen. PIN fehlt/falsch?`, icon: 'shield-alert' });
                   else showDialog({ title: 'Wiederhergestellt', message: `${recoveredCount} Einträge geladen.`, icon: 'check' });
               };
@@ -1128,9 +1144,9 @@ function App() {
      editingIdRef.current = editingId;
      currentEntryRef.current = { 
          ...currentEntryRef.current,
-         title, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, rating, tags, people, weather, date: entryDate 
+         title, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, locations, parentId, inheritedFrom, rating, tags, people, weather, date: entryDate 
      };
-  }, [editingId, title, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, parentId, inheritedFrom, rating, tags, people, weather, entryDate]);
+  }, [editingId, title, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, locations, parentId, inheritedFrom, rating, tags, people, weather, entryDate]);
 
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; let dbEntry = { ...entry };
@@ -1140,7 +1156,7 @@ function App() {
         setEntries(prev => { 
             const exists = prev.find(e => e && e.id === entry.id); 
             let nextEntries = exists ? prev.map(e => (e && e.id === entry.id) ? entry : e) : [entry, ...prev];
-            return nextEntries.sort(sortEntriesDesc);
+            return nextEntries.sort(sortEntriesChronological);
         });
     };
 
@@ -1196,7 +1212,7 @@ function App() {
         const existingEntry = entries.find(e => e && e.id === editingIdRef.current);
         
         const newEntry = { 
-            id: entryId, title: titleSafe || '', text: currentText, color: state.selectedColor, images: state.selectedImages, audio: state.audioUrl, locked: state.isLocked, archived: false, trashed: false, manifested: state.isManifested, category: state.category, mood: state.mood, unlockDate: state.unlockDate, location: state.location, parentId: state.parentId, inheritedFrom: state.inheritedFrom, rating: state.rating, tags: state.tags, people: state.people, weather: state.weather, 
+            id: entryId, title: titleSafe || '', text: currentText, color: state.selectedColor, images: state.selectedImages, audio: state.audioUrl, locked: state.isLocked, archived: false, trashed: false, manifested: state.isManifested, category: state.category, mood: state.mood, unlockDate: state.unlockDate, location: state.location, locations: state.locations, parentId: state.parentId, inheritedFrom: state.inheritedFrom, rating: state.rating, tags: state.tags, people: state.people, weather: state.weather, 
             date: existingEntry ? (existingEntry.date || state.date || getLocalISO()) : (state.date || getLocalISO()), 
             orderTimestamp: existingEntry ? (existingEntry.orderTimestamp || getLocalISO()) : getLocalISO() 
         };
@@ -1258,16 +1274,16 @@ function App() {
     const targetDate = entry && entry.id ? (entry.date || getLocalISO()) : (customDate ? new Date(customDate).toISOString() : getLocalISO());
 
     const newEntryState = entry && entry.id ? {
-        title: entry.title || '', text: entry.text || '', selectedColor: entry.color || (user.isDark ? COLORS[8] : COLORS[0]), selectedImages: entry.images || [], isLocked: entry.locked || false, isManifested: entry.manifested || false, category: entry.category || CATEGORIES[0], mood: entry.mood || null, audioUrl: entry.audio || null, unlockDate: entry.unlockDate || '', location: entry.location || null, parentId: entry.parentId || '', inheritedFrom: entry.inheritedFrom || null, rating: entry.rating || 0, tags: entry.tags || '', people: entry.people || '', weather: entry.weather || '', date: targetDate, orderTimestamp: entry.orderTimestamp || targetDate
+        title: entry.title || '', text: entry.text || '', selectedColor: entry.color || (user.isDark ? COLORS[8] : COLORS[0]), selectedImages: entry.images || [], isLocked: entry.locked || false, isManifested: entry.manifested || false, category: entry.category || CATEGORIES[0], mood: entry.mood || null, audioUrl: entry.audio || null, unlockDate: entry.unlockDate || '', location: entry.location || null, locations: entry.locations || (entry.location ? [entry.location] : []), parentId: entry.parentId || '', inheritedFrom: entry.inheritedFrom || null, rating: entry.rating || 0, tags: entry.tags || '', people: entry.people || '', weather: entry.weather || '', date: targetDate, orderTimestamp: entry.orderTimestamp || targetDate
     } : {
-        title: pillar ? pillar.title : '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isLocked: view === 'vault', isManifested: false, category: pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory), mood: null, audioUrl: null, unlockDate: '', location: null, parentId: '', inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: targetDate, orderTimestamp: targetDate
+        title: pillar ? pillar.title : '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isLocked: view === 'vault', isManifested: false, category: pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory), mood: null, audioUrl: null, unlockDate: '', location: null, locations: [], parentId: '', inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: targetDate, orderTimestamp: targetDate
     };
 
     currentEntryRef.current = newEntryState;
     editingIdRef.current = entry && entry.id ? entry.id : null;
     
     setEditingId(editingIdRef.current);
-    setTitle(newEntryState.title); setText(newEntryState.text); setSelectedColor(newEntryState.selectedColor); setSelectedImages(newEntryState.selectedImages); setIsLocked(newEntryState.isLocked); setIsManifested(newEntryState.isManifested); setCategory(newEntryState.category); setMood(newEntryState.mood); setAudioUrl(newEntryState.audioUrl); setUnlockDate(newEntryState.unlockDate); setLocation(newEntryState.location); setParentId(newEntryState.parentId); setInheritedFrom(newEntryState.inheritedFrom); setRating(newEntryState.rating); setTags(newEntryState.tags); setPeople(newEntryState.people); setWeather(newEntryState.weather); setEntryDate(newEntryState.date); setPillarGuidance(pillar ? pillar.desc : null);
+    setTitle(newEntryState.title); setText(newEntryState.text); setSelectedColor(newEntryState.selectedColor); setSelectedImages(newEntryState.selectedImages); setIsLocked(newEntryState.isLocked); setIsManifested(newEntryState.isManifested); setCategory(newEntryState.category); setMood(newEntryState.mood); setAudioUrl(newEntryState.audioUrl); setUnlockDate(newEntryState.unlockDate); setLocation(newEntryState.location); setLocations(newEntryState.locations); setParentId(newEntryState.parentId); setInheritedFrom(newEntryState.inheritedFrom); setRating(newEntryState.rating); setTags(newEntryState.tags); setPeople(newEntryState.people); setWeather(newEntryState.weather); setEntryDate(newEntryState.date); setPillarGuidance(pillar ? pillar.desc : null);
     
     setShowEditor(true);
   };
@@ -1275,11 +1291,11 @@ function App() {
   const startNewChapter = (parent) => { 
     isDirtyRef.current = false; setViewingEntry(null); 
     const newEntryState = {
-        title: parent.title || '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isLocked: parent.locked || false, isManifested: false, category: parent.category || CATEGORIES[0], mood: null, audioUrl: null, unlockDate: '', location: null, parentId: parent.id, inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: getLocalISO(), orderTimestamp: getLocalISO()
+        title: parent.title || '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isLocked: parent.locked || false, isManifested: false, category: parent.category || CATEGORIES[0], mood: null, audioUrl: null, unlockDate: '', location: null, locations: [], parentId: parent.id, inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: getLocalISO(), orderTimestamp: getLocalISO()
     };
     currentEntryRef.current = newEntryState; editingIdRef.current = null;
     
-    setEditingId(null); setTitle(newEntryState.title); setText(newEntryState.text); setSelectedColor(newEntryState.selectedColor); setSelectedImages(newEntryState.selectedImages); setIsLocked(newEntryState.isLocked); setAudioUrl(newEntryState.audioUrl); setIsManifested(newEntryState.isManifested); setUnlockDate(newEntryState.unlockDate); setLocation(newEntryState.location); setCategory(newEntryState.category); setMood(newEntryState.mood); setParentId(newEntryState.parentId); setInheritedFrom(newEntryState.inheritedFrom); setRating(newEntryState.rating); setTags(newEntryState.tags); setPeople(newEntryState.people); setWeather(newEntryState.weather); setEntryDate(newEntryState.date); setPillarGuidance(null);
+    setEditingId(null); setTitle(newEntryState.title); setText(newEntryState.text); setSelectedColor(newEntryState.selectedColor); setSelectedImages(newEntryState.selectedImages); setIsLocked(newEntryState.isLocked); setAudioUrl(newEntryState.audioUrl); setIsManifested(newEntryState.isManifested); setUnlockDate(newEntryState.unlockDate); setLocation(newEntryState.location); setLocations(newEntryState.locations); setCategory(newEntryState.category); setMood(newEntryState.mood); setParentId(newEntryState.parentId); setInheritedFrom(newEntryState.inheritedFrom); setRating(newEntryState.rating); setTags(newEntryState.tags); setPeople(newEntryState.people); setWeather(newEntryState.weather); setEntryDate(newEntryState.date); setPillarGuidance(null);
     setShowEditor(true); 
   };
 
@@ -1376,7 +1392,7 @@ function App() {
           const entry = entries.find(e => e && e.id === id && !e.trashed); 
           if (entry && !result.find(r => r.id === entry.id)) { 
               result.push(entry); 
-              entries.filter(e => e && e.parentId === id && !e.trashed).sort(sortEntriesDesc).forEach(c => traverse(c.id, depth+1)); 
+              entries.filter(e => e && e.parentId === id && !e.trashed).sort(sortEntriesChronological).forEach(c => traverse(c.id, depth+1)); 
           } 
       }; 
       traverse(rootId); 
@@ -1420,7 +1436,7 @@ function App() {
           if (cIdx > 0) swipePrev = bookEntries[cIdx - 1]; 
           if (cIdx < bookEntries.length - 1) swipeNext = bookEntries[cIdx + 1]; 
       } else {
-          const sorted = visibleEntries.sort(sortEntriesDesc);
+          const sorted = visibleEntries.sort(sortEntriesChronological);
           const cIdx = sorted.findIndex(ex => ex && ex.id === viewingEntry.id);
           if (cIdx > 0) swipePrev = sorted[cIdx - 1]; 
           if (cIdx < sorted.length - 1) swipeNext = sorted[cIdx + 1]; 
@@ -1493,7 +1509,7 @@ function App() {
       } 
   };
 
-  const handleBookCoverUpload = (e, targetId) => {
+  const handleBookCoverUpload = (e, targetId, imgIndex = 0) => {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
@@ -1511,9 +1527,15 @@ function App() {
 
               const targetEntry = entries.find(ex => ex.id === targetId);
               if (targetEntry) {
-                  const newImages = [base64, ...(targetEntry.images ? targetEntry.images.slice(1) : [])];
+                  let newImages = [...(targetEntry.images || [])];
+                  if (imgIndex === 0 && newImages.length === 0) {
+                      newImages = [base64];
+                  } else {
+                      newImages[imgIndex] = base64;
+                  }
+                  
                   saveToDB({...targetEntry, images: newImages});
-                  showDialog({ title: 'Cover aktualisiert', message: 'Das Hauptbild dieses Eintrags wurde geändert.', icon: 'check' });
+                  showDialog({ title: 'Bild aktualisiert', message: 'Das Bild wurde erfolgreich geändert.', icon: 'check' });
                   if (viewingEntry && viewingEntry.id === targetId) {
                       setViewingEntry({...viewingEntry, images: newImages});
                   }
@@ -1731,7 +1753,7 @@ function App() {
 
   const downloadFullApp = () => { const cloneDocument = document.cloneNode(true); const rootDiv = cloneDocument.getElementById('root'); if (rootDiv) rootDiv.innerHTML = ''; const existingInjected = cloneDocument.getElementById('legacy-injected-data'); if (existingInjected) existingInjected.remove(); const data = { user, entries }; const scriptEl = cloneDocument.createElement('script'); scriptEl.id = 'legacy-injected-data'; scriptEl.type = 'application/json'; scriptEl.textContent = JSON.stringify(data); cloneDocument.head.appendChild(scriptEl); const htmlContent = "<!DOCTYPE html>\n" + cloneDocument.documentElement.outerHTML; const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Legacy_${new Date().toISOString().split('T')[0]}.html`; a.click(); URL.revokeObjectURL(a.href); showDialog({ title: 'Erledigt!', message: 'App als HTML-Backup gespeichert.', icon: 'download' }); };
 
-  const importBackup = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async (e) => { try { let data = null; if (file.name.toLowerCase().endsWith('.html')) { const doc = new DOMParser().parseFromString(e.target.result, 'text/html'); const script = doc.getElementById('legacy-injected-data'); if (script && script.textContent && script.textContent !== 'null') data = JSON.parse(script.textContent); else throw new Error("Keine Daten"); } else data = JSON.parse(e.target.result); if (data && data.entries && db) { const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); let mergedCount = 0; const pinToUse = data.user ? data.user.pin : user.pin; const entriesToSave = await Promise.all(data.entries.map(async (en) => { let dbE = { ...en }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []); if (dbE.locked && pinToUse) { const payload = JSON.stringify({ text: dbE.text||'', title: dbE.title||'' }); dbE.encryptedData = await encryptData(payload, pinToUse); dbE.text = ''; dbE.title = 'Verschlüsselt'; } return dbE; })); entriesToSave.forEach(en => { if (!entries.find(ex => ex && ex.id === en.id)) { if (data.user && data.user.name !== user.name) en.inheritedFrom = data.user.name; store.put(en); mergedCount++; } }); const req = store.getAll(); req.onsuccess = async () => { let loadedEntries = req.result || []; loadedEntries = loadedEntries.filter(e => e != null); if (user.pin) loadedEntries = await Promise.all(loadedEntries.map(async (en) => { if (en.locked && en.encryptedData) { const decStr = await decryptData(en.encryptedData, user.pin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...en, text: parsed.text, title: parsed.title }; } catch(err){} } } return en; })); setEntries(loadedEntries.sort(sortEntriesDesc)); showDialog({ title: 'Erfolg', message: `${mergedCount} neue Seiten importiert.`, icon: 'check' }); }; } } catch (err) { showDialog({ title: 'Fehler', message: 'Ungültige Datei.', icon: 'x' }); } }; reader.readAsText(file); };
+  const importBackup = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async (e) => { try { let data = null; if (file.name.toLowerCase().endsWith('.html')) { const doc = new DOMParser().parseFromString(e.target.result, 'text/html'); const script = doc.getElementById('legacy-injected-data'); if (script && script.textContent && script.textContent !== 'null') data = JSON.parse(script.textContent); else throw new Error("Keine Daten"); } else data = JSON.parse(e.target.result); if (data && data.entries && db) { const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); let mergedCount = 0; const pinToUse = data.user ? data.user.pin : user.pin; const entriesToSave = await Promise.all(data.entries.map(async (en) => { let dbE = { ...en }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []); if (dbE.locked && pinToUse) { const payload = JSON.stringify({ text: dbE.text||'', title: dbE.title||'' }); dbE.encryptedData = await encryptData(payload, pinToUse); dbE.text = ''; dbE.title = 'Verschlüsselt'; } return dbE; })); entriesToSave.forEach(en => { if (!entries.find(ex => ex && ex.id === en.id)) { if (data.user && data.user.name !== user.name) en.inheritedFrom = data.user.name; store.put(en); mergedCount++; } }); const req = store.getAll(); req.onsuccess = async () => { let loadedEntries = req.result || []; loadedEntries = loadedEntries.filter(e => e != null); if (user.pin) loadedEntries = await Promise.all(loadedEntries.map(async (en) => { if (en.locked && en.encryptedData) { const decStr = await decryptData(en.encryptedData, user.pin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...en, text: parsed.text, title: parsed.title }; } catch(err){} } } return en; })); setEntries(loadedEntries.sort(sortEntriesChronological)); showDialog({ title: 'Erfolg', message: `${mergedCount} neue Seiten importiert.`, icon: 'check' }); }; } } catch (err) { showDialog({ title: 'Fehler', message: 'Ungültige Datei.', icon: 'x' }); } }; reader.readAsText(file); };
 
   useEffect(() => { 
       if (showEditor && editorRef.current) { 
@@ -1760,7 +1782,15 @@ function App() {
           // Standorte gruppieren (Clustering) für Badges
           const locationGroups = {};
           entries.filter(e => e && !e.trashed).forEach(e => {
-              if (e.location) {
+              if (e.locations && e.locations.length > 0) {
+                  e.locations.forEach(loc => {
+                      hasMarkers = true;
+                      bounds.extend([loc.lat, loc.lng]);
+                      const key = `${Number(loc.lat).toFixed(3)}_${Number(loc.lng).toFixed(3)}`;
+                      if (!locationGroups[key]) locationGroups[key] = { lat: loc.lat, lng: loc.lng, entries: [] };
+                      locationGroups[key].entries.push(e);
+                  });
+              } else if (e.location) {
                   hasMarkers = true;
                   bounds.extend([e.location.lat, e.location.lng]);
                   const key = `${Number(e.location.lat).toFixed(3)}_${Number(e.location.lng).toFixed(3)}`;
@@ -2335,10 +2365,10 @@ function App() {
                    <button onClick={() => window.print()} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500"><Icon name="printer" size={22}/></button>
                    <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
                    
-                   {/* Neuer Button: Cover ändern */}
-                   <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500 cursor-pointer hidden sm:flex items-center justify-center shadow-sm" title="Tagebuch-Cover ändern">
+                   {/* Haupt-Cover ändern (oben links neben Drucker) */}
+                   <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500 cursor-pointer flex items-center justify-center shadow-sm" title="Tagebuch-Cover ändern">
                        <Icon name="image" size={22}/>
-                       <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, bookRoot?.id || viewingEntry.id)} className="hidden" />
+                       <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, bookRoot?.id || viewingEntry.id, 0)} className="hidden" />
                    </label>
 
                    <button onClick={() => { const e = viewingEntry; setViewingEntry(null); setTimeout(() => openEditor(e), 10); }} className="px-4 sm:px-6 py-3 rounded-2xl font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
@@ -2350,10 +2380,10 @@ function App() {
                     <div className="relative w-full aspect-video rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-10 group bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
                         <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-contain transition-transform duration-700" alt="Cover" />
                         
-                        {/* Cover ändern Button für Mobile Ansicht (sichtbar im Bild) */}
-                        <label className="absolute top-4 right-4 p-3 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md cursor-pointer sm:hidden z-10">
+                        {/* Bild-spezifisch ändern (Sichtbar auf dem Bild selbst) */}
+                        <label className="absolute top-4 right-4 p-3 bg-black/60 text-white rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity backdrop-blur-md cursor-pointer z-10" title="Dieses Bild ändern">
                             <Icon name="image" size={16}/>
-                            <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, bookRoot?.id || viewingEntry.id)} className="hidden" />
+                            <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id, currentViewerImgIdx)} className="hidden" />
                         </label>
 
                         {viewingEntry.images.length > 1 && (
@@ -2387,12 +2417,11 @@ function App() {
                       )}
                       
                       {/* Multi-GPS Viewer in Dunkelgrün */}
-                      {viewingEntry.locations && viewingEntry.locations.map((loc, i) => (
+                      {viewingEntry.locations && viewingEntry.locations.length > 0 ? viewingEntry.locations.map((loc, i) => (
                           <span key={`loc-view-${i}`} className="px-4 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="map-pin" size={14}/> {loc.name ? `${loc.name} (${loc.time})` : 'GPS-Siegel'}</span>
-                      ))}
-                      {!viewingEntry.locations && viewingEntry.location && (
+                      )) : (viewingEntry.location && (
                           <span className="px-4 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="map-pin" size={14}/> {viewingEntry.location.name ? `${viewingEntry.location.name} (${viewingEntry.location.time})` : 'GPS-Siegel'}</span>
-                      )}
+                      ))}
 
                       {viewingEntry.rating > 0 && (
                           <div className="flex items-center gap-1 ml-auto bg-amber-50 dark:bg-amber-900/30 px-4 py-1.5 rounded-xl">
@@ -2601,8 +2630,15 @@ function App() {
                   <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); isDirtyRef.current=true;}} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
                </div>
                
+               {/* Multi-GPS Anzeige im Editor */}
+               {locations.map((loc, idx) => (
+                   <div key={idx} className="h-10 px-4 rounded-xl border border-emerald-300 dark:border-emerald-700/50 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 text-xs font-bold flex items-center gap-2 shrink-0">
+                       <Icon name="map-pin" size={14}/> {loc.name ? `${loc.name} (${loc.time})` : 'GPS-Siegel'}
+                       <button onClick={(e) => { e.stopPropagation(); setLocations(prev => prev.filter((_, i) => i !== idx)); isDirtyRef.current=true; }} className="ml-1 opacity-60 hover:opacity-100 hover:text-rose-500 transition-colors"><Icon name="x" size={14}/></button>
+                   </div>
+               ))}
+
                <button onClick={async ()=>{
-                   if(location){setLocation(null); setWeather(''); isDirtyRef.current=true; return;}
                    if(!("geolocation" in navigator)){showDialog({title:'Fehler', message:'Ortung nicht unterstützt.'}); return;}
                    navigator.geolocation.getCurrentPosition(async (p) => { 
                        const lat = p.coords.latitude;
@@ -2617,7 +2653,9 @@ function App() {
                            }
                        } catch(e) { locName = "GPS Standort"; }
 
-                       setLocation({lat, lng, name: locName, time: formattedTime}); 
+                       const newLoc = {lat, lng, name: locName, time: formattedTime};
+                       setLocations(prev => [...prev, newLoc]);
+                       setLocation(newLoc); // Backup Legacy Location
                        
                        try {
                            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`);
@@ -2636,7 +2674,7 @@ function App() {
                        isDirtyRef.current=true; 
                        showDialog({title:'GPS erfasst', message:`Ort (${locName}) und Wetter wurden um ${formattedTime} gesichert.`, icon:'map-pin'}); 
                    }, ()=>showDialog({title:'Fehler', message:'Ortung fehlgeschlagen.'}));
-               }} className={`h-10 px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 ${location ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-900/50 text-amber-600 dark:text-amber-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}><Icon name="map-pin" size={14}/> {location ? (location.name ? location.name : 'Ort gesichert') : 'GPS-Siegel'}</button>
+               }} className={`h-10 px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors`}><Icon name="plus" size={14}/> GPS hinzufügen</button>
             </div>
           </div>
         )}
