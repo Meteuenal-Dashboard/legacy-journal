@@ -2094,16 +2094,6 @@ function App() {
              </div>
           )}
 
-          {['dashboard', 'archive'].includes(view) && !searchQuery && (
-            <div className="flex overflow-x-auto gap-3 pb-4 mb-8 custom-scrollbar hide-scrollbar snap-x">
-              {['Alle', ...CATEGORIES].map(cat => (
-                <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-6 py-3 rounded-2xl whitespace-nowrap text-sm font-bold transition-all snap-start ${activeCategory === cat ? 'text-white dark:text-black shadow-md scale-105' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-zinc-800 border border-slate-100 dark:border-zinc-800'}`} style={activeCategory === cat ? { backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') } : {}}>
-                  {cat}
-                </button>
-              ))}
-            </div>
-          )}
-
           {['dashboard', 'archive'].includes(view) && visibleEntries.length === 0 && !searchQuery && (
             <div className="flex flex-col items-center justify-center py-32 text-center opacity-40 animate-fade-in">
               <Icon name="book-open" size={64} className="mb-6"/>
