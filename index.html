@@ -527,7 +527,6 @@ function App() {
       entriesRef.current = entries;
   }, [entries]);
 
-  // LOGOUT/LOGIN FIX: Synchronisiert das sichtbare Profil getrennt von der Verschlüsselung
   const syncProfileToCloud = async (userData) => {
       if (!fb || !fb.auth || !fb.auth.currentUser || !userData.cloudSync) return;
       try { 
@@ -622,7 +621,7 @@ function App() {
           setFb({ db: firestoreDb, auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot });
 
           const handleUserLoad = async (u) => {
-              // 1. Fetch public profile FIRST to ensure consistency across devices
+              // Fetch public profile FIRST to ensure consistency across devices before PIN entry
               let fetchedProfile = null;
               try {
                   const profileSnap = await getDoc(doc(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'profile', 'data'));
@@ -658,7 +657,6 @@ function App() {
                   }
               } catch(e) {}
 
-              // Fallback if no network or no profile document
               const savedStr = safeStorageGet('legacy_user');
               if (savedStr) {
                   try {
@@ -669,7 +667,6 @@ function App() {
                   } catch(e) {}
               }
               
-              // Only check entries if no profile
               try {
                   const entriesSnap = await getDocs(collection(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'entries'));
                   if (!entriesSnap.empty) {
@@ -779,20 +776,18 @@ function App() {
     loadApp();
   }, []);
 
-  // REALTIME CLOUD SYNC - Perfektioniert für Höchstleistung & LEGACY-RETTUNG
+  // REALTIME CLOUD SYNC
   useEffect(() => {
     if (!fb || !fb.onSnapshot || !authUser || !user.cloudSync) return;
     const q = fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries');
     
     const unsubscribe = fb.onSnapshot(q, async (snapshot) => {
-        // HIGHLIGHT: Verhindert, dass eigene lokale Änderungen einen kompletten Download auslösen!
         if (snapshot.metadata.hasPendingWrites) return; 
         
         let hasChanges = false;
         const removedIds = [];
         const currentEntriesMap = new Map(entriesRef.current.map(e => [e.id, e]));
 
-        // Parallelverarbeitung für massive Performance-Steigerung
         const processChange = async (change) => {
             try {
                 if (change.type === 'removed') {
@@ -802,7 +797,6 @@ function App() {
                 
                 const docData = change.doc.data();
                 
-                // PERFORMANCE BOOST: Lade lokalen Eintrag aus IndexedDB, falls React State noch leer ist
                 let existingLocal = currentEntriesMap.get(change.doc.id);
                 if (!existingLocal && db) {
                     existingLocal = await new Promise(res => {
@@ -821,8 +815,11 @@ function App() {
                        return { type: 'existing' }; 
                    }
                 }
+
+                if (!docData.encryptedData && !docData.rawData && !docData.cipher) {
+                    if (existingLocal && existingLocal.text) return { type: 'existing' };
+                }
                 
-                // 1. NEUER STANDARD
                 if (docData.encryptedData) {
                    if (user.pin) {
                        const decStr = await decryptData(docData.encryptedData, user.pin);
@@ -846,7 +843,6 @@ function App() {
                    const fbDate = docData.date || docData.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
                    return { ...docData, id: change.doc.id, title: docData.title || 'Verschlüsselter Eintrag', text: 'Entschlüsselung fehlgeschlagen. Bitte prüfe deine PIN.', date: fbDate, orderTimestamp: fbDate, category: docData.category || 'Sicherheit', locked: false };
                 } 
-                // 2. LEGACY STANDARD (Rettet alte verschollene Einträge!)
                 else if (docData.cipher && docData.iv && docData.salt) {
                     if (user.pin) {
                         const decStr = await decryptData({ cipher: docData.cipher, iv: docData.iv, salt: docData.salt }, user.pin);
@@ -860,7 +856,6 @@ function App() {
                     const fbDate = docData.date || docData.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
                     return { ...docData, id: change.doc.id, title: docData.title || 'Verschlüsselter Legacy-Eintrag', text: 'Entschlüsselung fehlgeschlagen. PIN falsch?', date: fbDate, orderTimestamp: fbDate, category: docData.category || 'Sicherheit', locked: false };
                 }
-                // 3. UNVERSCHLÜSSELT
                 else if (docData.rawData) {
                     const fbDate = docData.rawData.date || docData.rawData.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
                     return { ...docData.rawData, id: change.doc.id, date: fbDate, orderTimestamp: fbDate, locked: false };
@@ -1080,7 +1075,7 @@ function App() {
       if (!fb || !fb.auth.currentUser || !user.cloudSync) return;
       const appId = 'legacy-vision'; const userId = fb.auth.currentUser.uid;
       try { 
-          let payloadToSave = { id: plainEntry.id, timestamp: Date.now() };
+          let payloadToSave = { id: plainEntry.id, timestamp: plainEntry.timestamp || Date.now() };
           if (pin) {
               const encrypted = await encryptData(JSON.stringify(plainEntry), pin); 
               if (encrypted) payloadToSave.encryptedData = encrypted;
@@ -1130,7 +1125,7 @@ function App() {
   // Speichert den unverschlüsselten Text immer lokal in IndexedDB
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; 
-    const plainEntry = { ...entry, locked: false, encryptedData: null };
+    const plainEntry = { ...entry, timestamp: Date.now(), locked: false, encryptedData: null, cipher: null, iv: null, salt: null };
 
     syncSingleEntryToCloud(plainEntry, activePin); 
 
@@ -1314,7 +1309,11 @@ function App() {
               if(rawText) quotes.push({ text: rawText, date: entry.date, title: entry.title, id: entry.id + match.index, entryId: entry.id }); 
           } 
       }); 
-      return quotes.sort((a,b) => new Date(b.date) - new Date(a.date)); 
+      return quotes.sort((a,b) => {
+          const tA = new Date(a.date).getTime() || 0;
+          const tB = new Date(b.date).getTime() || 0;
+          return tB - tA;
+      }); 
   }, [entries, view]);
   
   const heatmapData = useMemo(() => { return Array.from({ length: 30 }).map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (29 - i)); const dateStr = d.toDateString(); return { date: dateStr, count: entries.filter(e => e && !e.trashed && new Date(e.date || getLocalISO()).toDateString() === dateStr).length }; }); }, [entries]);
@@ -2296,9 +2295,9 @@ function App() {
                    <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
                    
                    {/* Haupt-Cover ändern (oben links neben Drucker) - IMMER SICHTBAR AUF HANDY! */}
-                   <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500 cursor-pointer flex items-center justify-center shadow-sm shrink-0" title="Tagebuch-Cover ändern">
+                   <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500 cursor-pointer flex items-center justify-center shadow-sm shrink-0 relative overflow-hidden" title="Tagebuch-Cover ändern">
                        <Icon name="image" size={22}/>
-                       <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, bookRoot?.id || viewingEntry.id, 0)} style={{ display: 'none' }} />
+                       <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, bookRoot?.id || viewingEntry.id, 0)} className="absolute opacity-0 w-[200%] h-[200%] top-0 left-0 cursor-pointer" />
                    </label>
 
                    <button onClick={() => { const e = viewingEntry; setViewingEntry(null); setTimeout(() => openEditor(e), 10); }} className="px-4 sm:px-6 py-3 rounded-2xl font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
@@ -2311,9 +2310,9 @@ function App() {
                         <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-contain transition-transform duration-700" alt="Cover" />
                         
                         {/* Bild-spezifisch ändern (Sichtbar auf dem Bild selbst) */}
-                        <label className="absolute top-4 right-4 p-3 bg-black/60 text-white rounded-full flex items-center justify-center shadow-lg cursor-pointer z-50 opacity-100" title="Dieses Bild ändern">
+                        <label className="absolute top-4 right-4 p-3 bg-black/60 text-white rounded-full flex items-center justify-center shadow-lg cursor-pointer z-50 opacity-100 relative overflow-hidden" title="Dieses Bild ändern">
                             <Icon name="image" size={16}/>
-                            <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id, currentViewerImgIdx)} style={{ display: 'none' }} />
+                            <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id, currentViewerImgIdx)} className="absolute opacity-0 w-[200%] h-[200%] top-0 left-0 cursor-pointer" />
                         </label>
 
                         {viewingEntry.images.length > 1 && (
@@ -2458,7 +2457,7 @@ function App() {
                 <button onMouseDown={e=>{e.preventDefault(); document.execCommand('insertOrderedList'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="list-ordered" size={18} /></button>
                 <button onMouseDown={e=>{e.preventDefault(); document.execCommand('insertUnorderedList'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="list" size={18} /></button>
                 <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
-                <label className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm cursor-pointer flex items-center justify-center relative overflow-hidden shrink-0 border border-slate-100 dark:border-zinc-800" title="Cover Bild hochladen"><Icon name="image" size={18} /><input type="file" accept="image/*" multiple onChange={e=>handleFileUpload(e,'image')} style={{display: 'none'}} /></label>
+                <label className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm cursor-pointer flex items-center justify-center relative overflow-hidden shrink-0 border border-slate-100 dark:border-zinc-800" title="Cover Bild hochladen"><Icon name="image" size={18} /><input type="file" accept="image/*" multiple onChange={e=>handleFileUpload(e,'image')} className="absolute opacity-0 w-[200%] h-[200%] top-0 left-0 cursor-pointer" /></label>
                 <button onClick={() => setIsDrawing(true)} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="pen-tool" size={18} /></button>
                 <button onClick={isRecording ? stopRecording : startRecording} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800 ${isRecording ? 'bg-rose-500 text-white animate-pulse' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:text-accent'}`}>{isRecording ? <Icon name="square" size={18}/> : <Icon name="mic" size={18}/>}</button>
                 <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
@@ -2518,6 +2517,7 @@ function App() {
             </div>
 
             <div className="flex-none p-3 border-t border-slate-100 dark:border-zinc-900 bg-white/95 dark:bg-black/95 backdrop-blur-xl shrink-0 flex items-center gap-3 overflow-x-auto hide-scrollbar z-50 pb-safe shadow-[0_-4px_6px_rgba(0,0,0,0.02)]">
+               <button onClick={()=>setPicker({title:'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c, value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;}})} className="h-10 px-4 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs font-bold flex items-center gap-2 shrink-0">{category} <Icon name="chevron-down" size={12}/></button>
                
                <div className="h-10 flex items-center gap-1 bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0">
                   {[1,2,3,4,5].map(star => (
