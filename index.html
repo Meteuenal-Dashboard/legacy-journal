@@ -162,6 +162,7 @@ const getCryptoKey = async (pin, saltStr) => {
     cryptoKeyCache[cacheKey] = key; return key;
 };
 
+// Optimierte Verschlüsselung für große Dateien (verhindert Callstack-Fehler bei Bildern)
 const encryptData = async (text, pin) => {
     try {
         const salt = window.crypto.getRandomValues(new Uint8Array(16));
@@ -457,6 +458,7 @@ function App() {
   
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
+  const [showPinFallback, setShowPinFallback] = useState(false);
   
   const [isChangingPin, setIsChangingPin] = useState(false);
   const [oldPinInput, setOldPinInput] = useState('');
@@ -585,7 +587,7 @@ function App() {
                    try {
                        const parsed = JSON.parse(savedStr);
                        setUser(parsed);
-                       setView(parsed.name ? 'dashboard' : 'onboarding');
+                       setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
                    } catch(e) { setView('onboarding'); }
                } else {
                    setView('onboarding');
@@ -610,7 +612,7 @@ function App() {
                   try {
                       const parsed = JSON.parse(savedStr);
                       setUser(parsed);
-                      setView(parsed.name ? 'dashboard' : 'onboarding');
+                      setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
                   } catch(e) { setView('auth'); }
               } else {
                   try {
@@ -624,7 +626,7 @@ function App() {
                               const loadedUser = { ...user, ...data.rawData };
                               setUser(loadedUser);
                               safeStorageSet('legacy_user', JSON.stringify(loadedUser));
-                              setView('dashboard');
+                              setView(loadedUser.pin ? 'pin_entry' : 'dashboard');
                               return;
                           }
                       } else {
@@ -659,7 +661,7 @@ function App() {
                try {
                    const parsed = JSON.parse(savedStr);
                    setUser(parsed);
-                   setView(parsed.name ? 'dashboard' : 'onboarding');
+                   setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
                } catch(err) { setView('onboarding'); }
            } else {
                setView('onboarding');
@@ -698,6 +700,8 @@ function App() {
               try { currentUser = { ...user, ...JSON.parse(savedUser) }; setUser(currentUser); } catch(e){} 
           }
 
+          // In der neuen Architektur speichert die IndexedDB alle Einträge entschlüsselt, wenn die App läuft
+          // Falls noch verschlüsselte Einträge lokal liegen (aus alten Versionen), entschlüsseln wir sie einmalig.
           if (currentUser.pin) {
             loadedEntries = await Promise.all(loadedEntries.map(async (e) => {
               if (e.encryptedData) {
@@ -728,7 +732,7 @@ function App() {
     
     const unsubscribe = fb.onSnapshot(q, async (snapshot) => {
         const rawEntries = [];
-        snapshot.forEach(d => rawEntries.push(d.data()));
+        snapshot.forEach(d => rawEntries.push({ ...d.data(), id: d.id }));
         
         const decEntries = await Promise.all(rawEntries.map(async (docData) => {
             if (docData.encryptedData) {
@@ -766,12 +770,12 @@ function App() {
         const validCloudEntries = decEntries.filter(Boolean);
 
         if (db) {
-            const syncToLocalDB = async () => {
-                const cloudIds = validCloudEntries.map(e => e.id);
+            const syncToLocalDB = () => {
+                const cloudIds = rawEntries.map(e => e.id);
                 try {
                     const tx = db.transaction('entries', 'readwrite');
                     const store = tx.objectStore('entries');
-                    validCloudEntries.forEach(item => store.put(item));
+                    rawEntries.forEach(item => store.put(item));
                     
                     const req = store.getAllKeys();
                     req.onsuccess = () => {
@@ -1019,9 +1023,21 @@ function App() {
     updateMemory();
 
     if (db) {
+        let localStoreEntry = { id: plainEntry.id, timestamp: Date.now() };
+        if (activePin) {
+            try {
+                const payload = JSON.stringify(plainEntry);
+                const encrypted = await encryptData(payload, activePin);
+                if (encrypted) localStoreEntry.encryptedData = encrypted;
+                else localStoreEntry.rawData = plainEntry;
+            } catch(e) { localStoreEntry.rawData = plainEntry; }
+        } else {
+            localStoreEntry.rawData = plainEntry;
+        }
+        
         try {
             const tx = db.transaction('entries', 'readwrite'); 
-            tx.objectStore('entries').put(plainEntry); 
+            tx.objectStore('entries').put(localStoreEntry); 
         } catch (e) {}
     }
   };
@@ -1687,22 +1703,54 @@ function App() {
   }
 
   if (view === 'pin_entry') {
+    const isBioMode = user.biometric && safeStorageGet('legacy_bio_pin') && !showPinFallback;
+    
+    useEffect(() => {
+        if (isBioMode) {
+            handleBiometricUnlock();
+        }
+    }, [isBioMode]);
+
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-black text-slate-900 dark:text-white">
-        <div className="max-w-sm w-full space-y-8 animate-slide-up text-center">
-          <Icon name="lock" size={48} className="mx-auto mb-2 opacity-80" />
-          <h1 className="text-2xl font-bold tracking-tight">App entsperren</h1>
-          <p className="opacity-60 text-sm font-medium px-4">Gib deine PIN ein, um dein lokales Journal zu entschlüsseln.</p>
-          <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-zinc-800">
-             <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockSubmit(pinInput); }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none mb-6 bg-slate-100 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-zinc-600 transition-colors placeholder:opacity-30" placeholder="••••" />
-             <button onClick={() => handleUnlockSubmit(pinInput)} className="w-full py-4 font-bold rounded-2xl bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-transform shadow-md mb-3">Entsperren</button>
-             {user.biometric && safeStorageGet('legacy_bio_pin') && (
-                <button onClick={handleBiometricUnlock} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm flex items-center justify-center gap-2 mb-3"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
-             )}
-             <button onClick={handleLogout} className="mt-4 w-full py-2 text-xs font-bold uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity text-rose-500">Abmelden</button>
-          </div>
+        <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-black text-slate-900 dark:text-white">
+            {isBioMode ? (
+                <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-2xl border border-slate-200 dark:border-zinc-800 w-full max-w-sm flex flex-col items-center animate-slide-up">
+                    <div className="flex items-center justify-center gap-3 mb-6">
+                        <img src="./image_7bbbc0.png" alt="App Icon" className="w-12 h-12 rounded-xl shadow-sm" />
+                        <span className="text-2xl font-extrabold tracking-tight">Legacy</span>
+                    </div>
+                    <h2 className="text-xl font-bold mb-2">Legacy entsperren</h2>
+                    <p className="text-sm opacity-60 mb-8 text-center">Scanne deinen Fingerabdruck.</p>
+                    
+                    <button onClick={handleBiometricUnlock} className="w-20 h-20 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mb-8 hover:scale-105 active:scale-95 transition-all shadow-sm">
+                        <Icon name="fingerprint" size={40} className="animate-pulse" />
+                    </button>
+                    
+                    <button onClick={() => setShowPinFallback(true)} className="text-sm font-bold opacity-50 hover:opacity-100 transition-opacity pb-2">
+                        PIN verwenden
+                    </button>
+                    <button onClick={handleLogout} className="mt-6 text-xs font-bold uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity text-rose-500">
+                        Abmelden
+                    </button>
+                </div>
+            ) : (
+                <div className="max-w-sm w-full space-y-8 animate-slide-up text-center">
+                    <Icon name="lock" size={48} className="mx-auto mb-2 opacity-80" />
+                    <h1 className="text-2xl font-bold tracking-tight">App entsperren</h1>
+                    <p className="opacity-60 text-sm font-medium px-4">Gib deine PIN ein, um dein lokales Journal zu entschlüsseln.</p>
+                    <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-zinc-800">
+                        <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockSubmit(pinInput); }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none mb-6 bg-slate-100 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-zinc-600 transition-colors placeholder:opacity-30" placeholder="••••" />
+                        <button onClick={() => handleUnlockSubmit(pinInput)} className="w-full py-4 font-bold rounded-2xl bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-transform shadow-md mb-3">Entsperren</button>
+                        
+                        {user.biometric && safeStorageGet('legacy_bio_pin') && (
+                            <button onClick={() => { setShowPinFallback(false); }} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm flex items-center justify-center gap-2 mb-3"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
+                        )}
+
+                        <button onClick={handleLogout} className="mt-4 w-full py-2 text-xs font-bold uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity text-rose-500">Abmelden</button>
+                    </div>
+                </div>
+            )}
         </div>
-      </div>
     );
   }
 
