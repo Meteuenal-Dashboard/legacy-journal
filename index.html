@@ -637,8 +637,11 @@ function App() {
                       if (savedStr) {
                            let parsed = JSON.parse(savedStr);
                            if (fetchedProfile) {
-                               parsed = { ...parsed, ...fetchedProfile };
+                               // Handy bleibt der Master! Wir nutzen die lokalen Daten.
+                               // Damit ein neues Bild vom Handy die Cloud gewinnt, mergen wir die lokalen Daten ÜBER die Cloud-Daten.
+                               parsed = { ...fetchedProfile, ...parsed }; 
                                safeStorageSet('legacy_user', JSON.stringify(parsed));
+                               syncProfileToCloud(parsed); // Erzwinge sofort das Handy-Profil in der Cloud
                            }
                            setUser(parsed);
                            setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
@@ -742,10 +745,12 @@ function App() {
                 if (decStr) { 
                     try { 
                         const parsed = JSON.parse(decStr); 
+                        // FIX: Wir mergen das alte e mit den entsperrten parsed Werten!
                         return { ...e, ...parsed, encryptedData: null, locked: false }; 
                     } catch(err){ return { ...e, text: decStr, encryptedData: null, locked: false };} 
                 }
               } else if (e.cipher && e.iv && e.salt) {
+                  // LEGACY-RETTUNG aus IndexedDB!
                   const decStr = await decryptData({cipher: e.cipher, iv: e.iv, salt: e.salt}, currentUser.pin);
                   if (decStr) {
                       try {
@@ -1027,7 +1032,14 @@ function App() {
               if (pData.encryptedData) {
                   const decP = await decryptData(pData.encryptedData, pinValue);
                   if (decP) {
-                      restoredUser = { ...restoredUser, ...JSON.parse(decP) };
+                      const parsedDec = JSON.parse(decP);
+                      restoredUser = { 
+                          ...restoredUser, 
+                          ...parsedDec,
+                          avatar: pData.publicProfile?.avatar !== undefined ? pData.publicProfile.avatar : parsedDec.avatar,
+                          motto: pData.publicProfile?.motto !== undefined ? pData.publicProfile.motto : parsedDec.motto,
+                          name: pData.publicProfile?.name !== undefined ? pData.publicProfile.name : parsedDec.name
+                      };
                   } else {
                       setPinError(true); setTimeout(() => setPinError(false), 1000); setPinInput('');
                       setView('cloud_pin_sync');
@@ -1439,7 +1451,7 @@ function App() {
                   const ctx = canvas.getContext('2d'); 
                   const minDim = Math.min(img.width, img.height); 
                   ctx.drawImage(img, (img.width - minDim) / 2, (img.height - minDim) / 2, minDim, minDim, 0, 0, SIZE, SIZE); 
-                  const newAvatarUrl = canvas.toDataURL('image/png');
+                  const newAvatarUrl = canvas.toDataURL('image/jpeg', 0.6);
                   setUser(prev => {
                       const updated = { ...prev, avatar: newAvatarUrl };
                       safeStorageSet('legacy_user', JSON.stringify(updated));
@@ -1856,7 +1868,7 @@ function App() {
                     <div className="w-full h-px bg-slate-100 dark:bg-zinc-800 mb-8"></div>
                     
                     <h2 className="text-xl font-bold mb-2">Legacy entsperren</h2>
-                    <p className="text-sm opacity-60 mb-8">Scanne deinen Fingerabdruck.</p>
+                    <p className="text-sm opacity-60 mb-8 text-center">Scanne deinen Fingerabdruck.</p>
                     
                     <button onClick={handleBiometricUnlock} className="w-24 h-24 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mb-8 hover:scale-105 active:scale-95 transition-all shadow-sm border border-indigo-100 dark:border-indigo-500/20">
                         <Icon name="fingerprint" size={48} className="animate-pulse" />
@@ -2084,6 +2096,9 @@ function App() {
                            <div className="w-24 h-24 rounded-full overflow-hidden border-4 shadow-sm flex items-center justify-center bg-slate-100 dark:bg-zinc-800" style={{ borderColor: user.nameColor }}>
                                {user.avatar ? <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover scale-[1.02]" /> : <Icon name="user" size={40} className="opacity-30 text-slate-900 dark:text-white" />}
                            </div>
+                           {user.avatar && (
+                               <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); const updated = {...user, avatar: null}; setUser(updated); safeStorageSet('legacy_user', JSON.stringify(updated)); syncProfileToCloud(updated); }} className="absolute top-0 right-0 p-1.5 bg-rose-500 text-white rounded-full shadow-md hover:scale-110 active:scale-95 transition-transform z-10 border-2 border-white dark:border-zinc-900"><Icon name="x" size={12}/></button>
+                           )}
                        </div>
                        <label className="w-full sm:flex-1 py-4 px-4 rounded-2xl cursor-pointer shadow-sm font-bold text-sm text-center border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 hover:scale-[1.02] active:scale-95 transition-transform">
                            Profilbild ändern <input type="file" accept="image/*" onChange={(e) => handleAvatarUpload(e)} className="hidden" />
