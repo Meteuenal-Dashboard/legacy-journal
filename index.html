@@ -5,17 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Legacy Vision Journal - Ultimate Edition</title>
 
+<!-- PWA & iOS Premium Integration -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" id="meta-theme-color" content="#f8fafc">
 <meta name="color-scheme" content="light dark">
 
+<!-- W3C Standard Manifest (Statisch für Langlebigkeit) -->
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icon-192x192.png">
 
+<!-- Container für den App-Klon -->
 <script id="legacy-injected-data" type="application/json">null</script>
 
+<!-- Inter Font & Libraries -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -720,7 +724,8 @@ function App() {
                 if (decStr) { 
                     try { 
                         const parsed = JSON.parse(decStr); 
-                        return { ...e, text: parsed.text || e.text, title: parsed.title || e.title, encryptedData: null, locked: false }; 
+                        // FIX: Wir mergen das alte e mit den entsperrten parsed Werten!
+                        return { ...e, ...parsed, encryptedData: null, locked: false }; 
                     } catch(err){} 
                 }
               } else if (e.cipher) {
@@ -729,7 +734,7 @@ function App() {
                   if (decStr) {
                       try {
                           const parsed = JSON.parse(decStr);
-                          return { ...e, text: parsed.text || e.text, title: parsed.title || e.title, cipher: null, iv: null, salt: null, locked: false };
+                          return { ...e, ...parsed, cipher: null, iv: null, salt: null, locked: false };
                       } catch(err) {}
                   }
               }
@@ -751,16 +756,18 @@ function App() {
     const q = fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries');
     
     const unsubscribe = fb.onSnapshot(q, async (snapshot) => {
+        // HIGHLIGHT: Verhindert, dass eigene lokale Änderungen einen kompletten Download auslösen!
         if (snapshot.metadata.hasPendingWrites) return; 
         
         let hasChanges = false;
-        const updatedEntries = [];
         const removedIds = [];
 
-        for (const change of snapshot.docChanges()) {
+        // Parallelverarbeitung für massive Performance-Steigerung
+        const processChange = async (change) => {
             hasChanges = true;
             if (change.type === 'removed') {
                 removedIds.push(change.doc.id);
+                return null;
             } else {
                 const docData = change.doc.data();
                 
@@ -775,23 +782,24 @@ function App() {
                                    const innerDec = await decryptData(parsed.encryptedData, user.pin);
                                    if (innerDec) {
                                        const innerParsed = JSON.parse(innerDec);
-                                       parsed = { ...parsed, text: innerParsed.text || parsed.text, title: innerParsed.title || parsed.title };
+                                       parsed = { ...parsed, ...innerParsed };
                                    }
                                }
-                               updatedEntries.push({ ...parsed, id: change.doc.id, encryptedData: null, locked: false }); 
-                               continue;
+                               // FIX: Zusammenführen von docData (Datum, Bilder) und parsed (entschlüsselter Text)
+                               return { ...docData, ...parsed, id: change.doc.id, encryptedData: null, locked: false }; 
                            } catch(e){} 
                        }
                    }
-                   updatedEntries.push({
+                   return {
+                       ...docData,
                        id: change.doc.id,
-                       title: 'Verschlüsselter Eintrag',
+                       title: docData.title || 'Verschlüsselter Eintrag',
                        text: 'Entschlüsselung fehlgeschlagen. Bitte prüfe deine PIN.',
-                       date: docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString(),
+                       date: docData.date || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString()),
                        encryptedData: docData.encryptedData,
-                       category: 'Sicherheit',
+                       category: docData.category || 'Sicherheit',
                        locked: false
-                   });
+                   };
                 } 
                 // 2. LEGACY STANDARD: Eintrag liegt flach im Dokument (cipher, iv, salt direkt auf docData)
                 else if (docData.cipher && docData.iv && docData.salt) {
@@ -800,27 +808,32 @@ function App() {
                         if (decStr) {
                             try {
                                 let parsed = JSON.parse(decStr);
-                                updatedEntries.push({ ...parsed, id: change.doc.id, cipher: null, iv: null, salt: null, locked: false });
-                                continue;
+                                // FIX: Zusammenführen von docData (Datum, Bilder) und parsed (entschlüsselter Text)
+                                return { ...docData, ...parsed, id: change.doc.id, cipher: null, iv: null, salt: null, locked: false };
                             } catch(e){}
                         }
                     }
-                    updatedEntries.push({
+                    return {
+                       ...docData,
                        id: change.doc.id,
-                       title: 'Verschlüsselter Legacy-Eintrag',
+                       title: docData.title || 'Verschlüsselter Legacy-Eintrag',
                        text: 'Entschlüsselung des alten Formats fehlgeschlagen.',
-                       date: docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString(),
+                       date: docData.date || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString()),
                        cipher: docData.cipher,
-                       category: 'Sicherheit',
+                       category: docData.category || 'Sicherheit',
                        locked: false
-                   });
+                   };
                 }
                 // 3. UNVERSCHLÜSSELT
                 else if (docData.rawData) {
-                    updatedEntries.push({ ...docData.rawData, id: change.doc.id, locked: false });
+                    return { ...docData.rawData, id: change.doc.id, locked: false };
                 }
+                return { ...docData, id: change.doc.id, locked: false };
             }
-        }
+        };
+
+        const results = await Promise.all(snapshot.docChanges().map(processChange));
+        const updatedEntries = results.filter(Boolean);
 
         if (!hasChanges) return;
 
@@ -2155,6 +2168,7 @@ function App() {
              </div>
           )}
 
+          {/* ['dashboard', 'archive'] Kategorien-Leiste komplett entfernt wie gefordert */}
           {['dashboard', 'archive'].includes(view) && visibleEntries.length === 0 && !searchQuery && (
             <div className="flex flex-col items-center justify-center py-32 text-center opacity-40 animate-fade-in">
               <Icon name="book-open" size={64} className="mb-6"/>
@@ -2253,6 +2267,7 @@ function App() {
                   <h1 className="text-4xl sm:text-6xl font-extrabold mb-8 tracking-tighter leading-[1.1] text-slate-900 dark:text-white">{viewingEntry.title || 'Ohne Titel'}</h1>
                   <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
                     <span>{new Date(viewingEntry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                    <span>•</span><span>{viewingEntry.category || 'Allgemein'}</span>
                   </div>
                   
                   {/* Meta-Data Pills */}
@@ -2440,7 +2455,6 @@ function App() {
             </div>
 
             <div className="flex-none p-3 border-t border-slate-100 dark:border-zinc-900 bg-white/95 dark:bg-black/95 backdrop-blur-xl shrink-0 flex items-center gap-3 overflow-x-auto hide-scrollbar z-50 pb-safe shadow-[0_-4px_6px_rgba(0,0,0,0.02)]">
-               <button onClick={()=>setPicker({title:'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c, value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;}})} className="h-10 px-4 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs font-bold flex items-center gap-2 shrink-0">{category} <Icon name="chevron-down" size={12}/></button>
                
                <div className="h-10 flex items-center gap-1 bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0">
                   {[1,2,3,4,5].map(star => (
