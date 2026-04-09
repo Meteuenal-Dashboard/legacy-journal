@@ -166,13 +166,18 @@ const encryptData = async (text, pin) => {
     try {
         const salt = window.crypto.getRandomValues(new Uint8Array(16));
         const iv = window.crypto.getRandomValues(new Uint8Array(12));
-        const saltStr = btoa(String.fromCharCode(...salt));
-        const ivStr = btoa(String.fromCharCode(...iv));
+        const saltStr = btoa(String.fromCharCode.apply(null, salt));
+        const ivStr = btoa(String.fromCharCode.apply(null, iv));
         const key = await getCryptoKey(pin, saltStr);
         const encrypted = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, encHelper.encode(text));
+        
         const bytes = new Uint8Array(encrypted);
         let binary = '';
-        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+        const chunkSize = 8192;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+        }
+        
         return { cipher: btoa(binary), iv: ivStr, salt: saltStr };
     } catch(e) { console.error("Encryption failed", e); return null; }
 };
@@ -559,7 +564,7 @@ function App() {
       else if (showEditorRef.current) { checkSaveEntry(true); trapped = true; } 
       else if (viewingEntryRef.current) { setViewingEntry(null); setCurrentViewerImgIdx(0); trapped = true; }
       else if (showTimelineRef.current) { setShowTimeline(false); trapped = true; }
-      else if (viewRef.current !== 'dashboard' && viewRef.current !== 'loading' && viewRef.current !== 'auth' && viewRef.current !== 'pin_entry' && viewRef.current !== 'onboarding' && viewRef.current !== 'cloud_pin_sync') { setView('dashboard'); trapped = true; }
+      else if (viewRef.current !== 'dashboard' && viewRef.current !== 'loading' && viewRef.current !== 'auth' && viewRef.current !== 'onboarding' && viewRef.current !== 'cloud_pin_sync') { setView('dashboard'); trapped = true; }
 
       if (trapped) {
           try { window.history.pushState({ isApp: true }, ''); } catch(e) {}
@@ -580,7 +585,7 @@ function App() {
                    try {
                        const parsed = JSON.parse(savedStr);
                        setUser(parsed);
-                       setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
+                       setView(parsed.name ? 'dashboard' : 'onboarding');
                    } catch(e) { setView('onboarding'); }
                } else {
                    setView('onboarding');
@@ -605,7 +610,7 @@ function App() {
                   try {
                       const parsed = JSON.parse(savedStr);
                       setUser(parsed);
-                      setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
+                      setView(parsed.name ? 'dashboard' : 'onboarding');
                   } catch(e) { setView('auth'); }
               } else {
                   try {
@@ -654,7 +659,7 @@ function App() {
                try {
                    const parsed = JSON.parse(savedStr);
                    setUser(parsed);
-                   setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
+                   setView(parsed.name ? 'dashboard' : 'onboarding');
                } catch(err) { setView('onboarding'); }
            } else {
                setView('onboarding');
@@ -665,7 +670,7 @@ function App() {
     initFB();
   }, []);
 
-  // Initialize DB & Repair Invalid Dates
+  // Initialize DB & Repair Invalid Dates & Decrypt Old Vault Entries
   useEffect(() => {
     const loadApp = async () => {
       try {
@@ -700,12 +705,14 @@ function App() {
                 if (decStr) { 
                     try { 
                         const parsed = JSON.parse(decStr); 
-                        return { ...e, text: parsed.text, title: parsed.title, encryptedData: null }; 
+                        return { ...e, text: parsed.text || e.text, title: parsed.title || e.title, encryptedData: null, locked: false }; 
                     } catch(err){} 
                 }
               }
-              return e;
+              return { ...e, locked: false };
             }));
+          } else {
+             loadedEntries = loadedEntries.map(e => ({ ...e, locked: false }));
           }
           setEntries(loadedEntries.sort(sortEntriesChronological));
         };
@@ -728,20 +735,30 @@ function App() {
                if (user.pin) {
                    const decStr = await decryptData(docData.encryptedData, user.pin);
                    if (decStr) { 
-                       try { return { ...JSON.parse(decStr), id: docData.id }; } catch(e){} 
+                       try { 
+                           let parsed = JSON.parse(decStr); 
+                           if (parsed.encryptedData) {
+                               const innerDec = await decryptData(parsed.encryptedData, user.pin);
+                               if (innerDec) {
+                                   const innerParsed = JSON.parse(innerDec);
+                                   parsed = { ...parsed, text: innerParsed.text || parsed.text, title: innerParsed.title || parsed.title };
+                               }
+                           }
+                           return { ...parsed, id: docData.id, encryptedData: null, locked: false }; 
+                       } catch(e){} 
                    }
                }
-               // Falls PIN fehlt oder falsch ist
                return {
                    id: docData.id,
                    title: 'Verschlüsselter Eintrag',
                    text: 'Entschlüsselung fehlgeschlagen. Bitte prüfe deine PIN.',
                    date: docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString(),
                    encryptedData: docData.encryptedData,
-                   category: 'Sicherheit'
+                   category: 'Sicherheit',
+                   locked: false
                };
             } else if (docData.rawData) {
-                return { ...docData.rawData, id: docData.id };
+                return { ...docData.rawData, id: docData.id, locked: false };
             }
             return null;
         }));
@@ -756,7 +773,6 @@ function App() {
                     const store = tx.objectStore('entries');
                     validCloudEntries.forEach(item => store.put(item));
                     
-                    // Bereinige lokale DB, damit gelöschte Cloud-Items auch lokal verschwinden
                     const req = store.getAllKeys();
                     req.onsuccess = () => {
                         const localKeys = req.result;
@@ -771,7 +787,6 @@ function App() {
             syncToLocalDB();
         }
 
-        // Setzt den App-Status exakt auf das, was in der Cloud ist
         setEntries(validCloudEntries.sort(sortEntriesChronological));
     });
     return () => unsubscribe();
@@ -990,13 +1005,14 @@ function App() {
   // Robuste Speicherung: Sendet komplett an Cloud, speichert komplett lokal
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; 
-    
-    syncSingleEntryToCloud(entry, activePin); 
+    const plainEntry = { ...entry, locked: false, encryptedData: null };
+
+    syncSingleEntryToCloud(plainEntry, activePin); 
 
     const updateMemory = () => {
         setEntries(prev => { 
-            const exists = prev.find(e => e && e.id === entry.id); 
-            let nextEntries = exists ? prev.map(e => (e && e.id === entry.id) ? entry : e) : [entry, ...prev];
+            const exists = prev.find(e => e && e.id === plainEntry.id); 
+            let nextEntries = exists ? prev.map(e => (e && e.id === plainEntry.id) ? plainEntry : e) : [plainEntry, ...prev];
             return nextEntries.sort(sortEntriesChronological);
         });
     };
@@ -1005,7 +1021,7 @@ function App() {
     if (db) {
         try {
             const tx = db.transaction('entries', 'readwrite'); 
-            tx.objectStore('entries').put(entry); 
+            tx.objectStore('entries').put(plainEntry); 
         } catch (e) {}
     }
   };
@@ -1539,6 +1555,8 @@ function App() {
 
   const downloadFullApp = () => { const cloneDocument = document.cloneNode(true); const rootDiv = cloneDocument.getElementById('root'); if (rootDiv) rootDiv.innerHTML = ''; const existingInjected = cloneDocument.getElementById('legacy-injected-data'); if (existingInjected) existingInjected.remove(); const data = { user, entries }; const scriptEl = cloneDocument.createElement('script'); scriptEl.id = 'legacy-injected-data'; scriptEl.type = 'application/json'; scriptEl.textContent = JSON.stringify(data); cloneDocument.head.appendChild(scriptEl); const htmlContent = "<!DOCTYPE html>\n" + cloneDocument.documentElement.outerHTML; const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Legacy_${new Date().toISOString().split('T')[0]}.html`; a.click(); URL.revokeObjectURL(a.href); showDialog({ title: 'Erledigt!', message: 'App als HTML-Backup gespeichert.', icon: 'download' }); };
 
+  const importBackup = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async (e) => { try { let data = null; if (file.name.toLowerCase().endsWith('.html')) { const doc = new DOMParser().parseFromString(e.target.result, 'text/html'); const script = doc.getElementById('legacy-injected-data'); if (script && script.textContent && script.textContent !== 'null') data = JSON.parse(script.textContent); else throw new Error("Keine Daten"); } else data = JSON.parse(e.target.result); if (data && data.entries && db) { const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); let mergedCount = 0; const pinToUse = data.user ? data.user.pin : user.pin; const entriesToSave = await Promise.all(data.entries.map(async (en) => { let dbE = { ...en }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []); return dbE; })); entriesToSave.forEach(en => { if (!entries.find(ex => ex && ex.id === en.id)) { if (data.user && data.user.name !== user.name) en.inheritedFrom = data.user.name; store.put(en); mergedCount++; } }); const req = store.getAll(); req.onsuccess = async () => { let loadedEntries = req.result || []; loadedEntries = loadedEntries.filter(e => e != null); if (user.pin) loadedEntries = await Promise.all(loadedEntries.map(async (en) => { if (en.encryptedData) { const decStr = await decryptData(en.encryptedData, user.pin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...en, text: parsed.text, title: parsed.title }; } catch(err){} } } return en; })); setEntries(loadedEntries.sort(sortEntriesChronological)); showDialog({ title: 'Erfolg', message: `${mergedCount} neue Seiten importiert.`, icon: 'check' }); }; } } catch (err) { showDialog({ title: 'Fehler', message: 'Ungültige Datei.', icon: 'x' }); } }; reader.readAsText(file); };
+
   useEffect(() => { 
       if (showEditor && editorRef.current) { 
           editorRef.current.innerHTML = text || ''; 
@@ -1666,6 +1684,26 @@ function App() {
           </div>
         </div>
       );
+  }
+
+  if (view === 'pin_entry') {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-black text-slate-900 dark:text-white">
+        <div className="max-w-sm w-full space-y-8 animate-slide-up text-center">
+          <Icon name="lock" size={48} className="mx-auto mb-2 opacity-80" />
+          <h1 className="text-2xl font-bold tracking-tight">App entsperren</h1>
+          <p className="opacity-60 text-sm font-medium px-4">Gib deine PIN ein, um dein lokales Journal zu entschlüsseln.</p>
+          <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-zinc-800">
+             <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockSubmit(pinInput); }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none mb-6 bg-slate-100 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-zinc-600 transition-colors placeholder:opacity-30" placeholder="••••" />
+             <button onClick={() => handleUnlockSubmit(pinInput)} className="w-full py-4 font-bold rounded-2xl bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-transform shadow-md mb-3">Entsperren</button>
+             {user.biometric && safeStorageGet('legacy_bio_pin') && (
+                <button onClick={handleBiometricUnlock} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm flex items-center justify-center gap-2 mb-3"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
+             )}
+             <button onClick={handleLogout} className="mt-4 w-full py-2 text-xs font-bold uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity text-rose-500">Abmelden</button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (view === 'onboarding') {
