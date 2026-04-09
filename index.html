@@ -162,7 +162,6 @@ const getCryptoKey = async (pin, saltStr) => {
     cryptoKeyCache[cacheKey] = key; return key;
 };
 
-// Optimierte Verschlüsselung für große Dateien (verhindert Callstack-Fehler bei Bildern)
 const encryptData = async (text, pin) => {
     try {
         const salt = window.crypto.getRandomValues(new Uint8Array(16));
@@ -494,7 +493,7 @@ function App() {
   const [isManifested, setIsManifested] = useState(false);
   const [unlockDate, setUnlockDate] = useState('');
   const [location, setLocation] = useState(null);
-  const [locations, setLocations] = useState([]); // Multi-GPS Array
+  const [locations, setLocations] = useState([]); 
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [mood, setMood] = useState(null);
   const [entryDate, setEntryDate] = useState('');
@@ -522,7 +521,12 @@ function App() {
   const viewRef = useRef(view);
   const biometricAttempted = useRef(false);
 
-  // LOGOUT/LOGIN FIX: Synchronisiert das sichtbare Profil getrennt von der Verschlüsselung
+  // Um Ruckeln beim Tippen zu verhindern: Wir nutzen eine Ref für die Einträge
+  const entriesRef = useRef(entries);
+  useEffect(() => {
+      entriesRef.current = entries;
+  }, [entries]);
+
   const syncProfileToCloud = async (userData) => {
       if (!fb || !fb.auth || !fb.auth.currentUser || !userData.cloudSync) return;
       try { 
@@ -592,7 +596,6 @@ function App() {
     const initFB = async () => {
        let authTimeout = setTimeout(() => {
            if (!isLoaded) {
-               console.warn("Firebase Auth Timeout - Fallback to Local");
                const savedStr = safeStorageGet('legacy_user');
                if (savedStr) {
                    try {
@@ -630,10 +633,7 @@ function App() {
                       const profileSnap = await getDoc(doc(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'profile', 'data'));
                       if (profileSnap.exists()) {
                           const data = profileSnap.data();
-                          // Lade das öffentliche Profil (Bild/Motto) sofort für die PIN-Ansicht
-                          if (data.publicProfile) {
-                              setUser(prev => ({ ...prev, ...data.publicProfile }));
-                          }
+                          if (data.publicProfile) setUser(prev => ({ ...prev, ...data.publicProfile }));
                           if (data.encryptedData) {
                               setView('cloud_pin_sync'); 
                               return;
@@ -670,7 +670,6 @@ function App() {
               setIsLoaded(true);
           });
        } catch(e) { 
-           console.error("Firebase init error:", e);
            const savedStr = safeStorageGet('legacy_user');
            if (savedStr) {
                try {
@@ -687,7 +686,7 @@ function App() {
     initFB();
   }, []);
 
-  // Initialize DB & Repair Invalid Dates & Decrypt Old Vault Entries
+  // Initialize DB & Local Load
   useEffect(() => {
     const loadApp = async () => {
       try {
@@ -696,9 +695,7 @@ function App() {
 
         request.onsuccess = async () => {
           let loadedEntries = request.result || [];
-          loadedEntries = loadedEntries.filter(e => e != null);
-
-          loadedEntries = loadedEntries.map(e => {
+          loadedEntries = loadedEntries.filter(e => e != null).map(e => {
               if (e.date) {
                   const d = new Date(e.date);
                   if (isNaN(d.getTime())) {
@@ -706,46 +703,12 @@ function App() {
                       if (!isNaN(repaired.getTime())) e.date = repaired.toISOString();
                   }
               }
-              return e;
+              return { ...e, locked: false };
           });
 
-          const savedUser = safeStorageGet('legacy_user');
-          let currentUser = user;
-          if (savedUser) { 
-              try { currentUser = { ...user, ...JSON.parse(savedUser) }; setUser(currentUser); } catch(e){} 
-          }
-
-          // In der neuen Architektur speichert die IndexedDB alle Einträge entschlüsselt, wenn die App läuft
-          // Da wir nun Legacy-Dokumente retten, prüfen wir, ob sie direkt das 'cipher' Attribut haben oder 'encryptedData'
-          if (currentUser.pin) {
-            loadedEntries = await Promise.all(loadedEntries.map(async (e) => {
-              if (e.encryptedData) {
-                const decStr = await decryptData(e.encryptedData, currentUser.pin);
-                if (decStr) { 
-                    try { 
-                        const parsed = JSON.parse(decStr); 
-                        // FIX: Wir mergen das alte e mit den entsperrten parsed Werten!
-                        return { ...e, ...parsed, encryptedData: null, locked: false }; 
-                    } catch(err){} 
-                }
-              } else if (e.cipher) {
-                  // LEGACY-RETTUNG aus IndexedDB!
-                  const decStr = await decryptData({cipher: e.cipher, iv: e.iv, salt: e.salt}, currentUser.pin);
-                  if (decStr) {
-                      try {
-                          const parsed = JSON.parse(decStr);
-                          return { ...e, ...parsed, cipher: null, iv: null, salt: null, locked: false };
-                      } catch(err) {}
-                  }
-              }
-              return { ...e, locked: false };
-            }));
-          } else {
-             loadedEntries = loadedEntries.map(e => ({ ...e, locked: false }));
-          }
           setEntries(loadedEntries.sort(sortEntriesChronological));
         };
-      } catch (e) { console.warn("DB Load failed", e); }
+      } catch (e) { }
     };
     loadApp();
   }, []);
@@ -756,86 +719,76 @@ function App() {
     const q = fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries');
     
     const unsubscribe = fb.onSnapshot(q, async (snapshot) => {
-        // HIGHLIGHT: Verhindert, dass eigene lokale Änderungen einen kompletten Download auslösen!
         if (snapshot.metadata.hasPendingWrites) return; 
         
         let hasChanges = false;
         const removedIds = [];
+        const currentEntriesMap = new Map(entriesRef.current.map(e => [e.id, e]));
 
-        // Parallelverarbeitung für massive Performance-Steigerung
         const processChange = async (change) => {
-            hasChanges = true;
-            if (change.type === 'removed') {
-                removedIds.push(change.doc.id);
-                return null;
-            } else {
-                const docData = change.doc.data();
+            try {
+                if (change.type === 'removed') {
+                    removedIds.push(change.doc.id);
+                    return null;
+                }
                 
-                // 1. NEUER STANDARD: Eintrag ist in encryptedData verpackt
+                const docData = change.doc.data();
+                const existingLocal = currentEntriesMap.get(change.doc.id);
+                
+                // PERFORMANCE FIX: Wenn wir den Eintrag schon haben und er funktioniert, überspringen wir das Entschlüsseln!
+                if (existingLocal && !existingLocal.text?.includes('Entschlüsselung fehlgeschlagen')) {
+                   if (!docData.timestamp || !existingLocal.timestamp || docData.timestamp <= existingLocal.timestamp) {
+                       return { type: 'existing' }; 
+                   }
+                }
+                
+                // 1. NEUER STANDARD
                 if (docData.encryptedData) {
                    if (user.pin) {
                        const decStr = await decryptData(docData.encryptedData, user.pin);
                        if (decStr) { 
+                           let parsed;
                            try { 
-                               let parsed = JSON.parse(decStr); 
+                               parsed = JSON.parse(decStr); 
                                if (parsed.encryptedData) {
                                    const innerDec = await decryptData(parsed.encryptedData, user.pin);
                                    if (innerDec) {
-                                       const innerParsed = JSON.parse(innerDec);
-                                       parsed = { ...parsed, ...innerParsed };
+                                       try { const innerParsed = JSON.parse(innerDec); parsed = { ...parsed, ...innerParsed }; }
+                                       catch(e) { parsed.text = innerDec; }
                                    }
                                }
-                               // FIX: Zusammenführen von docData (Datum, Bilder) und parsed (entschlüsselter Text)
-                               return { ...docData, ...parsed, id: change.doc.id, encryptedData: null, locked: false }; 
-                           } catch(e){} 
+                           } catch(e) { parsed = { text: decStr }; }
+                           return { ...docData, ...parsed, id: change.doc.id, encryptedData: null, locked: false }; 
                        }
                    }
-                   return {
-                       ...docData,
-                       id: change.doc.id,
-                       title: docData.title || 'Verschlüsselter Eintrag',
-                       text: 'Entschlüsselung fehlgeschlagen. Bitte prüfe deine PIN.',
-                       date: docData.date || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString()),
-                       encryptedData: docData.encryptedData,
-                       category: docData.category || 'Sicherheit',
-                       locked: false
-                   };
+                   return { ...docData, id: change.doc.id, title: docData.title || 'Verschlüsselter Eintrag', text: 'Entschlüsselung fehlgeschlagen. Bitte prüfe deine PIN.', locked: false };
                 } 
-                // 2. LEGACY STANDARD: Eintrag liegt flach im Dokument (cipher, iv, salt direkt auf docData)
+                // 2. LEGACY STANDARD (Rettet alte verschollene Einträge!)
                 else if (docData.cipher && docData.iv && docData.salt) {
                     if (user.pin) {
                         const decStr = await decryptData({ cipher: docData.cipher, iv: docData.iv, salt: docData.salt }, user.pin);
                         if (decStr) {
-                            try {
-                                let parsed = JSON.parse(decStr);
-                                // FIX: Zusammenführen von docData (Datum, Bilder) und parsed (entschlüsselter Text)
-                                return { ...docData, ...parsed, id: change.doc.id, cipher: null, iv: null, salt: null, locked: false };
-                            } catch(e){}
+                            let parsed;
+                            try { parsed = JSON.parse(decStr); } catch(e) { parsed = { text: decStr }; }
+                            return { ...docData, ...parsed, id: change.doc.id, cipher: null, iv: null, salt: null, locked: false };
                         }
                     }
-                    return {
-                       ...docData,
-                       id: change.doc.id,
-                       title: docData.title || 'Verschlüsselter Legacy-Eintrag',
-                       text: 'Entschlüsselung des alten Formats fehlgeschlagen.',
-                       date: docData.date || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString()),
-                       cipher: docData.cipher,
-                       category: docData.category || 'Sicherheit',
-                       locked: false
-                   };
+                    return { ...docData, id: change.doc.id, title: docData.title || 'Verschlüsselter Legacy-Eintrag', text: 'Entschlüsselung des alten Formats fehlgeschlagen. PIN falsch?', locked: false };
                 }
                 // 3. UNVERSCHLÜSSELT
                 else if (docData.rawData) {
                     return { ...docData.rawData, id: change.doc.id, locked: false };
                 }
                 return { ...docData, id: change.doc.id, locked: false };
+            } catch (e) {
+                return null; // Wenn ein einzelner crasht, stirbt nicht alles
             }
         };
 
         const results = await Promise.all(snapshot.docChanges().map(processChange));
-        const updatedEntries = results.filter(Boolean);
+        const updatedEntries = results.filter(res => res && res.type !== 'existing');
 
-        if (!hasChanges) return;
+        if (updatedEntries.length === 0 && removedIds.length === 0) return;
 
         setEntries(prev => {
             let next = [...prev];
@@ -970,6 +923,16 @@ function App() {
       }
   };
 
+  useEffect(() => {
+      if (view === 'pin_entry' && user.biometric && safeStorageGet('legacy_bio_pin') && !showPinFallback && !biometricAttempted.current) {
+          biometricAttempted.current = true; 
+          handleBiometricUnlock();
+      }
+      if (view !== 'pin_entry') {
+          biometricAttempted.current = false;
+      }
+  }, [view, user.biometric, showPinFallback]);
+
   const handleCloudRestore = async (pinValue) => {
       if (!pinValue) return;
       setPinError(false);
@@ -1054,12 +1017,7 @@ function App() {
             if (parsed.entries) {
                setSyncStatus('Daten werden verarbeitet...');
                if (db) {
-                 const pinToUse = parsed.user ? parsed.user.pin : user.pin;
-                 const entriesToSave = await Promise.all(parsed.entries.map(async (e) => {
-                     let dbE = { ...e }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []);
-                     return dbE;
-                 }));
-                 const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); entriesToSave.forEach(e => store.put(e));
+                 const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); parsed.entries.forEach(e => store.put(e));
                  tx.oncomplete = () => { if (parsed.user) safeStorageSet('legacy_user', JSON.stringify(parsed.user)); setSyncStatus('Erfolgreich übertragen!'); setTimeout(() => { window.location.href = window.location.origin + window.location.pathname; }, 2000); };
                }
             }
@@ -1076,7 +1034,6 @@ function App() {
      };
   }, [editingId, title, selectedColor, selectedImages, audioUrl, isManifested, category, mood, unlockDate, location, locations, parentId, inheritedFrom, rating, tags, people, weather, entryDate]);
 
-  // Speichert den unverschlüsselten Text immer lokal in IndexedDB
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; 
     const plainEntry = { ...entry, locked: false, encryptedData: null };
@@ -2231,7 +2188,7 @@ function App() {
                    <button onClick={() => window.print()} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500"><Icon name="printer" size={22}/></button>
                    <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
                    
-                   {/* Haupt-Cover ändern (oben links neben Drucker) - auf Mobile nun sichtbar! */}
+                   {/* Haupt-Cover ändern (oben links neben Drucker) - IMMER SICHTBAR AUF HANDY! */}
                    <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500 cursor-pointer flex items-center justify-center shadow-sm" title="Tagebuch-Cover ändern">
                        <Icon name="image" size={22}/>
                        <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, bookRoot?.id || viewingEntry.id, 0)} className="hidden" />
@@ -2267,7 +2224,6 @@ function App() {
                   <h1 className="text-4xl sm:text-6xl font-extrabold mb-8 tracking-tighter leading-[1.1] text-slate-900 dark:text-white">{viewingEntry.title || 'Ohne Titel'}</h1>
                   <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
                     <span>{new Date(viewingEntry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
-                    <span>•</span><span>{viewingEntry.category || 'Allgemein'}</span>
                   </div>
                   
                   {/* Meta-Data Pills */}
