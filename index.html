@@ -458,6 +458,7 @@ function App() {
   
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
+  const [showPinFallback, setShowPinFallback] = useState(false);
   
   const [isChangingPin, setIsChangingPin] = useState(false);
   const [oldPinInput, setOldPinInput] = useState('');
@@ -493,7 +494,7 @@ function App() {
   const [isManifested, setIsManifested] = useState(false);
   const [unlockDate, setUnlockDate] = useState('');
   const [location, setLocation] = useState(null);
-  const [locations, setLocations] = useState([]); // Multi-GPS Array
+  const [locations, setLocations] = useState([]); 
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [mood, setMood] = useState(null);
   const [entryDate, setEntryDate] = useState('');
@@ -519,11 +520,26 @@ function App() {
   const viewingEntryRef = useRef(viewingEntry);
   const showTimelineRef = useRef(showTimeline);
   const viewRef = useRef(view);
+  const biometricAttempted = useRef(false);
+
+  const entriesRef = useRef(entries);
+  useEffect(() => {
+      entriesRef.current = entries;
+  }, [entries]);
 
   const syncProfileToCloud = async (userData) => {
       if (!fb || !fb.auth || !fb.auth.currentUser || !userData.cloudSync) return;
       try { 
-          let payload = { timestamp: Date.now() };
+          let payload = { 
+              timestamp: Date.now(),
+              publicProfile: {
+                  name: userData.name || '',
+                  motto: userData.motto || '',
+                  avatar: userData.avatar || null,
+                  nameColor: userData.nameColor,
+                  isDark: userData.isDark
+              }
+          };
           if (userData.pin) {
               const encrypted = await encryptData(JSON.stringify(userData), userData.pin); 
               if (encrypted) payload.encryptedData = encrypted; 
@@ -565,7 +581,7 @@ function App() {
       else if (showEditorRef.current) { checkSaveEntry(true); trapped = true; } 
       else if (viewingEntryRef.current) { setViewingEntry(null); setCurrentViewerImgIdx(0); trapped = true; }
       else if (showTimelineRef.current) { setShowTimeline(false); trapped = true; }
-      else if (viewRef.current !== 'dashboard' && viewRef.current !== 'loading' && viewRef.current !== 'auth' && viewRef.current !== 'onboarding' && viewRef.current !== 'cloud_pin_sync') { setView('dashboard'); trapped = true; }
+      else if (viewRef.current !== 'dashboard' && viewRef.current !== 'loading' && viewRef.current !== 'auth' && viewRef.current !== 'pin_entry' && viewRef.current !== 'onboarding' && viewRef.current !== 'cloud_pin_sync') { setView('dashboard'); trapped = true; }
 
       if (trapped) {
           try { window.history.pushState({ isApp: true }, ''); } catch(e) {}
@@ -586,7 +602,7 @@ function App() {
                    try {
                        const parsed = JSON.parse(savedStr);
                        setUser(parsed);
-                       setView(parsed.name ? 'dashboard' : 'onboarding');
+                       setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
                    } catch(e) { setView('onboarding'); }
                } else {
                    setView('onboarding');
@@ -606,38 +622,61 @@ function App() {
           setFb({ db: firestoreDb, auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot });
 
           const handleUserLoad = async (u) => {
+              // Fetch public profile FIRST to ensure consistency across devices before PIN entry
+              let fetchedProfile = null;
+              try {
+                  const profileSnap = await getDoc(doc(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'profile', 'data'));
+                  if (profileSnap.exists()) {
+                      const data = profileSnap.data();
+                      if (data.publicProfile) {
+                          fetchedProfile = data.publicProfile;
+                          setUser(prev => ({ ...prev, ...fetchedProfile }));
+                      }
+                      
+                      const savedStr = safeStorageGet('legacy_user');
+                      if (savedStr) {
+                           let parsed = JSON.parse(savedStr);
+                           if (fetchedProfile) {
+                               parsed = { ...parsed, ...fetchedProfile };
+                               safeStorageSet('legacy_user', JSON.stringify(parsed));
+                           }
+                           setUser(parsed);
+                           setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
+                           return;
+                      } else {
+                           if (data.encryptedData) {
+                               setView('cloud_pin_sync'); 
+                               return;
+                           } else if (data.rawData) {
+                               const loadedUser = { ...user, ...data.rawData, ...fetchedProfile };
+                               setUser(loadedUser);
+                               safeStorageSet('legacy_user', JSON.stringify(loadedUser));
+                               setView(loadedUser.pin ? 'pin_entry' : 'dashboard');
+                               return;
+                           }
+                      }
+                  }
+              } catch(e) {}
+
               const savedStr = safeStorageGet('legacy_user');
               if (savedStr) {
                   try {
                       const parsed = JSON.parse(savedStr);
                       setUser(parsed);
                       setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
-                  } catch(e) { setView('auth'); }
-              } else {
-                  try {
-                      const profileSnap = await getDoc(doc(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'profile', 'data'));
-                      if (profileSnap.exists()) {
-                          const data = profileSnap.data();
-                          if (data.encryptedData) {
-                              setView('cloud_pin_sync'); 
-                              return;
-                          } else if (data.rawData) {
-                              const loadedUser = { ...user, ...data.rawData };
-                              setUser(loadedUser);
-                              safeStorageSet('legacy_user', JSON.stringify(loadedUser));
-                              setView(loadedUser.pin ? 'pin_entry' : 'dashboard');
-                              return;
-                          }
-                      } else {
-                          const entriesSnap = await getDocs(collection(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'entries'));
-                          if (!entriesSnap.empty) {
-                              setView('cloud_pin_sync'); 
-                              return;
-                          }
-                      }
+                      return;
                   } catch(e) {}
-                  setView('onboarding'); 
               }
+              
+              try {
+                  const entriesSnap = await getDocs(collection(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'entries'));
+                  if (!entriesSnap.empty) {
+                      setView('cloud_pin_sync'); 
+                      return;
+                  }
+              } catch(e) {}
+
+              setView('onboarding'); 
           };
 
           onAuthStateChanged(auth, (u) => {
@@ -654,13 +693,12 @@ function App() {
               setIsLoaded(true);
           });
        } catch(e) { 
-           console.error("Firebase init error:", e);
            const savedStr = safeStorageGet('legacy_user');
            if (savedStr) {
                try {
                    const parsed = JSON.parse(savedStr);
                    setUser(parsed);
-                   setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
+                   setView(parsed.name ? 'dashboard' : 'onboarding');
                } catch(err) { setView('onboarding'); }
            } else {
                setView('onboarding');
@@ -671,7 +709,7 @@ function App() {
     initFB();
   }, []);
 
-  // Initialize DB & Repair Invalid Dates & Decrypt Old Vault Entries
+  // Initialize DB & Local Load
   useEffect(() => {
     const loadApp = async () => {
       try {
@@ -680,9 +718,7 @@ function App() {
 
         request.onsuccess = async () => {
           let loadedEntries = request.result || [];
-          loadedEntries = loadedEntries.filter(e => e != null);
-
-          loadedEntries = loadedEntries.map(e => {
+          loadedEntries = loadedEntries.filter(e => e != null).map(e => {
               if (e.date) {
                   const d = new Date(e.date);
                   if (isNaN(d.getTime())) {
@@ -690,7 +726,7 @@ function App() {
                       if (!isNaN(repaired.getTime())) e.date = repaired.toISOString();
                   }
               }
-              return e;
+              return { ...e, locked: false };
           });
 
           const savedUser = safeStorageGet('legacy_user');
@@ -699,8 +735,6 @@ function App() {
               try { currentUser = { ...user, ...JSON.parse(savedUser) }; setUser(currentUser); } catch(e){} 
           }
 
-          // In der neuen Architektur speichert die IndexedDB alle Einträge entschlüsselt, wenn die App läuft
-          // Falls noch verschlüsselte Einträge lokal liegen (aus alten Versionen), entschlüsseln wir sie einmalig.
           if (currentUser.pin) {
             loadedEntries = await Promise.all(loadedEntries.map(async (e) => {
               if (e.encryptedData) {
@@ -708,75 +742,135 @@ function App() {
                 if (decStr) { 
                     try { 
                         const parsed = JSON.parse(decStr); 
-                        return { ...e, text: parsed.text || e.text, title: parsed.title || e.title, encryptedData: null, locked: false }; 
-                    } catch(err){} 
+                        return { ...e, ...parsed, encryptedData: null, locked: false }; 
+                    } catch(err){ return { ...e, text: decStr, encryptedData: null, locked: false };} 
                 }
+              } else if (e.cipher && e.iv && e.salt) {
+                  const decStr = await decryptData({cipher: e.cipher, iv: e.iv, salt: e.salt}, currentUser.pin);
+                  if (decStr) {
+                      try {
+                          const parsed = JSON.parse(decStr);
+                          return { ...e, ...parsed, cipher: null, iv: null, salt: null, locked: false };
+                      } catch(err) { return { ...e, text: decStr, cipher: null, iv: null, salt: null, locked: false };}
+                  }
               }
               return { ...e, locked: false };
             }));
           } else {
              loadedEntries = loadedEntries.map(e => ({ ...e, locked: false }));
           }
+          
+          // Force Date Assignment
+          loadedEntries = loadedEntries.map(e => {
+             if (!e.date) {
+                 e.date = e.orderTimestamp || (e.timestamp ? new Date(e.timestamp).toISOString() : new Date().toISOString());
+             }
+             return e;
+          });
+
           setEntries(loadedEntries.sort(sortEntriesChronological));
         };
-      } catch (e) { console.warn("DB Load failed", e); }
+      } catch (e) { }
     };
     loadApp();
   }, []);
 
-  // REALTIME CLOUD SYNC - Garantierte Datensicherheit ohne Lösch-Bugs
+  // REALTIME CLOUD SYNC
   useEffect(() => {
     if (!fb || !fb.onSnapshot || !authUser || !user.cloudSync) return;
     const q = fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries');
     
     const unsubscribe = fb.onSnapshot(q, async (snapshot) => {
-        // HIGHLIGHT: Verhindert, dass eigene lokale Änderungen einen kompletten Download & Decrypt auslösen!
         if (snapshot.metadata.hasPendingWrites) return; 
         
         let hasChanges = false;
-        const updatedEntries = [];
         const removedIds = [];
+        const currentEntriesMap = new Map(entriesRef.current.map(e => [e.id, e]));
 
-        for (const change of snapshot.docChanges()) {
-            hasChanges = true;
-            if (change.type === 'removed') {
-                removedIds.push(change.doc.id);
-            } else {
+        const processChange = async (change) => {
+            try {
+                if (change.type === 'removed') {
+                    removedIds.push(change.doc.id);
+                    return null;
+                }
+                
                 const docData = change.doc.data();
+                
+                let existingLocal = currentEntriesMap.get(change.doc.id);
+                if (!existingLocal && db) {
+                    existingLocal = await new Promise(res => {
+                        try {
+                            const req = db.transaction('entries', 'readonly').objectStore('entries').get(change.doc.id);
+                            req.onsuccess = () => res(req.result);
+                            req.onerror = () => res(null);
+                        } catch(e) { res(null); }
+                    });
+                }
+
+                if (existingLocal && existingLocal.text && !existingLocal.text.includes('Entschlüsselung fehlgeschlagen')) {
+                   const cloudTime = docData.timestamp || 0;
+                   const localTime = existingLocal.timestamp || 0;
+                   if (cloudTime <= localTime) {
+                       return { type: 'existing' }; 
+                   }
+                }
+
+                if (!docData.encryptedData && !docData.rawData && !docData.cipher) {
+                    if (existingLocal && existingLocal.text) return { type: 'existing' };
+                }
+                
                 if (docData.encryptedData) {
                    if (user.pin) {
                        const decStr = await decryptData(docData.encryptedData, user.pin);
                        if (decStr) { 
+                           let parsed = {};
                            try { 
-                               let parsed = JSON.parse(decStr); 
+                               parsed = JSON.parse(decStr); 
                                if (parsed.encryptedData) {
                                    const innerDec = await decryptData(parsed.encryptedData, user.pin);
                                    if (innerDec) {
-                                       const innerParsed = JSON.parse(innerDec);
-                                       parsed = { ...parsed, text: innerParsed.text || parsed.text, title: innerParsed.title || parsed.title };
+                                       try { parsed = { ...parsed, ...JSON.parse(innerDec) }; }
+                                       catch(e) { parsed.text = innerDec; }
                                    }
                                }
-                               updatedEntries.push({ ...parsed, id: change.doc.id, encryptedData: null, locked: false }); 
-                               continue;
-                           } catch(e){} 
+                           } catch(e) { parsed = { text: decStr, title: 'Wiederhergestellter Eintrag' }; }
+                           
+                           const fDate = docData.date || parsed.date || docData.orderTimestamp || parsed.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
+                           return { ...docData, ...parsed, id: change.doc.id, date: fDate, orderTimestamp: fDate, encryptedData: null, locked: false }; 
                        }
                    }
-                   updatedEntries.push({
-                       id: change.doc.id,
-                       title: 'Verschlüsselter Eintrag',
-                       text: 'Entschlüsselung fehlgeschlagen. Bitte prüfe deine PIN.',
-                       date: docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString(),
-                       encryptedData: docData.encryptedData,
-                       category: 'Sicherheit',
-                       locked: false
-                   });
-                } else if (docData.rawData) {
-                    updatedEntries.push({ ...docData.rawData, id: change.doc.id, locked: false });
+                   const fbDate = docData.date || docData.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
+                   return { ...docData, id: change.doc.id, title: docData.title || 'Verschlüsselter Eintrag', text: 'Entschlüsselung fehlgeschlagen. Bitte prüfe deine PIN.', date: fbDate, orderTimestamp: fbDate, category: docData.category || 'Sicherheit', locked: false };
+                } 
+                else if (docData.cipher && docData.iv && docData.salt) {
+                    if (user.pin) {
+                        const decStr = await decryptData({ cipher: docData.cipher, iv: docData.iv, salt: docData.salt }, user.pin);
+                        if (decStr) {
+                            let parsed = {};
+                            try { parsed = JSON.parse(decStr); } catch(e) { parsed = { text: decStr, title: docData.title || 'Tagebucheintrag' }; }
+                            const fDate = docData.date || parsed.date || docData.orderTimestamp || parsed.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
+                            return { ...docData, ...parsed, id: change.doc.id, date: fDate, orderTimestamp: fDate, cipher: null, iv: null, salt: null, locked: false };
+                        }
+                    }
+                    const fbDate = docData.date || docData.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
+                    return { ...docData, id: change.doc.id, title: docData.title || 'Verschlüsselter Legacy-Eintrag', text: 'Entschlüsselung fehlgeschlagen. PIN falsch?', date: fbDate, orderTimestamp: fbDate, category: docData.category || 'Sicherheit', locked: false };
                 }
+                else if (docData.rawData) {
+                    const fbDate = docData.rawData.date || docData.rawData.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
+                    return { ...docData.rawData, id: change.doc.id, date: fbDate, orderTimestamp: fbDate, locked: false };
+                }
+                
+                const fDate = docData.date || docData.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
+                return { ...docData, id: change.doc.id, date: fDate, orderTimestamp: fDate, locked: false };
+            } catch (e) {
+                return null;
             }
-        }
+        };
 
-        if (!hasChanges) return;
+        const results = await Promise.all(snapshot.docChanges().map(processChange));
+        const updatedEntries = results.filter(res => res && res.type !== 'existing');
+
+        if (updatedEntries.length === 0 && removedIds.length === 0) return;
 
         setEntries(prev => {
             let next = [...prev];
@@ -906,8 +1000,20 @@ function App() {
               const savedPin = atob(safeStorageGet('legacy_bio_pin'));
               if (savedPin) handleUnlockSubmit(savedPin);
           }
-      } catch(e) { showDialog({title: 'Fehler', message: 'Biometrische Prüfung fehlgeschlagen.', icon: 'x'}); }
+      } catch(e) { 
+          setShowPinFallback(true); 
+      }
   };
+
+  useEffect(() => {
+      if (view === 'pin_entry' && user.biometric && safeStorageGet('legacy_bio_pin') && !showPinFallback && !biometricAttempted.current) {
+          biometricAttempted.current = true; 
+          handleBiometricUnlock();
+      }
+      if (view !== 'pin_entry') {
+          biometricAttempted.current = false;
+      }
+  }, [view, user.biometric, showPinFallback]);
 
   const handleCloudRestore = async (pinValue) => {
       if (!pinValue) return;
@@ -968,7 +1074,7 @@ function App() {
       if (!fb || !fb.auth.currentUser || !user.cloudSync) return;
       const appId = 'legacy-vision'; const userId = fb.auth.currentUser.uid;
       try { 
-          let payloadToSave = { id: plainEntry.id, timestamp: Date.now() };
+          let payloadToSave = { id: plainEntry.id, timestamp: plainEntry.timestamp || Date.now() };
           if (pin) {
               const encrypted = await encryptData(JSON.stringify(plainEntry), pin); 
               if (encrypted) payloadToSave.encryptedData = encrypted;
@@ -1018,7 +1124,7 @@ function App() {
   // Speichert den unverschlüsselten Text immer lokal in IndexedDB
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; 
-    const plainEntry = { ...entry, locked: false, encryptedData: null };
+    const plainEntry = { ...entry, timestamp: Date.now(), locked: false, encryptedData: null, cipher: null, iv: null, salt: null };
 
     syncSingleEntryToCloud(plainEntry, activePin); 
 
@@ -1197,14 +1303,29 @@ function App() {
       let quotes = []; 
       entries.filter(e => e && !e.archived && !e.trashed).forEach(entry => { 
           if(!entry.text) return; 
-          const blockquoteRegex = /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi; 
-          let match; 
-          while ((match = blockquoteRegex.exec(entry.text)) !== null) { 
-              const rawText = match[1].replace(/<[^>]*>?/gm, '').trim(); 
-              if(rawText) quotes.push({ text: rawText, date: entry.date, title: entry.title, id: entry.id + match.index, entryId: entry.id }); 
-          } 
+          try {
+              const doc = new window.DOMParser().parseFromString(entry.text, 'text/html');
+              const bqs = doc.getElementsByTagName('blockquote');
+              for (let i = 0; i < bqs.length; i++) {
+                  const rawText = bqs[i].textContent.trim();
+                  if (rawText) {
+                      quotes.push({ text: rawText, date: entry.date, title: entry.title, id: entry.id + '-bq-' + i, entryId: entry.id }); 
+                  }
+              }
+          } catch(e) {
+              const blockquoteRegex = /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi; 
+              let match; 
+              while ((match = blockquoteRegex.exec(entry.text)) !== null) { 
+                  const rawText = match[1].replace(/<[^>]*>?/gm, '').trim(); 
+                  if(rawText) quotes.push({ text: rawText, date: entry.date, title: entry.title, id: entry.id + match.index, entryId: entry.id }); 
+              } 
+          }
       }); 
-      return quotes.sort((a,b) => new Date(b.date) - new Date(a.date)); 
+      return quotes.sort((a,b) => {
+          const tA = new Date(a.date).getTime() || 0;
+          const tB = new Date(b.date).getTime() || 0;
+          return tB - tA;
+      }); 
   }, [entries, view]);
   
   const heatmapData = useMemo(() => { return Array.from({ length: 30 }).map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (29 - i)); const dateStr = d.toDateString(); return { date: dateStr, count: entries.filter(e => e && !e.trashed && new Date(e.date || getLocalISO()).toDateString() === dateStr).length }; }); }, [entries]);
@@ -2220,10 +2341,10 @@ function App() {
                    <button onClick={() => window.print()} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500"><Icon name="printer" size={22}/></button>
                    <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
                    
-                   {/* Haupt-Cover ändern (oben links neben Drucker) */}
-                   <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500 cursor-pointer hidden sm:flex items-center justify-center shadow-sm" title="Tagebuch-Cover ändern">
+                   {/* Haupt-Cover ändern (oben links neben Drucker) - IMMER SICHTBAR AUF HANDY! */}
+                   <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500 cursor-pointer flex items-center justify-center shadow-sm shrink-0 relative overflow-hidden" title="Tagebuch-Cover ändern">
                        <Icon name="image" size={22}/>
-                       <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, bookRoot?.id || viewingEntry.id, 0)} className="hidden" />
+                       <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, bookRoot?.id || viewingEntry.id, 0)} className="absolute opacity-0 w-[200%] h-[200%] top-0 left-0 cursor-pointer" />
                    </label>
 
                    <button onClick={() => { const e = viewingEntry; setViewingEntry(null); setTimeout(() => openEditor(e), 10); }} className="px-4 sm:px-6 py-3 rounded-2xl font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
@@ -2236,9 +2357,9 @@ function App() {
                         <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-contain transition-transform duration-700" alt="Cover" />
                         
                         {/* Bild-spezifisch ändern (Sichtbar auf dem Bild selbst) */}
-                        <label className="absolute top-4 right-4 p-3 bg-black/60 text-white rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity backdrop-blur-md cursor-pointer z-10" title="Dieses Bild ändern">
+                        <label className="absolute top-4 right-4 p-3 bg-black/60 text-white rounded-full flex items-center justify-center shadow-lg cursor-pointer z-50 opacity-100 relative overflow-hidden" title="Dieses Bild ändern">
                             <Icon name="image" size={16}/>
-                            <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id, currentViewerImgIdx)} className="hidden" />
+                            <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id, currentViewerImgIdx)} className="absolute opacity-0 w-[200%] h-[200%] top-0 left-0 cursor-pointer" />
                         </label>
 
                         {viewingEntry.images.length > 1 && (
@@ -2256,7 +2377,6 @@ function App() {
                   <h1 className="text-4xl sm:text-6xl font-extrabold mb-8 tracking-tighter leading-[1.1] text-slate-900 dark:text-white">{viewingEntry.title || 'Ohne Titel'}</h1>
                   <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
                     <span>{new Date(viewingEntry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
-                    <span>•</span><span>{viewingEntry.category || 'Allgemein'}</span>
                   </div>
                   
                   {/* Meta-Data Pills */}
