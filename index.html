@@ -117,7 +117,6 @@ const { useState, useEffect, useRef, useMemo } = React;
 const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
 const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
 
-// Robuste Datums-Sortierung (Chronologisch aufsteigend: 05.04. -> 06.04. -> 07.04.)
 const sortEntriesChronological = (a, b) => {
     const getT = (entry) => {
         let d = entry.date || entry.orderTimestamp;
@@ -319,13 +318,11 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
             <span>{new Date(entry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
             {!isGridView && <><span>•</span><span>{entry.category || 'Allgemein'}</span></>}
             {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span></>}
-            {entry.locked && !isCapsuleLocked && <><span className="text-rose-500 flex items-center gap-1 ml-auto"><Icon name="lock" size={12}/> Tresor</span></>}
             {entry.audio && <><span className="text-emerald-500 flex items-center ml-1"><Icon name="mic" size={12}/></span></>}
           </div>
           
-          <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && (entry.locked || isCapsuleLocked) ? 'text-slate-900 dark:text-white' : 'text-slate-900 dark:text-white group-hover:text-accent transition-colors'}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery)} />
+          <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && isCapsuleLocked ? 'text-slate-900 dark:text-white' : 'text-slate-900 dark:text-white group-hover:text-accent transition-colors'}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery)} />
           
-          {/* Metadata Pills directly on Dashboard Card */}
           {!isGridView && (entry.tags || entry.people || entry.weather || entry.rating > 0 || entry.location || (entry.locations && entry.locations.length > 0)) && (
              <div className="flex flex-wrap gap-1.5 mb-4">
                 {entry.tags && entry.tags.split(',').filter(x=>x.trim()).map((t, i) => <span key={`t-${i}`} className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="tag" size={10}/> {t.trim()}</span>)}
@@ -335,7 +332,7 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
                 {/* Multi-GPS Stempel: Dunkelgrün */}
                 {entry.locations && entry.locations.length > 0 ? entry.locations.map((loc, i) => (
                     <span key={`loc-${i}`} className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 rounded-md text-[10px] font-bold flex items-center gap-1">
-                        <Icon name="map-pin" size={10}/> {loc.name} • {loc.time} {loc.weather ? `• ${loc.weather}` : ''}
+                        <Icon name="map-pin" size={10}/> {loc.name || 'GPS'}
                     </span>
                 )) : (entry.location && (
                     <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 rounded-md text-[10px] font-bold flex items-center gap-1">
@@ -347,12 +344,12 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
              </div>
           )}
 
-          {!entry.locked && !isCapsuleLocked && entry.text && !isGridView && (
+          {!isCapsuleLocked && entry.text && !isGridView && (
             <div className="text-sm font-medium leading-relaxed opacity-70 line-clamp-3 text-slate-600 dark:text-slate-400" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
           )}
-          {(entry.locked || isCapsuleLocked) && !isGridView && (
+          {isCapsuleLocked && !isGridView && (
              <div className="text-sm font-medium leading-relaxed opacity-40 italic mt-auto">
-                {isCapsuleLocked ? 'Inhalt durch Zeitsiegel geschützt.' : 'Inhalt durch Tresor-PIN geschützt.'}
+                Inhalt durch Zeitsiegel geschützt.
              </div>
           )}
         </div>
@@ -453,7 +450,6 @@ function App() {
   const [timelineMonth, setTimelineMonth] = useState(() => new Date()); 
   const [timelineSelectedDate, setTimelineSelectedDate] = useState(null); 
   
-  const [unlockTarget, setUnlockTarget] = useState(null);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
   
@@ -487,7 +483,6 @@ function App() {
   const [text, setText] = useState(''); 
   const [selectedColor, setSelectedColor] = useState(COLORS[8]);
   const [selectedImages, setSelectedImages] = useState([]); 
-  const [isLocked, setIsLocked] = useState(false);
   const [audioUrl, setAudioUrl] = useState(null);
   const [isManifested, setIsManifested] = useState(false);
   const [unlockDate, setUnlockDate] = useState('');
@@ -698,11 +693,18 @@ function App() {
               try { currentUser = { ...user, ...JSON.parse(savedUser) }; setUser(currentUser); } catch(e){} 
           }
 
+          // In der neuen Architektur speichert die IndexedDB alle Einträge entschlüsselt, wenn die App läuft
+          // Falls noch verschlüsselte Einträge lokal liegen (aus alten Versionen), entschlüsseln wir sie einmalig.
           if (currentUser.pin) {
             loadedEntries = await Promise.all(loadedEntries.map(async (e) => {
-              if (e.locked && e.encryptedData) {
+              if (e.encryptedData) {
                 const decStr = await decryptData(e.encryptedData, currentUser.pin);
-                if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, text: parsed.text, title: parsed.title }; } catch(err){} }
+                if (decStr) { 
+                    try { 
+                        const parsed = JSON.parse(decStr); 
+                        return { ...e, text: parsed.text, title: parsed.title, encryptedData: null }; 
+                    } catch(err){} 
+                }
               }
               return e;
             }));
@@ -714,10 +716,11 @@ function App() {
     loadApp();
   }, []);
 
-  // REALTIME CLOUD SYNC - Local-First Architecture Guarantee (Fix Data Loss)
+  // REALTIME CLOUD SYNC - Garantierte Datensicherheit ohne Lösch-Bugs
   useEffect(() => {
     if (!fb || !fb.onSnapshot || !authUser || !user.cloudSync) return;
     const q = fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries');
+    
     const unsubscribe = fb.onSnapshot(q, async (snapshot) => {
         const rawEntries = [];
         snapshot.forEach(d => rawEntries.push(d.data()));
@@ -730,15 +733,14 @@ function App() {
                        try { return { ...JSON.parse(decStr), id: docData.id }; } catch(e){} 
                    }
                }
-               // Wenn Entschlüsselung fehlschlägt oder PIN fehlt, behalte den Eintrag als gesperrt (damit er nicht gelöscht wird)
+               // Falls PIN fehlt oder falsch ist
                return {
                    id: docData.id,
-                   title: 'Verschlüsselter Tresor-Eintrag',
+                   title: 'Verschlüsselter Eintrag',
                    text: 'Entschlüsselung fehlgeschlagen. Bitte prüfe deine PIN.',
-                   locked: true,
                    date: docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString(),
                    encryptedData: docData.encryptedData,
-                   category: 'Tresor'
+                   category: 'Sicherheit'
                };
             } else if (docData.rawData) {
                 return { ...docData.rawData, id: docData.id };
@@ -750,36 +752,29 @@ function App() {
 
         if (db) {
             const syncToLocalDB = async () => {
-                // Vorab Verschlüsseln, bevor die Transaktion geöffnet wird (verhindert Auto-Close Bug von IndexedDB)
-                const entriesToPut = await Promise.all(validCloudEntries.map(async (cloudEntry) => {
-                    let dbItem = { ...cloudEntry };
-                    if (dbItem.locked && user.pin && !dbItem.text.includes('Entschlüsselung fehlgeschlagen')) {
-                        try {
-                            const payload = JSON.stringify({ text: dbItem.text || '', title: dbItem.title || '' });
-                            const encrypted = await encryptData(payload, user.pin);
-                            if (encrypted) {
-                                dbItem.encryptedData = encrypted;
-                                dbItem.text = ''; dbItem.title = 'Verschlüsselter Eintrag';
-                            }
-                        } catch(e) {}
-                    }
-                    return dbItem;
-                }));
+                const cloudIds = validCloudEntries.map(e => e.id);
                 try {
                     const tx = db.transaction('entries', 'readwrite');
                     const store = tx.objectStore('entries');
-                    entriesToPut.forEach(item => store.put(item));
+                    validCloudEntries.forEach(item => store.put(item));
+                    
+                    // Bereinige lokale DB, damit gelöschte Cloud-Items auch lokal verschwinden
+                    const req = store.getAllKeys();
+                    req.onsuccess = () => {
+                        const localKeys = req.result;
+                        localKeys.forEach(key => {
+                            if (!cloudIds.includes(key)) {
+                                store.delete(key);
+                            }
+                        });
+                    };
                 } catch(err) {}
             };
             syncToLocalDB();
         }
 
-        setEntries(prev => {
-            const map = new Map();
-            prev.forEach(e => map.set(e.id, e));
-            validCloudEntries.forEach(e => map.set(e.id, e));
-            return Array.from(map.values()).sort(sortEntriesChronological);
-        });
+        // Setzt den App-Status exakt auf das, was in der Cloud ist
+        setEntries(validCloudEntries.sort(sortEntriesChronological));
     });
     return () => unsubscribe();
   }, [fb, authUser, user.pin, user.cloudSync, db]);
@@ -821,14 +816,6 @@ function App() {
 
   const handleUnlockSubmit = (pinValue) => {
       if (!pinValue) return;
-      if (unlockTarget) {
-          if (pinValue === user.pin || !user.pin) { 
-              setViewingEntry(unlockTarget); setCurrentViewerImgIdx(0); setUnlockTarget(null); setPinInput(''); setPinError(false);
-          } else { 
-              setPinError(true); setTimeout(() => setPinError(false), 800); setPinInput(''); 
-          }
-          return;
-      }
       if (user.pin && pinValue !== user.pin) {
           setPinError(true); setTimeout(() => setPinError(false), 800); setPinInput('');
           return;
@@ -951,7 +938,7 @@ function App() {
     }
   }, [user.appBgColor, user.textColor, user.isDark]);
 
-  // Cloud Sync speichert nun den kompletten Eintrag verschlüsselt! (Löst das Problem mit leeren Tresoren)
+  // Cloud Sync speichert nun den kompletten Eintrag verschlüsselt!
   const syncSingleEntryToCloud = async (plainEntry, pin) => {
       if (!fb || !fb.auth.currentUser || !user.cloudSync) return;
       const appId = 'legacy-vision'; const userId = fb.auth.currentUser.uid;
@@ -984,7 +971,7 @@ function App() {
                  const pinToUse = parsed.user ? parsed.user.pin : user.pin;
                  const entriesToSave = await Promise.all(parsed.entries.map(async (e) => {
                      let dbE = { ...e }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []);
-                     if (dbE.locked && pinToUse) { const payload = JSON.stringify({ text: dbE.text || '', title: dbE.title || '' }); dbE.encryptedData = await encryptData(payload, pinToUse); dbE.text = ''; dbE.title = 'Verschlüsselter Eintrag'; return dbE; } return dbE;
+                     return dbE;
                  }));
                  const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); entriesToSave.forEach(e => store.put(e));
                  tx.oncomplete = () => { if (parsed.user) safeStorageSet('legacy_user', JSON.stringify(parsed.user)); setSyncStatus('Erfolgreich übertragen!'); setTimeout(() => { window.location.href = window.location.origin + window.location.pathname; }, 2000); };
@@ -999,11 +986,11 @@ function App() {
      editingIdRef.current = editingId;
      currentEntryRef.current = { 
          ...currentEntryRef.current,
-         title, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, locations, parentId, inheritedFrom, rating, tags, people, weather, date: entryDate 
+         title, selectedColor, selectedImages, audioUrl, isManifested, category, mood, unlockDate, location, locations, parentId, inheritedFrom, rating, tags, people, weather, date: entryDate 
      };
-  }, [editingId, title, selectedColor, selectedImages, audioUrl, isLocked, isManifested, category, mood, unlockDate, location, locations, parentId, inheritedFrom, rating, tags, people, weather, entryDate]);
+  }, [editingId, title, selectedColor, selectedImages, audioUrl, isManifested, category, mood, unlockDate, location, locations, parentId, inheritedFrom, rating, tags, people, weather, entryDate]);
 
-  // Speichervorgang: Cloud sichert das komplette rohe JSON, DB sichert nur kleine Teile verschlüsselt
+  // Robuste Speicherung: Sendet komplett an Cloud, speichert komplett lokal
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; 
     
@@ -1019,35 +1006,24 @@ function App() {
     updateMemory();
 
     if (db) {
-        let dbEntry = { ...entry };
-        if (dbEntry.locked && activePin) {
-            try {
-                const payload = JSON.stringify({ text: dbEntry.text || '', title: dbEntry.title || '' });
-                const encrypted = await encryptData(payload, activePin);
-                if (encrypted) {
-                    dbEntry.encryptedData = encrypted;
-                    dbEntry.text = ''; dbEntry.title = 'Verschlüsselter Eintrag';
-                }
-            } catch(e) {}
-        } else if (!dbEntry.locked) {
-            dbEntry.encryptedData = null;
-        }
         try {
             const tx = db.transaction('entries', 'readwrite'); 
-            tx.objectStore('entries').put(dbEntry); 
+            tx.objectStore('entries').put(entry); 
         } catch (e) {}
     }
   };
 
   const deleteFromDB = async (id) => { 
       const updateMemory = () => setEntries(prev => prev.filter(e => e && e.id !== id));
-      if (!db) { updateMemory(); return; } 
-      try {
-          const tx = db.transaction('entries', 'readwrite'); 
-          tx.objectStore('entries').delete(id); 
-          tx.oncomplete = () => { updateMemory(); deleteSingleEntryFromCloud(id); }; 
-          tx.onerror = () => updateMemory();
-      } catch(e) { updateMemory(); }
+      if (!db) { updateMemory(); await deleteSingleEntryFromCloud(id); return; } 
+      return new Promise((resolve) => {
+          try {
+              const tx = db.transaction('entries', 'readwrite'); 
+              tx.objectStore('entries').delete(id); 
+              tx.oncomplete = async () => { updateMemory(); await deleteSingleEntryFromCloud(id); resolve(); }; 
+              tx.onerror = () => { updateMemory(); resolve(); };
+          } catch(e) { updateMemory(); resolve(); }
+      });
   };
 
   const checkSaveEntry = (closeAndRead = false) => {
@@ -1068,7 +1044,7 @@ function App() {
         const existingEntry = entries.find(e => e && e.id === editingIdRef.current);
         
         const newEntry = { 
-            id: entryId, title: titleSafe || '', text: currentText, color: state.selectedColor, images: state.selectedImages, audio: state.audioUrl, locked: state.isLocked, archived: false, trashed: false, manifested: state.isManifested, category: state.category, mood: state.mood, unlockDate: state.unlockDate, location: state.location, locations: state.locations, parentId: state.parentId, inheritedFrom: state.inheritedFrom, rating: state.rating, tags: state.tags, people: state.people, weather: state.weather, 
+            id: entryId, title: titleSafe || '', text: currentText, color: state.selectedColor, images: state.selectedImages, audio: state.audioUrl, archived: false, trashed: false, manifested: state.isManifested, category: state.category, mood: state.mood, unlockDate: state.unlockDate, location: state.location, locations: state.locations, parentId: state.parentId, inheritedFrom: state.inheritedFrom, rating: state.rating, tags: state.tags, people: state.people, weather: state.weather, 
             date: existingEntry ? (existingEntry.date || state.date || getLocalISO()) : (state.date || getLocalISO()), 
             orderTimestamp: existingEntry ? (existingEntry.orderTimestamp || getLocalISO()) : getLocalISO() 
         };
@@ -1096,21 +1072,6 @@ function App() {
       return () => clearInterval(timer); 
   }, [showEditor, view]);
 
-  const confirmDelete = (id) => {
-    showDialog({ 
-        type: 'confirm', 
-        title: 'In den Papierkorb?', 
-        message: 'Dieser Eintrag wird in den Papierkorb verschoben.', 
-        icon: 'trash-2', 
-        iconColor: 'text-rose-500', 
-        onConfirm: () => { 
-            const entryToTrash = entries.find(e => e && e.id === id);
-            if(entryToTrash) { saveToDB({...entryToTrash, trashed: true}); }
-            closeEditor(null); 
-        } 
-    });
-  };
-
   const handleSavePin = () => {
       if (newPinInput.length < 4) { showDialog({title: 'Fehler', message: 'Die neue PIN muss mindestens 4 Zeichen lang sein.', icon: 'x'}); return; }
       if (newPinInput !== confirmPinInput) { showDialog({title: 'Fehler', message: 'Die neuen PINs stimmen nicht überein.', icon: 'x'}); return; }
@@ -1130,16 +1091,16 @@ function App() {
     const targetDate = entry && entry.id ? (entry.date || getLocalISO()) : (customDate ? new Date(customDate).toISOString() : getLocalISO());
 
     const newEntryState = entry && entry.id ? {
-        title: entry.title || '', text: entry.text || '', selectedColor: entry.color || (user.isDark ? COLORS[8] : COLORS[0]), selectedImages: entry.images || [], isLocked: entry.locked || false, isManifested: entry.manifested || false, category: entry.category || CATEGORIES[0], mood: entry.mood || null, audioUrl: entry.audio || null, unlockDate: entry.unlockDate || '', location: entry.location || null, locations: entry.locations || (entry.location ? [entry.location] : []), parentId: entry.parentId || '', inheritedFrom: entry.inheritedFrom || null, rating: entry.rating || 0, tags: entry.tags || '', people: entry.people || '', weather: entry.weather || '', date: targetDate, orderTimestamp: entry.orderTimestamp || targetDate
+        title: entry.title || '', text: entry.text || '', selectedColor: entry.color || (user.isDark ? COLORS[8] : COLORS[0]), selectedImages: entry.images || [], isManifested: entry.manifested || false, category: entry.category || CATEGORIES[0], mood: entry.mood || null, audioUrl: entry.audio || null, unlockDate: entry.unlockDate || '', location: entry.location || null, locations: entry.locations || (entry.location ? [entry.location] : []), parentId: entry.parentId || '', inheritedFrom: entry.inheritedFrom || null, rating: entry.rating || 0, tags: entry.tags || '', people: entry.people || '', weather: entry.weather || '', date: targetDate, orderTimestamp: entry.orderTimestamp || targetDate
     } : {
-        title: pillar ? pillar.title : '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isLocked: view === 'vault', isManifested: false, category: pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory), mood: null, audioUrl: null, unlockDate: '', location: null, locations: [], parentId: '', inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: targetDate, orderTimestamp: targetDate
+        title: pillar ? pillar.title : '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isManifested: false, category: pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory), mood: null, audioUrl: null, unlockDate: '', location: null, locations: [], parentId: '', inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: targetDate, orderTimestamp: targetDate
     };
 
     currentEntryRef.current = newEntryState;
     editingIdRef.current = entry && entry.id ? entry.id : null;
     
     setEditingId(editingIdRef.current);
-    setTitle(newEntryState.title); setText(newEntryState.text); setSelectedColor(newEntryState.selectedColor); setSelectedImages(newEntryState.selectedImages); setIsLocked(newEntryState.isLocked); setIsManifested(newEntryState.isManifested); setCategory(newEntryState.category); setMood(newEntryState.mood); setAudioUrl(newEntryState.audioUrl); setUnlockDate(newEntryState.unlockDate); setLocation(newEntryState.location); setLocations(newEntryState.locations); setParentId(newEntryState.parentId); setInheritedFrom(newEntryState.inheritedFrom); setRating(newEntryState.rating); setTags(newEntryState.tags); setPeople(newEntryState.people); setWeather(newEntryState.weather); setEntryDate(newEntryState.date); setPillarGuidance(pillar ? pillar.desc : null);
+    setTitle(newEntryState.title); setText(newEntryState.text); setSelectedColor(newEntryState.selectedColor); setSelectedImages(newEntryState.selectedImages); setIsManifested(newEntryState.isManifested); setCategory(newEntryState.category); setMood(newEntryState.mood); setAudioUrl(newEntryState.audioUrl); setUnlockDate(newEntryState.unlockDate); setLocation(newEntryState.location); setLocations(newEntryState.locations); setParentId(newEntryState.parentId); setInheritedFrom(newEntryState.inheritedFrom); setRating(newEntryState.rating); setTags(newEntryState.tags); setPeople(newEntryState.people); setWeather(newEntryState.weather); setEntryDate(newEntryState.date); setPillarGuidance(pillar ? pillar.desc : null);
     
     setShowEditor(true);
   };
@@ -1147,11 +1108,11 @@ function App() {
   const startNewChapter = (parent) => { 
     isDirtyRef.current = false; setViewingEntry(null); 
     const newEntryState = {
-        title: parent.title || '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isLocked: parent.locked || false, isManifested: false, category: parent.category || CATEGORIES[0], mood: null, audioUrl: null, unlockDate: '', location: null, locations: [], parentId: parent.id, inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: getLocalISO(), orderTimestamp: getLocalISO()
+        title: parent.title || '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isManifested: false, category: parent.category || CATEGORIES[0], mood: null, audioUrl: null, unlockDate: '', location: null, locations: [], parentId: parent.id, inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: getLocalISO(), orderTimestamp: getLocalISO()
     };
     currentEntryRef.current = newEntryState; editingIdRef.current = null;
     
-    setEditingId(null); setTitle(newEntryState.title); setText(newEntryState.text); setSelectedColor(newEntryState.selectedColor); setSelectedImages(newEntryState.selectedImages); setIsLocked(newEntryState.isLocked); setAudioUrl(newEntryState.audioUrl); setIsManifested(newEntryState.isManifested); setUnlockDate(newEntryState.unlockDate); setLocation(newEntryState.location); setLocations(newEntryState.locations); setCategory(newEntryState.category); setMood(newEntryState.mood); setParentId(newEntryState.parentId); setInheritedFrom(newEntryState.inheritedFrom); setRating(newEntryState.rating); setTags(newEntryState.tags); setPeople(newEntryState.people); setWeather(newEntryState.weather); setEntryDate(newEntryState.date); setPillarGuidance(null);
+    setEditingId(null); setTitle(newEntryState.title); setText(newEntryState.text); setSelectedColor(newEntryState.selectedColor); setSelectedImages(newEntryState.selectedImages); setAudioUrl(newEntryState.audioUrl); setIsManifested(newEntryState.isManifested); setUnlockDate(newEntryState.unlockDate); setLocation(newEntryState.location); setLocations(newEntryState.locations); setCategory(newEntryState.category); setMood(newEntryState.mood); setParentId(newEntryState.parentId); setInheritedFrom(newEntryState.inheritedFrom); setRating(newEntryState.rating); setTags(newEntryState.tags); setPeople(newEntryState.people); setWeather(newEntryState.weather); setEntryDate(newEntryState.date); setPillarGuidance(null);
     setShowEditor(true); 
   };
 
@@ -1159,11 +1120,6 @@ function App() {
 
   const handleOpenEntry = async (entry) => {
       if (!entry) return;
-      if (entry.locked) {
-          if (!user.pin) { showDialog({ title: 'Hinweis', message: 'Bitte richte zuerst eine PIN in den Einstellungen ein.', icon: 'key' }); setView('settings'); return; }
-          setUnlockTarget(entry); setPinInput(''); setPinError(false);
-          return; 
-      } 
       if (entry.unlockDate) {
           try {
               showDialog({title: 'Kryptografische Zeit-Sperre', message: 'Prüfe globales Zeitsiegel (NTP)...', icon: 'clock'});
@@ -1203,13 +1159,12 @@ function App() {
       if (!searchQuery && e.parentId) return false; 
       const matchesCategory = activeCategory === 'Alle' || e.category === activeCategory || (!e.category && activeCategory === 'Allgemein'); 
       if (!searchQuery && !matchesCategory) return false;
-      if (view === 'dashboard') return !e.locked; 
-      if (view === 'vault') return !!e.locked; 
+      if (view === 'dashboard') return true; 
       return false;
     });
   }, [entries, searchQuery, activeCategory, view]);
 
-  const renderEntries = visibleEntries; const now = new Date();
+  const renderEntries = visibleEntries; 
   
   const allQuotes = useMemo(() => { 
       if (view !== 'quotes') return []; 
@@ -1721,7 +1676,7 @@ function App() {
       <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-black text-slate-900 dark:text-white">
         <div className="max-w-sm w-full space-y-8 animate-slide-up text-center">
           <Icon name="lock" size={48} className="mx-auto mb-2 opacity-80" />
-          <h1 className="text-2xl font-bold tracking-tight">Tresor entsperren</h1>
+          <h1 className="text-2xl font-bold tracking-tight">App entsperren</h1>
           <p className="opacity-60 text-sm font-medium px-4">Gib deine PIN ein, um dein lokales Journal zu entschlüsseln.</p>
           <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-zinc-800">
              <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockSubmit(pinInput); }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none mb-6 bg-slate-100 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-zinc-600 transition-colors placeholder:opacity-30" placeholder="••••" />
@@ -1765,7 +1720,6 @@ function App() {
              view === 'burn' ? <h1 className="text-2xl font-extrabold tracking-tight text-rose-500">Katharsis</h1> :
              view === 'quotes' ? <h1 className="text-2xl font-extrabold tracking-tight">Erkenntnisse</h1> :
              view === 'map' ? <h1 className="text-2xl font-extrabold tracking-tight text-amber-500">Lebenskarte</h1> :
-             view === 'vault' ? <h1 className="text-2xl font-extrabold tracking-tight flex items-center gap-2"><Icon name="lock" size={24}/> Tresor</h1> :
              view === 'settings' ? <h1 className="text-2xl font-extrabold tracking-tight flex items-center gap-2">Einstellungen</h1> :
             (
               <>
@@ -1821,7 +1775,6 @@ function App() {
                           <p className="text-xs opacity-70 font-medium mt-1">{visibleEntries.length} archivierte Einträge</p>
                       </div>
                   </div>
-                  
                   {visibleEntries.length === 0 ? (
                       <div className="text-center py-20 opacity-40"><Icon name="archive" size={48} className="mx-auto mb-4"/><p className="font-bold">Archiv ist leer.</p></div>
                   ) : (
@@ -1866,12 +1819,15 @@ function App() {
                                   message: 'Möchtest du alle Einträge unwiderruflich löschen?',
                                   icon: 'alert-triangle',
                                   iconColor: 'text-rose-500',
-                                  onConfirm: () => visibleEntries.forEach(e => deleteFromDB(e.id))
+                                  onConfirm: async () => {
+                                      for (const e of visibleEntries) {
+                                          await deleteFromDB(e.id);
+                                      }
+                                  }
                               });
                           }} className="px-5 py-3 bg-rose-500 text-white rounded-xl font-bold text-sm uppercase tracking-widest shadow-md hover:scale-105 active:scale-95 transition-transform">Leeren</button>
                       )}
                   </div>
-                  
                   {visibleEntries.length === 0 ? (
                       <div className="text-center py-20 opacity-40"><Icon name="trash" size={48} className="mx-auto mb-4"/><p className="font-bold">Papierkorb ist leer.</p></div>
                   ) : (
@@ -1981,7 +1937,7 @@ function App() {
                    
                    {!user.pin ? (
                        <div className="space-y-4">
-                           <p className="text-sm font-medium opacity-70">Lege eine PIN fest, um den Tresor zu nutzen.</p>
+                           <p className="text-sm font-medium opacity-70">Lege eine PIN fest, um den App-Start abzusichern & Cloud-Daten zu verschlüsseln.</p>
                            <input type="password" inputMode="numeric" value={newPinInput} onChange={e=>setNewPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-transparent outline-none font-bold text-center tracking-[1em] focus:border-slate-300 dark:focus:border-zinc-700 transition-colors" placeholder="Neue PIN" />
                            <input type="password" inputMode="numeric" value={confirmPinInput} onChange={e=>setConfirmPinInput(e.target.value)} className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-transparent outline-none font-bold text-center tracking-[1em] focus:border-slate-300 dark:focus:border-zinc-700 transition-colors" placeholder="Wiederholen" />
                            <button onClick={handleSavePin} className="w-full py-4 rounded-2xl font-bold active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}>PIN speichern</button>
@@ -2105,7 +2061,7 @@ function App() {
              </div>
           )}
 
-          {['dashboard', 'vault', 'archive'].includes(view) && !searchQuery && (
+          {['dashboard', 'archive'].includes(view) && !searchQuery && (
             <div className="flex overflow-x-auto gap-3 pb-4 mb-8 custom-scrollbar hide-scrollbar snap-x">
               {['Alle', ...CATEGORIES].map(cat => (
                 <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-6 py-3 rounded-2xl whitespace-nowrap text-sm font-bold transition-all snap-start ${activeCategory === cat ? 'text-white dark:text-black shadow-md scale-105' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-zinc-800 border border-slate-100 dark:border-zinc-800'}`} style={activeCategory === cat ? { backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') } : {}}>
@@ -2115,14 +2071,14 @@ function App() {
             </div>
           )}
 
-          {['dashboard', 'vault', 'archive'].includes(view) && visibleEntries.length === 0 && !searchQuery && (
+          {['dashboard', 'archive'].includes(view) && visibleEntries.length === 0 && !searchQuery && (
             <div className="flex flex-col items-center justify-center py-32 text-center opacity-40 animate-fade-in">
-              <Icon name={view === 'vault' ? "lock" : "book-open"} size={64} className="mb-6"/>
-              <p className="text-2xl font-bold font-serif">{view === 'vault' ? 'Tresor leer.' : view === 'archive' ? 'Archiv leer.' : 'Noch keine Einträge.'}</p>
+              <Icon name="book-open" size={64} className="mb-6"/>
+              <p className="text-2xl font-bold font-serif">{view === 'archive' ? 'Archiv leer.' : 'Noch keine Einträge.'}</p>
             </div>
           )}
 
-          {['dashboard', 'vault', 'archive'].includes(view) && (
+          {['dashboard', 'archive'].includes(view) && (
             <div className={`grid gap-6 pb-32 ${isGridView && view === 'dashboard' ? 'grid-cols-2' : 'grid-cols-1'}`}>
               {renderEntries.map(entry => (
                  <EntryCard key={entry.id} entry={entry} onClick={handleOpenEntry} isGridView={isGridView && view === 'dashboard'} userColor={user.nameColor} isDarkTheme={user.isDark} searchQuery={searchQuery} />
@@ -2146,8 +2102,9 @@ function App() {
                   </button>
               </div>
 
-              <button onClick={() => { setViewingEntry(null); setView('vault'); }} className={`p-2 transition-all rounded-full ${view === 'vault' && !viewingEntry ? 'text-rose-500 scale-110 shadow-inner bg-rose-50 dark:bg-rose-500/10' : 'text-slate-400 hover:text-rose-500 hover:scale-105'}`}>
-                <Icon name="lock" size={26} />
+              {/* Ersetzt: Tresor Icon -> Settings Icon */}
+              <button onClick={() => { setViewingEntry(null); setView('settings'); }} className={`p-2 transition-all rounded-full ${view === 'settings' && !viewingEntry ? 'text-slate-900 dark:text-white scale-110 shadow-inner bg-slate-100 dark:bg-zinc-800' : 'text-slate-400 hover:text-slate-900 dark:hover:text-white hover:scale-105'}`}>
+                <Icon name="settings" size={26} />
               </button>
             </div>
           </nav>
@@ -2317,7 +2274,6 @@ function App() {
         {showEditor && (
           <div className="fixed top-0 left-0 right-0 bottom-0 bg-white dark:bg-black z-[200] flex flex-col overflow-hidden page-transition">
             
-            {/* 1. Header (Immer ganz oben) */}
             <header className="flex-none flex justify-between items-center p-4 sm:p-6 shrink-0 z-50 pt-safe bg-white/95 dark:bg-black/95 border-b border-slate-100 dark:border-zinc-900">
                 <button onClick={()=>checkSaveEntry(true)} className="p-3 bg-slate-100 dark:bg-zinc-900 rounded-2xl text-slate-900 dark:text-white hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
                 <div className="flex items-center gap-4">
@@ -2326,54 +2282,34 @@ function App() {
                 </div>
             </header>
 
-            {/* 2. Titel Eingabe (Durchgehende Linie) */}
             <div className="flex-none px-4 sm:px-8 pt-6 pb-2 shrink-0 bg-white dark:bg-black z-40 border-b-[3px] border-slate-200 dark:border-zinc-800 focus-within:border-accent transition-colors">
               <input type="text" placeholder="Titel der Vision..." value={title} onChange={e=>{setTitle(e.target.value); isDirtyRef.current=true;}} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tighter outline-none pb-3 placeholder-slate-300 dark:placeholder-zinc-700 text-slate-900 dark:text-white" />
             </div>
 
-            {/* 3. STICKY TOOLBAR (Immer sichtbar über dem Text) */}
             <div className="flex-none flex items-center gap-2 p-2 px-4 overflow-x-auto hide-scrollbar border-b border-slate-100 dark:border-zinc-900 bg-slate-50 dark:bg-zinc-950 shrink-0 shadow-sm z-40">
-                {/* Textgrößen */}
                 <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'H1'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><span className="font-extrabold text-sm">H1</span></button>
                 <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'H2'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><span className="font-bold text-sm">H2</span></button>
                 <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'P'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><span className="font-medium text-sm">T</span></button>
-                
                 <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
-
-                {/* Formate */}
                 <button onMouseDown={e=>{e.preventDefault(); document.execCommand('bold'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="bold" size={18} /></button>
                 <button onMouseDown={e=>{e.preventDefault(); document.execCommand('italic'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="italic" size={18} /></button>
                 <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="quote" size={18} /></button>
-                
-                {/* Listen */}
                 <button onMouseDown={e=>{e.preventDefault(); document.execCommand('insertOrderedList'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="list-ordered" size={18} /></button>
                 <button onMouseDown={e=>{e.preventDefault(); document.execCommand('insertUnorderedList'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="list" size={18} /></button>
-
                 <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
-
-                {/* Medien & Zeichnen */}
                 <label className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm cursor-pointer flex items-center justify-center relative overflow-hidden shrink-0 border border-slate-100 dark:border-zinc-800" title="Cover Bild hochladen"><Icon name="image" size={18} /><input type="file" accept="image/*" multiple onChange={e=>handleFileUpload(e,'image')} className="absolute opacity-0 w-[200%] h-[200%] top-0 left-0 cursor-pointer" /></label>
                 <button onClick={() => setIsDrawing(true)} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="pen-tool" size={18} /></button>
                 <button onClick={isRecording ? stopRecording : startRecording} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800 ${isRecording ? 'bg-rose-500 text-white animate-pulse' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:text-accent'}`}>{isRecording ? <Icon name="square" size={18}/> : <Icon name="mic" size={18}/>}</button>
-                
                 <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
-
-                {/* Sicherheit */}
-                <button onClick={()=>{setIsLocked(!isLocked); isDirtyRef.current=true;}} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 border ${isLocked ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-500 border-rose-200 dark:border-rose-900/50' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:text-rose-500 border-slate-100 dark:border-zinc-800'}`}><Icon name="lock" size={18}/></button>
                 <button onClick={()=>{setIsManifested(!isManifested); isDirtyRef.current=true;}} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 border ${isManifested ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-500 border-amber-200 dark:border-amber-900/50' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:text-amber-500 border-slate-100 dark:border-zinc-800'}`}><Icon name="sparkles" size={18}/></button>
-
                 <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
-
-                {/* Farben (Rund am Ende) */}
                 {EDITOR_COLORS.map(c => (
                     <button key={c} onMouseDown={e=>{e.preventDefault(); document.execCommand('foreColor', false, c); isDirtyRef.current=true;}} className="w-8 h-8 rounded-full border-2 shadow-sm shrink-0 transition-transform hover:scale-110 active:scale-95" style={{backgroundColor: c, borderColor: isDarkColor(c) ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}}></button>
                 ))}
             </div>
             
-            {/* 4. Text-Eingabebereich */}
             <div className="flex-auto overflow-y-auto relative bg-white dark:bg-black custom-scrollbar">
               <div className="p-4 md:p-8 max-w-3xl mx-auto w-full flex flex-col">
-                  {/* Cover-Bilder GANZ OBEN im Editor, zentriert und groß */}
                   {selectedImages.length > 0 && (
                       <div className="mb-8 w-full flex flex-col items-center">
                           <div className="relative w-full h-48 sm:h-64 rounded-[2rem] overflow-hidden shadow-sm group border border-slate-200 dark:border-zinc-800 shrink-0 bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
@@ -2420,36 +2356,30 @@ function App() {
               </div>
             </div>
 
-            {/* 5. Footer (Tags, People, Rating, TimeSeal, Location) */}
             <div className="flex-none p-3 border-t border-slate-100 dark:border-zinc-900 bg-white/95 dark:bg-black/95 backdrop-blur-xl shrink-0 flex items-center gap-3 overflow-x-auto hide-scrollbar z-50 pb-safe shadow-[0_-4px_6px_rgba(0,0,0,0.02)]">
                <button onClick={()=>setPicker({title:'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c, value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;}})} className="h-10 px-4 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs font-bold flex items-center gap-2 shrink-0">{category} <Icon name="chevron-down" size={12}/></button>
                
-               {/* Rating Component */}
                <div className="h-10 flex items-center gap-1 bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0">
                   {[1,2,3,4,5].map(star => (
                       <Icon key={star} name="star" size={14} className={`cursor-pointer transition-colors ${rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-zinc-700'}`} onClick={() => {setRating(rating === star ? 0 : star); isDirtyRef.current=true;}} />
                   ))}
                </div>
 
-               {/* Tags Input */}
                <div className="h-10 flex items-center bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
                    <Icon name="tag" size={12} className="text-slate-400 mr-2 shrink-0" />
                    <input type="text" placeholder="Tags (Komma...)" value={tags} onChange={e=>{setTags(e.target.value); isDirtyRef.current=true;}} className="bg-transparent border-none outline-none text-xs font-bold placeholder:opacity-50 w-full text-slate-900 dark:text-white" />
                </div>
 
-               {/* Personen Eingabe */}
                <div className="h-10 flex items-center bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
                    <Icon name="user" size={12} className="text-slate-400 mr-2 shrink-0" />
                    <input type="text" placeholder="Personen..." value={people} onChange={e=>{setPeople(e.target.value); isDirtyRef.current=true;}} className="bg-transparent border-none outline-none text-xs font-bold placeholder:opacity-50 w-full text-slate-900 dark:text-white" />
                </div>
 
-               {/* Zeitsiegel */}
                <div className={`h-10 relative px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 cursor-pointer overflow-hidden ${unlockDate ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}>
                   <Icon name="calendar-clock" size={14}/> {unlockDate ? new Date(unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Zeitsiegel'}
                   <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); isDirtyRef.current=true;}} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
                </div>
                
-               {/* Multi-GPS Anzeige im Editor */}
                {locations.map((loc, idx) => (
                    <div key={idx} className="h-10 px-4 rounded-xl border border-emerald-300 dark:border-emerald-700/50 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 text-xs font-bold flex items-center gap-2 shrink-0">
                        <Icon name="map-pin" size={14}/> {loc.name} • {loc.time} {loc.weather ? `• ${loc.weather}` : ''}
@@ -2499,7 +2429,6 @@ function App() {
           </div>
         )}
 
-        {/* --- ZEICHNEN MODAL --- */}
         {isDrawing && (
           <div className="fixed inset-0 z-[300] bg-slate-900 flex flex-col no-print">
             <header className="flex justify-between items-center p-4 bg-slate-950 text-white pt-safe border-b border-white/10">
@@ -2533,7 +2462,6 @@ function App() {
           </div>
         )}
 
-        {/* --- TIMELINE / ZEITREISE (Calendar Style) --- */}
         {showTimeline && !showEditor && (() => {
            const bookEntries = viewingEntry ? getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id) : entries.filter(e => e && !e.archived && !e.trashed);
            
@@ -2617,7 +2545,6 @@ function App() {
            );
         })()}
 
-        {/* --- PICKER DIALOG --- */}
         {picker && (
           <div className="fixed inset-0 z-[250] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setPicker(null)}>
             <div className="w-full max-w-sm rounded-[2.5rem] shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up flex flex-col overflow-hidden max-h-[70vh]" onClick={e => e.stopPropagation()}>
@@ -2636,7 +2563,6 @@ function App() {
           </div>
         )}
 
-        {/* --- DIALOGS --- */}
         {dialog && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setDialog(null)}>
             <div className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up" onClick={e => e.stopPropagation()}>
@@ -2651,12 +2577,11 @@ function App() {
           </div>
         )}
 
-        {/* --- PIN UNLOCK MODAL --- */}
         {unlockTarget && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setUnlockTarget(null)}>
             <div className="w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up" onClick={e => e.stopPropagation()}>
               <div className="w-20 h-20 bg-slate-50 dark:bg-zinc-950 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100 dark:border-zinc-800"><Icon name="lock" size={32} style={{ color: user.nameColor || '#f59e0b' }} /></div>
-              <h3 className="text-2xl font-extrabold tracking-tight mb-2">Tresor entsperren</h3>
+              <h3 className="text-2xl font-extrabold tracking-tight mb-2">App entsperren</h3>
               <p className="text-xs font-bold uppercase tracking-widest opacity-40 mb-8 truncate w-full px-4">"{unlockTarget.title}"</p>
               <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submitPin()} className={`w-full p-4 text-center text-4xl tracking-[0.5em] rounded-2xl bg-slate-50 dark:bg-zinc-950 border-2 outline-none mb-6 transition-colors placeholder:opacity-30 ${pinError ? 'border-rose-500' : 'border-transparent focus:border-slate-300 dark:focus:border-zinc-700'}`} placeholder="••••" />
               <div className="flex gap-3 w-full mb-4">
@@ -2679,16 +2604,12 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
 </script>
 
-<!-- Statische Service Worker Registrierung (Sicherer Standort außerhalb von Babel) -->
 <script>
   if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then(reg => console.log('SW Aktiv'))
-        .catch(err => console.warn('SW Registrierung übersprungen'));
+      navigator.serviceWorker.register('./sw.js').then(reg => console.log('SW Aktiv')).catch(err => console.warn('SW Registrierung übersprungen'));
     });
   }
 </script>
-
 </body>
 </html>
