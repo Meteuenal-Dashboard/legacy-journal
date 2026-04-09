@@ -5,21 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Legacy Vision Journal - Ultimate Edition</title>
 
-<!-- PWA & iOS Premium Integration -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" id="meta-theme-color" content="#f8fafc">
 <meta name="color-scheme" content="light dark">
 
-<!-- W3C Standard Manifest (Statisch für Langlebigkeit) -->
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icon-192x192.png">
 
-<!-- Container für den App-Klon -->
 <script id="legacy-injected-data" type="application/json">null</script>
 
-<!-- Inter Font & Libraries -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -162,7 +158,7 @@ const getCryptoKey = async (pin, saltStr) => {
     cryptoKeyCache[cacheKey] = key; return key;
 };
 
-// Optimierte Verschlüsselung für große Dateien (verhindert Callstack-Fehler bei Bildern)
+// Optimierte Verschlüsselung für große Dateien
 const encryptData = async (text, pin) => {
     try {
         const salt = window.crypto.getRandomValues(new Uint8Array(16));
@@ -180,7 +176,7 @@ const encryptData = async (text, pin) => {
         }
         
         return { cipher: btoa(binary), iv: ivStr, salt: saltStr };
-    } catch(e) { console.error("Encryption failed", e); return null; }
+    } catch(e) { return null; }
 };
 
 const decryptData = async (encryptedObj, pin) => {
@@ -493,7 +489,7 @@ function App() {
   const [isManifested, setIsManifested] = useState(false);
   const [unlockDate, setUnlockDate] = useState('');
   const [location, setLocation] = useState(null);
-  const [locations, setLocations] = useState([]); // Multi-GPS Array
+  const [locations, setLocations] = useState([]); 
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [mood, setMood] = useState(null);
   const [entryDate, setEntryDate] = useState('');
@@ -520,10 +516,25 @@ function App() {
   const showTimelineRef = useRef(showTimeline);
   const viewRef = useRef(view);
 
+  const entriesRef = useRef(entries);
+  useEffect(() => {
+      entriesRef.current = entries;
+  }, [entries]);
+
+  // LOGOUT/LOGIN FIX: Synchronisiert das sichtbare Profil getrennt von der Verschlüsselung
   const syncProfileToCloud = async (userData) => {
       if (!fb || !fb.auth || !fb.auth.currentUser || !userData.cloudSync) return;
       try { 
-          let payload = { timestamp: Date.now() };
+          let payload = { 
+              timestamp: Date.now(),
+              publicProfile: {
+                  name: userData.name || '',
+                  motto: userData.motto || '',
+                  avatar: userData.avatar || null,
+                  nameColor: userData.nameColor,
+                  isDark: userData.isDark
+              }
+          };
           if (userData.pin) {
               const encrypted = await encryptData(JSON.stringify(userData), userData.pin); 
               if (encrypted) payload.encryptedData = encrypted; 
@@ -565,7 +576,7 @@ function App() {
       else if (showEditorRef.current) { checkSaveEntry(true); trapped = true; } 
       else if (viewingEntryRef.current) { setViewingEntry(null); setCurrentViewerImgIdx(0); trapped = true; }
       else if (showTimelineRef.current) { setShowTimeline(false); trapped = true; }
-      else if (viewRef.current !== 'dashboard' && viewRef.current !== 'loading' && viewRef.current !== 'auth' && viewRef.current !== 'onboarding' && viewRef.current !== 'cloud_pin_sync') { setView('dashboard'); trapped = true; }
+      else if (viewRef.current !== 'dashboard' && viewRef.current !== 'loading' && viewRef.current !== 'auth' && viewRef.current !== 'pin_entry' && viewRef.current !== 'onboarding' && viewRef.current !== 'cloud_pin_sync') { setView('dashboard'); trapped = true; }
 
       if (trapped) {
           try { window.history.pushState({ isApp: true }, ''); } catch(e) {}
@@ -580,13 +591,12 @@ function App() {
     const initFB = async () => {
        let authTimeout = setTimeout(() => {
            if (!isLoaded) {
-               console.warn("Firebase Auth Timeout - Fallback to Local");
                const savedStr = safeStorageGet('legacy_user');
                if (savedStr) {
                    try {
                        const parsed = JSON.parse(savedStr);
                        setUser(parsed);
-                       setView(parsed.name ? 'dashboard' : 'onboarding');
+                       setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
                    } catch(e) { setView('onboarding'); }
                } else {
                    setView('onboarding');
@@ -618,6 +628,7 @@ function App() {
                       const profileSnap = await getDoc(doc(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'profile', 'data'));
                       if (profileSnap.exists()) {
                           const data = profileSnap.data();
+                          if (data.publicProfile) setUser(prev => ({ ...prev, ...data.publicProfile }));
                           if (data.encryptedData) {
                               setView('cloud_pin_sync'); 
                               return;
@@ -654,7 +665,6 @@ function App() {
               setIsLoaded(true);
           });
        } catch(e) { 
-           console.error("Firebase init error:", e);
            const savedStr = safeStorageGet('legacy_user');
            if (savedStr) {
                try {
@@ -671,7 +681,7 @@ function App() {
     initFB();
   }, []);
 
-  // Initialize DB & Repair Invalid Dates & Decrypt Old Vault Entries
+  // Initialize DB & Local Load
   useEffect(() => {
     const loadApp = async () => {
       try {
@@ -680,9 +690,7 @@ function App() {
 
         request.onsuccess = async () => {
           let loadedEntries = request.result || [];
-          loadedEntries = loadedEntries.filter(e => e != null);
-
-          loadedEntries = loadedEntries.map(e => {
+          loadedEntries = loadedEntries.filter(e => e != null).map(e => {
               if (e.date) {
                   const d = new Date(e.date);
                   if (isNaN(d.getTime())) {
@@ -690,7 +698,7 @@ function App() {
                       if (!isNaN(repaired.getTime())) e.date = repaired.toISOString();
                   }
               }
-              return e;
+              return { ...e, locked: false };
           });
 
           const savedUser = safeStorageGet('legacy_user');
@@ -699,8 +707,6 @@ function App() {
               try { currentUser = { ...user, ...JSON.parse(savedUser) }; setUser(currentUser); } catch(e){} 
           }
 
-          // In der neuen Architektur speichert die IndexedDB alle Einträge entschlüsselt, wenn die App läuft
-          // Falls noch verschlüsselte Einträge lokal liegen (aus alten Versionen), entschlüsseln wir sie einmalig.
           if (currentUser.pin) {
             loadedEntries = await Promise.all(loadedEntries.map(async (e) => {
               if (e.encryptedData) {
@@ -708,75 +714,137 @@ function App() {
                 if (decStr) { 
                     try { 
                         const parsed = JSON.parse(decStr); 
-                        return { ...e, text: parsed.text || e.text, title: parsed.title || e.title, encryptedData: null, locked: false }; 
-                    } catch(err){} 
+                        return { ...e, ...parsed, encryptedData: null, locked: false }; 
+                    } catch(err){ return { ...e, text: decStr, encryptedData: null, locked: false };} 
                 }
+              } else if (e.cipher && e.iv && e.salt) {
+                  // LEGACY-RETTUNG aus IndexedDB!
+                  const decStr = await decryptData({cipher: e.cipher, iv: e.iv, salt: e.salt}, currentUser.pin);
+                  if (decStr) {
+                      try {
+                          const parsed = JSON.parse(decStr);
+                          return { ...e, ...parsed, cipher: null, iv: null, salt: null, locked: false };
+                      } catch(err) { return { ...e, text: decStr, cipher: null, iv: null, salt: null, locked: false };}
+                  }
               }
               return { ...e, locked: false };
             }));
           } else {
              loadedEntries = loadedEntries.map(e => ({ ...e, locked: false }));
           }
+          
+          // Force Date Assignment
+          loadedEntries = loadedEntries.map(e => {
+             if (!e.date) {
+                 e.date = e.orderTimestamp || (e.timestamp ? new Date(e.timestamp).toISOString() : new Date().toISOString());
+             }
+             return e;
+          });
+
           setEntries(loadedEntries.sort(sortEntriesChronological));
         };
-      } catch (e) { console.warn("DB Load failed", e); }
+      } catch (e) { }
     };
     loadApp();
   }, []);
 
-  // REALTIME CLOUD SYNC - Garantierte Datensicherheit ohne Lösch-Bugs
+  // REALTIME CLOUD SYNC - Perfektioniert für Höchstleistung & LEGACY-RETTUNG
   useEffect(() => {
     if (!fb || !fb.onSnapshot || !authUser || !user.cloudSync) return;
     const q = fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries');
     
     const unsubscribe = fb.onSnapshot(q, async (snapshot) => {
-        // HIGHLIGHT: Verhindert, dass eigene lokale Änderungen einen kompletten Download & Decrypt auslösen!
         if (snapshot.metadata.hasPendingWrites) return; 
         
         let hasChanges = false;
-        const updatedEntries = [];
         const removedIds = [];
+        const currentEntriesMap = new Map(entriesRef.current.map(e => [e.id, e]));
 
-        for (const change of snapshot.docChanges()) {
-            hasChanges = true;
-            if (change.type === 'removed') {
-                removedIds.push(change.doc.id);
-            } else {
+        // Parallelverarbeitung für massive Performance-Steigerung
+        const processChange = async (change) => {
+            try {
+                if (change.type === 'removed') {
+                    removedIds.push(change.doc.id);
+                    return null;
+                }
+                
                 const docData = change.doc.data();
+                
+                // PERFORMANCE BOOST: Lade lokalen Eintrag aus IndexedDB, falls React State noch leer ist
+                let existingLocal = currentEntriesMap.get(change.doc.id);
+                if (!existingLocal && db) {
+                    existingLocal = await new Promise(res => {
+                        try {
+                            const req = db.transaction('entries', 'readonly').objectStore('entries').get(change.doc.id);
+                            req.onsuccess = () => res(req.result);
+                            req.onerror = () => res(null);
+                        } catch(e) { res(null); }
+                    });
+                }
+
+                if (existingLocal && existingLocal.text && !existingLocal.text.includes('Entschlüsselung fehlgeschlagen')) {
+                   const cloudTime = docData.timestamp || 0;
+                   const localTime = existingLocal.timestamp || 0;
+                   if (cloudTime <= localTime) {
+                       return { type: 'existing' }; 
+                   }
+                }
+                
+                // 1. NEUER STANDARD
                 if (docData.encryptedData) {
                    if (user.pin) {
                        const decStr = await decryptData(docData.encryptedData, user.pin);
                        if (decStr) { 
+                           let parsed = {};
                            try { 
-                               let parsed = JSON.parse(decStr); 
+                               parsed = JSON.parse(decStr); 
                                if (parsed.encryptedData) {
                                    const innerDec = await decryptData(parsed.encryptedData, user.pin);
                                    if (innerDec) {
-                                       const innerParsed = JSON.parse(innerDec);
-                                       parsed = { ...parsed, text: innerParsed.text || parsed.text, title: innerParsed.title || parsed.title };
+                                       try { parsed = { ...parsed, ...JSON.parse(innerDec) }; }
+                                       catch(e) { parsed.text = innerDec; }
                                    }
                                }
-                               updatedEntries.push({ ...parsed, id: change.doc.id, encryptedData: null, locked: false }); 
-                               continue;
-                           } catch(e){} 
+                           } catch(e) { parsed = { text: decStr, title: 'Wiederhergestellter Eintrag' }; }
+                           
+                           const fDate = docData.date || parsed.date || docData.orderTimestamp || parsed.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
+                           return { ...docData, ...parsed, id: change.doc.id, date: fDate, orderTimestamp: fDate, encryptedData: null, locked: false }; 
                        }
                    }
-                   updatedEntries.push({
-                       id: change.doc.id,
-                       title: 'Verschlüsselter Eintrag',
-                       text: 'Entschlüsselung fehlgeschlagen. Bitte prüfe deine PIN.',
-                       date: docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString(),
-                       encryptedData: docData.encryptedData,
-                       category: 'Sicherheit',
-                       locked: false
-                   });
-                } else if (docData.rawData) {
-                    updatedEntries.push({ ...docData.rawData, id: change.doc.id, locked: false });
+                   const fbDate = docData.date || docData.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
+                   return { ...docData, id: change.doc.id, title: docData.title || 'Verschlüsselter Eintrag', text: 'Entschlüsselung fehlgeschlagen. Bitte prüfe deine PIN.', date: fbDate, orderTimestamp: fbDate, category: docData.category || 'Sicherheit', locked: false };
+                } 
+                // 2. LEGACY STANDARD (Rettet alte verschollene Einträge!)
+                else if (docData.cipher && docData.iv && docData.salt) {
+                    if (user.pin) {
+                        const decStr = await decryptData({ cipher: docData.cipher, iv: docData.iv, salt: docData.salt }, user.pin);
+                        if (decStr) {
+                            let parsed = {};
+                            try { parsed = JSON.parse(decStr); } catch(e) { parsed = { text: decStr, title: docData.title || 'Tagebucheintrag' }; }
+                            const fDate = docData.date || parsed.date || docData.orderTimestamp || parsed.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
+                            return { ...docData, ...parsed, id: change.doc.id, date: fDate, orderTimestamp: fDate, cipher: null, iv: null, salt: null, locked: false };
+                        }
+                    }
+                    const fbDate = docData.date || docData.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
+                    return { ...docData, id: change.doc.id, title: docData.title || 'Verschlüsselter Legacy-Eintrag', text: 'Entschlüsselung fehlgeschlagen. PIN falsch?', date: fbDate, orderTimestamp: fbDate, category: docData.category || 'Sicherheit', locked: false };
                 }
+                // 3. UNVERSCHLÜSSELT
+                else if (docData.rawData) {
+                    const fbDate = docData.rawData.date || docData.rawData.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
+                    return { ...docData.rawData, id: change.doc.id, date: fbDate, orderTimestamp: fbDate, locked: false };
+                }
+                
+                const fDate = docData.date || docData.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
+                return { ...docData, id: change.doc.id, date: fDate, orderTimestamp: fDate, locked: false };
+            } catch (e) {
+                return null;
             }
-        }
+        };
 
-        if (!hasChanges) return;
+        const results = await Promise.all(snapshot.docChanges().map(processChange));
+        const updatedEntries = results.filter(res => res && res.type !== 'existing');
+
+        if (updatedEntries.length === 0 && removedIds.length === 0) return;
 
         setEntries(prev => {
             let next = [...prev];
@@ -906,7 +974,7 @@ function App() {
               const savedPin = atob(safeStorageGet('legacy_bio_pin'));
               if (savedPin) handleUnlockSubmit(savedPin);
           }
-      } catch(e) { showDialog({title: 'Fehler', message: 'Biometrische Prüfung fehlgeschlagen.', icon: 'x'}); }
+      } catch(e) {}
   };
 
   const handleCloudRestore = async (pinValue) => {
@@ -1183,12 +1251,10 @@ function App() {
       if (view === 'archive') return e.archived;
       if (e.archived) return false;
       if (!searchQuery && e.parentId) return false; 
-      const matchesCategory = activeCategory === 'Alle' || e.category === activeCategory || (!e.category && activeCategory === 'Allgemein'); 
-      if (!searchQuery && !matchesCategory) return false;
       if (view === 'dashboard') return true; 
       return false;
     });
-  }, [entries, searchQuery, activeCategory, view]);
+  }, [entries, searchQuery, view]);
 
   const renderEntries = visibleEntries; 
   
@@ -1686,11 +1752,22 @@ function App() {
       return (
         <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-black text-slate-900 dark:text-white">
           <div className="max-w-sm w-full space-y-8 animate-slide-up text-center">
-            <div className="w-24 h-24 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-10 text-blue-500">
-                <Icon name="cloud-download" size={36} />
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight mb-4 text-slate-900 dark:text-white">Backup gefunden</h1>
-            <p className="text-slate-500 dark:text-slate-400 mb-12 px-4 leading-relaxed">Wir haben deine verschlüsselten Daten in der Cloud gefunden. Gib deine PIN ein, um sie auf diesem Gerät wiederherzustellen.</p>
+            {user.avatar ? (
+               <div className="relative shrink-0 mx-auto w-24 h-24 mb-6">
+                   <div className="w-full h-full rounded-full overflow-hidden border-4 shadow-sm flex items-center justify-center bg-slate-100 dark:bg-zinc-800" style={{ borderColor: user.nameColor || '#3b82f6' }}>
+                       <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover scale-[1.02]" />
+                   </div>
+               </div>
+            ) : (
+               <div className="w-24 h-24 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-6 text-blue-500">
+                   <Icon name="cloud-download" size={36} />
+               </div>
+            )}
+            
+            <h1 className="text-3xl font-bold tracking-tight mb-2 text-slate-900 dark:text-white">{user.name ? `Willkommen, ${user.name}` : 'Backup gefunden'}</h1>
+            {user.motto && <p className="text-sm font-medium opacity-60 mb-6 max-w-[250px] mx-auto italic">"{user.motto}"</p>}
+            {!user.motto && <p className="text-slate-500 dark:text-slate-400 mb-8 px-4 leading-relaxed">Wir haben deine verschlüsselten Daten in der Cloud gefunden. Gib deine PIN ein, um sie auf diesem Gerät wiederherzustellen.</p>}
+            
             <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleCloudRestore(pinInput); }} className={`w-full p-4 text-center text-4xl tracking-[0.5em] rounded-2xl bg-white dark:bg-zinc-900 border-2 outline-none mb-6 transition-colors shadow-sm placeholder:opacity-30 ${pinError ? 'border-rose-500' : 'border-slate-100 dark:border-zinc-800 focus:border-blue-500'}`} placeholder="••••" />
             <button onClick={() => handleCloudRestore(pinInput)} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg active:scale-95 transition-all shadow-lg shadow-blue-500/20">Wiederherstellen</button>
             <button onClick={handleLogout} className="mt-8 text-rose-500 font-bold opacity-60 hover:opacity-100 transition-opacity">Abbrechen & Abmelden</button>
@@ -1700,24 +1777,52 @@ function App() {
   }
 
   if (view === 'pin_entry') {
+    const isBioMode = user.biometric && safeStorageGet('legacy_bio_pin') && !showPinFallback;
+    
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-black text-slate-900 dark:text-white">
-        <div className="max-w-sm w-full space-y-8 animate-slide-up text-center">
-          <Icon name="lock" size={48} className="mx-auto mb-2 opacity-80" />
-          <h1 className="text-2xl font-bold tracking-tight">App entsperren</h1>
-          <p className="opacity-60 text-sm font-medium px-4">Gib deine PIN ein, um dein lokales Journal zu entschlüsseln.</p>
-          <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-zinc-800">
-             <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockSubmit(pinInput); }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none mb-6 bg-slate-100 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-zinc-600 transition-colors placeholder:opacity-30" placeholder="••••" />
-             <button onClick={() => handleUnlockSubmit(pinInput)} className="w-full py-4 font-bold rounded-2xl bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-transform shadow-md mb-3">Entsperren</button>
-             
-             {user.biometric && safeStorageGet('legacy_bio_pin') && (
-                <button onClick={handleBiometricUnlock} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm flex items-center justify-center gap-2 mb-3"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
-             )}
+        <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-black text-slate-900 dark:text-white">
+            {isBioMode ? (
+                <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-2xl border border-slate-200 dark:border-zinc-800 w-full max-w-sm flex flex-col items-center animate-slide-up">
+                    <div className="flex items-center justify-center gap-3 mb-6">
+                        {user.avatar ? (
+                            <img src={user.avatar} alt="Avatar" className="w-12 h-12 rounded-xl shadow-sm object-cover" />
+                        ) : (
+                            <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 rounded-xl flex items-center justify-center shadow-sm"><Icon name="user" size={24}/></div>
+                        )}
+                        <span className="text-3xl font-extrabold tracking-tight">{user.name || 'Legacy'}</span>
+                    </div>
+                    <h2 className="text-xl font-bold mb-2">Legacy entsperren</h2>
+                    <p className="text-sm opacity-60 mb-8 text-center">Scanne deinen Fingerabdruck.</p>
+                    
+                    <button onClick={handleBiometricUnlock} className="w-24 h-24 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mb-8 hover:scale-105 active:scale-95 transition-all shadow-sm border border-indigo-100 dark:border-indigo-500/20">
+                        <Icon name="fingerprint" size={48} className="animate-pulse" />
+                    </button>
+                    
+                    <button onClick={() => setShowPinFallback(true)} className="px-6 py-3 rounded-xl bg-slate-100 dark:bg-zinc-800 text-sm font-bold opacity-80 hover:opacity-100 transition-all mb-4">
+                        PIN verwenden
+                    </button>
+                    <button onClick={handleLogout} className="text-xs font-bold uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity text-rose-500">
+                        Abmelden
+                    </button>
+                </div>
+            ) : (
+                <div className="max-w-sm w-full space-y-8 animate-slide-up text-center">
+                    <Icon name="lock" size={48} className="mx-auto mb-2 opacity-80" />
+                    <h1 className="text-2xl font-bold tracking-tight">App entsperren</h1>
+                    <p className="opacity-60 text-sm font-medium px-4">Gib deine PIN ein, um dein lokales Journal zu entschlüsseln.</p>
+                    <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-zinc-800">
+                        <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockSubmit(pinInput); }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none mb-6 bg-slate-100 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-zinc-600 transition-colors placeholder:opacity-30" placeholder="••••" />
+                        <button onClick={() => handleUnlockSubmit(pinInput)} className="w-full py-4 font-bold rounded-2xl bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-transform shadow-md mb-3">Entsperren</button>
+                        
+                        {user.biometric && safeStorageGet('legacy_bio_pin') && (
+                            <button onClick={() => { setShowPinFallback(false); }} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm flex items-center justify-center gap-2 mb-3"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
+                        )}
 
-             <button onClick={handleLogout} className="mt-4 w-full py-2 text-xs font-bold uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity text-rose-500">Abmelden</button>
-          </div>
+                        <button onClick={handleLogout} className="mt-4 w-full py-2 text-xs font-bold uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity text-rose-500">Abmelden</button>
+                    </div>
+                </div>
+            )}
         </div>
-      </div>
     );
   }
 
@@ -2156,8 +2261,8 @@ function App() {
                    <button onClick={() => window.print()} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500"><Icon name="printer" size={22}/></button>
                    <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
                    
-                   {/* Haupt-Cover ändern (oben links neben Drucker) */}
-                   <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500 cursor-pointer hidden sm:flex items-center justify-center shadow-sm" title="Tagebuch-Cover ändern">
+                   {/* Haupt-Cover ändern (oben links neben Drucker) - IMMER SICHTBAR AUF HANDY! */}
+                   <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500 cursor-pointer flex items-center justify-center shadow-sm" title="Tagebuch-Cover ändern">
                        <Icon name="image" size={22}/>
                        <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, bookRoot?.id || viewingEntry.id, 0)} className="hidden" />
                    </label>
@@ -2192,7 +2297,6 @@ function App() {
                   <h1 className="text-4xl sm:text-6xl font-extrabold mb-8 tracking-tighter leading-[1.1] text-slate-900 dark:text-white">{viewingEntry.title || 'Ohne Titel'}</h1>
                   <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
                     <span>{new Date(viewingEntry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
-                    <span>•</span><span>{viewingEntry.category || 'Allgemein'}</span>
                   </div>
                   
                   {/* Meta-Data Pills */}
@@ -2270,7 +2374,7 @@ function App() {
                        <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
                            <h1 style={{ fontSize: '36px', fontWeight: 'bold', marginBottom: '10px', fontFamily: 'Inter, sans-serif' }}>{e.title || 'Ohne Titel'}</h1>
                            <p style={{ opacity: 0.6, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '12px' }}>
-                               {new Date(e.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category || 'Allgemein'}
+                               {new Date(e.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                            </p>
                            {/* UPDATE: Tags, GPS und Personen beim Drucken anzeigen */}
                            <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', flexWrap: 'wrap', marginTop: '15px', fontSize: '12px' }}>
@@ -2380,7 +2484,6 @@ function App() {
             </div>
 
             <div className="flex-none p-3 border-t border-slate-100 dark:border-zinc-900 bg-white/95 dark:bg-black/95 backdrop-blur-xl shrink-0 flex items-center gap-3 overflow-x-auto hide-scrollbar z-50 pb-safe shadow-[0_-4px_6px_rgba(0,0,0,0.02)]">
-               <button onClick={()=>setPicker({title:'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c, value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;}})} className="h-10 px-4 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs font-bold flex items-center gap-2 shrink-0">{category} <Icon name="chevron-down" size={12}/></button>
                
                <div className="h-10 flex items-center gap-1 bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0">
                   {[1,2,3,4,5].map(star => (
