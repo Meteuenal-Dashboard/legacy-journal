@@ -162,7 +162,7 @@ const getCryptoKey = async (pin, saltStr) => {
     cryptoKeyCache[cacheKey] = key; return key;
 };
 
-// Optimierte Verschlüsselung mit sicherem Loop zur Verhinderung von Crashs
+// Optimierte Verschlüsselung für große Dateien (verhindert Callstack-Fehler bei Bildern)
 const encryptData = async (text, pin) => {
     try {
         const salt = window.crypto.getRandomValues(new Uint8Array(16));
@@ -174,8 +174,9 @@ const encryptData = async (text, pin) => {
         
         const bytes = new Uint8Array(encrypted);
         let binary = '';
-        for (let i = 0; i < bytes.length; i++) {
-            binary += String.fromCharCode(bytes[i]);
+        const chunkSize = 8192;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
         }
         
         return { cipher: btoa(binary), iv: ivStr, salt: saltStr };
@@ -457,6 +458,7 @@ function App() {
   
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
+  const [showPinFallback, setShowPinFallback] = useState(false);
   
   const [isChangingPin, setIsChangingPin] = useState(false);
   const [oldPinInput, setOldPinInput] = useState('');
@@ -518,6 +520,7 @@ function App() {
   const viewingEntryRef = useRef(viewingEntry);
   const showTimelineRef = useRef(showTimeline);
   const viewRef = useRef(view);
+  const biometricAttempted = useRef(false);
 
   // LOGOUT/LOGIN FIX: Synchronisiert das sichtbare Profil getrennt von der Verschlüsselung
   const syncProfileToCloud = async (userData) => {
@@ -584,6 +587,7 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  // --- Login Bypass & Firebase Setup ---
   useEffect(() => {
     const initFB = async () => {
        let authTimeout = setTimeout(() => {
@@ -915,8 +919,21 @@ function App() {
               const savedPin = atob(safeStorageGet('legacy_bio_pin'));
               if (savedPin) handleUnlockSubmit(savedPin);
           }
-      } catch(e) { showDialog({title: 'Fehler', message: 'Biometrische Prüfung fehlgeschlagen.', icon: 'x'}); }
+      } catch(e) { 
+          setShowPinFallback(true); // Automatischer Fallback zur PIN-Eingabe wenn Bio fehlschlägt!
+      }
   };
+
+  // Automatischer Biometrie-Trigger beim Aufrufen der pin_entry View
+  useEffect(() => {
+      if (view === 'pin_entry' && user.biometric && safeStorageGet('legacy_bio_pin') && !showPinFallback && !biometricAttempted.current) {
+          biometricAttempted.current = true; 
+          handleBiometricUnlock();
+      }
+      if (view !== 'pin_entry') {
+          biometricAttempted.current = false;
+      }
+  }, [view, user.biometric, showPinFallback]);
 
   const handleCloudRestore = async (pinValue) => {
       if (!pinValue) return;
@@ -1024,6 +1041,7 @@ function App() {
      };
   }, [editingId, title, selectedColor, selectedImages, audioUrl, isManifested, category, mood, unlockDate, location, locations, parentId, inheritedFrom, rating, tags, people, weather, entryDate]);
 
+  // Speichert den unverschlüsselten Text immer lokal in IndexedDB
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; 
     const plainEntry = { ...entry, locked: false, encryptedData: null };
@@ -1194,7 +1212,7 @@ function App() {
       if (view === 'dashboard') return true; 
       return false;
     });
-  }, [entries, searchQuery, activeCategory, view]);
+  }, [entries, searchQuery, view]);
 
   const renderEntries = visibleEntries; 
   
@@ -1901,7 +1919,7 @@ function App() {
                                       }
                                   }
                               });
-                          }} className="px-5 py-3 bg-rose-500 text-white rounded-xl font-bold text-sm uppercase tracking-widest shadow-md hover:scale-105 active:scale-95 transition-transform">Leeren</button>
+                          }} className="px-5 py-3 bg-rose-50 text-rose-600 rounded-xl font-bold text-sm uppercase tracking-widest shadow-sm hover:scale-105 active:scale-95 transition-transform border border-rose-200">Leeren</button>
                       )}
                   </div>
                   
@@ -2115,7 +2133,6 @@ function App() {
              </div>
           )}
 
-          {/* ['dashboard', 'archive'] Kategorien-Leiste komplett entfernt wie gefordert */}
           {['dashboard', 'archive'].includes(view) && visibleEntries.length === 0 && !searchQuery && (
             <div className="flex flex-col items-center justify-center py-32 text-center opacity-40 animate-fade-in">
               <Icon name="book-open" size={64} className="mb-6"/>
@@ -2178,7 +2195,6 @@ function App() {
                    <button onClick={() => window.print()} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500"><Icon name="printer" size={22}/></button>
                    <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
                    
-                   {/* Haupt-Cover ändern (oben links neben Drucker) - auf Mobile nun sichtbar! */}
                    <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500 cursor-pointer flex items-center justify-center shadow-sm" title="Tagebuch-Cover ändern">
                        <Icon name="image" size={22}/>
                        <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, bookRoot?.id || viewingEntry.id, 0)} className="hidden" />
@@ -2214,7 +2230,6 @@ function App() {
                   <h1 className="text-4xl sm:text-6xl font-extrabold mb-8 tracking-tighter leading-[1.1] text-slate-900 dark:text-white">{viewingEntry.title || 'Ohne Titel'}</h1>
                   <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
                     <span>{new Date(viewingEntry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
-                    <span>•</span><span>{viewingEntry.category || 'Allgemein'}</span>
                   </div>
                   
                   {/* Meta-Data Pills */}
@@ -2292,7 +2307,7 @@ function App() {
                        <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
                            <h1 style={{ fontSize: '36px', fontWeight: 'bold', marginBottom: '10px', fontFamily: 'Inter, sans-serif' }}>{e.title || 'Ohne Titel'}</h1>
                            <p style={{ opacity: 0.6, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '12px' }}>
-                               {new Date(e.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category || 'Allgemein'}
+                               {new Date(e.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                            </p>
                            {/* UPDATE: Tags, GPS und Personen beim Drucken anzeigen */}
                            <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', flexWrap: 'wrap', marginTop: '15px', fontSize: '12px' }}>
@@ -2402,7 +2417,6 @@ function App() {
             </div>
 
             <div className="flex-none p-3 border-t border-slate-100 dark:border-zinc-900 bg-white/95 dark:bg-black/95 backdrop-blur-xl shrink-0 flex items-center gap-3 overflow-x-auto hide-scrollbar z-50 pb-safe shadow-[0_-4px_6px_rgba(0,0,0,0.02)]">
-               <button onClick={()=>setPicker({title:'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c, value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;}})} className="h-10 px-4 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs font-bold flex items-center gap-2 shrink-0">{category} <Icon name="chevron-down" size={12}/></button>
                
                <div className="h-10 flex items-center gap-1 bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0">
                   {[1,2,3,4,5].map(star => (
