@@ -520,6 +520,7 @@ function App() {
   const viewingEntryRef = useRef(viewingEntry);
   const showTimelineRef = useRef(showTimeline);
   const viewRef = useRef(view);
+  const biometricAttempted = useRef(false);
 
   const syncProfileToCloud = async (userData) => {
       if (!fb || !fb.auth || !fb.auth.currentUser || !userData.cloudSync) return;
@@ -587,7 +588,7 @@ function App() {
                    try {
                        const parsed = JSON.parse(savedStr);
                        setUser(parsed);
-                       setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
+                       setView(parsed.name ? 'dashboard' : 'onboarding');
                    } catch(e) { setView('onboarding'); }
                } else {
                    setView('onboarding');
@@ -672,7 +673,7 @@ function App() {
     initFB();
   }, []);
 
-  // Initialize DB & Repair Invalid Dates & Decrypt Old Vault Entries
+  // Initialize DB & Repair Invalid Dates
   useEffect(() => {
     const loadApp = async () => {
       try {
@@ -700,8 +701,6 @@ function App() {
               try { currentUser = { ...user, ...JSON.parse(savedUser) }; setUser(currentUser); } catch(e){} 
           }
 
-          // In der neuen Architektur speichert die IndexedDB alle Einträge entschlüsselt, wenn die App läuft
-          // Falls noch verschlüsselte Einträge lokal liegen (aus alten Versionen), entschlüsseln wir sie einmalig.
           if (currentUser.pin) {
             loadedEntries = await Promise.all(loadedEntries.map(async (e) => {
               if (e.encryptedData) {
@@ -725,73 +724,83 @@ function App() {
     loadApp();
   }, []);
 
-  // REALTIME CLOUD SYNC - Garantierte Datensicherheit ohne Lösch-Bugs
+  // REALTIME CLOUD SYNC - Optimiert für Höchstleistung (kein Lag beim Tippen)
   useEffect(() => {
     if (!fb || !fb.onSnapshot || !authUser || !user.cloudSync) return;
     const q = fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries');
     
     const unsubscribe = fb.onSnapshot(q, async (snapshot) => {
-        const rawEntries = [];
-        snapshot.forEach(d => rawEntries.push({ ...d.data(), id: d.id }));
+        // HIGHLIGHT: Verhindert, dass eigene lokale Änderungen einen kompletten Download & Decrypt auslösen!
+        if (snapshot.metadata.hasPendingWrites) return; 
         
-        const decEntries = await Promise.all(rawEntries.map(async (docData) => {
-            if (docData.encryptedData) {
-               if (user.pin) {
-                   const decStr = await decryptData(docData.encryptedData, user.pin);
-                   if (decStr) { 
-                       try { 
-                           let parsed = JSON.parse(decStr); 
-                           if (parsed.encryptedData) {
-                               const innerDec = await decryptData(parsed.encryptedData, user.pin);
-                               if (innerDec) {
-                                   const innerParsed = JSON.parse(innerDec);
-                                   parsed = { ...parsed, text: innerParsed.text || parsed.text, title: innerParsed.title || parsed.title };
-                               }
-                           }
-                           return { ...parsed, id: docData.id, encryptedData: null, locked: false }; 
-                       } catch(e){} 
-                   }
-               }
-               return {
-                   id: docData.id,
-                   title: 'Verschlüsselter Eintrag',
-                   text: 'Entschlüsselung fehlgeschlagen. Bitte prüfe deine PIN.',
-                   date: docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString(),
-                   encryptedData: docData.encryptedData,
-                   category: 'Sicherheit',
-                   locked: false
-               };
-            } else if (docData.rawData) {
-                return { ...docData.rawData, id: docData.id, locked: false };
-            }
-            return null;
-        }));
-        
-        const validCloudEntries = decEntries.filter(Boolean);
+        let hasChanges = false;
+        const updatedEntries = [];
+        const removedIds = [];
 
-        if (db) {
-            const syncToLocalDB = () => {
-                const cloudIds = rawEntries.map(e => e.id);
+        for (const change of snapshot.docChanges()) {
+            hasChanges = true;
+            if (change.type === 'removed') {
+                removedIds.push(change.doc.id);
+            } else {
+                const docData = change.doc.data();
+                if (docData.encryptedData) {
+                   if (user.pin) {
+                       const decStr = await decryptData(docData.encryptedData, user.pin);
+                       if (decStr) { 
+                           try { 
+                               let parsed = JSON.parse(decStr); 
+                               if (parsed.encryptedData) {
+                                   const innerDec = await decryptData(parsed.encryptedData, user.pin);
+                                   if (innerDec) {
+                                       const innerParsed = JSON.parse(innerDec);
+                                       parsed = { ...parsed, text: innerParsed.text || parsed.text, title: innerParsed.title || parsed.title };
+                                   }
+                               }
+                               updatedEntries.push({ ...parsed, id: change.doc.id, encryptedData: null, locked: false }); 
+                               continue;
+                           } catch(e){} 
+                       }
+                   }
+                   updatedEntries.push({
+                       id: change.doc.id,
+                       title: 'Verschlüsselter Eintrag',
+                       text: 'Entschlüsselung fehlgeschlagen. Bitte prüfe deine PIN.',
+                       date: docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString(),
+                       encryptedData: docData.encryptedData,
+                       category: 'Sicherheit',
+                       locked: false
+                   });
+                } else if (docData.rawData) {
+                    updatedEntries.push({ ...docData.rawData, id: change.doc.id, locked: false });
+                }
+            }
+        }
+
+        if (!hasChanges) return;
+
+        setEntries(prev => {
+            let next = [...prev];
+            if (removedIds.length > 0) next = next.filter(e => !removedIds.includes(e.id));
+            
+            updatedEntries.forEach(upd => {
+                const idx = next.findIndex(e => e.id === upd.id);
+                if (idx >= 0) next[idx] = upd;
+                else next.push(upd);
+            });
+            
+            const sorted = next.sort(sortEntriesChronological);
+
+            if (db) {
                 try {
                     const tx = db.transaction('entries', 'readwrite');
                     const store = tx.objectStore('entries');
-                    rawEntries.forEach(item => store.put(item));
-                    
-                    const req = store.getAllKeys();
-                    req.onsuccess = () => {
-                        const localKeys = req.result;
-                        localKeys.forEach(key => {
-                            if (!cloudIds.includes(key)) {
-                                store.delete(key);
-                            }
-                        });
-                    };
+                    updatedEntries.forEach(item => store.put(item));
+                    removedIds.forEach(id => store.delete(id));
                 } catch(err) {}
-            };
-            syncToLocalDB();
-        }
+            }
 
-        setEntries(validCloudEntries.sort(sortEntriesChronological));
+            return sorted;
+        });
     });
     return () => unsubscribe();
   }, [fb, authUser, user.pin, user.cloudSync, db]);
@@ -897,8 +906,21 @@ function App() {
               const savedPin = atob(safeStorageGet('legacy_bio_pin'));
               if (savedPin) handleUnlockSubmit(savedPin);
           }
-      } catch(e) { showDialog({title: 'Fehler', message: 'Biometrische Prüfung fehlgeschlagen.', icon: 'x'}); }
+      } catch(e) { 
+          setShowPinFallback(true); // Automatischer Fallback zur PIN-Eingabe wenn Bio fehlschlägt!
+      }
   };
+
+  // Automatischer Biometrie-Trigger beim Aufrufen der pin_entry View
+  useEffect(() => {
+      if (view === 'pin_entry' && user.biometric && safeStorageGet('legacy_bio_pin') && !showPinFallback && !biometricAttempted.current) {
+          biometricAttempted.current = true; 
+          handleBiometricUnlock();
+      }
+      if (view !== 'pin_entry') {
+          biometricAttempted.current = false;
+      }
+  }, [view, user.biometric, showPinFallback]);
 
   const handleCloudRestore = async (pinValue) => {
       if (!pinValue) return;
@@ -1006,7 +1028,7 @@ function App() {
      };
   }, [editingId, title, selectedColor, selectedImages, audioUrl, isManifested, category, mood, unlockDate, location, locations, parentId, inheritedFrom, rating, tags, people, weather, entryDate]);
 
-  // Robuste Speicherung: Sendet komplett an Cloud, speichert komplett lokal
+  // Speichert den unverschlüsselten Text immer lokal in IndexedDB
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; 
     const plainEntry = { ...entry, locked: false, encryptedData: null };
@@ -1023,21 +1045,9 @@ function App() {
     updateMemory();
 
     if (db) {
-        let localStoreEntry = { id: plainEntry.id, timestamp: Date.now() };
-        if (activePin) {
-            try {
-                const payload = JSON.stringify(plainEntry);
-                const encrypted = await encryptData(payload, activePin);
-                if (encrypted) localStoreEntry.encryptedData = encrypted;
-                else localStoreEntry.rawData = plainEntry;
-            } catch(e) { localStoreEntry.rawData = plainEntry; }
-        } else {
-            localStoreEntry.rawData = plainEntry;
-        }
-        
         try {
             const tx = db.transaction('entries', 'readwrite'); 
-            tx.objectStore('entries').put(localStoreEntry); 
+            tx.objectStore('entries').put(plainEntry); 
         } catch (e) {}
     }
   };
@@ -1705,31 +1715,25 @@ function App() {
   if (view === 'pin_entry') {
     const isBioMode = user.biometric && safeStorageGet('legacy_bio_pin') && !showPinFallback;
     
-    useEffect(() => {
-        if (isBioMode) {
-            handleBiometricUnlock();
-        }
-    }, [isBioMode]);
-
     return (
         <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-black text-slate-900 dark:text-white">
             {isBioMode ? (
                 <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-2xl border border-slate-200 dark:border-zinc-800 w-full max-w-sm flex flex-col items-center animate-slide-up">
                     <div className="flex items-center justify-center gap-3 mb-6">
-                        <img src="./image_7bbbc0.png" alt="App Icon" className="w-12 h-12 rounded-xl shadow-sm" />
-                        <span className="text-2xl font-extrabold tracking-tight">Legacy</span>
+                        <img src="./image_7bbbc0.png" alt="App Icon" className="w-12 h-12 rounded-xl shadow-sm object-cover" />
+                        <span className="text-3xl font-extrabold tracking-tight">Legacy</span>
                     </div>
                     <h2 className="text-xl font-bold mb-2">Legacy entsperren</h2>
                     <p className="text-sm opacity-60 mb-8 text-center">Scanne deinen Fingerabdruck.</p>
                     
-                    <button onClick={handleBiometricUnlock} className="w-20 h-20 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mb-8 hover:scale-105 active:scale-95 transition-all shadow-sm">
-                        <Icon name="fingerprint" size={40} className="animate-pulse" />
+                    <button onClick={handleBiometricUnlock} className="w-24 h-24 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mb-8 hover:scale-105 active:scale-95 transition-all shadow-sm border border-indigo-100 dark:border-indigo-500/20">
+                        <Icon name="fingerprint" size={48} className="animate-pulse" />
                     </button>
                     
-                    <button onClick={() => setShowPinFallback(true)} className="text-sm font-bold opacity-50 hover:opacity-100 transition-opacity pb-2">
+                    <button onClick={() => setShowPinFallback(true)} className="px-6 py-3 rounded-xl bg-slate-100 dark:bg-zinc-800 text-sm font-bold opacity-80 hover:opacity-100 transition-all mb-4">
                         PIN verwenden
                     </button>
-                    <button onClick={handleLogout} className="mt-6 text-xs font-bold uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity text-rose-500">
+                    <button onClick={handleLogout} className="text-xs font-bold uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity text-rose-500">
                         Abmelden
                     </button>
                 </div>
