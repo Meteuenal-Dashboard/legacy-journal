@@ -44,6 +44,13 @@
   .pt-safe{padding-top:env(safe-area-inset-top,0px);}
   .floating-nav-spacing{padding-bottom:calc(120px + env(safe-area-inset-bottom,20px));}
   h1,h2,h3,h4,h5,h6{font-weight:800;letter-spacing:-0.03em;}
+  
+  /* Ultra-Modern Spring Animations */
+  .spring-modal {
+     transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease-out, filter 0.4s ease-out;
+     will-change: transform, opacity, filter;
+  }
+  
   @keyframes fade-in{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}} 
   .animate-fade-in{animation:fade-in 0.3s cubic-bezier(0.16,1,0.3,1) forwards;}
   @keyframes slide-up{from{transform:translateY(24px);opacity:0;}to{transform:translateY(0);opacity:1;}} 
@@ -388,66 +395,6 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
     );
 };
 
-const SwipeableTimelineEntry = ({ entry, onArchive, onTrash, onClick, showDialog, userColor }) => {
-    const [offsetX, setOffsetX] = useState(0);
-    const startX = useRef(null);
-    const dragged = useRef(false);
-
-    const handleTouchStart = (evt) => {
-        startX.current = evt.touches[0].clientX;
-        dragged.current = false;
-    };
-
-    const handleTouchMove = (evt) => {
-        if (startX.current === null) return;
-        const diff = evt.touches[0].clientX - startX.current;
-        if (Math.abs(diff) > 10) dragged.current = true;
-        if (diff > 120) setOffsetX(120);
-        else if (diff < -120) setOffsetX(-120);
-        else setOffsetX(diff);
-    };
-
-    const handleTouchEnd = () => {
-        if (offsetX > 60) {
-            onArchive(entry);
-            showDialog({title: 'Archiviert', message: 'Der Eintrag wurde ins Archiv verschoben.', icon: 'archive', iconColor: 'text-emerald-500'});
-        }
-        else if (offsetX < -60) {
-            onTrash(entry);
-            showDialog({title: 'Papierkorb', message: 'Der Eintrag wurde gelöscht.', icon: 'trash-2', iconColor: 'text-rose-500'});
-        }
-        setOffsetX(0);
-        startX.current = null;
-        setTimeout(() => { dragged.current = false; }, 100);
-    };
-
-    return (
-        <div className="relative w-full rounded-[2rem] overflow-hidden bg-slate-200 dark:bg-zinc-800 shrink-0 mb-3">
-            <div className="absolute inset-0 flex justify-between items-center px-6">
-                <div className="text-emerald-600 font-bold flex items-center gap-2 opacity-80"><Icon name="archive" size={18}/> Archiv</div>
-                <div className="text-rose-600 font-bold flex items-center gap-2 opacity-80">Löschen <Icon name="trash-2" size={18}/></div>
-            </div>
-            <button 
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-                onClick={(e) => {
-                    if (dragged.current) { e.preventDefault(); return; }
-                    onClick(entry);
-                }} 
-                style={{ transform: `translateX(${offsetX}px)`, transition: startX.current === null ? 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)' : 'none' }}
-                className="relative z-10 w-full text-left p-4 rounded-[2rem] flex items-center gap-4 bg-slate-50 dark:bg-zinc-900 shadow-sm border border-transparent"
-            >
-                {entry.images && entry.images.length > 0 && <img src={entry.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0 pointer-events-none" />}
-                <div className="flex-1 overflow-hidden pointer-events-none">
-                    <span className="font-bold text-sm truncate block" style={{ color: userColor }}>{entry.title || 'Ohne Titel'}</span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">{new Date(entry.date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
-                </div>
-            </button>
-        </div>
-    );
-};
-
 const EdBtn = ({cmd, arg, icon, txt, onClick, isDirtyRef}) => (
     <button onMouseDown={e=>{ if(cmd){ e.preventDefault(); document.execCommand(cmd, false, arg); if(isDirtyRef) isDirtyRef.current=true; } }} onClick={onClick} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800">
         {icon ? <Icon name={icon} size={18} /> : <span className="font-bold text-sm">{txt}</span>}
@@ -488,8 +435,6 @@ function App() {
   const [currentViewerImgIdx, setCurrentViewerImgIdx] = useState(0);
   
   const [showTimeline, setShowTimeline] = useState(false); 
-  const [timelineMonth, setTimelineMonth] = useState(() => new Date()); 
-  const [timelineSelectedDate, setTimelineSelectedDate] = useState(null); 
   
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
@@ -1399,6 +1344,17 @@ function App() {
   }, [entries, searchQuery, activeCategory, view]);
 
   const renderEntries = visibleEntries; 
+
+  const groupedTimelineEntries = useMemo(() => {
+      const groups = {};
+      entries.filter(e => e && !e.trashed).sort(sortEntriesChronological).forEach(e => {
+          const d = new Date(e.orderTimestamp || e.date || getLocalISO());
+          const key = d.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(e);
+      });
+      return groups;
+  }, [entries]);
   
   const allQuotes = useMemo(() => { 
       if (view !== 'quotes') return []; 
@@ -1816,12 +1772,6 @@ function App() {
 
   const importBackup = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async (e) => { try { let data = null; if (file.name.toLowerCase().endsWith('.html')) { const doc = new DOMParser().parseFromString(e.target.result, 'text/html'); const script = doc.getElementById('legacy-injected-data'); if (script && script.textContent && script.textContent !== 'null') data = JSON.parse(script.textContent); else throw new Error("Keine Daten"); } else data = JSON.parse(e.target.result); if (data && data.entries && db) { const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); let mergedCount = 0; const pinToUse = data.user ? data.user.pin : user.pin; const entriesToSave = await Promise.all(data.entries.map(async (en) => { let dbE = { ...en }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []); return dbE; })); entriesToSave.forEach(en => { if (!entries.find(ex => ex && ex.id === en.id)) { if (data.user && data.user.name !== user.name) en.inheritedFrom = data.user.name; store.put(en); mergedCount++; } }); const req = store.getAll(); req.onsuccess = async () => { let loadedEntries = req.result || []; loadedEntries = loadedEntries.filter(e => e != null); if (user.pin) loadedEntries = await Promise.all(loadedEntries.map(async (en) => { if (en.encryptedData) { const decStr = await decryptData(en.encryptedData, user.pin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...en, text: parsed.text, title: parsed.title }; } catch(err){} } } return en; })); setEntries(loadedEntries.sort(sortEntriesChronological)); showDialog({ title: 'Erfolg', message: `${mergedCount} neue Seiten importiert.`, icon: 'check' }); }; } } catch (err) { showDialog({ title: 'Fehler', message: 'Ungültige Datei.', icon: 'x' }); } }; reader.readAsText(file); };
 
-  useEffect(() => { 
-      if (showEditor && editorRef.current) { 
-          editorRef.current.innerHTML = text || ''; 
-      } 
-  }, [showEditor]); 
-
   useEffect(() => {
       if (view === 'map' && mapRef.current && window.L) {
           if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; }
@@ -1892,33 +1842,6 @@ function App() {
           setTimeout(() => map.invalidateSize(), 200);
       }
   }, [view, entries, user.nameColor]);
-
-  const addGps = async () => {
-      if(!("geolocation" in navigator)){showDialog({title:'Fehler', message:'Ortung nicht unterstützt.'}); return;}
-      navigator.geolocation.getCurrentPosition(async (p) => { 
-          const lat = p.coords.latitude; const lng = p.coords.longitude; 
-          let locName = "GPS Standort"; 
-          let formattedTime = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + " Uhr"; 
-          let wStr = "";
-          try { 
-              const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`); 
-              const geoData = await geoRes.json(); 
-              if(geoData?.address) locName = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.road || "Ort"; 
-          } catch(e) {}
-          try { 
-              const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`); 
-              const data = await res.json(); 
-              const temp = Math.round(data.current_weather.temperature); 
-              const wcode = data.current_weather.weathercode; 
-              wStr = `${temp}°C`; 
-              if (wcode === 0) wStr += ' ☀️'; else if (wcode <= 3) wStr += ' ⛅'; else if (wcode <= 48) wStr += ' ☁️'; else if (wcode <= 67) wStr += ' 🌧️'; else if (wcode <= 79) wStr += ' 🌨️'; else if (wcode <= 99) wStr += ' ⛈️'; 
-          } catch(e) {}
-          const newLoc = {lat, lng, name: locName, time: formattedTime, weather: wStr}; 
-          setLocations(prev => [...prev, newLoc]); 
-          isDirtyRef.current=true; 
-          showDialog({title:'GPS erfasst', message:`Ort (${locName}) und Wetter gesichert.`, icon:'map-pin'}); 
-      }, ()=>showDialog({title:'Fehler', message:'Ortung fehlgeschlagen.'}));
-  };
 
   if (importId && !isLoaded) return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="w-12 h-12 border-4 border-amber-50 border-t-transparent rounded-full animate-spin"></div></div>;
   if (view === 'loading' || !isLoaded) return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-black"><div className="w-8 h-8 border-4 border-slate-300 dark:border-zinc-800 border-t-black dark:border-t-white rounded-full animate-spin"></div></div>;
@@ -2087,7 +2010,9 @@ function App() {
             )}
           </div>
           <div className="flex gap-2 items-center">
-            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewingEntry(null); setShowTimeline(true); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="calendar-days" size={18}/></button>
+            {/* Timeline / Calendar Button */}
+            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowTimeline(true); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="calendar-days" size={18}/></button>
+            
             {view === 'dashboard' && (
               <>
                 <button type="button" onClick={() => setIsSearchOpen(!isSearchOpen)} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="search" size={18}/></button>
@@ -2418,9 +2343,46 @@ function App() {
           </div>
         </nav>
 
+        {/* --- TIMELINE / CALENDAR MODAL --- */}
+        <div className={`fixed inset-0 z-[150] bg-slate-50 dark:bg-black flex flex-col spring-modal ${showTimeline ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}`}>
+          <header className="flex-none p-4 sm:p-6 pt-safe flex justify-between items-center bg-white/90 dark:bg-black/90 backdrop-blur-xl border-b border-slate-200/50 dark:border-zinc-800/50">
+             <button onClick={() => setShowTimeline(false)} className="p-3 bg-slate-100 dark:bg-zinc-900 rounded-2xl hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-down" size={22}/></button>
+             <h2 className="text-xl font-extrabold tracking-tight">Timeline</h2>
+             <div className="w-12"></div>
+          </header>
+          <div className="flex-auto overflow-y-auto p-4 sm:p-6 custom-scrollbar pb-safe">
+             <div className="max-w-2xl mx-auto pb-12">
+                 {Object.keys(groupedTimelineEntries).length === 0 ? (
+                     <div className="text-center py-20 opacity-40"><Icon name="calendar" size={48} className="mx-auto mb-4"/><p className="font-bold">Keine Einträge in der Timeline.</p></div>
+                 ) : (
+                     Object.entries(groupedTimelineEntries).map(([monthYear, monthEntries]) => (
+                         <div key={monthYear} className="mb-8 relative">
+                             <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-6 sticky top-0 bg-slate-50/90 dark:bg-black/90 backdrop-blur-sm py-2 z-10">{monthYear}</h3>
+                             <div className="space-y-4 relative before:absolute before:inset-y-0 before:left-[19px] before:w-0.5 before:bg-slate-200 dark:before:bg-zinc-800">
+                                 {monthEntries.map(entry => (
+                                     <div key={entry.id} className="relative pl-12 group cursor-pointer" onClick={() => { setShowTimeline(false); handleOpenEntry(entry); }}>
+                                         <div className="absolute left-[15px] top-5 w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-zinc-700 group-hover:scale-150 transition-all shadow-[0_0_0_4px_var(--bg-color)] z-10" style={{ '--bg-color': user.isDark ? '#000' : '#f8fafc', backgroundColor: user.nameColor || '#f59e0b' }}></div>
+                                         <div className="p-4 bg-white dark:bg-zinc-900 rounded-[1.5rem] shadow-sm border border-slate-100 dark:border-zinc-800 group-hover:shadow-md transition-all group-hover:-translate-y-0.5">
+                                             <div className="text-xs font-bold mb-1.5 opacity-60">{new Date(entry.orderTimestamp || entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'long' })}</div>
+                                             <h4 className="font-bold text-lg leading-tight mb-2 text-slate-900 dark:text-white">{entry.title || 'Ohne Titel'}</h4>
+                                             {entry.text && <p className="text-sm opacity-70 line-clamp-2 leading-relaxed" dangerouslySetInnerHTML={{__html: entry.text.replace(/<[^>]*>?/gm, '')}}></p>}
+                                             {entry.images && entry.images.length > 0 && (
+                                                <div className="mt-3 w-16 h-16 rounded-xl overflow-hidden border border-slate-100 dark:border-zinc-800"><img src={entry.images[0]} className="w-full h-full object-cover"/></div>
+                                             )}
+                                         </div>
+                                     </div>
+                                 ))}
+                             </div>
+                         </div>
+                     ))
+                 )}
+             </div>
+          </div>
+        </div>
+
         {/* --- LESE-FENSTER (VIEWER) --- */}
         {viewingEntry && (
-           <div className={`fixed inset-0 z-[80] overflow-y-auto bg-white dark:bg-black custom-scrollbar flex flex-col screen-only transition-opacity duration-300 ${showEditor ? 'opacity-0 pointer-events-none' : 'opacity-100'}`} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+           <div className={`fixed inset-0 z-[80] overflow-y-auto bg-white dark:bg-black custom-scrollbar flex flex-col screen-only spring-modal transform origin-top ${showEditor ? 'scale-[0.96] opacity-50 pointer-events-none filter blur-[2px]' : 'scale-100 opacity-100 blur-none'}`} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
              
              {(() => {
                  const bookRoot = getBookRoot(viewingEntry.id);
@@ -2576,7 +2538,7 @@ function App() {
         })()}
 
         {/* --- EDITOR MODAL --- */}
-        <div className={`fixed inset-0 z-[200] flex flex-col overflow-hidden bg-white dark:bg-black transition-transform duration-300 ${showEditor ? 'translate-y-0' : 'translate-y-full pointer-events-none'}`}>
+        <div className={`fixed inset-0 z-[200] flex flex-col overflow-hidden bg-white dark:bg-black spring-modal ${showEditor ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}`}>
             
             <header className="flex-none flex justify-between items-center p-4 sm:p-6 shrink-0 z-50 pt-safe bg-white/95 dark:bg-black/95 border-b border-slate-100 dark:border-zinc-900">
                 <button onClick={()=>checkSaveEntry(true)} className="p-3 bg-slate-100 dark:bg-zinc-900 rounded-2xl text-slate-900 dark:text-white hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
@@ -2645,7 +2607,9 @@ function App() {
                       </div>
                   )}
 
+                  {/* HIGH-PERFORMANCE EDITOR DIV (Flash fixed with 'key' prop!) */}
                   <div 
+                      key={editingId || 'new_entry'}
                       ref={editorRef} 
                       contentEditable 
                       onClick={handleEditorClick}
