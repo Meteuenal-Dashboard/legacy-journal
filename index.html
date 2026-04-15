@@ -40,15 +40,15 @@
   body.modal-open{overflow:hidden!important;}
   html:not(.dark) body{background-color:#f8fafc!important;color:#0f172a!important;}
   html.dark body{background-color:#000000!important;color:#f8fafc!important;}
-  .pb-safe{padding-bottom:env(safe-area-inset-bottom,32px);}
+  .pb-safe{padding-bottom:env(safe-area-bottom,32px);}
   .pt-safe{padding-top:env(safe-area-inset-top,0px);}
   .floating-nav-spacing{padding-bottom:calc(120px + env(safe-area-inset-bottom,20px));}
   h1,h2,h3,h4,h5,h6{font-weight:800;letter-spacing:-0.03em;}
   
-  /* Ultra-Modern Spring Animations */
+  /* Fast, Snappy Animations */
   .spring-modal {
-     transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease-out, filter 0.4s ease-out;
-     will-change: transform, opacity, filter;
+     transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease-out;
+     will-change: transform, opacity;
   }
   
   @keyframes fade-in{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}} 
@@ -405,6 +405,69 @@ const ColorBtn = ({color, isBg, user, setUser}) => (
    <button onClick={() => isBg ? setUser({...user, appBgColor: color}) : setUser({...user, textColor: color, nameColor: color})} className={`w-10 h-10 rounded-full border-2 transition-transform ${ (isBg ? user.appBgColor : user.textColor) === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
 );
 
+const TimelineSwipeableEntry = ({ entry, onClick, onArchivePrompt, onTrashPrompt }) => {
+    const [offsetX, setOffsetX] = useState(0);
+    const startX = useRef(null);
+    const dragged = useRef(false);
+
+    const handleTouchStart = (evt) => {
+        startX.current = evt.touches[0].clientX;
+        dragged.current = false;
+    };
+
+    const handleTouchMove = (evt) => {
+        if (startX.current === null) return;
+        const diff = evt.touches[0].clientX - startX.current;
+        if (Math.abs(diff) > 10) dragged.current = true;
+        if (diff > 100) setOffsetX(100);
+        else if (diff < -100) setOffsetX(-100);
+        else setOffsetX(diff);
+    };
+
+    const handleTouchEnd = () => {
+        if (offsetX > 60) {
+            onArchivePrompt(entry);
+        } else if (offsetX < -60) {
+            onTrashPrompt(entry);
+        }
+        setOffsetX(0);
+        startX.current = null;
+        setTimeout(() => { dragged.current = false; }, 100);
+    };
+
+    return (
+        <div className="relative w-full rounded-2xl overflow-hidden bg-slate-200 dark:bg-zinc-800 shrink-0 border border-slate-100 dark:border-zinc-800/50">
+            <div className="absolute inset-0 flex justify-between items-center px-4">
+                <div className="text-emerald-600 font-bold flex items-center gap-2 opacity-80 text-sm"><Icon name="archive" size={16}/> Archiv</div>
+                <div className="text-rose-600 font-bold flex items-center gap-2 opacity-80 text-sm">Löschen <Icon name="trash-2" size={16}/></div>
+            </div>
+            <button 
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onClick={(e) => {
+                    if (dragged.current) { e.preventDefault(); return; }
+                    onClick(entry);
+                }} 
+                style={{ transform: `translateX(${offsetX}px)`, transition: startX.current === null ? 'transform 0.2s ease-out' : 'none' }}
+                className="relative z-10 w-full text-left p-3 flex items-center gap-4 bg-white dark:bg-zinc-900/90 shadow-sm"
+            >
+                {entry.images && entry.images.length > 0 ? (
+                    <img src={entry.images[0]} className="w-14 h-14 rounded-xl object-cover shrink-0 pointer-events-none" />
+                ) : (
+                    <div className="w-14 h-14 rounded-xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 pointer-events-none">
+                        <Icon name="book" size={24} className="opacity-40" />
+                    </div>
+                )}
+                <div className="flex-1 overflow-hidden pointer-events-none">
+                    <h4 className="font-bold text-sm text-accent truncate mb-1">{entry.title || 'Ohne Titel'}</h4>
+                    <p className="text-[10px] opacity-60 font-bold tracking-widest uppercase">{new Date(entry.orderTimestamp || entry.date).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})} UHR</p>
+                </div>
+            </button>
+        </div>
+    );
+};
+
 function App() {
   const [db, setDb] = useState(null);
   const [fb, setFb] = useState(null);
@@ -435,6 +498,8 @@ function App() {
   const [currentViewerImgIdx, setCurrentViewerImgIdx] = useState(0);
   
   const [showTimeline, setShowTimeline] = useState(false); 
+  const [timelineMonth, setTimelineMonth] = useState(() => new Date()); 
+  const [timelineSelectedDate, setTimelineSelectedDate] = useState(null); 
   
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
@@ -1249,6 +1314,33 @@ function App() {
 
   const showDialog = (options) => { setDialog({ type: 'alert', confirmLabel: 'Okay', ...options }); };
 
+  const promptArchiveTimeline = (e) => {
+      showDialog({
+          title: 'Ins Archiv?',
+          message: `Möchtest du diesen Eintrag ins Archiv verschieben?`,
+          icon: 'archive',
+          confirmLabel: 'Archivieren',
+          onConfirm: () => {
+              saveToDB({...e, archived: true});
+          },
+          onCancel: () => {}
+      });
+  };
+
+  const promptTrashTimeline = (e) => {
+      showDialog({
+          title: 'Löschen?',
+          message: `Möchtest du diesen Eintrag in den Papierkorb werfen?`,
+          icon: 'trash-2',
+          iconColor: 'text-rose-500',
+          confirmLabel: 'Löschen',
+          onConfirm: () => {
+              saveToDB({...e, trashed: true});
+          },
+          onCancel: () => {}
+      });
+  };
+
   const handleOpenEntry = async (entry) => {
       if (!entry) return;
       if (entry.unlockDate) {
@@ -1345,16 +1437,42 @@ function App() {
 
   const renderEntries = visibleEntries; 
 
-  const groupedTimelineEntries = useMemo(() => {
-      const groups = {};
-      entries.filter(e => e && !e.trashed).sort(sortEntriesChronological).forEach(e => {
+  // --- NEUE TIMELINE / KALENDER LOGIK ---
+  const entriesByDate = useMemo(() => {
+      const map = {};
+      entries.filter(e => e && !e.trashed).forEach(e => {
           const d = new Date(e.orderTimestamp || e.date || getLocalISO());
-          const key = d.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
-          if (!groups[key]) groups[key] = [];
-          groups[key].push(e);
+          const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          if (!map[dateStr]) map[dateStr] = [];
+          map[dateStr].push(e);
       });
-      return groups;
+      // Sortiere die Einträge eines jeden Tages nach Uhrzeit (älteste zuerst für diesen Tag)
+      Object.keys(map).forEach(k => {
+          map[k].sort((a,b) => new Date(a.orderTimestamp || a.date).getTime() - new Date(b.orderTimestamp || b.date).getTime());
+      });
+      return map;
   }, [entries]);
+
+  const getCalendarDays = (monthDate) => {
+      const year = monthDate.getFullYear();
+      const month = monthDate.getMonth();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+
+      let firstDayIndex = firstDay.getDay() - 1;
+      if (firstDayIndex === -1) firstDayIndex = 6; 
+
+      const days = [];
+      for (let i = 0; i < firstDayIndex; i++) {
+          days.push(null);
+      }
+      for (let i = 1; i <= lastDay.getDate(); i++) {
+          const date = new Date(year, month, i);
+          const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+          days.push({ day: i, date: date, dateStr: dateStr });
+      }
+      return days;
+  };
   
   const allQuotes = useMemo(() => { 
       if (view !== 'quotes') return []; 
@@ -2344,37 +2462,87 @@ function App() {
         </nav>
 
         {/* --- TIMELINE / CALENDAR MODAL --- */}
-        <div className={`fixed inset-0 z-[150] bg-slate-50 dark:bg-black flex flex-col spring-modal ${showTimeline ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}`}>
-          <header className="flex-none p-4 sm:p-6 pt-safe flex justify-between items-center bg-white/90 dark:bg-black/90 backdrop-blur-xl border-b border-slate-200/50 dark:border-zinc-800/50">
-             <button onClick={() => setShowTimeline(false)} className="p-3 bg-slate-100 dark:bg-zinc-900 rounded-2xl hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-down" size={22}/></button>
-             <h2 className="text-xl font-extrabold tracking-tight">Timeline</h2>
-             <div className="w-12"></div>
+        <div className={`fixed inset-0 z-[150] bg-slate-50 dark:bg-[#0a0a0a] flex flex-col spring-modal ${showTimeline ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}`}>
+          <header className="flex-none p-4 sm:p-6 pt-safe flex justify-between items-center">
+             <div className="flex items-center gap-3">
+                <Icon name="calendar-days" size={28} className="text-accent" />
+                <h2 className="text-2xl font-extrabold tracking-tight text-accent">Zeitreise</h2>
+             </div>
+             <button onClick={() => setShowTimeline(false)} className="p-2.5 bg-slate-200/50 dark:bg-zinc-800/50 rounded-full hover:scale-105 active:scale-95 transition-transform"><Icon name="x" size={20}/></button>
           </header>
-          <div className="flex-auto overflow-y-auto p-4 sm:p-6 custom-scrollbar pb-safe">
-             <div className="max-w-2xl mx-auto pb-12">
-                 {Object.keys(groupedTimelineEntries).length === 0 ? (
-                     <div className="text-center py-20 opacity-40"><Icon name="calendar" size={48} className="mx-auto mb-4"/><p className="font-bold">Keine Einträge in der Timeline.</p></div>
-                 ) : (
-                     Object.entries(groupedTimelineEntries).map(([monthYear, monthEntries]) => (
-                         <div key={monthYear} className="mb-8 relative">
-                             <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-6 sticky top-0 bg-slate-50/90 dark:bg-black/90 backdrop-blur-sm py-2 z-10">{monthYear}</h3>
-                             <div className="space-y-4 relative before:absolute before:inset-y-0 before:left-[19px] before:w-0.5 before:bg-slate-200 dark:before:bg-zinc-800">
-                                 {monthEntries.map(entry => (
-                                     <div key={entry.id} className="relative pl-12 group cursor-pointer" onClick={() => { setShowTimeline(false); handleOpenEntry(entry); }}>
-                                         <div className="absolute left-[15px] top-5 w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-zinc-700 group-hover:scale-150 transition-all shadow-[0_0_0_4px_var(--bg-color)] z-10" style={{ '--bg-color': user.isDark ? '#000' : '#f8fafc', backgroundColor: user.nameColor || '#f59e0b' }}></div>
-                                         <div className="p-4 bg-white dark:bg-zinc-900 rounded-[1.5rem] shadow-sm border border-slate-100 dark:border-zinc-800 group-hover:shadow-md transition-all group-hover:-translate-y-0.5">
-                                             <div className="text-xs font-bold mb-1.5 opacity-60">{new Date(entry.orderTimestamp || entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'long' })}</div>
-                                             <h4 className="font-bold text-lg leading-tight mb-2 text-slate-900 dark:text-white">{entry.title || 'Ohne Titel'}</h4>
-                                             {entry.text && <p className="text-sm opacity-70 line-clamp-2 leading-relaxed" dangerouslySetInnerHTML={{__html: entry.text.replace(/<[^>]*>?/gm, '')}}></p>}
-                                             {entry.images && entry.images.length > 0 && (
-                                                <div className="mt-3 w-16 h-16 rounded-xl overflow-hidden border border-slate-100 dark:border-zinc-800"><img src={entry.images[0]} className="w-full h-full object-cover"/></div>
-                                             )}
-                                         </div>
+
+          <div className="flex-auto overflow-y-auto custom-scrollbar pb-safe">
+             <div className="max-w-2xl mx-auto">
+                 {/* Month Nav */}
+                 <div className="flex justify-between items-center px-6 py-2 mb-4">
+                     <button onClick={() => setTimelineMonth(new Date(timelineMonth.getFullYear(), timelineMonth.getMonth() - 1, 1))} className="p-2.5 bg-slate-200/50 dark:bg-zinc-800/50 rounded-full hover:scale-105 active:scale-95 transition-transform"><Icon name="chevron-left" size={20}/></button>
+                     <h3 className="font-bold text-lg tracking-widest uppercase">{timelineMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}</h3>
+                     <button onClick={() => setTimelineMonth(new Date(timelineMonth.getFullYear(), timelineMonth.getMonth() + 1, 1))} className="p-2.5 bg-slate-200/50 dark:bg-zinc-800/50 rounded-full hover:scale-105 active:scale-95 transition-transform"><Icon name="chevron-right" size={20}/></button>
+                 </div>
+
+                 {/* Days Header */}
+                 <div className="grid grid-cols-7 gap-2 px-6 mb-3 text-center text-xs font-bold opacity-60">
+                     {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map(d => <div key={d}>{d}</div>)}
+                 </div>
+
+                 {/* Calendar Grid */}
+                 <div className="grid grid-cols-7 gap-y-4 gap-x-2 px-6 mb-8">
+                     {getCalendarDays(timelineMonth).map((day, i) => {
+                         if (!day) return <div key={`empty-${i}`} className="w-10 h-10 sm:w-12 sm:h-12 mx-auto"></div>;
+                         
+                         const dayEntries = entriesByDate[day.dateStr] || [];
+                         const firstEntryWithImage = dayEntries.find(e => e.images && e.images.length > 0);
+                         const hasEntries = dayEntries.length > 0;
+                         const isSelected = timelineSelectedDate === day.dateStr;
+
+                         return (
+                             <button
+                                 key={day.dateStr}
+                                 onClick={() => setTimelineSelectedDate(day.dateStr)}
+                                 className={`relative w-10 h-10 sm:w-12 sm:h-12 mx-auto rounded-full flex items-center justify-center font-bold text-sm sm:text-base transition-transform hover:scale-110 active:scale-95
+                                 ${isSelected ? 'ring-2 ring-accent ring-offset-2 ring-offset-slate-50 dark:ring-offset-[#0a0a0a]' : ''}
+                                 ${!hasEntries ? 'text-slate-500 dark:text-slate-400' : ''}`}
+                             >
+                                 {firstEntryWithImage ? (
+                                     <img src={firstEntryWithImage.images[0]} className="w-full h-full object-cover rounded-full shadow-sm" />
+                                 ) : hasEntries ? (
+                                     <div className="w-full h-full rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-accent">
+                                         <Icon name="book" size={18} className=""/>
                                      </div>
-                                 ))}
-                             </div>
-                         </div>
-                     ))
+                                 ) : (
+                                     day.day
+                                 )}
+                             </button>
+                         )
+                     })}
+                 </div>
+
+                 {/* Filter Clear */}
+                 <div className="flex justify-center mb-8 h-10">
+                     {timelineSelectedDate && (
+                         <button onClick={() => setTimelineSelectedDate(null)} className="px-5 py-2.5 bg-slate-200/50 dark:bg-zinc-800/50 rounded-full font-bold text-[10px] tracking-widest uppercase hover:bg-slate-300/50 dark:hover:bg-zinc-700/50 transition-colors">Filter Aufheben</button>
+                     )}
+                 </div>
+
+                 {/* Entries List */}
+                 {timelineSelectedDate && (
+                     <div className="px-6 space-y-3 pb-12 animate-fade-in">
+                         {(entriesByDate[timelineSelectedDate] || []).map(e => (
+                             <TimelineSwipeableEntry 
+                                 key={e.id}
+                                 entry={e}
+                                 onClick={() => { setShowTimeline(false); handleOpenEntry(e); }}
+                                 onArchivePrompt={promptArchiveTimeline}
+                                 onTrashPrompt={promptTrashTimeline}
+                             />
+                         ))}
+                         <button onClick={() => {
+                             setShowTimeline(false);
+                             openEditor(null, null, timelineSelectedDate);
+                         }} className="w-full flex items-center justify-center gap-2 p-4 mt-6 bg-white dark:bg-zinc-900/60 rounded-2xl cursor-pointer hover:scale-[1.02] transition-transform font-bold text-sm text-accent border border-slate-100 dark:border-zinc-800/50 shadow-sm">
+                             <Icon name="plus" size={18} /> Neuer Eintrag für diesen Tag
+                         </button>
+                     </div>
                  )}
              </div>
           </div>
@@ -2382,7 +2550,7 @@ function App() {
 
         {/* --- LESE-FENSTER (VIEWER) --- */}
         {viewingEntry && (
-           <div className={`fixed inset-0 z-[80] overflow-y-auto bg-white dark:bg-black custom-scrollbar flex flex-col screen-only spring-modal transform origin-top ${showEditor ? 'scale-[0.96] opacity-50 pointer-events-none filter blur-[2px]' : 'scale-100 opacity-100 blur-none'}`} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+           <div className={`fixed inset-0 z-[80] overflow-y-auto bg-white dark:bg-black custom-scrollbar flex flex-col screen-only spring-modal transform origin-top ${showEditor ? 'scale-[0.96] opacity-40 pointer-events-none' : 'scale-100 opacity-100'}`} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
              
              {(() => {
                  const bookRoot = getBookRoot(viewingEntry.id);
