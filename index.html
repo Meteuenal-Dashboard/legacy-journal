@@ -12,10 +12,14 @@
 <meta name="theme-color" id="meta-theme-color" content="#f8fafc">
 <meta name="color-scheme" content="light dark">
 
+<!-- W3C Standard Manifest (Statisch für Langlebigkeit) -->
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icon-192x192.png">
+
+<!-- Container für den App-Klon -->
 <script id="legacy-injected-data" type="application/json">null</script>
 
+<!-- Inter Font & Libraries -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -23,7 +27,21 @@
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
-  window.tailwind={config:{darkMode:'class',theme:{extend:{fontFamily:{sans:['Inter','sans-serif']},colors:{slate:{50:'#f8fafc',100:'#f1f5f9',900:'#0f172a'},zinc:{800:'#27272a',900:'#18181b',950:'#09090b'},accent:'#f59e0b'}}}}};
+  window.tailwind = {
+    config: { 
+        darkMode: 'class', 
+        theme: { 
+            extend: { 
+                fontFamily: { sans: ['Inter', 'sans-serif'] }, 
+                colors: { 
+                    slate: { 50: '#f8fafc', 100: '#f1f5f9', 900: '#0f172a' }, 
+                    zinc: { 800: '#27272a', 900: '#18181b', 950: '#09090b' },
+                    accent: '#f59e0b'
+                } 
+            } 
+        } 
+    }
+  };
 </script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
@@ -36,63 +54,57 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <style>
-  html,body{overscroll-behavior-y:none;font-family:'Inter',sans-serif;-webkit-tap-highlight-color:transparent;transition:background-color 0.4s,color 0.4s;}
-  body.modal-open{overflow:hidden!important;}
-  html:not(.dark) body{background-color:#f8fafc!important;color:#0f172a!important;}
-  html.dark body{background-color:#000000!important;color:#f8fafc!important;}
-  .pb-safe{padding-bottom:env(safe-area-inset-bottom,32px);}
-  .pt-safe{padding-top:env(safe-area-inset-top,0px);}
-  .floating-nav-spacing{padding-bottom:calc(120px + env(safe-area-inset-bottom,20px));}
-  h1,h2,h3,h4,h5,h6{font-weight:800;letter-spacing:-0.03em;}
-  
-  /* Ultra-Modern Spring Animations */
-  .spring-modal {
-     transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease-out, filter 0.4s ease-out;
-     will-change: transform, opacity, filter;
-  }
-  
-  @keyframes fade-in{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}} 
-  .animate-fade-in{animation:fade-in 0.3s cubic-bezier(0.16,1,0.3,1) forwards;}
-  @keyframes slide-up{from{transform:translateY(24px);opacity:0;}to{transform:translateY(0);opacity:1;}} 
-  .animate-slide-up{animation:slide-up 0.4s cubic-bezier(0.16,1,0.3,1) forwards;}
-  @keyframes pulse-flame{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.8;transform:scale(1.05);}} 
-  .animate-flame{animation:pulse-flame 2s infinite ease-in-out;}
-  .custom-scrollbar::-webkit-scrollbar{display:none;}
-  .hide-scrollbar{-ms-overflow-style:none;scrollbar-width:none;}
-  .legacy-editor-content p,.legacy-content p{line-height:1.8;margin-bottom:1.2rem;font-size:1.05rem;font-weight:500;}
-  .legacy-editor-content h1,.legacy-content h1{font-size:2.25rem;font-weight:800;margin-top:1.5rem;margin-bottom:1rem;line-height:1.2;}
-  .legacy-editor-content h2,.legacy-content h2{font-size:1.75rem;font-weight:700;margin-top:1.5rem;margin-bottom:0.75rem;line-height:1.3;}
-  .legacy-editor-content b,.legacy-content b,.legacy-editor-content strong,.legacy-content strong{font-weight:700;color:inherit;}
-  .legacy-editor-content ul,.legacy-content ul{list-style-type:disc;padding-left:1.5rem;margin-top:0.5rem;margin-bottom:0.5rem;}
-  .legacy-editor-content ol,.legacy-content ol{list-style-type:decimal;padding-left:1.5rem;margin-top:0.5rem;margin-bottom:0.5rem;}
-  .legacy-editor-content li,.legacy-content li{margin-bottom:0.25rem;}
-  .legacy-editor-content blockquote,.legacy-content blockquote{border-left:4px solid currentColor;padding-left:1.5rem;font-style:normal;font-weight:500;opacity:0.8;background:transparent;margin:1.5rem 0;font-size:1.1em;}
-  .floating-nav{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);width:calc(100% - 48px);max-width:400px;background:rgba(255,255,255,0.75);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(226,232,240,0.6);border-radius:2rem;box-shadow:0 20px 40px -10px rgba(0,0,0,0.1);z-index:100;}
-  html.dark .floating-nav{background:rgba(24,24,27,0.75);border-color:rgba(39,39,42,0.6);box-shadow:0 20px 40px -10px rgba(0,0,0,0.5);}
-  .inline-img-wrapper{display:inline-block;vertical-align:text-bottom;margin:4px;max-width:100%;position:relative;}
-  .inline-img-wrapper img{width:120px;height:auto;object-fit:contain;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.1);}
-  .delete-img-btn{position:absolute;top:-10px;right:-10px;background:#ef4444;color:white;border-radius:50%;width:24px;height:24px;text-align:center;line-height:24px;cursor:pointer;font-family:sans-serif;font-size:12px;font-weight:bold;box-shadow:0 2px 5px rgba(0,0,0,0.3);z-index:10;display:none;}
-  .inline-img-wrapper:hover .delete-img-btn,.inline-img-wrapper:active .delete-img-btn{display:block;}
-  .legacy-editor-content>img,.legacy-content>img{border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,0.1);display:inline-block;vertical-align:middle;max-width:100%;}
-  [contenteditable="true"]:empty:before{content:attr(data-placeholder);opacity:0.3;pointer-events:none;display:block;font-weight:400;}
-  html,body,#root{width:100%;height:100%;overflow-x:hidden;}
-  .search-highlight{background-color:rgba(245,158,11,0.3);padding:0 2px;border-radius:3px;border-bottom:1px solid #f59e0b;}
-  .map-container{height:100%;width:100%;border-radius:1.5rem;z-index:1;}
-  .leaflet-marker-icon.avatar-marker{border:none!important;background:transparent!important;}
-  .leaflet-control-attribution{display:none!important;}
-  .print-only{display:none;}
-  @media print{
-    @page{margin:2cm;@bottom-center{content:counter(page);font-family:'Inter',sans-serif;font-size:12px;color:#888;}}
-    body,html,#root,.min-h-screen{background:#ffffff!important;color:#000000!important;height:auto!important;overflow:visible!important;width:100%!important;}
-    nav,header,button,.no-print,.screen-only,.custom-scrollbar::-webkit-scrollbar{display:none!important;}
-    .print-only{display:block!important;width:100%!important;max-width:100%!important;padding:0!important;}
-    .page-break-after{page-break-after:always;}
-    .group{box-shadow:none!important;border:none!important;background:#ffffff!important;color:#000000!important;page-break-inside:avoid;margin-bottom:24px!important;}
-    img{max-width:100%!important;max-height:500px!important;object-fit:contain!important;margin-bottom:2rem!important;page-break-inside:avoid;border-radius:0.5rem!important;}
-    *{color:#000000!important;font-family:'Inter',sans-serif!important;} 
-    h1,h2,h3{page-break-after:avoid;font-family:'Inter',sans-serif!important;}
-    .print-title-page{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center;}
-    .legacy-content{text-align:justify;hyphens:auto;font-family:'Inter',sans-serif!important;}
+  /* --- DESIGN UPGRADE (Premium Apple/Meta/Google UI) --- */
+  html, body { overscroll-behavior-y: none; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; transition: background-color 0.4s, color 0.4s; }
+  body.modal-open { overflow: hidden !important; }
+  html:not(.dark) body { background-color: #f8fafc !important; color: #0f172a !important; }
+  html.dark body { background-color: #000000 !important; color: #f8fafc !important; }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 32px); }
+  .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+  .floating-nav-spacing { padding-bottom: calc(120px + env(safe-area-inset-bottom, 20px)); }
+  h1, h2, h3, h4, h5, h6 { font-weight: 800; letter-spacing: -0.03em; }
+  @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } } 
+  .animate-fade-in { animation: fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  @keyframes slide-up { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } 
+  .animate-slide-up { animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  @keyframes pulse-flame { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.05); } } 
+  .animate-flame { animation: pulse-flame 2s infinite ease-in-out; }
+  .custom-scrollbar::-webkit-scrollbar { display: none; }
+  .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .legacy-editor-content p, .legacy-content p { line-height: 1.8; margin-bottom: 1.2rem; font-size: 1.05rem; }
+  .legacy-editor-content h1, .legacy-content h1 { font-size: 2.25rem; font-weight: 800; margin-top: 1.5rem; margin-bottom: 1rem; line-height: 1.2; }
+  .legacy-editor-content h2, .legacy-content h2 { font-size: 1.75rem; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.75rem; line-height: 1.3; }
+  .legacy-editor-content b, .legacy-content b, .legacy-editor-content strong, .legacy-content strong { font-weight: 700; color: inherit; }
+  .legacy-editor-content ul, .legacy-content ul { list-style-type: disc; padding-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.5rem; }
+  .legacy-editor-content ol, .legacy-content ol { list-style-type: decimal; padding-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.5rem; }
+  .legacy-editor-content li, .legacy-content li { margin-bottom: 0.25rem; }
+  .legacy-editor-content blockquote, .legacy-content blockquote { border-left: 4px solid currentColor; padding-left: 1.5rem; font-style: normal; font-weight: 500; opacity: 0.8; background: transparent; margin: 1.5rem 0; font-size: 1.1em; }
+  .floating-nav { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); width: calc(100% - 48px); max-width: 400px; background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(226, 232, 240, 0.6); border-radius: 2rem; box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1); z-index: 100; }
+  html.dark .floating-nav { background: rgba(24, 24, 27, 0.75); border-color: rgba(39, 39, 42, 0.6); box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5); }
+  .inline-img-wrapper { display: inline-block; vertical-align: text-bottom; margin: 4px; max-width: 100%; position: relative; }
+  .inline-img-wrapper img { width: 120px; height: auto; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+  .delete-img-btn { position: absolute; top: -10px; right: -10px; background: #ef4444; color: white; border-radius: 50%; width: 24px; height: 24px; text-align: center; line-height: 24px; cursor: pointer; font-family: sans-serif; font-size: 12px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10; display: none; }
+  .inline-img-wrapper:hover .delete-img-btn, .inline-img-wrapper:active .delete-img-btn { display: block; }
+  .legacy-editor-content > img, .legacy-content > img { border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: inline-block; vertical-align: middle; max-width: 100%; }
+  [contenteditable="true"]:empty:before { content: attr(data-placeholder); opacity: 0.3; pointer-events: none; display: block; font-weight: 400; }
+  html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
+  .search-highlight { background-color: rgba(245, 158, 11, 0.3); padding: 0 2px; border-radius: 3px; border-bottom: 1px solid #f59e0b; }
+  .map-container { height: 100%; width: 100%; border-radius: 1.5rem; z-index: 1; }
+  .leaflet-marker-icon.avatar-marker { border: none !important; background: transparent !important; }
+  .leaflet-control-attribution { display: none !important; }
+  .print-only { display: none; }
+  @media print {
+    @page { margin: 2cm; @bottom-center { content: counter(page); font-family: 'Inter', sans-serif; font-size: 12px; color: #888; } }
+    body, html, #root, .min-h-screen { background: #ffffff !important; color: #000000 !important; height: auto !important; overflow: visible !important; width: 100% !important; }
+    nav, header, button, .no-print, .screen-only, .custom-scrollbar::-webkit-scrollbar { display: none !important; }
+    .print-only { display: block !important; width: 100% !important; max-width: 100% !important; padding: 0 !important; }
+    .page-break-after { page-break-after: always; }
+    .group { box-shadow: none !important; border: none !important; background: #ffffff !important; color: #000000 !important; page-break-inside: avoid; margin-bottom: 24px !important; }
+    img { max-width: 100% !important; max-height: 500px !important; object-fit: contain !important; margin-bottom: 2rem !important; page-break-inside: avoid; border-radius: 0.5rem !important; }
+    * { color: #000000 !important; font-family: 'Inter', sans-serif !important; } 
+    h1, h2, h3 { page-break-after: avoid; font-family: 'Inter', sans-serif !important; }
+    .print-title-page { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; text-align: center; }
+    .legacy-content { text-align: justify; hyphens: auto; font-family: 'Inter', sans-serif !important; }
   }
 </style>
 </head>
@@ -102,44 +114,32 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useMemo } = React;
 
-const safeStorageGet = (key) => { 
-    try { return localStorage.getItem(key); } catch(e) { return null; } 
-};
-const safeStorageSet = (key, val) => { 
-    try { localStorage.setItem(key, val); } catch(e) {} 
-};
+const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
+const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
 
 const sortEntriesChronological = (a, b) => {
     const getT = (entry) => {
-        let d = entry.orderTimestamp || entry.date;
+        let d = entry.date || entry.orderTimestamp;
         if (!d) return 0;
         let time = new Date(d).getTime();
         if (isNaN(time)) time = new Date(d + 'Z').getTime();
         return isNaN(time) ? 0 : time;
     };
-    return getT(b) - getT(a); 
+    return getT(a) - getT(b);
 };
 
 const getLocalISO = () => new Date().toISOString();
 
 const createSafeHtml = (htmlStr) => {
   const safeStr = htmlStr || '';
-  return { 
-      __html: window.DOMPurify ? window.DOMPurify.sanitize(safeStr, { 
-          ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], 
-          ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] 
-      }) : safeStr 
-  };
+  return { __html: window.DOMPurify ? window.DOMPurify.sanitize(safeStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] }) : safeStr };
 };
 
 const highlightText = (text, query) => {
   const safeStr = text || '';
   if (!safeStr) return { __html: '' };
   let safeText = safeStr.replace(/<img[^>]*>/g, '[Bild]');
-  safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { 
-      ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], 
-      ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] 
-  }) : safeText;
+  safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] }) : safeText;
   if (!query) return { __html: safeText };
   const plainText = safeText.replace(/<[^>]*>?/gm, '');
   const parts = plainText.split(new RegExp(`(${query})`, 'gi'));
@@ -159,10 +159,10 @@ const getCryptoKey = async (pin, saltStr) => {
     const keyMaterial = await window.crypto.subtle.importKey("raw", encHelper.encode(pin), { name: "PBKDF2" }, false, ["deriveBits", "deriveKey"]);
     const salt = Uint8Array.from(atob(saltStr), c => c.charCodeAt(0));
     const key = await window.crypto.subtle.deriveKey({ name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" }, keyMaterial, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
-    cryptoKeyCache[cacheKey] = key; 
-    return key;
+    cryptoKeyCache[cacheKey] = key; return key;
 };
 
+// Optimierte Verschlüsselung für große Dateien (verhindert Callstack-Fehler bei Bildern)
 const encryptData = async (text, pin) => {
     try {
         const salt = window.crypto.getRandomValues(new Uint8Array(16));
@@ -180,10 +180,7 @@ const encryptData = async (text, pin) => {
         }
         
         return { cipher: btoa(binary), iv: ivStr, salt: saltStr };
-    } catch(e) { 
-        console.error("Encryption failed", e); 
-        return null; 
-    }
+    } catch(e) { console.error("Encryption failed", e); return null; }
 };
 
 const decryptData = async (encryptedObj, pin) => {
@@ -193,37 +190,22 @@ const decryptData = async (encryptedObj, pin) => {
         const iv = Uint8Array.from(atob(encryptedObj.iv), c => c.charCodeAt(0));
         const atobCipher = atob(encryptedObj.cipher);
         const cipher = new Uint8Array(atobCipher.length);
-        for (let i = 0; i < atobCipher.length; i++) {
-            cipher[i] = atobCipher.charCodeAt(i);
-        }
+        for (let i = 0; i < atobCipher.length; i++) cipher[i] = atobCipher.charCodeAt(i);
         const keyMaterial = await window.crypto.subtle.importKey("raw", encHelper.encode(pin), { name: "PBKDF2" }, false, ["deriveBits", "deriveKey"]);
         const key = await window.crypto.subtle.deriveKey({ name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" }, keyMaterial, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
         const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, cipher);
         return decHelper.decode(decrypted);
-    } catch(e) { 
-        return null; 
-    }
+    } catch(e) { return null; }
 };
 
 class ErrorBoundary extends React.Component {
-  constructor(props) { 
-      super(props); 
-      this.state = { hasError: false, error: null }; 
-  }
-  
-  static getDerivedStateFromError(error) { 
-      return { hasError: true, error }; 
-  }
-  
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
   render() {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-black text-white p-8 text-center">
-          <div>
-              <h1 className="text-2xl font-bold mb-4">Ein Moment bitte...</h1>
-              <p className="opacity-70 mb-8">Die App hat sich verschluckt.</p>
-              <button type="button" onClick={() => window.location.reload()} className="px-6 py-3 bg-white text-black font-bold rounded-full">Neu laden</button>
-          </div>
+          <div><h1 className="text-2xl font-bold mb-4">Ein Moment bitte...</h1><p className="opacity-70 mb-8">Die App hat sich verschluckt.</p><button type="button" onClick={() => window.location.reload()} className="px-6 py-3 bg-white text-black font-bold rounded-full">Neu laden</button></div>
         </div>
       );
     }
@@ -233,24 +215,17 @@ class ErrorBoundary extends React.Component {
 
 const Icon = ({ name, size = 24, className = '', ...props }) => {
   const spanRef = useRef(null);
-  
   useEffect(() => {
     const renderIcon = () => {
       if (spanRef.current && window.lucide) {
         spanRef.current.innerHTML = `<i data-lucide="${name}"></i>`;
         window.lucide.createIcons({ root: spanRef.current });
         const svg = spanRef.current.querySelector('svg');
-        if (svg) { 
-            svg.setAttribute('width', size); 
-            svg.setAttribute('height', size); 
-            if (className) svg.setAttribute('class', `lucide lucide-${name} ${className}`); 
-        }
+        if (svg) { svg.setAttribute('width', size); svg.setAttribute('height', size); if (className) svg.setAttribute('class', `lucide lucide-${name} ${className}`); }
       }
     };
-    if (window.lucide) renderIcon(); 
-    else setTimeout(renderIcon, 100);
+    if (window.lucide) renderIcon(); else setTimeout(renderIcon, 100);
   }, [name, size, className]);
-  
   return <span ref={spanRef} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} {...props}></span>;
 };
 
@@ -321,10 +296,11 @@ const initDB = () => {
   });
 };
 
-const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQuery, onMoveUp, onMoveDown, showMoveControls }) => {
+const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQuery }) => {
     if (!entry) return null;
     const hasImages = entry.images && entry.images.length > 0;
     
+    // Goldener Rahmen wenn Highlight (manifested) aktiv ist
     const cardBgClass = entry.manifested 
         ? 'bg-amber-50/30 dark:bg-amber-900/20 border-amber-400 dark:border-amber-500 border-2 shadow-lg shadow-amber-500/20' 
         : (isDarkTheme ? 'bg-zinc-900 border-zinc-800 border' : 'bg-white border-slate-100 border shadow-sm');
@@ -344,20 +320,11 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
           </div>
         )}
         <div className="p-6 relative z-10 flex-1 flex flex-col">
-          <div className="flex items-center justify-between mb-3 gap-2">
-              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-50 flex-wrap flex-1">
-                <span>{new Date(entry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
-                {!isGridView && <><span>•</span><span>{entry.category || 'Allgemein'}</span></>}
-                {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span></>}
-                {entry.audio && <><span className="text-emerald-500 flex items-center ml-1"><Icon name="mic" size={12}/></span></>}
-              </div>
-              
-              {showMoveControls && !isGridView && (
-                  <div className="flex gap-1 shrink-0 z-20 ml-2">
-                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveUp(e); }} className="w-8 h-8 bg-white/80 dark:bg-black/80 backdrop-blur rounded-full flex items-center justify-center shadow-sm text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-black hover:text-accent transition-colors"><Icon name="chevron-up" size={16}/></button>
-                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveDown(e); }} className="w-8 h-8 bg-white/80 dark:bg-black/80 backdrop-blur rounded-full flex items-center justify-center shadow-sm text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-black hover:text-accent transition-colors"><Icon name="chevron-down" size={16}/></button>
-                  </div>
-              )}
+          <div className="flex items-center gap-2 mb-3 text-[10px] font-bold uppercase tracking-widest opacity-50 flex-wrap">
+            <span>{new Date(entry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+            {!isGridView && <><span>•</span><span>{entry.category || 'Allgemein'}</span></>}
+            {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span></>}
+            {entry.audio && <><span className="text-emerald-500 flex items-center ml-1"><Icon name="mic" size={12}/></span></>}
           </div>
           
           <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && isCapsuleLocked ? 'text-slate-900 dark:text-white' : 'text-slate-900 dark:text-white group-hover:text-accent transition-colors'}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery)} />
@@ -368,6 +335,7 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
                 {entry.people && entry.people.split(',').filter(x=>x.trim()).map((p, i) => <span key={`p-${i}`} className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="user" size={10}/> {p.trim()}</span>)}
                 {entry.weather && (!entry.locations || entry.locations.length === 0) && <span className="px-2 py-0.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="sun" size={10}/> {entry.weather}</span>}
                 
+                {/* Multi-GPS Stempel: Dunkelgrün */}
                 {entry.locations && entry.locations.length > 0 ? entry.locations.map((loc, i) => (
                     <span key={`loc-${i}`} className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 rounded-md text-[10px] font-bold flex items-center gap-1">
                         <Icon name="map-pin" size={10}/> {loc.name || 'GPS'}
@@ -383,7 +351,7 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
           )}
 
           {!isCapsuleLocked && entry.text && !isGridView && (
-            <div className="text-[1.05rem] leading-[1.8] opacity-90 legacy-editor-content text-slate-800 dark:text-slate-200 line-clamp-3" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
+            <div className="text-sm font-medium leading-relaxed opacity-70 line-clamp-3 text-slate-600 dark:text-slate-400" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
           )}
           {isCapsuleLocked && !isGridView && (
              <div className="text-sm font-medium leading-relaxed opacity-40 italic mt-auto">
@@ -395,15 +363,65 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
     );
 };
 
-const EdBtn = ({cmd, arg, icon, txt, onClick, isDirtyRef}) => (
-    <button onMouseDown={e=>{ if(cmd){ e.preventDefault(); document.execCommand(cmd, false, arg); if(isDirtyRef) isDirtyRef.current=true; } }} onClick={onClick} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800">
-        {icon ? <Icon name={icon} size={18} /> : <span className="font-bold text-sm">{txt}</span>}
-    </button>
-);
+const SwipeableTimelineEntry = ({ entry, onArchive, onTrash, onClick, showDialog, userColor }) => {
+    const [offsetX, setOffsetX] = useState(0);
+    const startX = useRef(null);
+    const dragged = useRef(false);
 
-const ColorBtn = ({color, isBg, user, setUser}) => (
-   <button onClick={() => isBg ? setUser({...user, appBgColor: color}) : setUser({...user, textColor: color, nameColor: color})} className={`w-10 h-10 rounded-full border-2 transition-transform ${ (isBg ? user.appBgColor : user.textColor) === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
-);
+    const handleTouchStart = (evt) => {
+        startX.current = evt.touches[0].clientX;
+        dragged.current = false;
+    };
+
+    const handleTouchMove = (evt) => {
+        if (startX.current === null) return;
+        const diff = evt.touches[0].clientX - startX.current;
+        if (Math.abs(diff) > 10) dragged.current = true;
+        if (diff > 120) setOffsetX(120);
+        else if (diff < -120) setOffsetX(-120);
+        else setOffsetX(diff);
+    };
+
+    const handleTouchEnd = () => {
+        if (offsetX > 60) {
+            onArchive(entry);
+            showDialog({title: 'Archiviert', message: 'Der Eintrag wurde ins Archiv verschoben.', icon: 'archive', iconColor: 'text-emerald-500'});
+        }
+        else if (offsetX < -60) {
+            onTrash(entry);
+            showDialog({title: 'Papierkorb', message: 'Der Eintrag wurde gelöscht.', icon: 'trash-2', iconColor: 'text-rose-500'});
+        }
+        setOffsetX(0);
+        startX.current = null;
+        setTimeout(() => { dragged.current = false; }, 100);
+    };
+
+    return (
+        <div className="relative w-full rounded-[2rem] overflow-hidden bg-slate-200 dark:bg-zinc-800 shrink-0 mb-3">
+            <div className="absolute inset-0 flex justify-between items-center px-6">
+                <div className="text-emerald-600 font-bold flex items-center gap-2 opacity-80"><Icon name="archive" size={18}/> Archiv</div>
+                <div className="text-rose-600 font-bold flex items-center gap-2 opacity-80">Löschen <Icon name="trash-2" size={18}/></div>
+            </div>
+            <button 
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onClick={(e) => {
+                    if (dragged.current) { e.preventDefault(); return; }
+                    onClick(entry);
+                }} 
+                style={{ transform: `translateX(${offsetX}px)`, transition: startX.current === null ? 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)' : 'none' }}
+                className="relative z-10 w-full text-left p-4 rounded-[2rem] flex items-center gap-4 bg-slate-50 dark:bg-zinc-900 shadow-sm border border-transparent"
+            >
+                {entry.images && entry.images.length > 0 && <img src={entry.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0 pointer-events-none" />}
+                <div className="flex-1 overflow-hidden pointer-events-none">
+                    <span className="font-bold text-sm truncate block" style={{ color: userColor }}>{entry.title || 'Ohne Titel'}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">{new Date(entry.date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
+                </div>
+            </button>
+        </div>
+    );
+};
 
 function App() {
   const [db, setDb] = useState(null);
@@ -435,6 +453,8 @@ function App() {
   const [currentViewerImgIdx, setCurrentViewerImgIdx] = useState(0);
   
   const [showTimeline, setShowTimeline] = useState(false); 
+  const [timelineMonth, setTimelineMonth] = useState(() => new Date()); 
+  const [timelineSelectedDate, setTimelineSelectedDate] = useState(null); 
   
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
@@ -502,13 +522,7 @@ function App() {
   const viewRef = useRef(view);
   const biometricAttempted = useRef(false);
 
-  // Pull-to-refresh State
-  const [pullY, setPullY] = useState(0);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const pullStartY = useRef(null);
-
   const entriesRef = useRef(entries);
-  
   useEffect(() => {
       entriesRef.current = entries;
   }, [entries]);
@@ -580,20 +594,19 @@ function App() {
   // --- Login Bypass & Firebase Setup ---
   useEffect(() => {
     const initFB = async () => {
-       const savedStr = safeStorageGet('legacy_user');
-       let localUser = null;
-       if (savedStr) {
-           try {
-               localUser = JSON.parse(savedStr);
-               setUser(localUser);
-               setView(localUser.pin ? 'pin_entry' : (localUser.name ? 'dashboard' : 'onboarding'));
-               setIsLoaded(true);
-           } catch(e) {}
-       }
-
        let authTimeout = setTimeout(() => {
            if (!isLoaded) {
-               if (!localUser) setView('onboarding');
+               console.warn("Firebase Auth Timeout - Fallback to Local");
+               const savedStr = safeStorageGet('legacy_user');
+               if (savedStr) {
+                   try {
+                       const parsed = JSON.parse(savedStr);
+                       setUser(parsed);
+                       setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
+                   } catch(e) { setView('onboarding'); }
+               } else {
+                   setView('onboarding');
+               }
                setIsLoaded(true);
            }
        }, 5000);
@@ -609,49 +622,64 @@ function App() {
           setFb({ db: firestoreDb, auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot });
 
           const handleUserLoad = async (u) => {
+              // Fetch public profile FIRST to ensure consistency across devices before PIN entry
+              let fetchedProfile = null;
               try {
                   const profileSnap = await getDoc(doc(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'profile', 'data'));
                   if (profileSnap.exists()) {
                       const data = profileSnap.data();
-                      let fetchedProfile = null;
                       if (data.publicProfile) {
                           fetchedProfile = data.publicProfile;
-                          setUser(prev => {
-                              const updated = { ...prev, ...fetchedProfile };
-                              safeStorageSet('legacy_user', JSON.stringify(updated));
-                              return updated;
-                          });
+                          setUser(prev => ({ ...prev, ...fetchedProfile }));
                       }
                       
-                      if (!localUser) {
+                      const savedStr = safeStorageGet('legacy_user');
+                      if (savedStr) {
+                           let parsed = JSON.parse(savedStr);
+                           if (fetchedProfile) {
+                               // Handy bleibt der Master! Wir nutzen die lokalen Daten.
+                               // Damit ein neues Bild vom Handy die Cloud gewinnt, mergen wir die lokalen Daten ÜBER die Cloud-Daten.
+                               parsed = { ...fetchedProfile, ...parsed }; 
+                               safeStorageSet('legacy_user', JSON.stringify(parsed));
+                               syncProfileToCloud(parsed); // Erzwinge sofort das Handy-Profil in der Cloud
+                           }
+                           setUser(parsed);
+                           setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
+                           return;
+                      } else {
                            if (data.encryptedData) {
                                setView('cloud_pin_sync'); 
                                return;
                            } else if (data.rawData) {
-                               const loadedUser = { ...user, ...data.rawData, ...(fetchedProfile || {}) };
+                               const loadedUser = { ...user, ...data.rawData, ...fetchedProfile };
                                setUser(loadedUser);
                                safeStorageSet('legacy_user', JSON.stringify(loadedUser));
                                setView(loadedUser.pin ? 'pin_entry' : 'dashboard');
                                return;
                            }
-                      } else if (fetchedProfile) {
-                           const merged = { ...fetchedProfile, ...localUser };
-                           safeStorageSet('legacy_user', JSON.stringify(merged));
-                           syncProfileToCloud(merged);
                       }
                   }
               } catch(e) {}
-              
-              if (!localUser) {
+
+              const savedStr = safeStorageGet('legacy_user');
+              if (savedStr) {
                   try {
-                      const entriesSnap = await getDocs(collection(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'entries'));
-                      if (!entriesSnap.empty) {
-                          setView('cloud_pin_sync'); 
-                          return;
-                      }
+                      const parsed = JSON.parse(savedStr);
+                      setUser(parsed);
+                      setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
+                      return;
                   } catch(e) {}
-                  setView('onboarding'); 
               }
+              
+              try {
+                  const entriesSnap = await getDocs(collection(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'entries'));
+                  if (!entriesSnap.empty) {
+                      setView('cloud_pin_sync'); 
+                      return;
+                  }
+              } catch(e) {}
+
+              setView('onboarding'); 
           };
 
           onAuthStateChanged(auth, (u) => {
@@ -660,21 +688,31 @@ function App() {
                   if (u.emailVerified) {
                       setAuthUser(u);
                       handleUserLoad(u);
-                  } else { signOut(auth); if(!localUser) setView('auth'); }
+                  } else { signOut(auth); setView('auth'); }
               } else {
                   setAuthUser(null);
-                  if(!localUser) setView('auth'); 
+                  setView('auth'); 
               }
               setIsLoaded(true);
           });
        } catch(e) { 
-           if (!localUser) setView('onboarding');
+           const savedStr = safeStorageGet('legacy_user');
+           if (savedStr) {
+               try {
+                   const parsed = JSON.parse(savedStr);
+                   setUser(parsed);
+                   setView(parsed.name ? 'dashboard' : 'onboarding');
+               } catch(err) { setView('onboarding'); }
+           } else {
+               setView('onboarding');
+           }
            setIsLoaded(true); 
        }
     };
     initFB();
   }, []);
 
+  // Initialize DB & Local Load
   useEffect(() => {
     const loadApp = async () => {
       try {
@@ -707,10 +745,12 @@ function App() {
                 if (decStr) { 
                     try { 
                         const parsed = JSON.parse(decStr); 
+                        // FIX: Wir mergen das alte e mit den entsperrten parsed Werten!
                         return { ...e, ...parsed, encryptedData: null, locked: false }; 
                     } catch(err){ return { ...e, text: decStr, encryptedData: null, locked: false };} 
                 }
               } else if (e.cipher && e.iv && e.salt) {
+                  // LEGACY-RETTUNG aus IndexedDB!
                   const decStr = await decryptData({cipher: e.cipher, iv: e.iv, salt: e.salt}, currentUser.pin);
                   if (decStr) {
                       try {
@@ -725,12 +765,10 @@ function App() {
              loadedEntries = loadedEntries.map(e => ({ ...e, locked: false }));
           }
           
+          // Force Date Assignment
           loadedEntries = loadedEntries.map(e => {
              if (!e.date) {
                  e.date = e.orderTimestamp || (e.timestamp ? new Date(e.timestamp).toISOString() : new Date().toISOString());
-             }
-             if (!e.orderTimestamp) {
-                 e.orderTimestamp = e.date;
              }
              return e;
           });
@@ -742,34 +780,7 @@ function App() {
     loadApp();
   }, []);
 
-  const loadLocalEntries = async (activePin) => {
-      if (!db) return;
-      const transaction = db.transaction('entries', 'readonly');
-      const request = transaction.objectStore('entries').getAll();
-      request.onsuccess = async () => {
-          let loadedEntries = request.result || [];
-          loadedEntries = loadedEntries.filter(e => e != null);
-          if (activePin) {
-              loadedEntries = await Promise.all(loadedEntries.map(async (e) => {
-                  if (e.encryptedData) {
-                      const decStr = await decryptData(e.encryptedData, activePin);
-                      if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, ...parsed, encryptedData: null, locked: false }; } catch(err){ return { ...e, text: decStr, encryptedData: null, locked: false };} }
-                  } else if (e.cipher && e.iv && e.salt) {
-                      const decStr = await decryptData({cipher: e.cipher, iv: e.iv, salt: e.salt}, activePin);
-                      if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, ...parsed, cipher: null, iv: null, salt: null, locked: false }; } catch(err) { return { ...e, text: decStr, cipher: null, iv: null, salt: null, locked: false };} }
-                  }
-                  return { ...e, locked: false };
-              }));
-          }
-          loadedEntries = loadedEntries.map(e => {
-              if (!e.date) e.date = e.orderTimestamp || (e.timestamp ? new Date(e.timestamp).toISOString() : new Date().toISOString());
-              if (!e.orderTimestamp) e.orderTimestamp = e.date;
-              return e;
-          });
-          setEntries(loadedEntries.sort(sortEntriesChronological));
-      };
-  };
-
+  // REALTIME CLOUD SYNC
   useEffect(() => {
     if (!fb || !fb.onSnapshot || !authUser || !user.cloudSync) return;
     const q = fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries');
@@ -911,7 +922,12 @@ function App() {
               setAuthMsg('Passwort-Reset-Link gesendet!'); setTimeout(() => setAuthMode('login'), 3000);
           }
       } catch (e) {
-          setAuthError('Fehler aufgetreten. Daten prüfen.');
+          let errorMsg = 'Fehler aufgetreten.';
+          if (e.code === 'auth/email-already-in-use') errorMsg = 'E-Mail wird bereits verwendet.';
+          else if (e.code === 'auth/invalid-email') errorMsg = 'E-Mail ungültig.';
+          else if (e.code === 'auth/weak-password') errorMsg = 'Passwort zu schwach (min. 6 Zeichen).';
+          else if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') errorMsg = 'Daten falsch oder nicht bestätigt.';
+          setAuthError(errorMsg);
       }
   };
 
@@ -940,7 +956,6 @@ function App() {
       setUser(mergedUser);
       safeStorageSet('legacy_user', JSON.stringify(mergedUser));
       setView(mergedUser.name ? 'dashboard' : 'onboarding');
-      loadLocalEntries(pinValue);
   };
 
   const submitPin = () => handleUnlockSubmit(pinInput);
@@ -967,7 +982,7 @@ function App() {
                   safeStorageSet('legacy_bio_id', btoa(String.fromCharCode(...new Uint8Array(cred.rawId))));
                   showDialog({title: 'Aktiviert', message: 'Biometrisches Entsperren ist nun aktiv.', icon: 'fingerprint'});
               }
-          } catch(e) { showDialog({title: 'Fehler', message: 'Biometrie abgebrochen.', icon: 'x'}); }
+          } catch(e) { showDialog({title: 'Fehler', message: 'Biometrie abgebrochen oder auf diesem Gerät nicht verfügbar.', icon: 'x'}); }
       } else {
           setUser({...user, biometric: false}); localStorage.removeItem('legacy_bio_pin'); localStorage.removeItem('legacy_bio_id');
       }
@@ -1041,7 +1056,7 @@ function App() {
           showDialog({ title: 'Willkommen zurück', message: 'Dein Profil wurde geladen. Daten werden im Hintergrund synchronisiert...', icon: 'check' });
       } catch(e) {
           setView('cloud_pin_sync');
-          showDialog({title: 'Verbindungsfehler', message: 'Ein Fehler ist aufgetreten.', icon: 'x'});
+          showDialog({title: 'Verbindungsfehler', message: 'Ein Fehler ist aufgetreten. Bitte versuche es erneut.', icon: 'x'});
       }
   };
 
@@ -1096,6 +1111,7 @@ function App() {
             if (parsed.entries) {
                setSyncStatus('Daten werden verarbeitet...');
                if (db) {
+                 const pinToUse = parsed.user ? parsed.user.pin : user.pin;
                  const entriesToSave = await Promise.all(parsed.entries.map(async (e) => {
                      let dbE = { ...e }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []);
                      return dbE;
@@ -1117,6 +1133,7 @@ function App() {
      };
   }, [editingId, title, selectedColor, selectedImages, audioUrl, isManifested, category, mood, unlockDate, location, locations, parentId, inheritedFrom, rating, tags, people, weather, entryDate]);
 
+  // Speichert den unverschlüsselten Text immer lokal in IndexedDB
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; 
     const plainEntry = { ...entry, timestamp: Date.now(), locked: false, encryptedData: null, cipher: null, iv: null, salt: null };
@@ -1211,11 +1228,7 @@ function App() {
       showDialog({title: 'Erfolg', message: 'Deine PIN wurde erfolgreich gespeichert.', icon: 'check'});
   };
 
-  const closeEditor = (savedEntry = null) => { 
-      setShowEditor(false); 
-      if(isRecording) stopRecording(); 
-      if(savedEntry) setViewingEntry(savedEntry); 
-  };
+  const closeEditor = (savedEntry = null) => { setShowEditor(false); if(isRecording) stopRecording(); setViewingEntry(savedEntry); };
 
   const openEditor = (entry = null, pillar = null, customDate = null) => {
     isDirtyRef.current = false;
@@ -1271,56 +1284,8 @@ function App() {
               setDialog(null);
           }
       }
-      
-      const bookRoot = getBookRoot(entry.id);
-      const unsortedEntries = getAllBookEntries(bookRoot?.id || entry.id);
-      
-      // Sortiere absteigend nach orderTimestamp (neuester / höchster Eintrag zuerst)
-      const sortedDesc = [...unsortedEntries].sort((a, b) => new Date(b.orderTimestamp || b.date).getTime() - new Date(a.orderTimestamp || a.date).getTime());
-      
-      // Wir öffnen immer den allerneuesten Eintrag des ausgewählten Tagebuchs
-      const targetToOpen = sortedDesc[0] || entry; 
-      
-      setViewingEntry(targetToOpen);
+      setViewingEntry(entry);
       setCurrentViewerImgIdx(0);
-  };
-
-  const moveEntryUp = (e, index) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (index <= 0) return;
-      
-      const current = renderEntries[index];
-      const above = renderEntries[index - 1];
-      
-      // Tausche die orderTimestamps
-      const temp = current.orderTimestamp || current.date;
-      current.orderTimestamp = above.orderTimestamp || above.date;
-      above.orderTimestamp = temp;
-      
-      saveToDB(current);
-      saveToDB(above);
-      
-      setEntries(prev => [...prev].sort(sortEntriesChronological));
-  };
-  
-  const moveEntryDown = (e, index) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (index >= renderEntries.length - 1) return;
-      
-      const current = renderEntries[index];
-      const below = renderEntries[index + 1];
-      
-      // Tausche die orderTimestamps
-      const temp = current.orderTimestamp || current.date;
-      current.orderTimestamp = below.orderTimestamp || below.date;
-      below.orderTimestamp = temp;
-      
-      saveToDB(current);
-      saveToDB(below);
-      
-      setEntries(prev => [...prev].sort(sortEntriesChronological));
   };
 
   const visibleEntries = useMemo(() => {
@@ -1344,17 +1309,6 @@ function App() {
   }, [entries, searchQuery, activeCategory, view]);
 
   const renderEntries = visibleEntries; 
-
-  const groupedTimelineEntries = useMemo(() => {
-      const groups = {};
-      entries.filter(e => e && !e.trashed).sort(sortEntriesChronological).forEach(e => {
-          const d = new Date(e.orderTimestamp || e.date || getLocalISO());
-          const key = d.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
-          if (!groups[key]) groups[key] = [];
-          groups[key].push(e);
-      });
-      return groups;
-  }, [entries]);
   
   const allQuotes = useMemo(() => { 
       if (view !== 'quotes') return []; 
@@ -1432,43 +1386,21 @@ function App() {
       if (!touchStart || !viewingEntry) return;
       const touchEnd = e.changedTouches[0].clientX; const distance = touchStart - touchEnd;
       const bookRoot = getBookRoot(viewingEntry.id);
-      
-      // Fürs Wischen/Lesen nutzen wir die chronologische Reihenfolge
-      const unsortedEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
-      const chronologicalBookEntries = [...unsortedEntries].sort((a, b) => new Date(a.orderTimestamp || a.date).getTime() - new Date(b.orderTimestamp || b.date).getTime());
-      
+      const bookEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
       let swipeNext = null, swipePrev = null;
-      if (chronologicalBookEntries.length > 1) {
-          const cIdx = chronologicalBookEntries.findIndex(ex => ex && ex.id === viewingEntry.id);
-          if (cIdx > 0) swipePrev = chronologicalBookEntries[cIdx - 1]; 
-          if (cIdx < chronologicalBookEntries.length - 1) swipeNext = chronologicalBookEntries[cIdx + 1]; 
+      if (bookEntries.length > 1) {
+          const cIdx = bookEntries.findIndex(ex => ex && ex.id === viewingEntry.id);
+          if (cIdx > 0) swipePrev = bookEntries[cIdx - 1]; 
+          if (cIdx < bookEntries.length - 1) swipeNext = bookEntries[cIdx + 1]; 
       } else {
-          // Im Dashboard
           const sorted = visibleEntries.sort(sortEntriesChronological);
           const cIdx = sorted.findIndex(ex => ex && ex.id === viewingEntry.id);
           if (cIdx > 0) swipePrev = sorted[cIdx - 1]; 
           if (cIdx < sorted.length - 1) swipeNext = sorted[cIdx + 1]; 
       }
-      
       if (distance > 50 && swipeNext) { setViewingEntry(swipeNext); setCurrentViewerImgIdx(0); }
       if (distance < -50 && swipePrev) { setViewingEntry(swipePrev); setCurrentViewerImgIdx(0); }
       setTouchStart(null);
-  };
-
-  const handlePullStart = (e) => { if (window.scrollY <= 0 && view === 'dashboard' && !viewingEntry && !showEditor && !showTimeline) { pullStartY.current = e.touches[0].clientY; } };
-  const handlePullMove = (e) => {
-      if (pullStartY.current !== null) {
-          const y = e.touches[0].clientY; const dy = y - pullStartY.current;
-          if (dy > 0) { if (dy < 100) setPullY(dy); else setPullY(100 + (dy - 100) * 0.2); } else { setPullY(0); }
-      }
-  };
-  const handlePullEnd = () => {
-      if (pullY > 60) {
-          setIsRefreshing(true); setPullY(60);
-          if (user.cloudSync && fb && authUser) syncProfileToCloud(user);
-          setTimeout(() => { setIsRefreshing(false); setPullY(0); }, 1500);
-      } else { setPullY(0); }
-      pullStartY.current = null;
   };
 
   const getCanvasCoordinates = (e) => {
@@ -1481,7 +1413,6 @@ function App() {
   const startDrawing = (e) => { if (!canvasRef.current) return; const {x, y} = getCanvasCoordinates(e); const ctx = canvasRef.current.getContext('2d'); ctx.beginPath(); ctx.moveTo(x, y); canvasRef.current.isPainting = true; };
   const draw = (e) => { if (!canvasRef.current?.isPainting) return; const {x, y} = getCanvasCoordinates(e); const ctx = canvasRef.current.getContext('2d'); ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.strokeStyle = user.isDark ? '#ffffff' : '#000000'; ctx.lineTo(x, y); ctx.stroke(); };
   const stopDrawing = () => { if (canvasRef.current) canvasRef.current.isPainting = false; };
-  
   useEffect(() => { 
       let canvasEl = canvasRef.current; 
       const preventScroll = (e) => e.preventDefault(); 
@@ -1772,6 +1703,13 @@ function App() {
 
   const importBackup = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async (e) => { try { let data = null; if (file.name.toLowerCase().endsWith('.html')) { const doc = new DOMParser().parseFromString(e.target.result, 'text/html'); const script = doc.getElementById('legacy-injected-data'); if (script && script.textContent && script.textContent !== 'null') data = JSON.parse(script.textContent); else throw new Error("Keine Daten"); } else data = JSON.parse(e.target.result); if (data && data.entries && db) { const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); let mergedCount = 0; const pinToUse = data.user ? data.user.pin : user.pin; const entriesToSave = await Promise.all(data.entries.map(async (en) => { let dbE = { ...en }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []); return dbE; })); entriesToSave.forEach(en => { if (!entries.find(ex => ex && ex.id === en.id)) { if (data.user && data.user.name !== user.name) en.inheritedFrom = data.user.name; store.put(en); mergedCount++; } }); const req = store.getAll(); req.onsuccess = async () => { let loadedEntries = req.result || []; loadedEntries = loadedEntries.filter(e => e != null); if (user.pin) loadedEntries = await Promise.all(loadedEntries.map(async (en) => { if (en.encryptedData) { const decStr = await decryptData(en.encryptedData, user.pin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...en, text: parsed.text, title: parsed.title }; } catch(err){} } } return en; })); setEntries(loadedEntries.sort(sortEntriesChronological)); showDialog({ title: 'Erfolg', message: `${mergedCount} neue Seiten importiert.`, icon: 'check' }); }; } } catch (err) { showDialog({ title: 'Fehler', message: 'Ungültige Datei.', icon: 'x' }); } }; reader.readAsText(file); };
 
+  useEffect(() => { 
+      if (showEditor && editorRef.current) { 
+          editorRef.current.innerHTML = text || ''; 
+      } 
+  }, [showEditor]); 
+
+  // --- IDEA 3: Geografische Lebenskarte (Leaflet) mit Auto-Theme (Uhrzeit) ---
   useEffect(() => {
       if (view === 'map' && mapRef.current && window.L) {
           if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; }
@@ -1843,7 +1781,10 @@ function App() {
       }
   }, [view, entries, user.nameColor]);
 
+  // --- UI RENDERERS ---
+
   if (importId && !isLoaded) return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="w-12 h-12 border-4 border-amber-50 border-t-transparent rounded-full animate-spin"></div></div>;
+  
   if (view === 'loading' || !isLoaded) return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-black"><div className="w-8 h-8 border-4 border-slate-300 dark:border-zinc-800 border-t-black dark:border-t-white rounded-full animate-spin"></div></div>;
 
   if (view === 'auth') {
@@ -1889,9 +1830,11 @@ function App() {
                    <Icon name="cloud-download" size={36} />
                </div>
             )}
+            
             <h1 className="text-3xl font-bold tracking-tight mb-2 text-slate-900 dark:text-white">{user.name ? `Willkommen, ${user.name}` : 'Backup gefunden'}</h1>
             {user.motto && <p className="text-sm font-medium opacity-60 mb-6 max-w-[250px] mx-auto italic">"{user.motto}"</p>}
             {!user.motto && <p className="text-slate-500 dark:text-slate-400 mb-8 px-4 leading-relaxed">Wir haben deine verschlüsselten Daten in der Cloud gefunden. Gib deine PIN ein, um sie auf diesem Gerät wiederherzustellen.</p>}
+            
             <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleCloudRestore(pinInput); }} className={`w-full p-4 text-center text-4xl tracking-[0.5em] rounded-2xl bg-white dark:bg-zinc-900 border-2 outline-none mb-6 transition-colors shadow-sm placeholder:opacity-30 ${pinError ? 'border-rose-500' : 'border-slate-100 dark:border-zinc-800 focus:border-blue-500'}`} placeholder="••••" />
             <button onClick={() => handleCloudRestore(pinInput)} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg active:scale-95 transition-all shadow-lg shadow-blue-500/20">Wiederherstellen</button>
             <button onClick={handleLogout} className="mt-8 text-rose-500 font-bold opacity-60 hover:opacity-100 transition-opacity">Abbrechen & Abmelden</button>
@@ -1902,29 +1845,35 @@ function App() {
 
   if (view === 'pin_entry') {
     const isBioMode = user.biometric && safeStorageGet('legacy_bio_pin') && !showPinFallback;
+    
     return (
         <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-black text-slate-900 dark:text-white">
             {isBioMode ? (
                 <div className="bg-white dark:bg-zinc-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-zinc-800 w-full max-w-sm flex flex-col items-center animate-slide-up text-center">
                     <div className="flex items-center justify-center gap-4 mb-4">
                         {user.avatar ? (
-                            <div className="w-14 h-14 rounded-full overflow-hidden shadow-sm shrink-0 border-2" style={{ borderColor: user.nameColor || 'transparent' }}>
+                            <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-sm shrink-0 border-2" style={{ borderColor: user.nameColor || 'transparent' }}>
                                 <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover scale-[1.02]" />
                             </div>
                         ) : (
-                            <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 rounded-full flex items-center justify-center shadow-sm shrink-0">
+                            <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 rounded-2xl flex items-center justify-center shadow-sm shrink-0">
                                 <Icon name="user" size={28}/>
                             </div>
                         )}
                         <span className="text-4xl font-extrabold tracking-tighter">Legacy</span>
                     </div>
+                    
                     {user.motto && <p className="text-sm font-medium opacity-60 mb-8 italic px-4 leading-relaxed">"{user.motto}"</p>}
+                    
                     <div className="w-full h-px bg-slate-100 dark:bg-zinc-800 mb-8"></div>
+                    
                     <h2 className="text-xl font-bold mb-2">Legacy entsperren</h2>
                     <p className="text-sm opacity-60 mb-8 text-center">Scanne deinen Fingerabdruck.</p>
+                    
                     <button onClick={handleBiometricUnlock} className="w-24 h-24 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mb-8 hover:scale-105 active:scale-95 transition-all shadow-sm border border-indigo-100 dark:border-indigo-500/20">
                         <Icon name="fingerprint" size={48} className="animate-pulse" />
                     </button>
+                    
                     <button onClick={() => setShowPinFallback(true)} className="w-full py-4 rounded-2xl bg-slate-100 dark:bg-zinc-800 font-bold text-sm hover:scale-[1.02] active:scale-95 transition-all mb-4 text-slate-700 dark:text-slate-300">
                         PIN verwenden
                     </button>
@@ -1936,7 +1885,7 @@ function App() {
                 <div className="bg-white dark:bg-zinc-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-zinc-800 w-full max-w-sm flex flex-col items-center animate-slide-up text-center">
                     <div className="flex items-center justify-center gap-4 mb-4">
                         {user.avatar ? (
-                            <div className="w-14 h-14 rounded-full overflow-hidden shadow-sm shrink-0 border-2" style={{ borderColor: user.nameColor || 'transparent' }}>
+                            <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-sm shrink-0 border-2" style={{ borderColor: user.nameColor || 'transparent' }}>
                                 <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover scale-[1.02]" />
                             </div>
                         ) : (
@@ -1944,16 +1893,23 @@ function App() {
                         )}
                         <span className="text-4xl font-extrabold tracking-tighter">Legacy</span>
                     </div>
+                    
                     {user.motto && <p className="text-sm font-medium opacity-60 mb-8 italic px-4 leading-relaxed">"{user.motto}"</p>}
+                    
                     <div className="w-full h-px bg-slate-100 dark:bg-zinc-800 mb-8"></div>
+                    
                     <h2 className="text-xl font-bold mb-2">App entsperren</h2>
                     <p className="opacity-60 text-sm font-medium px-4 mb-6">Gib deine PIN ein, um dein lokales Journal zu entschlüsseln.</p>
+                    
                     <div className="w-full">
                         <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockSubmit(pinInput); }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none mb-6 bg-slate-100 dark:bg-zinc-800 border border-transparent focus:border-slate-300 dark:focus:border-zinc-600 transition-colors placeholder:opacity-30 font-bold" placeholder="••••" />
+                        
                         <button onClick={() => handleUnlockSubmit(pinInput)} className="w-full py-4 font-bold rounded-2xl bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-transform shadow-md mb-4 text-lg">Entsperren</button>
+                        
                         {user.biometric && safeStorageGet('legacy_bio_pin') && (
                             <button onClick={() => { setShowPinFallback(false); }} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm flex items-center justify-center gap-2 mb-4"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
                         )}
+
                         <button onClick={handleLogout} className="w-full py-3 text-xs font-bold uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity text-rose-500 mt-2">Abmelden</button>
                     </div>
                 </div>
@@ -1980,13 +1936,8 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen pb-safe relative" onTouchStart={handlePullStart} onTouchMove={handlePullMove} onTouchEnd={handlePullEnd}>
-        <div className="fixed top-0 left-0 right-0 flex justify-center pointer-events-none z-[100]" style={{ transform: `translateY(${isRefreshing ? 80 : pullY}px)`, opacity: pullY > 10 || isRefreshing ? 1 : 0, transition: pullStartY.current === null ? 'all 0.3s ease' : 'none' }}>
-            <div className={`w-10 h-10 mt-safe bg-white dark:bg-zinc-800 rounded-full shadow-lg flex items-center justify-center border border-slate-200 dark:border-zinc-700 ${isRefreshing ? 'animate-spin' : ''}`}>
-                <Icon name="refresh-cw" size={20} className="text-accent" style={!isRefreshing ? { transform: `rotate(${pullY * 3}deg)` } : {}} />
-            </div>
-        </div>
-
+      <div className="min-h-screen pb-safe">
+        {/* --- MAIN HEADER --- */}
         <header className="sticky top-0 z-30 bg-white/80 dark:bg-black/80 backdrop-blur-2xl border-b border-slate-200/50 dark:border-zinc-800/50 px-6 py-4 flex justify-between items-center transition-colors duration-300 no-print">
           <div className="flex items-center gap-3 overflow-hidden">
             {view === 'archive' ? <h1 className="text-2xl font-extrabold tracking-tight">Archiv</h1> :
@@ -2010,9 +1961,7 @@ function App() {
             )}
           </div>
           <div className="flex gap-2 items-center">
-            {/* Timeline / Calendar Button */}
-            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowTimeline(true); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="calendar-days" size={18}/></button>
-            
+            <button type="button" onClick={() => { setViewingEntry(null); setShowTimeline(true); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="calendar-days" size={18}/></button>
             {view === 'dashboard' && (
               <>
                 <button type="button" onClick={() => setIsSearchOpen(!isSearchOpen)} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="search" size={18}/></button>
@@ -2021,6 +1970,7 @@ function App() {
             )}
             {view !== 'dashboard' && <button type="button" onClick={handleBackNavigation} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="x" size={18} /></button>}
           </div>
+
           {isSearchOpen && view === 'dashboard' && (
             <div className="absolute top-full left-0 right-0 p-4 bg-white/90 dark:bg-black/90 backdrop-blur-2xl border-b border-slate-200/50 dark:border-zinc-800/50 shadow-xl animate-slide-up z-50">
               <input type="text" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Suchen..." autoFocus className="w-full p-4 rounded-2xl bg-slate-100 dark:bg-zinc-900 border-none outline-none font-medium focus:ring-2 focus:ring-slate-300 dark:focus:ring-zinc-700 transition-shadow" />
@@ -2028,7 +1978,9 @@ function App() {
           )}
         </header>
 
+        {/* --- MAIN FEED & VIEWS --- */}
         <main className={`p-4 sm:p-6 max-w-2xl mx-auto min-h-[70vh] relative z-10 no-print ${view === 'map' ? 'h-[85vh] floating-nav-spacing flex flex-col' : 'floating-nav-spacing'}`}>
+          
           {view === 'menu' && (
             <div className="grid grid-cols-2 gap-4 sm:gap-6 animate-slide-up">
               <button onClick={() => setView('wisdom')} className="p-6 rounded-[2rem] flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-[1.02] active:scale-95 transition-transform"><Icon name="book-open" size={32} className="text-amber-500" /><span className="font-bold text-sm">Weisheit</span></button>
@@ -2041,6 +1993,7 @@ function App() {
             </div>
           )}
 
+          {/* --- ARCHIVE VIEW --- */}
           {view === 'archive' && (
               <div className="space-y-4 animate-slide-up pb-24">
                   <div className="flex justify-between items-center p-6 bg-slate-100 dark:bg-zinc-900 rounded-[2rem] mb-6 border border-slate-200 dark:border-zinc-800 shadow-sm">
@@ -2049,6 +2002,7 @@ function App() {
                           <p className="text-xs opacity-70 font-medium mt-1">{visibleEntries.length} archivierte Einträge</p>
                       </div>
                   </div>
+                  
                   {visibleEntries.length === 0 ? (
                       <div className="text-center py-20 opacity-40"><Icon name="archive" size={48} className="mx-auto mb-4"/><p className="font-bold">Archiv ist leer.</p></div>
                   ) : (
@@ -2062,7 +2016,13 @@ function App() {
                                   <div className="flex gap-2 shrink-0">
                                       <button onClick={() => saveToDB({...e, archived: false})} className="w-12 h-12 flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Wiederherstellen"><Icon name="rotate-ccw" size={20}/></button>
                                       <button onClick={() => {
-                                          showDialog({ title: 'Endgültig löschen?', message: `"${e.title || 'Ohne Titel'}" wird für immer gelöscht.`, icon: 'trash-2', iconColor: 'text-rose-500', onConfirm: () => deleteFromDB(e.id) });
+                                          showDialog({
+                                              title: 'Endgültig löschen?',
+                                              message: `"${e.title || 'Ohne Titel'}" wird für immer gelöscht.`,
+                                              icon: 'trash-2',
+                                              iconColor: 'text-rose-500',
+                                              onConfirm: () => deleteFromDB(e.id)
+                                          });
                                       }} className="w-12 h-12 flex items-center justify-center bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Endgültig löschen"><Icon name="x" size={20}/></button>
                                   </div>
                               </div>
@@ -2072,6 +2032,7 @@ function App() {
               </div>
           )}
 
+          {/* --- TRASH VIEW --- */}
           {view === 'trash' && (
               <div className="space-y-4 animate-slide-up pb-24">
                   <div className="flex justify-between items-center p-6 bg-rose-50 dark:bg-rose-500/10 rounded-[2rem] mb-6 text-rose-500 border border-rose-100 dark:border-rose-900/30 shadow-sm">
@@ -2081,10 +2042,21 @@ function App() {
                       </div>
                       {visibleEntries.length > 0 && (
                           <button onClick={() => {
-                              showDialog({ title: 'Papierkorb leeren', message: 'Möchtest du alle Einträge unwiderruflich löschen?', icon: 'alert-triangle', iconColor: 'text-rose-500', onConfirm: async () => { for (const e of visibleEntries) { await deleteFromDB(e.id); } } });
+                              showDialog({
+                                  title: 'Papierkorb leeren',
+                                  message: 'Möchtest du alle Einträge unwiderruflich löschen?',
+                                  icon: 'alert-triangle',
+                                  iconColor: 'text-rose-500',
+                                  onConfirm: async () => {
+                                      for (const e of visibleEntries) {
+                                          await deleteFromDB(e.id);
+                                      }
+                                  }
+                              });
                           }} className="px-5 py-3 bg-rose-500 text-white rounded-xl font-bold text-sm uppercase tracking-widest shadow-md hover:scale-105 active:scale-95 transition-transform">Leeren</button>
                       )}
                   </div>
+                  
                   {visibleEntries.length === 0 ? (
                       <div className="text-center py-20 opacity-40"><Icon name="trash" size={48} className="mx-auto mb-4"/><p className="font-bold">Papierkorb ist leer.</p></div>
                   ) : (
@@ -2098,7 +2070,13 @@ function App() {
                                   <div className="flex gap-2 shrink-0">
                                       <button onClick={() => saveToDB({...e, trashed: false})} className="w-12 h-12 flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Wiederherstellen"><Icon name="rotate-ccw" size={20}/></button>
                                       <button onClick={() => {
-                                          showDialog({ title: 'Endgültig löschen?', message: `"${e.title || 'Ohne Titel'}" wird für immer gelöscht.`, icon: 'trash-2', iconColor: 'text-rose-500', onConfirm: () => deleteFromDB(e.id) });
+                                          showDialog({
+                                              title: 'Endgültig löschen?',
+                                              message: `"${e.title || 'Ohne Titel'}" wird für immer gelöscht.`,
+                                              icon: 'trash-2',
+                                              iconColor: 'text-rose-500',
+                                              onConfirm: () => deleteFromDB(e.id)
+                                          });
                                       }} className="w-12 h-12 flex items-center justify-center bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Endgültig löschen"><Icon name="x" size={20}/></button>
                                   </div>
                               </div>
@@ -2108,6 +2086,7 @@ function App() {
               </div>
           )}
 
+          {/* --- SETTINGS VIEW --- */}
           {view === 'settings' && (
              <div className="animate-slide-up space-y-6 pb-48">
                 <div className="p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
@@ -2118,7 +2097,7 @@ function App() {
                                {user.avatar ? <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover scale-[1.02]" /> : <Icon name="user" size={40} className="opacity-30 text-slate-900 dark:text-white" />}
                            </div>
                            {user.avatar && (
-                               <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); const updated = {...user, avatar: null}; setUser(updated); safeStorageSet('legacy_user', JSON.stringify(updated)); syncProfileToCloud(updated); }} className="absolute top-0 right-0 w-7 h-7 flex items-center justify-center bg-rose-500 text-white rounded-full shadow-md hover:scale-110 active:scale-95 transition-transform z-10 border-2 border-white dark:border-zinc-900"><Icon name="x" size={12}/></button>
+                               <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); const updated = {...user, avatar: null}; setUser(updated); safeStorageSet('legacy_user', JSON.stringify(updated)); syncProfileToCloud(updated); }} className="absolute top-0 right-0 p-1.5 bg-rose-500 text-white rounded-full shadow-md hover:scale-110 active:scale-95 transition-transform z-10 border-2 border-white dark:border-zinc-900"><Icon name="x" size={12}/></button>
                            )}
                        </div>
                        <label className="w-full sm:flex-1 py-4 px-4 rounded-2xl cursor-pointer shadow-sm font-bold text-sm text-center border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 hover:scale-[1.02] active:scale-95 transition-transform">
@@ -2135,16 +2114,23 @@ function App() {
                       <button onClick={() => setUser({...user, isDark: false})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${!user.isDark ? 'bg-white shadow-sm text-black' : 'text-slate-500'}`}>Hell</button>
                       <button onClick={() => setUser({...user, isDark: true})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${user.isDark ? 'bg-zinc-800 shadow-sm text-white' : 'text-slate-500'}`}>Dunkel</button>
                    </div>
+                   
                    <span className="text-xs font-bold uppercase tracking-widest opacity-60 mb-3 block">Hintergrund (App)</span>
                    <div className="flex flex-wrap gap-3 mb-8">
                       <button onClick={() => setUser({...user, appBgColor: null})} className={`w-10 h-10 rounded-full border-2 transition-transform flex items-center justify-center ${!user.appBgColor ? 'border-slate-400 dark:border-zinc-500 scale-110 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: user.isDark ? '#000000' : '#f8fafc' }}><Icon name="slash" size={16} className="opacity-50" /></button>
-                      {COLORS.map(color => <ColorBtn key={color} color={color} isBg={true} user={user} setUser={setUser}/>)}
+                      {COLORS.map(color => (
+                          <button key={color} onClick={() => setUser({...user, appBgColor: color})} className={`w-10 h-10 rounded-full border-2 transition-transform ${user.appBgColor === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
+                      ))}
                    </div>
+
                    <span className="text-xs font-bold uppercase tracking-widest opacity-60 mb-3 block">Schriftfarbe</span>
                    <div className="flex flex-wrap gap-3 mb-8">
                       <button onClick={() => setUser({...user, textColor: null})} className={`w-10 h-10 rounded-full border-2 transition-transform flex items-center justify-center ${!user.textColor ? 'border-slate-400 dark:border-zinc-500 scale-110 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: user.isDark ? '#ffffff' : '#0f172a' }}><Icon name="slash" size={16} className={user.isDark ? 'text-black' : 'text-white'} /></button>
-                      {COLORS.map(color => <ColorBtn key={color} color={color} isBg={false} user={user} setUser={setUser}/>)}
+                      {COLORS.map(color => (
+                          <button key={color} onClick={() => setUser({...user, textColor: color, nameColor: color})} className={`w-10 h-10 rounded-full border-2 transition-transform ${user.textColor === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
+                      ))}
                    </div>
+
                    <span className="text-xs font-bold uppercase tracking-widest opacity-60 mb-3 block">Darstellungsgröße</span>
                    <div className="flex gap-2">
                       <button onClick={() => setUser({...user, uiScale: 0.9})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${user.uiScale === 0.9 ? 'bg-black dark:bg-white text-white dark:text-black shadow-sm' : 'bg-slate-100 dark:bg-zinc-950 text-slate-500'}`}>A-</button>
@@ -2180,6 +2166,7 @@ function App() {
 
                 <div className="p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
                    <h2 className="text-lg font-bold mb-6 flex items-center gap-2"><Icon name="key" size={20}/> Sicherheit & PIN</h2>
+                   
                    {!user.pin ? (
                        <div className="space-y-4">
                            <p className="text-sm font-medium opacity-70">Lege eine PIN fest, um den App-Start abzusichern & Cloud-Daten zu verschlüsseln.</p>
@@ -2208,6 +2195,8 @@ function App() {
                            </div>
                        )
                    )}
+
+                   {/* Biometric Toggle */}
                    {window.PublicKeyCredential && user.pin && !isChangingPin && (
                        <div className="flex justify-between items-center mt-6 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800">
                            <div className="flex items-center gap-3">
@@ -2224,6 +2213,7 @@ function App() {
                    )}
                 </div>
 
+                {/* Abmelden Button */}
                 <div className="p-8 rounded-[2.5rem] bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 shadow-sm flex flex-col items-center text-center">
                    <h2 className="text-lg font-bold mb-2 text-rose-600 dark:text-rose-400 flex items-center gap-2"><Icon name="log-out" size={20}/> Abmelden</h2>
                    <p className="text-sm font-medium opacity-70 mb-6 text-rose-600 dark:text-rose-400">Beende deine aktuelle Sitzung sicher auf diesem Gerät.</p>
@@ -2290,8 +2280,12 @@ function App() {
                          <div className="flex gap-4 items-start">
                              <div className="shrink-0 mt-1" style={{ color: user.nameColor }}><Icon name="quote" size={28} /></div>
                              <div className="flex-1">
-                                 <p className="text-[1.05rem] leading-[1.8] font-medium legacy-content text-slate-800 dark:text-slate-200 mb-4 opacity-90">{q.text}</p>
-                                 <div className="text-xs font-bold uppercase tracking-widest opacity-40 text-slate-500">{q.title} • {new Date(q.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
+                                 <p className="text-xl font-serif italic font-medium leading-relaxed mb-4 text-slate-800 dark:text-slate-200">
+                                    {q.text}
+                                 </p>
+                                 <div className="text-xs font-bold uppercase tracking-widest opacity-40 text-slate-500">
+                                    {q.title} • {new Date(q.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                 </div>
                              </div>
                          </div>
                       </div>
@@ -2309,192 +2303,149 @@ function App() {
 
           {['dashboard', 'archive'].includes(view) && (
             <div className={`grid gap-6 pb-32 ${isGridView && view === 'dashboard' ? 'grid-cols-2' : 'grid-cols-1'}`}>
-              {renderEntries.map((entry, idx) => (
-                 <EntryCard 
-                     key={entry.id} 
-                     entry={entry} 
-                     onClick={handleOpenEntry} 
-                     isGridView={isGridView && view === 'dashboard'} 
-                     userColor={user.nameColor} 
-                     isDarkTheme={user.isDark} 
-                     searchQuery={searchQuery}
-                     onMoveUp={(e) => moveEntryUp(e, idx)}
-                     onMoveDown={(e) => moveEntryDown(e, idx)}
-                     showMoveControls={view === 'dashboard' && !searchQuery && activeCategory === 'Alle'}
-                 />
+              {renderEntries.map(entry => (
+                 <EntryCard key={entry.id} entry={entry} onClick={handleOpenEntry} isGridView={isGridView && view === 'dashboard'} userColor={user.nameColor} isDarkTheme={user.isDark} searchQuery={searchQuery} />
               ))}
             </div>
           )}
         </main>
 
-        <nav className={`floating-nav transition-opacity duration-300 ${viewingEntry || showEditor || !['dashboard', 'menu'].includes(view) ? 'opacity-0 pointer-events-none hidden' : 'opacity-100'}`}>
-          <div className="relative flex justify-between items-center h-[72px] px-6">
-            <button onClick={() => { setViewingEntry(null); if(view==='dashboard') setIsGridView(!isGridView); else setView('dashboard'); }} className={`p-2 transition-all rounded-full ${view === 'dashboard' && !viewingEntry ? 'text-accent scale-110' : 'text-slate-400 opacity-60 hover:opacity-100 hover:scale-105'}`} style={view === 'dashboard' && !viewingEntry ? { color: user.nameColor || '#000000' } : { color: 'inherit' }}>
-              <Icon name={isGridView && view === 'dashboard' ? "list" : "layout-grid"} size={26} />
-            </button>
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                <button onClick={() => { setViewingEntry(null); openEditor(); }} className="w-16 h-16 rounded-[1.5rem] text-white dark:text-black shadow-xl flex items-center justify-center hover:scale-110 active:scale-90 transition-transform border-[4px] border-white dark:border-zinc-800" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') }}>
-                  <Icon name="plus" size={32} />
-                </button>
+        {/* --- FLOATING BOTTOM NAV (Premium Style) --- */}
+        {!showEditor && ['dashboard', 'menu'].includes(view) && (
+          <nav className="floating-nav">
+            <div className="relative flex justify-between items-center h-[72px] px-6">
+              <button onClick={() => { setViewingEntry(null); if(view==='dashboard') setIsGridView(!isGridView); else setView('dashboard'); }} className={`p-2 transition-all rounded-full ${view === 'dashboard' && !viewingEntry ? 'text-accent scale-110' : 'text-slate-400 opacity-60 hover:opacity-100 hover:scale-105'}`} style={view === 'dashboard' && !viewingEntry ? { color: user.nameColor || '#000000' } : { color: 'inherit' }}>
+                <Icon name={isGridView && view === 'dashboard' ? "list" : "layout-grid"} size={26} />
+              </button>
+              
+              {/* Centered Floating Plus Button */}
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                  <button onClick={() => { setViewingEntry(null); openEditor(); }} className="w-16 h-16 rounded-[1.5rem] text-white dark:text-black shadow-xl flex items-center justify-center hover:scale-110 active:scale-90 transition-transform border-[4px] border-white dark:border-zinc-800" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') }}>
+                    <Icon name="plus" size={32} />
+                  </button>
+              </div>
+
+              {/* Settings Icon */}
+              <button onClick={() => { setViewingEntry(null); setView('settings'); }} className={`p-2 transition-all rounded-full ${view === 'settings' && !viewingEntry ? 'text-slate-900 dark:text-white scale-110 shadow-inner bg-slate-100 dark:bg-zinc-800' : 'text-slate-400 hover:text-slate-900 dark:hover:text-white hover:scale-105'}`}>
+                <Icon name="settings" size={26} />
+              </button>
             </div>
-            <button onClick={() => { setViewingEntry(null); setView('settings'); }} className={`p-2 transition-all rounded-full ${view === 'settings' && !viewingEntry ? 'text-slate-900 dark:text-white scale-110 shadow-inner bg-slate-100 dark:bg-zinc-800' : 'text-slate-400 hover:text-slate-900 dark:hover:text-white hover:scale-105'}`}>
-              <Icon name="settings" size={26} />
-            </button>
-          </div>
-        </nav>
-
-        {/* --- TIMELINE / CALENDAR MODAL --- */}
-        <div className={`fixed inset-0 z-[150] bg-slate-50 dark:bg-black flex flex-col spring-modal ${showTimeline ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}`}>
-          <header className="flex-none p-4 sm:p-6 pt-safe flex justify-between items-center bg-white/90 dark:bg-black/90 backdrop-blur-xl border-b border-slate-200/50 dark:border-zinc-800/50">
-             <button onClick={() => setShowTimeline(false)} className="p-3 bg-slate-100 dark:bg-zinc-900 rounded-2xl hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-down" size={22}/></button>
-             <h2 className="text-xl font-extrabold tracking-tight">Timeline</h2>
-             <div className="w-12"></div>
-          </header>
-          <div className="flex-auto overflow-y-auto p-4 sm:p-6 custom-scrollbar pb-safe">
-             <div className="max-w-2xl mx-auto pb-12">
-                 {Object.keys(groupedTimelineEntries).length === 0 ? (
-                     <div className="text-center py-20 opacity-40"><Icon name="calendar" size={48} className="mx-auto mb-4"/><p className="font-bold">Keine Einträge in der Timeline.</p></div>
-                 ) : (
-                     Object.entries(groupedTimelineEntries).map(([monthYear, monthEntries]) => (
-                         <div key={monthYear} className="mb-8 relative">
-                             <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-6 sticky top-0 bg-slate-50/90 dark:bg-black/90 backdrop-blur-sm py-2 z-10">{monthYear}</h3>
-                             <div className="space-y-4 relative before:absolute before:inset-y-0 before:left-[19px] before:w-0.5 before:bg-slate-200 dark:before:bg-zinc-800">
-                                 {monthEntries.map(entry => (
-                                     <div key={entry.id} className="relative pl-12 group cursor-pointer" onClick={() => { setShowTimeline(false); handleOpenEntry(entry); }}>
-                                         <div className="absolute left-[15px] top-5 w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-zinc-700 group-hover:scale-150 transition-all shadow-[0_0_0_4px_var(--bg-color)] z-10" style={{ '--bg-color': user.isDark ? '#000' : '#f8fafc', backgroundColor: user.nameColor || '#f59e0b' }}></div>
-                                         <div className="p-4 bg-white dark:bg-zinc-900 rounded-[1.5rem] shadow-sm border border-slate-100 dark:border-zinc-800 group-hover:shadow-md transition-all group-hover:-translate-y-0.5">
-                                             <div className="text-xs font-bold mb-1.5 opacity-60">{new Date(entry.orderTimestamp || entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'long' })}</div>
-                                             <h4 className="font-bold text-lg leading-tight mb-2 text-slate-900 dark:text-white">{entry.title || 'Ohne Titel'}</h4>
-                                             {entry.text && <p className="text-sm opacity-70 line-clamp-2 leading-relaxed" dangerouslySetInnerHTML={{__html: entry.text.replace(/<[^>]*>?/gm, '')}}></p>}
-                                             {entry.images && entry.images.length > 0 && (
-                                                <div className="mt-3 w-16 h-16 rounded-xl overflow-hidden border border-slate-100 dark:border-zinc-800"><img src={entry.images[0]} className="w-full h-full object-cover"/></div>
-                                             )}
-                                         </div>
-                                     </div>
-                                 ))}
-                             </div>
-                         </div>
-                     ))
-                 )}
-             </div>
-          </div>
-        </div>
-
-        {/* --- LESE-FENSTER (VIEWER) --- */}
-        {viewingEntry && (
-           <div className={`fixed inset-0 z-[80] overflow-y-auto bg-white dark:bg-black custom-scrollbar flex flex-col screen-only spring-modal transform origin-top ${showEditor ? 'scale-[0.96] opacity-50 pointer-events-none filter blur-[2px]' : 'scale-100 opacity-100 blur-none'}`} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-             
-             {(() => {
-                 const bookRoot = getBookRoot(viewingEntry.id);
-                 const unsortedEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
-                 const allBookEntries = [...unsortedEntries].sort((a, b) => new Date(a.orderTimestamp || a.date).getTime() - new Date(b.orderTimestamp || b.date).getTime());
-                 const cIdx = allBookEntries.findIndex(ex => ex && ex.id === viewingEntry.id);
-                 const prevPage = cIdx > 0 ? allBookEntries[cIdx - 1] : null;
-                 const nextPage = cIdx < allBookEntries.length - 1 ? allBookEntries[cIdx + 1] : null;
-                 
-                 return (
-                     <>
-                         {prevPage && <button onClick={() => setViewingEntry(prevPage)} className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 p-4 bg-white/50 dark:bg-black/50 backdrop-blur-md shadow-sm rounded-full hover:scale-110 active:scale-95 transition-transform z-50 text-slate-800 dark:text-white"><Icon name="chevron-left" size={24}/></button>}
-                         {nextPage && <button onClick={() => setViewingEntry(nextPage)} className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 p-4 bg-white/50 dark:bg-black/50 backdrop-blur-md shadow-sm rounded-full hover:scale-110 active:scale-95 transition-transform z-50 text-slate-800 dark:text-white"><Icon name="chevron-right" size={24}/></button>}
-
-                         <div className="sticky top-0 z-40 flex justify-between items-center py-4 px-6 md:px-10 bg-white/90 dark:bg-black/90 backdrop-blur-xl border-b border-slate-100 dark:border-zinc-900 shrink-0 no-print transition-colors">
-                           <div className="flex gap-3">
-                             <button onClick={() => {setViewingEntry(null); setCurrentViewerImgIdx(0);}} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
-                           </div>
-                           <div className="flex gap-2 sm:gap-3">
-                             <button onClick={() => window.print()} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500"><Icon name="printer" size={22}/></button>
-                             <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
-                             
-                             <button onClick={() => { openEditor(viewingEntry); }} className="px-4 sm:px-6 py-3 rounded-2xl font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
-                           </div>
-                         </div>
-
-                         <div className="max-w-3xl w-full mx-auto p-6 sm:p-12 pb-32 screen-only flex-1 flex flex-col">
-                            {viewingEntry.images && viewingEntry.images.length > 0 && (
-                              <div className="relative w-full aspect-video rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-10 group bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
-                                  <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-contain transition-transform duration-700" alt="Cover" />
-                                  
-                                  <label className="absolute top-4 right-4 w-12 h-12 bg-black/60 text-white rounded-full flex items-center justify-center shadow-xl cursor-pointer z-[60] hover:bg-black/80 transition-colors border-2 border-white/20" title="Dieses Bild ändern">
-                                      <Icon name="image" size={20}/>
-                                      <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id, currentViewerImgIdx)} className="hidden" />
-                                  </label>
-
-                                  {viewingEntry.images.length > 1 && (
-                                      <>
-                                          <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p - 1 + viewingEntry.images.length) % viewingEntry.images.length); }} className="absolute left-6 top-1/2 -translate-y-1/2 bg-black/50 text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print backdrop-blur-md hover:bg-black/70"><Icon name="chevron-left" size={24}/></button>
-                                          <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p + 1) % viewingEntry.images.length); }} className="absolute right-6 top-1/2 -translate-y-1/2 bg-black/50 text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print backdrop-blur-md hover:bg-black/70"><Icon name="chevron-right" size={24}/></button>
-                                          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 bg-black/40 px-4 py-2 rounded-full backdrop-blur-md no-print">
-                                              {viewingEntry.images.map((_, i) => <div key={i} className={`w-2.5 h-2.5 rounded-full transition-colors shadow-sm ${i === currentViewerImgIdx ? 'bg-white' : 'bg-white/40'}`} />)}
-                                          </div>
-                                      </>
-                                  )}
-                              </div>
-                            )}
-
-                            {(!viewingEntry.images || viewingEntry.images.length === 0) && (
-                                <label className="mb-8 w-fit px-6 py-3 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 font-bold text-sm cursor-pointer hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors flex items-center gap-2 border border-slate-200 dark:border-zinc-700 shadow-sm" title="Cover hinzufügen">
-                                    <Icon name="image" size={18}/> Cover hinzufügen
-                                    <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id, 0)} className="hidden" />
-                                </label>
-                            )}
-
-                            <h1 className="text-4xl sm:text-6xl font-extrabold mb-8 tracking-tighter leading-[1.1] text-slate-900 dark:text-white">{viewingEntry.title || 'Ohne Titel'}</h1>
-                            <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
-                              <span>{new Date(viewingEntry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
-                            </div>
-                            
-                            <div className="flex flex-wrap gap-2 mb-12 no-print">
-                                {viewingEntry.tags && viewingEntry.tags.split(',').map(t => t.trim()).filter(t=>t).map((t, i) => (
-                                    <span key={i} className="px-4 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="tag" size={14}/> {t}</span>
-                                ))}
-                                {viewingEntry.people && viewingEntry.people.split(',').map(p => p.trim()).filter(p=>p).map((p, i) => (
-                                    <span key={i} className="px-4 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="user" size={14}/> {p}</span>
-                                ))}
-                                {viewingEntry.weather && (
-                                    <span className="px-4 py-1.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-xl text-xs font-bold flex items-center gap-1.5 w-full sm:w-auto"><Icon name="sun" size={14}/> {viewingEntry.weather}</span>
-                                )}
-                                {viewingEntry.locations && viewingEntry.locations.length > 0 ? viewingEntry.locations.map((loc, i) => (
-                                    <span key={`loc-view-${i}`} className="px-4 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="map-pin" size={14}/> {loc.name} • {loc.time} {loc.weather ? `• ${loc.weather}` : ''}</span>
-                                )) : (viewingEntry.location && (
-                                    <span className="px-4 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="map-pin" size={14}/> {viewingEntry.location.name ? `${viewingEntry.location.name} (${viewingEntry.location.time})` : 'GPS-Siegel'}</span>
-                                ))}
-                                {viewingEntry.rating > 0 && (
-                                    <div className="flex items-center gap-1 ml-auto bg-amber-50 dark:bg-amber-900/30 px-4 py-1.5 rounded-xl">
-                                        {[1,2,3,4,5].map(star => <Icon key={star} name="star" size={16} className={viewingEntry.rating >= star ? 'text-amber-500 fill-amber-500' : 'text-amber-200 dark:text-amber-900'} />)}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="text-[1.05rem] leading-[1.8] font-medium legacy-content text-slate-800 dark:text-slate-200 opacity-90" dangerouslySetInnerHTML={createSafeHtml(viewingEntry.text)} />
-                            {viewingEntry.audio && <div className="mt-12 p-6 rounded-[2rem] bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm no-print"><span className="text-xs font-bold uppercase tracking-widest opacity-50 mb-4 block">Audio-Log</span><audio src={viewingEntry.audio} controls className="w-full" /></div>}
-                            
-                            <div className="mt-20 pt-10 border-t border-slate-100 dark:border-zinc-800 flex justify-center no-print">
-                                <button onClick={() => startNewChapter(viewingEntry)} className="px-8 py-4 font-bold rounded-full flex items-center gap-3 hover:scale-105 active:scale-95 transition-transform shadow-lg text-lg" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}><Icon name="plus" size={24}/> Neues Kapitel anfügen</button>
-                            </div>
-
-                            {allBookEntries.length > 1 && (
-                                <div className="flex justify-between items-center mt-16 pt-8 border-t border-slate-100 dark:border-zinc-800 no-print pb-24">
-                                    {prevPage ? (
-                                        <button onClick={() => setViewingEntry(prevPage)} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100 transition-colors" style={{ color: user.nameColor }}><Icon name="arrow-left" size={18}/> Vorherige Seite</button>
-                                    ) : <div/>}
-                                    <span className="text-xs font-bold opacity-30 uppercase tracking-widest">Seite {cIdx + 1} von {allBookEntries.length}</span>
-                                    {nextPage ? (
-                                        <button onClick={() => setViewingEntry(nextPage)} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100 transition-colors" style={{ color: user.nameColor }}>Nächste Seite <Icon name="arrow-right" size={18}/></button>
-                                    ) : <div/>}
-                                </div>
-                            )}
-                         </div>
-                     </>
-                 );
-             })()}
-           </div>
+          </nav>
         )}
 
-        {/* --- PRINT VIEW ONLY --- */}
+        {/* --- VIEWER --- */}
         {viewingEntry && !showEditor && (() => {
-          const bookRoot = getBookRoot(viewingEntry.id);
-          const chronologicalBookEntries = [...getAllBookEntries(bookRoot?.id || viewingEntry.id)].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-          return (
+           const bookRoot = getBookRoot(viewingEntry.id);
+           const allBookEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
+           const cIdx = allBookEntries.findIndex(ex => ex && ex.id === viewingEntry.id);
+           const prevPage = cIdx > 0 ? allBookEntries[cIdx - 1] : null;
+           const nextPage = cIdx < allBookEntries.length - 1 ? allBookEntries[cIdx + 1] : null;
+
+           return (
+             <div className="fixed inset-0 z-[80] overflow-y-auto bg-white dark:bg-black animate-fade-in custom-scrollbar flex flex-col screen-only" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+               
+               {/* Left/Right Floating Navigation for Desktop */}
+               {prevPage && <button onClick={() => setViewingEntry(prevPage)} className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 p-4 bg-white/50 dark:bg-black/50 backdrop-blur-md shadow-sm rounded-full hover:scale-110 active:scale-95 transition-transform z-50 text-slate-800 dark:text-white"><Icon name="chevron-left" size={24}/></button>}
+               {nextPage && <button onClick={() => setViewingEntry(nextPage)} className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 p-4 bg-white/50 dark:bg-black/50 backdrop-blur-md shadow-sm rounded-full hover:scale-110 active:scale-95 transition-transform z-50 text-slate-800 dark:text-white"><Icon name="chevron-right" size={24}/></button>}
+
+               <div className="sticky top-0 z-40 flex justify-between items-center py-4 px-6 md:px-10 bg-white/90 dark:bg-black/90 backdrop-blur-xl border-b border-slate-100 dark:border-zinc-900 shrink-0 no-print transition-colors">
+                 <div className="flex gap-3">
+                   <button onClick={() => {setViewingEntry(null); setCurrentViewerImgIdx(0);}} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
+                 </div>
+                 <div className="flex gap-2 sm:gap-3">
+                   <button onClick={() => window.print()} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500"><Icon name="printer" size={22}/></button>
+                   <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
+                   
+                   {/* Haupt-Cover ändern (oben links neben Drucker) - IMMER SICHTBAR AUF HANDY! */}
+                   <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500 cursor-pointer flex items-center justify-center shadow-sm shrink-0 relative overflow-hidden" title="Tagebuch-Cover ändern">
+                       <Icon name="image" size={22}/>
+                       <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, bookRoot?.id || viewingEntry.id, 0)} className="absolute opacity-0 w-[200%] h-[200%] top-0 left-0 cursor-pointer" />
+                   </label>
+
+                   <button onClick={() => { const e = viewingEntry; setViewingEntry(null); setTimeout(() => openEditor(e), 10); }} className="px-4 sm:px-6 py-3 rounded-2xl font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
+                 </div>
+               </div>
+
+               <div className="max-w-3xl w-full mx-auto p-6 sm:p-12 pb-32 screen-only flex-1 flex flex-col">
+                  {viewingEntry.images && viewingEntry.images.length > 0 && (
+                    <div className="relative w-full aspect-video rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-10 group bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
+                        <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-contain transition-transform duration-700" alt="Cover" />
+                        
+                        {/* Bild-spezifisch ändern (Sichtbar auf dem Bild selbst) */}
+                        <label className="absolute top-4 right-4 p-3 bg-black/60 text-white rounded-full flex items-center justify-center shadow-lg cursor-pointer z-50 opacity-100 relative overflow-hidden" title="Dieses Bild ändern">
+                            <Icon name="image" size={16}/>
+                            <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id, currentViewerImgIdx)} className="absolute opacity-0 w-[200%] h-[200%] top-0 left-0 cursor-pointer" />
+                        </label>
+
+                        {viewingEntry.images.length > 1 && (
+                            <>
+                                <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p - 1 + viewingEntry.images.length) % viewingEntry.images.length); }} className="absolute left-6 top-1/2 -translate-y-1/2 bg-black/50 text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print backdrop-blur-md hover:bg-black/70"><Icon name="chevron-left" size={24}/></button>
+                                <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p + 1) % viewingEntry.images.length); }} className="absolute right-6 top-1/2 -translate-y-1/2 bg-black/50 text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print backdrop-blur-md hover:bg-black/70"><Icon name="chevron-right" size={24}/></button>
+                                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 bg-black/40 px-4 py-2 rounded-full backdrop-blur-md no-print">
+                                    {viewingEntry.images.map((_, i) => <div key={i} className={`w-2.5 h-2.5 rounded-full transition-colors shadow-sm ${i === currentViewerImgIdx ? 'bg-white' : 'bg-white/40'}`} />)}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                  )}
+
+                  <h1 className="text-4xl sm:text-6xl font-extrabold mb-8 tracking-tighter leading-[1.1] text-slate-900 dark:text-white">{viewingEntry.title || 'Ohne Titel'}</h1>
+                  <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
+                    <span>{new Date(viewingEntry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                  </div>
+                  
+                  {/* Meta-Data Pills */}
+                  <div className="flex flex-wrap gap-2 mb-12 no-print">
+                      {viewingEntry.tags && viewingEntry.tags.split(',').map(t => t.trim()).filter(t=>t).map((t, i) => (
+                          <span key={i} className="px-4 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="tag" size={14}/> {t}</span>
+                      ))}
+                      {viewingEntry.people && viewingEntry.people.split(',').map(p => p.trim()).filter(p=>p).map((p, i) => (
+                          <span key={i} className="px-4 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="user" size={14}/> {p}</span>
+                      ))}
+                      {viewingEntry.weather && (
+                          <span className="px-4 py-1.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-xl text-xs font-bold flex items-center gap-1.5 w-full sm:w-auto"><Icon name="sun" size={14}/> {viewingEntry.weather}</span>
+                      )}
+                      
+                      {/* Multi-GPS Viewer in Dunkelgrün */}
+                      {viewingEntry.locations && viewingEntry.locations.length > 0 ? viewingEntry.locations.map((loc, i) => (
+                          <span key={`loc-view-${i}`} className="px-4 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="map-pin" size={14}/> {loc.name} • {loc.time} {loc.weather ? `• ${loc.weather}` : ''}</span>
+                      )) : (viewingEntry.location && (
+                          <span className="px-4 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="map-pin" size={14}/> {viewingEntry.location.name ? `${viewingEntry.location.name} (${viewingEntry.location.time})` : 'GPS-Siegel'}</span>
+                      ))}
+
+                      {viewingEntry.rating > 0 && (
+                          <div className="flex items-center gap-1 ml-auto bg-amber-50 dark:bg-amber-900/30 px-4 py-1.5 rounded-xl">
+                              {[1,2,3,4,5].map(star => <Icon key={star} name="star" size={16} className={viewingEntry.rating >= star ? 'text-amber-500 fill-amber-500' : 'text-amber-200 dark:text-amber-900'} />)}
+                          </div>
+                      )}
+                  </div>
+
+                  <div className="text-xl leading-relaxed font-medium opacity-90 legacy-content text-slate-800 dark:text-slate-200" dangerouslySetInnerHTML={createSafeHtml(viewingEntry.text)} />
+                  {viewingEntry.audio && <div className="mt-12 p-6 rounded-[2rem] bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm no-print"><span className="text-xs font-bold uppercase tracking-widest opacity-50 mb-4 block">Audio-Log</span><audio src={viewingEntry.audio} controls className="w-full" /></div>}
+                  
+                  <div className="mt-20 pt-10 border-t border-slate-100 dark:border-zinc-800 flex justify-center no-print">
+                      <button onClick={() => startNewChapter(viewingEntry)} className="px-8 py-4 font-bold rounded-full flex items-center gap-3 hover:scale-105 active:scale-95 transition-transform shadow-lg text-lg" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}><Icon name="plus" size={24}/> Neues Kapitel anfügen</button>
+                  </div>
+
+                  {/* Navigation für Buch-Seiten */}
+                  {allBookEntries.length > 1 && (
+                      <div className="flex justify-between items-center mt-16 pt-8 border-t border-slate-100 dark:border-zinc-800 no-print pb-24">
+                          {prevPage ? (
+                              <button onClick={() => setViewingEntry(prevPage)} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100 transition-colors" style={{ color: user.nameColor }}><Icon name="arrow-left" size={18}/> Vorherige Seite</button>
+                          ) : <div/>}
+                          <span className="text-xs font-bold opacity-30 uppercase tracking-widest">Seite {cIdx + 1} von {allBookEntries.length}</span>
+                          {nextPage ? (
+                              <button onClick={() => setViewingEntry(nextPage)} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100 transition-colors" style={{ color: user.nameColor }}>Nächste Seite <Icon name="arrow-right" size={18}/></button>
+                          ) : <div/>}
+                      </div>
+                  )}
+               </div>
+             </div>
+           );
+        })()}
+
+        {/* --- PRINT VIEW ONLY --- */}
+        {viewingEntry && !showEditor && (
           <div className="print-only w-full max-w-4xl mx-auto p-8">
             <div className="print-title-page page-break-after">
                <h1 style={{fontSize: '56px', marginBottom: '20px', fontFamily: 'Inter, sans-serif'}}>{user.appName || 'Legacy Vision Journal'}</h1>
@@ -2506,20 +2457,21 @@ function App() {
             <div className="print-toc page-break-after">
                <h2 style={{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px', fontFamily: 'Inter, sans-serif'}}>Inhaltsverzeichnis</h2>
                <ul style={{listStyle: 'none', padding: 0}}>
-                   {chronologicalBookEntries.map((e, idx) => (
+                   {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
                        <li key={idx} style={{marginBottom: '15px', fontSize: '18px'}}><strong>{idx+1}.</strong> {e.title || 'Ohne Titel'}</li>
                    ))}
                </ul>
             </div>
 
             <div className="print-book-content">
-               {chronologicalBookEntries.map((e, idx) => (
+               {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
                    <div key={e.id} className="page-break-after" style={{ marginBottom: '60px', paddingTop: '20px' }}>
                        <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
                            <h1 style={{ fontSize: '36px', fontWeight: 'bold', marginBottom: '10px', fontFamily: 'Inter, sans-serif' }}>{e.title || 'Ohne Titel'}</h1>
                            <p style={{ opacity: 0.6, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '12px' }}>
                                {new Date(e.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category || 'Allgemein'}
                            </p>
+                           {/* UPDATE: Tags, GPS und Personen beim Drucken anzeigen */}
                            <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', flexWrap: 'wrap', marginTop: '15px', fontSize: '12px' }}>
                                {e.tags && <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>Tags: {e.tags}</span>}
                                {e.people && <span style={{ color: '#6366f1', fontWeight: 'bold' }}>Personen: {e.people}</span>}
@@ -2528,17 +2480,21 @@ function App() {
                                ))}
                            </div>
                        </div>
-                       {e.images && e.images.length > 0 && <img src={e.images[0]} style={{ width: '100%', maxHeight: '500px', objectFit: 'contain', marginBottom: '30px', borderRadius: '16px' }} alt="Cover" />}
-                       <div className="text-[1.05rem] leading-[1.8] font-medium legacy-content text-slate-800 dark:text-slate-200" dangerouslySetInnerHTML={createSafeHtml(e.text)}></div>
+                       
+                       {e.images && e.images.length > 0 && (
+                           <img src={e.images[0]} style={{ width: '100%', maxHeight: '500px', objectFit: 'contain', marginBottom: '30px', borderRadius: '16px' }} alt="Cover" />
+                       )}
+                       
+                       <div className="text-lg leading-relaxed legacy-content" dangerouslySetInnerHTML={createSafeHtml(e.text)}></div>
                    </div>
                ))}
             </div>
           </div>
-          );
-        })()}
+        )}
 
         {/* --- EDITOR MODAL --- */}
-        <div className={`fixed inset-0 z-[200] flex flex-col overflow-hidden bg-white dark:bg-black spring-modal ${showEditor ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}`}>
+        {showEditor && (
+          <div className="fixed top-0 left-0 right-0 bottom-0 bg-white dark:bg-black z-[200] flex flex-col overflow-hidden page-transition">
             
             <header className="flex-none flex justify-between items-center p-4 sm:p-6 shrink-0 z-50 pt-safe bg-white/95 dark:bg-black/95 border-b border-slate-100 dark:border-zinc-900">
                 <button onClick={()=>checkSaveEntry(true)} className="p-3 bg-slate-100 dark:bg-zinc-900 rounded-2xl text-slate-900 dark:text-white hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
@@ -2553,15 +2509,15 @@ function App() {
             </div>
 
             <div className="flex-none flex items-center gap-2 p-2 px-4 overflow-x-auto hide-scrollbar border-b border-slate-100 dark:border-zinc-900 bg-slate-50 dark:bg-zinc-950 shrink-0 shadow-sm z-40">
-                <EdBtn cmd="formatBlock" arg="H1" txt="H1" isDirtyRef={isDirtyRef} />
-                <EdBtn cmd="formatBlock" arg="H2" txt="H2" isDirtyRef={isDirtyRef} />
-                <EdBtn cmd="formatBlock" arg="P" txt="T" isDirtyRef={isDirtyRef} />
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'H1'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><span className="font-extrabold text-sm">H1</span></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'H2'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><span className="font-bold text-sm">H2</span></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'P'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><span className="font-medium text-sm">T</span></button>
                 <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
-                <EdBtn cmd="bold" icon="bold" isDirtyRef={isDirtyRef} />
-                <EdBtn cmd="italic" icon="italic" isDirtyRef={isDirtyRef} />
-                <EdBtn cmd="formatBlock" arg="blockquote" icon="quote" isDirtyRef={isDirtyRef} />
-                <EdBtn cmd="insertOrderedList" icon="list-ordered" isDirtyRef={isDirtyRef} />
-                <EdBtn cmd="insertUnorderedList" icon="list" isDirtyRef={isDirtyRef} />
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('bold'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="bold" size={18} /></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('italic'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="italic" size={18} /></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('formatBlock', false, 'blockquote'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="quote" size={18} /></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('insertOrderedList'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="list-ordered" size={18} /></button>
+                <button onMouseDown={e=>{e.preventDefault(); document.execCommand('insertUnorderedList'); isDirtyRef.current=true;}} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="list" size={18} /></button>
                 <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
                 <label className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm cursor-pointer flex items-center justify-center relative overflow-hidden shrink-0 border border-slate-100 dark:border-zinc-800" title="Cover Bild hochladen"><Icon name="image" size={18} /><input type="file" accept="image/*" multiple onChange={e=>handleFileUpload(e,'image')} className="absolute opacity-0 w-[200%] h-[200%] top-0 left-0 cursor-pointer" /></label>
                 <button onClick={() => setIsDrawing(true)} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="pen-tool" size={18} /></button>
@@ -2569,7 +2525,9 @@ function App() {
                 <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
                 <button onClick={()=>{setIsManifested(!isManifested); isDirtyRef.current=true;}} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 border ${isManifested ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-500 border-amber-200 dark:border-amber-900/50' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:text-amber-500 border-slate-100 dark:border-zinc-800'}`}><Icon name="sparkles" size={18}/></button>
                 <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
-                {EDITOR_COLORS.map(c => <button key={c} onMouseDown={e=>{e.preventDefault(); document.execCommand('foreColor', false, c); isDirtyRef.current=true;}} className="w-8 h-8 rounded-full border-2 shadow-sm shrink-0 transition-transform hover:scale-110 active:scale-95" style={{backgroundColor: c, borderColor: isDarkColor(c) ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}}></button> )}
+                {EDITOR_COLORS.map(c => (
+                    <button key={c} onMouseDown={e=>{e.preventDefault(); document.execCommand('foreColor', false, c); isDirtyRef.current=true;}} className="w-8 h-8 rounded-full border-2 shadow-sm shrink-0 transition-transform hover:scale-110 active:scale-95" style={{backgroundColor: c, borderColor: isDarkColor(c) ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}}></button>
+                ))}
             </div>
             
             <div className="flex-auto overflow-y-auto relative bg-white dark:bg-black custom-scrollbar">
@@ -2607,15 +2565,13 @@ function App() {
                       </div>
                   )}
 
-                  {/* HIGH-PERFORMANCE EDITOR DIV (Flash fixed with 'key' prop!) */}
                   <div 
-                      key={editingId || 'new_entry'}
                       ref={editorRef} 
                       contentEditable 
                       onClick={handleEditorClick}
                       onPaste={handleEditorPaste}
                       onInput={handleEditorInput} 
-                      className="outline-none text-[1.05rem] leading-[1.8] font-medium legacy-editor-content text-slate-800 dark:text-slate-200 pb-8 min-h-full w-full" 
+                      className="outline-none text-[1.05rem] leading-[1.8] legacy-editor-content text-slate-800 dark:text-slate-200 pb-8 min-h-full w-full" 
                       data-placeholder="Was wirst du hinterlassen? Du kannst auch Sticker per Tastatur einfügen..." 
                       dangerouslySetInnerHTML={{__html: text}} 
                   />
@@ -2624,39 +2580,76 @@ function App() {
 
             <div className="flex-none p-3 border-t border-slate-100 dark:border-zinc-900 bg-white/95 dark:bg-black/95 backdrop-blur-xl shrink-0 flex items-center gap-3 overflow-x-auto hide-scrollbar z-50 pb-safe shadow-[0_-4px_6px_rgba(0,0,0,0.02)]">
                <button onClick={()=>setPicker({title:'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c, value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;}})} className="h-10 px-4 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs font-bold flex items-center gap-2 shrink-0">{category} <Icon name="chevron-down" size={12}/></button>
+               
                <div className="h-10 flex items-center gap-1 bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0">
-                  {[1,2,3,4,5].map(star => <Icon key={star} name="star" size={14} className={`cursor-pointer transition-colors ${rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-zinc-700'}`} onClick={() => {setRating(rating === star ? 0 : star); isDirtyRef.current=true;}} />)}
+                  {[1,2,3,4,5].map(star => (
+                      <Icon key={star} name="star" size={14} className={`cursor-pointer transition-colors ${rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-zinc-700'}`} onClick={() => {setRating(rating === star ? 0 : star); isDirtyRef.current=true;}} />
+                  ))}
                </div>
+
                <div className="h-10 flex items-center bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
                    <Icon name="tag" size={12} className="text-slate-400 mr-2 shrink-0" />
                    <input type="text" placeholder="Tags (Komma...)" value={tags} onChange={e=>{setTags(e.target.value); isDirtyRef.current=true;}} className="bg-transparent border-none outline-none text-xs font-bold placeholder:opacity-50 w-full text-slate-900 dark:text-white" />
                </div>
+
                <div className="h-10 flex items-center bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
                    <Icon name="user" size={12} className="text-slate-400 mr-2 shrink-0" />
                    <input type="text" placeholder="Personen..." value={people} onChange={e=>{setPeople(e.target.value); isDirtyRef.current=true;}} className="bg-transparent border-none outline-none text-xs font-bold placeholder:opacity-50 w-full text-slate-900 dark:text-white" />
                </div>
+
                <div className={`h-10 relative px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 cursor-pointer overflow-hidden ${unlockDate ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}>
                   <Icon name="calendar-clock" size={14}/> {unlockDate ? new Date(unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Zeitsiegel'}
                   <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); isDirtyRef.current=true;}} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
                </div>
+               
                {locations.map((loc, idx) => (
                    <div key={idx} className="h-10 px-4 rounded-xl border border-emerald-300 dark:border-emerald-700/50 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 text-xs font-bold flex items-center gap-2 shrink-0">
                        <Icon name="map-pin" size={14}/> {loc.name} • {loc.time} {loc.weather ? `• ${loc.weather}` : ''}
                        <button onClick={(e) => { e.stopPropagation(); setLocations(prev => prev.filter((_, i) => i !== idx)); isDirtyRef.current=true; }} className="ml-1 opacity-60 hover:opacity-100 hover:text-rose-500 transition-colors"><Icon name="x" size={14}/></button>
                    </div>
                ))}
+
                <button onClick={async ()=>{
                    if(!("geolocation" in navigator)){showDialog({title:'Fehler', message:'Ortung nicht unterstützt.'}); return;}
                    navigator.geolocation.getCurrentPosition(async (p) => { 
-                       const lat = p.coords.latitude; const lng = p.coords.longitude; let locName = "GPS Standort"; let formattedTime = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + " Uhr"; let wStr = "";
-                       try { const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`); const geoData = await geoRes.json(); if(geoData && geoData.address) { locName = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.road || "Unbekannter Ort"; } } catch(e) {}
-                       try { const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`); const data = await res.json(); const temp = Math.round(data.current_weather.temperature); const wcode = data.current_weather.weathercode; wStr = `${temp}°C`; if (wcode === 0) wStr += ' ☀️'; else if (wcode <= 3) wStr += ' ⛅'; else if (wcode <= 48) wStr += ' ☁️'; else if (wcode <= 67) wStr += ' 🌧️'; else if (wcode <= 79) wStr += ' 🌨️'; else if (wcode <= 99) wStr += ' ⛈️'; } catch(e) {}
-                       const newLoc = {lat, lng, name: locName, time: formattedTime, weather: wStr}; setLocations(prev => [...prev, newLoc]); isDirtyRef.current=true; 
+                       const lat = p.coords.latitude;
+                       const lng = p.coords.longitude;
+                       let locName = "GPS Standort";
+                       let formattedTime = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + " Uhr";
+                       let wStr = "";
+                       
+                       try {
+                           const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                           const geoData = await geoRes.json();
+                           if(geoData && geoData.address) {
+                               locName = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.road || "Unbekannter Ort";
+                           }
+                       } catch(e) {}
+
+                       try {
+                           const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`);
+                           const data = await res.json();
+                           const temp = Math.round(data.current_weather.temperature);
+                           const wcode = data.current_weather.weathercode;
+                           wStr = `${temp}°C`;
+                           if (wcode === 0) wStr += ' ☀️';
+                           else if (wcode <= 3) wStr += ' ⛅';
+                           else if (wcode <= 48) wStr += ' ☁️';
+                           else if (wcode <= 67) wStr += ' 🌧️';
+                           else if (wcode <= 79) wStr += ' 🌨️';
+                           else if (wcode <= 99) wStr += ' ⛈️';
+                       } catch(e) {}
+
+                       const newLoc = {lat, lng, name: locName, time: formattedTime, weather: wStr};
+                       setLocations(prev => [...prev, newLoc]);
+                       
+                       isDirtyRef.current=true; 
                        showDialog({title:'GPS erfasst', message:`Ort (${locName}) und Wetter wurden um ${formattedTime} gesichert.`, icon:'map-pin'}); 
                    }, ()=>showDialog({title:'Fehler', message:'Ortung fehlgeschlagen.'}));
                }} className={`h-10 px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors`}><Icon name="plus" size={14}/> GPS hinzufügen</button>
             </div>
-        </div>
+          </div>
+        )}
 
         {isDrawing && (
           <div className="fixed inset-0 z-[300] bg-slate-900 flex flex-col no-print">
@@ -2690,6 +2683,89 @@ function App() {
             </div>
           </div>
         )}
+
+        {showTimeline && !showEditor && (() => {
+           const bookEntries = viewingEntry ? getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id) : entries.filter(e => e && !e.archived && !e.trashed);
+           
+           const daysInMonth = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth() + 1, 0).getDate();
+           const firstDay = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth(), 1).getDay();
+           const emptySlots = (firstDay + 6) % 7; 
+           const daysArray = Array.from({length: daysInMonth}, (_, i) => i + 1);
+
+           const entriesOnSelectedDate = timelineSelectedDate ? bookEntries.filter(e => e && new Date(e.date).toDateString() === timelineSelectedDate) : [];
+
+           return (
+             <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex justify-end animate-fade-in no-print" onClick={() => setShowTimeline(false)}>
+                <div className="w-full max-w-md h-full bg-white dark:bg-zinc-950 shadow-2xl animate-slide-up flex flex-col" onClick={e=>e.stopPropagation()}>
+                   <div className="p-6 border-b border-slate-100 dark:border-zinc-900 flex justify-between items-center shrink-0">
+                      <h3 className="font-extrabold text-2xl flex items-center gap-3 tracking-tight" style={{ color: user.nameColor }}><Icon name="calendar-days" size={28}/> Zeitreise</h3>
+                      <button onClick={()=>setShowTimeline(false)} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="x" size={20}/></button>
+                   </div>
+                   
+                   <div className="flex-1 overflow-y-auto custom-scrollbar">
+                       <div className="p-6 border-b border-slate-100 dark:border-zinc-900">
+                          <div className="flex justify-between items-center mb-8">
+                              <button onClick={() => { const d = new Date(timelineMonth); d.setMonth(d.getMonth()-1); setTimelineMonth(d); }} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="chevron-left" size={20}/></button>
+                              <span className="font-extrabold text-lg uppercase tracking-widest">{timelineMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}</span>
+                              <button onClick={() => { const d = new Date(timelineMonth); d.setMonth(d.getMonth()+1); setTimelineMonth(d); }} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="chevron-right" size={20}/></button>
+                          </div>
+                          
+                          <div className="grid grid-cols-7 gap-3 text-center">
+                              {['Mo','Di','Mi','Do','Fr','Sa','So'].map(d => <div key={d} className="text-xs font-bold opacity-40 py-2">{d}</div>)}
+                              {Array(emptySlots).fill(null).map((_, i) => <div key={`empty-${i}`} />)}
+                              {daysArray.map(day => {
+                                  const dateStr = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth(), day).toDateString();
+                                  const dayEntry = bookEntries.find(e => e && new Date(e.date).toDateString() === dateStr);
+                                  const hasEntry = !!dayEntry;
+                                  const bgImg = dayEntry?.images?.[0] || null;
+                                  const isSelected = timelineSelectedDate === dateStr;
+                                  
+                                  return (
+                                      <button key={day} onClick={() => setTimelineSelectedDate(isSelected ? null : dateStr)} className={`relative p-2 text-sm font-bold rounded-2xl transition-all flex items-center justify-center aspect-square overflow-hidden ${isSelected ? 'shadow-lg scale-110' : 'hover:scale-105'} ${hasEntry && !isSelected && !bgImg ? 'bg-slate-100 dark:bg-zinc-800' : ''}`} style={bgImg ? { backgroundImage: `url(${bgImg})`, backgroundSize: 'cover', backgroundPosition: 'center', border: isSelected ? `3px solid ${user.nameColor}` : 'none' } : (isSelected ? { backgroundColor: user.nameColor, color: isDarkColor(user.nameColor) ? '#ffffff' : '#000000' } : { backgroundColor: 'transparent' })}>
+                                          {!bgImg && <span>{day}</span>}
+                                          {hasEntry && !isSelected && !bgImg && <div className="absolute bottom-2 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: user.nameColor }}></div>}
+                                      </button>
+                                  );
+                              })}
+                          </div>
+                          {timelineSelectedDate && (
+                             <div className="mt-8 text-center">
+                                <button onClick={() => setTimelineSelectedDate(null)} className="text-[10px] uppercase font-bold tracking-widest opacity-60 hover:opacity-100 transition-opacity bg-slate-100 dark:bg-zinc-900 px-4 py-2 rounded-xl">Filter aufheben</button>
+                             </div>
+                          )}
+                       </div>
+
+                       <div className="p-6 pb-20">
+                           {!timelineSelectedDate ? (
+                               <p className="text-center opacity-40 text-sm font-bold mt-12 flex flex-col items-center gap-4"><Icon name="calendar-search" size={48} className="opacity-50"/>Wähle einen markierten Tag aus.</p>
+                           ) : (
+                               <div className="space-y-4">
+                                   {entriesOnSelectedDate.length === 0 ? (
+                                       <p className="text-center opacity-40 text-sm font-bold mt-8 mb-8">Kein Eintrag an diesem Tag.</p>
+                                   ) : (
+                                       entriesOnSelectedDate.map((e) => (
+                                           <SwipeableTimelineEntry 
+                                                key={e.id} 
+                                                entry={e} 
+                                                onClick={(entry) => { setShowTimeline(false); handleOpenEntry(entry); }} 
+                                                onArchive={(entry) => saveToDB({...entry, archived: true})}
+                                                onTrash={(entry) => saveToDB({...entry, trashed: true})}
+                                                showDialog={showDialog}
+                                                userColor={user.nameColor}
+                                           />
+                                       ))
+                                   )}
+                                   <button onClick={() => { setShowTimeline(false); openEditor(null, null, timelineSelectedDate); }} className="w-full flex items-center justify-center gap-3 p-5 bg-slate-100 dark:bg-zinc-900 rounded-[2rem] font-bold text-sm hover:scale-[1.02] active:scale-95 transition-transform mt-6 shadow-sm" style={{color: user.nameColor}}>
+                                       <Icon name="plus" size={20}/> Neuer Eintrag für diesen Tag
+                                   </button>
+                               </div>
+                           )}
+                       </div>
+                   </div>
+                </div>
+             </div>
+           );
+        })()}
 
         {picker && (
           <div className="fixed inset-0 z-[250] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setPicker(null)}>
