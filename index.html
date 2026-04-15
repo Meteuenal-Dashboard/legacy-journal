@@ -12,7 +12,7 @@
 <meta name="theme-color" id="meta-theme-color" content="#f8fafc">
 <meta name="color-scheme" content="light dark">
 
-<!-- W3C Standard Manifest (Statisch für Langlebigkeit) -->
+<!-- W3C Standard Manifest -->
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icon-192x192.png">
 
@@ -54,34 +54,23 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <style>
-  /* --- DESIGN UPGRADE (Premium Apple/Meta/Google UI) --- */
-  html, body { 
-      overscroll-behavior-y: none; 
-      font-family: 'Inter', sans-serif; 
-      -webkit-tap-highlight-color: transparent; 
-      transition: background-color 0.4s, color 0.4s; 
-  }
+  /* --- DESIGN UPGRADE --- */
+  html, body { overscroll-behavior-y: none; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; transition: background-color 0.4s, color 0.4s; }
   body.modal-open { overflow: hidden !important; }
   html:not(.dark) body { background-color: #f8fafc !important; color: #0f172a !important; }
   html.dark body { background-color: #000000 !important; color: #f8fafc !important; }
-  
   .pb-safe { padding-bottom: env(safe-area-inset-bottom, 32px); }
   .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
   .floating-nav-spacing { padding-bottom: calc(120px + env(safe-area-inset-bottom, 20px)); }
   h1, h2, h3, h4, h5, h6 { font-weight: 800; letter-spacing: -0.03em; }
-  
   @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } } 
   .animate-fade-in { animation: fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-  
   @keyframes slide-up { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } 
   .animate-slide-up { animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-  
   @keyframes pulse-flame { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.05); } } 
   .animate-flame { animation: pulse-flame 2s infinite ease-in-out; }
-  
   .custom-scrollbar::-webkit-scrollbar { display: none; }
   .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-  
   .legacy-editor-content p, .legacy-content p { line-height: 1.8; margin-bottom: 1.2rem; font-size: 1.05rem; font-weight: 500; }
   .legacy-editor-content h1, .legacy-content h1 { font-size: 2.25rem; font-weight: 800; margin-top: 1.5rem; margin-bottom: 1rem; line-height: 1.2; }
   .legacy-editor-content h2, .legacy-content h2 { font-size: 1.75rem; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.75rem; line-height: 1.3; }
@@ -90,23 +79,19 @@
   .legacy-editor-content ol, .legacy-content ol { list-style-type: decimal; padding-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.5rem; }
   .legacy-editor-content li, .legacy-content li { margin-bottom: 0.25rem; }
   .legacy-editor-content blockquote, .legacy-content blockquote { border-left: 4px solid currentColor; padding-left: 1.5rem; font-style: normal; font-weight: 500; opacity: 0.8; background: transparent; margin: 1.5rem 0; font-size: 1.1em; }
-  
   .floating-nav { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); width: calc(100% - 48px); max-width: 400px; background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(226, 232, 240, 0.6); border-radius: 2rem; box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1); z-index: 100; }
   html.dark .floating-nav { background: rgba(24, 24, 27, 0.75); border-color: rgba(39, 39, 42, 0.6); box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5); }
-  
   .inline-img-wrapper { display: inline-block; vertical-align: text-bottom; margin: 4px; max-width: 100%; position: relative; }
   .inline-img-wrapper img { width: 120px; height: auto; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
   .delete-img-btn { position: absolute; top: -10px; right: -10px; background: #ef4444; color: white; border-radius: 50%; width: 24px; height: 24px; text-align: center; line-height: 24px; cursor: pointer; font-family: sans-serif; font-size: 12px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10; display: none; }
   .inline-img-wrapper:hover .delete-img-btn, .inline-img-wrapper:active .delete-img-btn { display: block; }
   .legacy-editor-content > img, .legacy-content > img { border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: inline-block; vertical-align: middle; max-width: 100%; }
-  
   [contenteditable="true"]:empty:before { content: attr(data-placeholder); opacity: 0.3; pointer-events: none; display: block; font-weight: 400; }
   html, body, #root { width: 100%; height: 100%; overflow-x: hidden; }
   .search-highlight { background-color: rgba(245, 158, 11, 0.3); padding: 0 2px; border-radius: 3px; border-bottom: 1px solid #f59e0b; }
   .map-container { height: 100%; width: 100%; border-radius: 1.5rem; z-index: 1; }
   .leaflet-marker-icon.avatar-marker { border: none !important; background: transparent !important; }
   .leaflet-control-attribution { display: none !important; }
-  
   .print-only { display: none; }
   @media print {
     @page { margin: 2cm; @bottom-center { content: counter(page); font-family: 'Inter', sans-serif; font-size: 12px; color: #888; } }
@@ -414,7 +399,7 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
           )}
 
           {!isCapsuleLocked && entry.text && !isGridView && (
-            <div className="legacy-editor-content text-slate-800 dark:text-slate-200 line-clamp-3" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
+            <div className="text-[1.05rem] leading-[1.8] font-medium opacity-90 legacy-editor-content text-slate-800 dark:text-slate-200 line-clamp-3" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
           )}
           {isCapsuleLocked && !isGridView && (
              <div className="text-sm font-medium leading-relaxed opacity-40 italic mt-auto">
@@ -584,6 +569,11 @@ function App() {
   const showTimelineRef = useRef(showTimeline);
   const viewRef = useRef(view);
   const biometricAttempted = useRef(false);
+
+  // Pull-to-refresh State
+  const [pullY, setPullY] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const pullStartY = useRef(null);
 
   const entriesRef = useRef(entries);
   
@@ -810,7 +800,7 @@ function App() {
              loadedEntries = loadedEntries.map(e => ({ ...e, locked: false }));
           }
           
-          // Force Date Assignment
+          // Force Date Assignment & ensure orderTimestamp is set
           loadedEntries = loadedEntries.map(e => {
              if (!e.date) {
                  e.date = e.orderTimestamp || (e.timestamp ? new Date(e.timestamp).toISOString() : new Date().toISOString());
@@ -1889,10 +1879,7 @@ function App() {
       }
   }, [view, entries, user.nameColor]);
 
-  // --- UI RENDERERS ---
-
   if (importId && !isLoaded) return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="w-12 h-12 border-4 border-amber-50 border-t-transparent rounded-full animate-spin"></div></div>;
-  
   if (view === 'loading' || !isLoaded) return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-black"><div className="w-8 h-8 border-4 border-slate-300 dark:border-zinc-800 border-t-black dark:border-t-white rounded-full animate-spin"></div></div>;
 
   if (view === 'auth') {
@@ -1938,11 +1925,9 @@ function App() {
                    <Icon name="cloud-download" size={36} />
                </div>
             )}
-            
             <h1 className="text-3xl font-bold tracking-tight mb-2 text-slate-900 dark:text-white">{user.name ? `Willkommen, ${user.name}` : 'Backup gefunden'}</h1>
             {user.motto && <p className="text-sm font-medium opacity-60 mb-6 max-w-[250px] mx-auto italic">"{user.motto}"</p>}
             {!user.motto && <p className="text-slate-500 dark:text-slate-400 mb-8 px-4 leading-relaxed">Wir haben deine verschlüsselten Daten in der Cloud gefunden. Gib deine PIN ein, um sie auf diesem Gerät wiederherzustellen.</p>}
-            
             <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleCloudRestore(pinInput); }} className={`w-full p-4 text-center text-4xl tracking-[0.5em] rounded-2xl bg-white dark:bg-zinc-900 border-2 outline-none mb-6 transition-colors shadow-sm placeholder:opacity-30 ${pinError ? 'border-rose-500' : 'border-slate-100 dark:border-zinc-800 focus:border-blue-500'}`} placeholder="••••" />
             <button onClick={() => handleCloudRestore(pinInput)} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg active:scale-95 transition-all shadow-lg shadow-blue-500/20">Wiederherstellen</button>
             <button onClick={handleLogout} className="mt-8 text-rose-500 font-bold opacity-60 hover:opacity-100 transition-opacity">Abbrechen & Abmelden</button>
@@ -1953,7 +1938,6 @@ function App() {
 
   if (view === 'pin_entry') {
     const isBioMode = user.biometric && safeStorageGet('legacy_bio_pin') && !showPinFallback;
-    
     return (
         <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-black text-slate-900 dark:text-white">
             {isBioMode ? (
@@ -1970,18 +1954,13 @@ function App() {
                         )}
                         <span className="text-4xl font-extrabold tracking-tighter">Legacy</span>
                     </div>
-                    
                     {user.motto && <p className="text-sm font-medium opacity-60 mb-8 italic px-4 leading-relaxed">"{user.motto}"</p>}
-                    
                     <div className="w-full h-px bg-slate-100 dark:bg-zinc-800 mb-8"></div>
-                    
                     <h2 className="text-xl font-bold mb-2">Legacy entsperren</h2>
                     <p className="text-sm opacity-60 mb-8 text-center">Scanne deinen Fingerabdruck.</p>
-                    
                     <button onClick={handleBiometricUnlock} className="w-24 h-24 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mb-8 hover:scale-105 active:scale-95 transition-all shadow-sm border border-indigo-100 dark:border-indigo-500/20">
                         <Icon name="fingerprint" size={48} className="animate-pulse" />
                     </button>
-                    
                     <button onClick={() => setShowPinFallback(true)} className="w-full py-4 rounded-2xl bg-slate-100 dark:bg-zinc-800 font-bold text-sm hover:scale-[1.02] active:scale-95 transition-all mb-4 text-slate-700 dark:text-slate-300">
                         PIN verwenden
                     </button>
@@ -2001,23 +1980,16 @@ function App() {
                         )}
                         <span className="text-4xl font-extrabold tracking-tighter">Legacy</span>
                     </div>
-                    
                     {user.motto && <p className="text-sm font-medium opacity-60 mb-8 italic px-4 leading-relaxed">"{user.motto}"</p>}
-                    
                     <div className="w-full h-px bg-slate-100 dark:bg-zinc-800 mb-8"></div>
-                    
                     <h2 className="text-xl font-bold mb-2">App entsperren</h2>
                     <p className="opacity-60 text-sm font-medium px-4 mb-6">Gib deine PIN ein, um dein lokales Journal zu entschlüsseln.</p>
-                    
                     <div className="w-full">
                         <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockSubmit(pinInput); }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none mb-6 bg-slate-100 dark:bg-zinc-800 border border-transparent focus:border-slate-300 dark:focus:border-zinc-600 transition-colors placeholder:opacity-30 font-bold" placeholder="••••" />
-                        
                         <button onClick={() => handleUnlockSubmit(pinInput)} className="w-full py-4 font-bold rounded-2xl bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-transform shadow-md mb-4 text-lg">Entsperren</button>
-                        
                         {user.biometric && safeStorageGet('legacy_bio_pin') && (
                             <button onClick={() => { setShowPinFallback(false); }} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm flex items-center justify-center gap-2 mb-4"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
                         )}
-
                         <button onClick={handleLogout} className="w-full py-3 text-xs font-bold uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity text-rose-500 mt-2">Abmelden</button>
                     </div>
                 </div>
@@ -2044,8 +2016,18 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen pb-safe">
-        {/* --- MAIN HEADER --- */}
+      <div 
+         className="min-h-screen pb-safe relative" 
+         onTouchStart={handlePullStart} 
+         onTouchMove={handlePullMove} 
+         onTouchEnd={handlePullEnd}
+      >
+        <div className="fixed top-0 left-0 right-0 flex justify-center pointer-events-none z-[100]" style={{ transform: `translateY(${isRefreshing ? 80 : pullY}px)`, opacity: pullY > 10 || isRefreshing ? 1 : 0, transition: pullStartY.current === null ? 'all 0.3s ease' : 'none' }}>
+            <div className={`w-10 h-10 mt-safe bg-white dark:bg-zinc-800 rounded-full shadow-lg flex items-center justify-center border border-slate-200 dark:border-zinc-700 ${isRefreshing ? 'animate-spin' : ''}`}>
+                <Icon name="refresh-cw" size={20} className="text-accent" style={!isRefreshing ? { transform: `rotate(${pullY * 3}deg)` } : {}} />
+            </div>
+        </div>
+
         <header className="sticky top-0 z-30 bg-white/80 dark:bg-black/80 backdrop-blur-2xl border-b border-slate-200/50 dark:border-zinc-800/50 px-6 py-4 flex justify-between items-center transition-colors duration-300 no-print">
           <div className="flex items-center gap-3 overflow-hidden">
             {view === 'archive' ? <h1 className="text-2xl font-extrabold tracking-tight">Archiv</h1> :
@@ -2069,7 +2051,7 @@ function App() {
             )}
           </div>
           <div className="flex gap-2 items-center">
-            <button type="button" onClick={() => { setViewingEntry(null); setShowTimeline(true); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="calendar-days" size={18}/></button>
+            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewingEntry(null); setShowTimeline(true); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="calendar-days" size={18}/></button>
             {view === 'dashboard' && (
               <>
                 <button type="button" onClick={() => setIsSearchOpen(!isSearchOpen)} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="search" size={18}/></button>
@@ -2078,7 +2060,6 @@ function App() {
             )}
             {view !== 'dashboard' && <button type="button" onClick={handleBackNavigation} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="x" size={18} /></button>}
           </div>
-
           {isSearchOpen && view === 'dashboard' && (
             <div className="absolute top-full left-0 right-0 p-4 bg-white/90 dark:bg-black/90 backdrop-blur-2xl border-b border-slate-200/50 dark:border-zinc-800/50 shadow-xl animate-slide-up z-50">
               <input type="text" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Suchen..." autoFocus className="w-full p-4 rounded-2xl bg-slate-100 dark:bg-zinc-900 border-none outline-none font-medium focus:ring-2 focus:ring-slate-300 dark:focus:ring-zinc-700 transition-shadow" />
@@ -2086,9 +2067,7 @@ function App() {
           )}
         </header>
 
-        {/* --- MAIN FEED & VIEWS --- */}
         <main className={`p-4 sm:p-6 max-w-2xl mx-auto min-h-[70vh] relative z-10 no-print ${view === 'map' ? 'h-[85vh] floating-nav-spacing flex flex-col' : 'floating-nav-spacing'}`}>
-          
           {view === 'menu' && (
             <div className="grid grid-cols-2 gap-4 sm:gap-6 animate-slide-up">
               <button onClick={() => setView('wisdom')} className="p-6 rounded-[2rem] flex flex-col items-center gap-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm hover:scale-[1.02] active:scale-95 transition-transform"><Icon name="book-open" size={32} className="text-amber-500" /><span className="font-bold text-sm">Weisheit</span></button>
@@ -2101,7 +2080,6 @@ function App() {
             </div>
           )}
 
-          {/* --- ARCHIVE VIEW --- */}
           {view === 'archive' && (
               <div className="space-y-4 animate-slide-up pb-24">
                   <div className="flex justify-between items-center p-6 bg-slate-100 dark:bg-zinc-900 rounded-[2rem] mb-6 border border-slate-200 dark:border-zinc-800 shadow-sm">
@@ -2110,7 +2088,6 @@ function App() {
                           <p className="text-xs opacity-70 font-medium mt-1">{visibleEntries.length} archivierte Einträge</p>
                       </div>
                   </div>
-                  
                   {visibleEntries.length === 0 ? (
                       <div className="text-center py-20 opacity-40"><Icon name="archive" size={48} className="mx-auto mb-4"/><p className="font-bold">Archiv ist leer.</p></div>
                   ) : (
@@ -2124,13 +2101,7 @@ function App() {
                                   <div className="flex gap-2 shrink-0">
                                       <button onClick={() => saveToDB({...e, archived: false})} className="w-12 h-12 flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Wiederherstellen"><Icon name="rotate-ccw" size={20}/></button>
                                       <button onClick={() => {
-                                          showDialog({
-                                              title: 'Endgültig löschen?',
-                                              message: `"${e.title || 'Ohne Titel'}" wird für immer gelöscht.`,
-                                              icon: 'trash-2',
-                                              iconColor: 'text-rose-500',
-                                              onConfirm: () => deleteFromDB(e.id)
-                                          });
+                                          showDialog({ title: 'Endgültig löschen?', message: `"${e.title || 'Ohne Titel'}" wird für immer gelöscht.`, icon: 'trash-2', iconColor: 'text-rose-500', onConfirm: () => deleteFromDB(e.id) });
                                       }} className="w-12 h-12 flex items-center justify-center bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Endgültig löschen"><Icon name="x" size={20}/></button>
                                   </div>
                               </div>
@@ -2140,7 +2111,6 @@ function App() {
               </div>
           )}
 
-          {/* --- TRASH VIEW --- */}
           {view === 'trash' && (
               <div className="space-y-4 animate-slide-up pb-24">
                   <div className="flex justify-between items-center p-6 bg-rose-50 dark:bg-rose-500/10 rounded-[2rem] mb-6 text-rose-500 border border-rose-100 dark:border-rose-900/30 shadow-sm">
@@ -2150,21 +2120,10 @@ function App() {
                       </div>
                       {visibleEntries.length > 0 && (
                           <button onClick={() => {
-                              showDialog({
-                                  title: 'Papierkorb leeren',
-                                  message: 'Möchtest du alle Einträge unwiderruflich löschen?',
-                                  icon: 'alert-triangle',
-                                  iconColor: 'text-rose-500',
-                                  onConfirm: async () => {
-                                      for (const e of visibleEntries) {
-                                          await deleteFromDB(e.id);
-                                      }
-                                  }
-                              });
+                              showDialog({ title: 'Papierkorb leeren', message: 'Möchtest du alle Einträge unwiderruflich löschen?', icon: 'alert-triangle', iconColor: 'text-rose-500', onConfirm: async () => { for (const e of visibleEntries) { await deleteFromDB(e.id); } } });
                           }} className="px-5 py-3 bg-rose-500 text-white rounded-xl font-bold text-sm uppercase tracking-widest shadow-md hover:scale-105 active:scale-95 transition-transform">Leeren</button>
                       )}
                   </div>
-                  
                   {visibleEntries.length === 0 ? (
                       <div className="text-center py-20 opacity-40"><Icon name="trash" size={48} className="mx-auto mb-4"/><p className="font-bold">Papierkorb ist leer.</p></div>
                   ) : (
@@ -2178,13 +2137,7 @@ function App() {
                                   <div className="flex gap-2 shrink-0">
                                       <button onClick={() => saveToDB({...e, trashed: false})} className="w-12 h-12 flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Wiederherstellen"><Icon name="rotate-ccw" size={20}/></button>
                                       <button onClick={() => {
-                                          showDialog({
-                                              title: 'Endgültig löschen?',
-                                              message: `"${e.title || 'Ohne Titel'}" wird für immer gelöscht.`,
-                                              icon: 'trash-2',
-                                              iconColor: 'text-rose-500',
-                                              onConfirm: () => deleteFromDB(e.id)
-                                          });
+                                          showDialog({ title: 'Endgültig löschen?', message: `"${e.title || 'Ohne Titel'}" wird für immer gelöscht.`, icon: 'trash-2', iconColor: 'text-rose-500', onConfirm: () => deleteFromDB(e.id) });
                                       }} className="w-12 h-12 flex items-center justify-center bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Endgültig löschen"><Icon name="x" size={20}/></button>
                                   </div>
                               </div>
@@ -2194,7 +2147,6 @@ function App() {
               </div>
           )}
 
-          {/* --- SETTINGS VIEW --- */}
           {view === 'settings' && (
              <div className="animate-slide-up space-y-6 pb-48">
                 <div className="p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
@@ -2222,7 +2174,6 @@ function App() {
                       <button onClick={() => setUser({...user, isDark: false})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${!user.isDark ? 'bg-white shadow-sm text-black' : 'text-slate-500'}`}>Hell</button>
                       <button onClick={() => setUser({...user, isDark: true})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${user.isDark ? 'bg-zinc-800 shadow-sm text-white' : 'text-slate-500'}`}>Dunkel</button>
                    </div>
-                   
                    <span className="text-xs font-bold uppercase tracking-widest opacity-60 mb-3 block">Hintergrund (App)</span>
                    <div className="flex flex-wrap gap-3 mb-8">
                       <button onClick={() => setUser({...user, appBgColor: null})} className={`w-10 h-10 rounded-full border-2 transition-transform flex items-center justify-center ${!user.appBgColor ? 'border-slate-400 dark:border-zinc-500 scale-110 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: user.isDark ? '#000000' : '#f8fafc' }}><Icon name="slash" size={16} className="opacity-50" /></button>
@@ -2230,7 +2181,6 @@ function App() {
                           <button key={color} onClick={() => setUser({...user, appBgColor: color})} className={`w-10 h-10 rounded-full border-2 transition-transform ${user.appBgColor === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
                       ))}
                    </div>
-
                    <span className="text-xs font-bold uppercase tracking-widest opacity-60 mb-3 block">Schriftfarbe</span>
                    <div className="flex flex-wrap gap-3 mb-8">
                       <button onClick={() => setUser({...user, textColor: null})} className={`w-10 h-10 rounded-full border-2 transition-transform flex items-center justify-center ${!user.textColor ? 'border-slate-400 dark:border-zinc-500 scale-110 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: user.isDark ? '#ffffff' : '#0f172a' }}><Icon name="slash" size={16} className={user.isDark ? 'text-black' : 'text-white'} /></button>
@@ -2238,7 +2188,6 @@ function App() {
                           <button key={color} onClick={() => setUser({...user, textColor: color, nameColor: color})} className={`w-10 h-10 rounded-full border-2 transition-transform ${user.textColor === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
                       ))}
                    </div>
-
                    <span className="text-xs font-bold uppercase tracking-widest opacity-60 mb-3 block">Darstellungsgröße</span>
                    <div className="flex gap-2">
                       <button onClick={() => setUser({...user, uiScale: 0.9})} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${user.uiScale === 0.9 ? 'bg-black dark:bg-white text-white dark:text-black shadow-sm' : 'bg-slate-100 dark:bg-zinc-950 text-slate-500'}`}>A-</button>
@@ -2274,7 +2223,6 @@ function App() {
 
                 <div className="p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm">
                    <h2 className="text-lg font-bold mb-6 flex items-center gap-2"><Icon name="key" size={20}/> Sicherheit & PIN</h2>
-                   
                    {!user.pin ? (
                        <div className="space-y-4">
                            <p className="text-sm font-medium opacity-70">Lege eine PIN fest, um den App-Start abzusichern & Cloud-Daten zu verschlüsseln.</p>
@@ -2303,8 +2251,6 @@ function App() {
                            </div>
                        )
                    )}
-
-                   {/* Biometric Toggle */}
                    {window.PublicKeyCredential && user.pin && !isChangingPin && (
                        <div className="flex justify-between items-center mt-6 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800">
                            <div className="flex items-center gap-3">
@@ -2321,7 +2267,6 @@ function App() {
                    )}
                 </div>
 
-                {/* Abmelden Button */}
                 <div className="p-8 rounded-[2.5rem] bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 shadow-sm flex flex-col items-center text-center">
                    <h2 className="text-lg font-bold mb-2 text-rose-600 dark:text-rose-400 flex items-center gap-2"><Icon name="log-out" size={20}/> Abmelden</h2>
                    <p className="text-sm font-medium opacity-70 mb-6 text-rose-600 dark:text-rose-400">Beende deine aktuelle Sitzung sicher auf diesem Gerät.</p>
@@ -2388,7 +2333,7 @@ function App() {
                          <div className="flex gap-4 items-start">
                              <div className="shrink-0 mt-1" style={{ color: user.nameColor }}><Icon name="quote" size={28} /></div>
                              <div className="flex-1">
-                                 <p className="text-[1.05rem] leading-[1.8] font-medium legacy-editor-content text-slate-800 dark:text-slate-200 mb-4">{q.text}</p>
+                                 <p className="text-[1.05rem] leading-[1.8] font-medium legacy-content text-slate-800 dark:text-slate-200 mb-4 opacity-90">{q.text}</p>
                                  <div className="text-xs font-bold uppercase tracking-widest opacity-40 text-slate-500">{q.title} • {new Date(q.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
                              </div>
                          </div>
@@ -2407,7 +2352,7 @@ function App() {
 
           {['dashboard', 'archive'].includes(view) && (
             <div className={`grid gap-6 pb-32 ${isGridView && view === 'dashboard' ? 'grid-cols-2' : 'grid-cols-1'}`}>
-              {renderEntries.map(entry => (
+              {renderEntries.map((entry, idx) => (
                  <EntryCard 
                      key={entry.id} 
                      entry={entry} 
@@ -2416,8 +2361,8 @@ function App() {
                      userColor={user.nameColor} 
                      isDarkTheme={user.isDark} 
                      searchQuery={searchQuery}
-                     onMoveUp={(e) => moveEntryUp(e, renderEntries.indexOf(entry))}
-                     onMoveDown={(e) => moveEntryDown(e, renderEntries.indexOf(entry))}
+                     onMoveUp={(e) => moveEntryUp(e, idx)}
+                     onMoveDown={(e) => moveEntryDown(e, idx)}
                      showMoveControls={view === 'dashboard' && !searchQuery && activeCategory === 'Alle'}
                  />
               ))}
@@ -2425,7 +2370,6 @@ function App() {
           )}
         </main>
 
-        {/* --- FLOATING BOTTOM NAV (Premium Style) --- */}
         {!showEditor && ['dashboard', 'menu'].includes(view) && (
           <nav className="floating-nav">
             <div className="relative flex justify-between items-center h-[72px] px-6">
@@ -2446,7 +2390,6 @@ function App() {
           </nav>
         )}
 
-        {/* --- VIEWER --- */}
         {viewingEntry && !showEditor && (() => {
            const bookRoot = getBookRoot(viewingEntry.id);
            const unsortedEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
@@ -2456,7 +2399,7 @@ function App() {
            const nextPage = cIdx < allBookEntries.length - 1 ? allBookEntries[cIdx + 1] : null;
 
            return (
-             <div className="fixed inset-0 z-[80] overflow-y-auto bg-white dark:bg-black animate-fade-in custom-scrollbar flex flex-col screen-only" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+             <div className="fixed inset-0 z-[80] overflow-y-auto bg-white dark:bg-black custom-scrollbar flex flex-col screen-only" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
                
                {prevPage && <button onClick={() => setViewingEntry(prevPage)} className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 p-4 bg-white/50 dark:bg-black/50 backdrop-blur-md shadow-sm rounded-full hover:scale-110 active:scale-95 transition-transform z-50 text-slate-800 dark:text-white"><Icon name="chevron-left" size={24}/></button>}
                {nextPage && <button onClick={() => setViewingEntry(nextPage)} className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 p-4 bg-white/50 dark:bg-black/50 backdrop-blur-md shadow-sm rounded-full hover:scale-110 active:scale-95 transition-transform z-50 text-slate-800 dark:text-white"><Icon name="chevron-right" size={24}/></button>}
@@ -2468,7 +2411,6 @@ function App() {
                  <div className="flex gap-2 sm:gap-3">
                    <button onClick={() => window.print()} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500"><Icon name="printer" size={22}/></button>
                    <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
-                   
                    <button onClick={() => { openEditor(viewingEntry); }} className="px-4 sm:px-6 py-3 rounded-2xl font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
                  </div>
                </div>
@@ -2478,8 +2420,8 @@ function App() {
                     <div className="relative w-full aspect-video rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-10 group bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
                         <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-contain transition-transform duration-700" alt="Cover" />
                         
-                        <label className="absolute top-4 right-4 p-3 bg-black/60 text-white rounded-full flex items-center justify-center shadow-lg cursor-pointer z-50 opacity-100 transition-opacity backdrop-blur-md hover:bg-black/80 border border-white/10" title="Dieses Bild ändern">
-                            <Icon name="image" size={16}/>
+                        <label className="absolute top-4 right-4 w-12 h-12 bg-black/60 text-white rounded-full flex items-center justify-center shadow-xl cursor-pointer z-[60] hover:bg-black/80 transition-colors border-2 border-white/20" title="Dieses Bild ändern">
+                            <Icon name="image" size={20}/>
                             <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id, currentViewerImgIdx)} className="hidden" />
                         </label>
 
@@ -2529,7 +2471,7 @@ function App() {
                       )}
                   </div>
 
-                  <div className="legacy-editor-content text-slate-800 dark:text-slate-200" dangerouslySetInnerHTML={createSafeHtml(viewingEntry.text)} />
+                  <div className="text-[1.05rem] leading-[1.8] font-medium legacy-content text-slate-800 dark:text-slate-200 opacity-90" dangerouslySetInnerHTML={createSafeHtml(viewingEntry.text)} />
                   {viewingEntry.audio && <div className="mt-12 p-6 rounded-[2rem] bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm no-print"><span className="text-xs font-bold uppercase tracking-widest opacity-50 mb-4 block">Audio-Log</span><audio src={viewingEntry.audio} controls className="w-full" /></div>}
                   
                   <div className="mt-20 pt-10 border-t border-slate-100 dark:border-zinc-800 flex justify-center no-print">
@@ -2591,7 +2533,7 @@ function App() {
                            </div>
                        </div>
                        {e.images && e.images.length > 0 && <img src={e.images[0]} style={{ width: '100%', maxHeight: '500px', objectFit: 'contain', marginBottom: '30px', borderRadius: '16px' }} alt="Cover" />}
-                       <div className="legacy-editor-content" dangerouslySetInnerHTML={createSafeHtml(e.text)}></div>
+                       <div className="text-[1.05rem] leading-[1.8] font-medium legacy-content text-slate-800 dark:text-slate-200" dangerouslySetInnerHTML={createSafeHtml(e.text)}></div>
                    </div>
                ))}
             </div>
@@ -2601,7 +2543,7 @@ function App() {
 
         {/* --- EDITOR MODAL --- */}
         {showEditor && (
-          <div className="fixed top-0 left-0 right-0 bottom-0 bg-white dark:bg-black z-[200] flex flex-col overflow-hidden">
+          <div className="fixed inset-0 z-[200] flex flex-col overflow-hidden bg-white dark:bg-black animate-slide-up">
             
             <header className="flex-none flex justify-between items-center p-4 sm:p-6 shrink-0 z-50 pt-safe bg-white/95 dark:bg-black/95 border-b border-slate-100 dark:border-zinc-900">
                 <button onClick={()=>checkSaveEntry(true)} className="p-3 bg-slate-100 dark:bg-zinc-900 rounded-2xl text-slate-900 dark:text-white hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
@@ -2678,7 +2620,7 @@ function App() {
                       onClick={handleEditorClick}
                       onPaste={handleEditorPaste}
                       onInput={handleEditorInput} 
-                      className="outline-none legacy-editor-content text-slate-800 dark:text-slate-200 pb-8 min-h-full w-full" 
+                      className="outline-none text-[1.05rem] leading-[1.8] font-medium legacy-editor-content text-slate-800 dark:text-slate-200 pb-8 min-h-full w-full" 
                       data-placeholder="Was wirst du hinterlassen? Du kannst auch Sticker per Tastatur einfügen..." 
                       dangerouslySetInnerHTML={{__html: text}} 
                   />
@@ -2687,34 +2629,70 @@ function App() {
 
             <div className="flex-none p-3 border-t border-slate-100 dark:border-zinc-900 bg-white/95 dark:bg-black/95 backdrop-blur-xl shrink-0 flex items-center gap-3 overflow-x-auto hide-scrollbar z-50 pb-safe shadow-[0_-4px_6px_rgba(0,0,0,0.02)]">
                <button onClick={()=>setPicker({title:'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c, value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;}})} className="h-10 px-4 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs font-bold flex items-center gap-2 shrink-0">{category} <Icon name="chevron-down" size={12}/></button>
+               
                <div className="h-10 flex items-center gap-1 bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0">
-                  {[1,2,3,4,5].map(star => <Icon key={star} name="star" size={14} className={`cursor-pointer transition-colors ${rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-zinc-700'}`} onClick={() => {setRating(rating === star ? 0 : star); isDirtyRef.current=true;}} />)}
+                  {[1,2,3,4,5].map(star => (
+                      <Icon key={star} name="star" size={14} className={`cursor-pointer transition-colors ${rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-zinc-700'}`} onClick={() => {setRating(rating === star ? 0 : star); isDirtyRef.current=true;}} />
+                  ))}
                </div>
+
                <div className="h-10 flex items-center bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
                    <Icon name="tag" size={12} className="text-slate-400 mr-2 shrink-0" />
                    <input type="text" placeholder="Tags (Komma...)" value={tags} onChange={e=>{setTags(e.target.value); isDirtyRef.current=true;}} className="bg-transparent border-none outline-none text-xs font-bold placeholder:opacity-50 w-full text-slate-900 dark:text-white" />
                </div>
+
                <div className="h-10 flex items-center bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
                    <Icon name="user" size={12} className="text-slate-400 mr-2 shrink-0" />
                    <input type="text" placeholder="Personen..." value={people} onChange={e=>{setPeople(e.target.value); isDirtyRef.current=true;}} className="bg-transparent border-none outline-none text-xs font-bold placeholder:opacity-50 w-full text-slate-900 dark:text-white" />
                </div>
+
                <div className={`h-10 relative px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 cursor-pointer overflow-hidden ${unlockDate ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}>
                   <Icon name="calendar-clock" size={14}/> {unlockDate ? new Date(unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Zeitsiegel'}
                   <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); isDirtyRef.current=true;}} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
                </div>
+               
                {locations.map((loc, idx) => (
                    <div key={idx} className="h-10 px-4 rounded-xl border border-emerald-300 dark:border-emerald-700/50 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 text-xs font-bold flex items-center gap-2 shrink-0">
                        <Icon name="map-pin" size={14}/> {loc.name} • {loc.time} {loc.weather ? `• ${loc.weather}` : ''}
                        <button onClick={(e) => { e.stopPropagation(); setLocations(prev => prev.filter((_, i) => i !== idx)); isDirtyRef.current=true; }} className="ml-1 opacity-60 hover:opacity-100 hover:text-rose-500 transition-colors"><Icon name="x" size={14}/></button>
                    </div>
                ))}
+
                <button onClick={async ()=>{
                    if(!("geolocation" in navigator)){showDialog({title:'Fehler', message:'Ortung nicht unterstützt.'}); return;}
                    navigator.geolocation.getCurrentPosition(async (p) => { 
-                       const lat = p.coords.latitude; const lng = p.coords.longitude; let locName = "GPS Standort"; let formattedTime = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + " Uhr"; let wStr = "";
-                       try { const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`); const geoData = await geoRes.json(); if(geoData && geoData.address) { locName = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.road || "Unbekannter Ort"; } } catch(e) {}
-                       try { const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`); const data = await res.json(); const temp = Math.round(data.current_weather.temperature); const wcode = data.current_weather.weathercode; wStr = `${temp}°C`; if (wcode === 0) wStr += ' ☀️'; else if (wcode <= 3) wStr += ' ⛅'; else if (wcode <= 48) wStr += ' ☁️'; else if (wcode <= 67) wStr += ' 🌧️'; else if (wcode <= 79) wStr += ' 🌨️'; else if (wcode <= 99) wStr += ' ⛈️'; } catch(e) {}
-                       const newLoc = {lat, lng, name: locName, time: formattedTime, weather: wStr}; setLocations(prev => [...prev, newLoc]); isDirtyRef.current=true; 
+                       const lat = p.coords.latitude;
+                       const lng = p.coords.longitude;
+                       let locName = "GPS Standort";
+                       let formattedTime = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + " Uhr";
+                       let wStr = "";
+                       
+                       try {
+                           const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                           const geoData = await geoRes.json();
+                           if(geoData && geoData.address) {
+                               locName = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.road || "Unbekannter Ort";
+                           }
+                       } catch(e) {}
+
+                       try {
+                           const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`);
+                           const data = await res.json();
+                           const temp = Math.round(data.current_weather.temperature);
+                           const wcode = data.current_weather.weathercode;
+                           wStr = `${temp}°C`;
+                           if (wcode === 0) wStr += ' ☀️';
+                           else if (wcode <= 3) wStr += ' ⛅';
+                           else if (wcode <= 48) wStr += ' ☁️';
+                           else if (wcode <= 67) wStr += ' 🌧️';
+                           else if (wcode <= 79) wStr += ' 🌨️';
+                           else if (wcode <= 99) wStr += ' ⛈️';
+                       } catch(e) {}
+
+                       const newLoc = {lat, lng, name: locName, time: formattedTime, weather: wStr};
+                       setLocations(prev => [...prev, newLoc]);
+                       
+                       isDirtyRef.current=true; 
                        showDialog({title:'GPS erfasst', message:`Ort (${locName}) und Wetter wurden um ${formattedTime} gesichert.`, icon:'map-pin'}); 
                    }, ()=>showDialog({title:'Fehler', message:'Ortung fehlgeschlagen.'}));
                }} className={`h-10 px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors`}><Icon name="plus" size={14}/> GPS hinzufügen</button>
@@ -2727,13 +2705,30 @@ function App() {
             <header className="flex justify-between items-center p-4 bg-slate-950 text-white pt-safe border-b border-white/10">
               <button onClick={() => setIsDrawing(false)} className="p-3 bg-white/10 rounded-2xl hover:bg-white/20 transition-colors"><Icon name="x"/></button>
               <span className="font-bold">Zeichnen</span>
-              <button onClick={() => { if(canvasRef.current) { const base64 = canvasRef.current.toDataURL(); if (editorRef.current) { editorRef.current.focus(); document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false"><img src="${base64}" /><span class="delete-img-btn">X</span></span>&nbsp;`); isDirtyRef.current = true; checkSaveEntry(false); } setIsDrawing(false); } }} className="px-6 py-2 bg-accent text-black font-bold rounded-2xl">Fertig</button>
+              <button onClick={() => {
+                  if(canvasRef.current) {
+                      const base64 = canvasRef.current.toDataURL();
+                      if (editorRef.current) {
+                          editorRef.current.focus();
+                          document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false"><img src="${base64}" /><span class="delete-img-btn">X</span></span>&nbsp;`);
+                          isDirtyRef.current = true;
+                          checkSaveEntry(false);
+                      }
+                      setIsDrawing(false);
+                  }
+              }} className="px-6 py-2 bg-accent text-black font-bold rounded-2xl">Fertig</button>
             </header>
             <div className="flex-1 bg-white relative touch-none">
               <canvas ref={canvasRef} className="absolute inset-0 w-full h-full cursor-crosshair touch-none" onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing} onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
             </div>
             <div className="p-4 pb-safe bg-slate-950 flex justify-center border-t border-white/10">
-              <button onClick={() => { if(canvasRef.current){ const ctx = canvasRef.current.getContext('2d'); ctx.fillStyle = user.isDark ? '#18181b' : '#ffffff'; ctx.fillRect(0,0,canvasRef.current.width, canvasRef.current.height); } }} className="p-4 bg-white/10 rounded-2xl text-white hover:bg-white/20"><Icon name="eraser"/></button>
+              <button onClick={() => {
+                  if(canvasRef.current){
+                      const ctx = canvasRef.current.getContext('2d');
+                      ctx.fillStyle = user.isDark ? '#18181b' : '#ffffff';
+                      ctx.fillRect(0,0,canvasRef.current.width, canvasRef.current.height);
+                  }
+              }} className="p-4 bg-white/10 rounded-2xl text-white hover:bg-white/20"><Icon name="eraser"/></button>
             </div>
           </div>
         )}
