@@ -125,7 +125,7 @@ const sortEntriesChronological = (a, b) => {
         if (isNaN(time)) time = new Date(d + 'Z').getTime();
         return isNaN(time) ? 0 : time;
     };
-    return getT(a) - getT(b);
+    return getT(b) - getT(a); // Zuerst neueste Einträge
 };
 
 const getLocalISO = () => new Date().toISOString();
@@ -622,36 +622,38 @@ function App() {
           setFb({ db: firestoreDb, auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot });
 
           const handleUserLoad = async (u) => {
-              // Fetch public profile FIRST to ensure consistency across devices before PIN entry
-              let fetchedProfile = null;
+              // 1. LOKALER START: Sofort Sperrbildschirm zeigen, ohne auf Cloud zu warten
+              const savedStr = safeStorageGet('legacy_user');
+              let localUser = null;
+              if (savedStr) {
+                  try {
+                      localUser = JSON.parse(savedStr);
+                      setUser(localUser);
+                      setView(localUser.pin ? 'pin_entry' : (localUser.name ? 'dashboard' : 'onboarding'));
+                  } catch(e) {}
+              }
+
+              // 2. Cloud Sync im Hintergrund (Handy überschreibt Cloud, falls Handy lokales Bild hat)
               try {
                   const profileSnap = await getDoc(doc(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'profile', 'data'));
                   if (profileSnap.exists()) {
                       const data = profileSnap.data();
+                      let fetchedProfile = null;
                       if (data.publicProfile) {
                           fetchedProfile = data.publicProfile;
-                          setUser(prev => ({ ...prev, ...fetchedProfile }));
+                          setUser(prev => {
+                              const updated = { ...prev, ...fetchedProfile };
+                              safeStorageSet('legacy_user', JSON.stringify(updated));
+                              return updated;
+                          });
                       }
                       
-                      const savedStr = safeStorageGet('legacy_user');
-                      if (savedStr) {
-                           let parsed = JSON.parse(savedStr);
-                           if (fetchedProfile) {
-                               // Handy bleibt der Master! Wir nutzen die lokalen Daten.
-                               // Damit ein neues Bild vom Handy die Cloud gewinnt, mergen wir die lokalen Daten ÜBER die Cloud-Daten.
-                               parsed = { ...fetchedProfile, ...parsed }; 
-                               safeStorageSet('legacy_user', JSON.stringify(parsed));
-                               syncProfileToCloud(parsed); // Erzwinge sofort das Handy-Profil in der Cloud
-                           }
-                           setUser(parsed);
-                           setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
-                           return;
-                      } else {
+                      if (!localUser) {
                            if (data.encryptedData) {
                                setView('cloud_pin_sync'); 
                                return;
                            } else if (data.rawData) {
-                               const loadedUser = { ...user, ...data.rawData, ...fetchedProfile };
+                               const loadedUser = { ...user, ...data.rawData, ...(fetchedProfile || {}) };
                                setUser(loadedUser);
                                safeStorageSet('legacy_user', JSON.stringify(loadedUser));
                                setView(loadedUser.pin ? 'pin_entry' : 'dashboard');
@@ -660,26 +662,17 @@ function App() {
                       }
                   }
               } catch(e) {}
-
-              const savedStr = safeStorageGet('legacy_user');
-              if (savedStr) {
-                  try {
-                      const parsed = JSON.parse(savedStr);
-                      setUser(parsed);
-                      setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
-                      return;
-                  } catch(e) {}
-              }
               
-              try {
-                  const entriesSnap = await getDocs(collection(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'entries'));
-                  if (!entriesSnap.empty) {
-                      setView('cloud_pin_sync'); 
-                      return;
-                  }
-              } catch(e) {}
-
-              setView('onboarding'); 
+              if (!localUser) {
+                  try {
+                      const entriesSnap = await getDocs(collection(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'entries'));
+                      if (!entriesSnap.empty) {
+                          setView('cloud_pin_sync'); 
+                          return;
+                      }
+                  } catch(e) {}
+                  setView('onboarding'); 
+              }
           };
 
           onAuthStateChanged(auth, (u) => {
@@ -701,7 +694,7 @@ function App() {
                try {
                    const parsed = JSON.parse(savedStr);
                    setUser(parsed);
-                   setView(parsed.name ? 'dashboard' : 'onboarding');
+                   setView(parsed.pin ? 'pin_entry' : (parsed.name ? 'dashboard' : 'onboarding'));
                } catch(err) { setView('onboarding'); }
            } else {
                setView('onboarding');
@@ -750,7 +743,6 @@ function App() {
                     } catch(err){ return { ...e, text: decStr, encryptedData: null, locked: false };} 
                 }
               } else if (e.cipher && e.iv && e.salt) {
-                  // LEGACY-RETTUNG aus IndexedDB!
                   const decStr = await decryptData({cipher: e.cipher, iv: e.iv, salt: e.salt}, currentUser.pin);
                   if (decStr) {
                       try {
@@ -1386,7 +1378,9 @@ function App() {
       if (!touchStart || !viewingEntry) return;
       const touchEnd = e.changedTouches[0].clientX; const distance = touchStart - touchEnd;
       const bookRoot = getBookRoot(viewingEntry.id);
-      const bookEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
+      const unsortedEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
+      const bookEntries = [...unsortedEntries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
       let swipeNext = null, swipePrev = null;
       if (bookEntries.length > 1) {
           const cIdx = bookEntries.findIndex(ex => ex && ex.id === viewingEntry.id);
@@ -1852,11 +1846,11 @@ function App() {
                 <div className="bg-white dark:bg-zinc-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-zinc-800 w-full max-w-sm flex flex-col items-center animate-slide-up text-center">
                     <div className="flex items-center justify-center gap-4 mb-4">
                         {user.avatar ? (
-                            <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-sm shrink-0 border-2" style={{ borderColor: user.nameColor || 'transparent' }}>
+                            <div className="w-14 h-14 rounded-full overflow-hidden shadow-sm shrink-0 border-2" style={{ borderColor: user.nameColor || 'transparent' }}>
                                 <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover scale-[1.02]" />
                             </div>
                         ) : (
-                            <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 rounded-2xl flex items-center justify-center shadow-sm shrink-0">
+                            <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 rounded-full flex items-center justify-center shadow-sm shrink-0">
                                 <Icon name="user" size={28}/>
                             </div>
                         )}
@@ -1885,7 +1879,7 @@ function App() {
                 <div className="bg-white dark:bg-zinc-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-zinc-800 w-full max-w-sm flex flex-col items-center animate-slide-up text-center">
                     <div className="flex items-center justify-center gap-4 mb-4">
                         {user.avatar ? (
-                            <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-sm shrink-0 border-2" style={{ borderColor: user.nameColor || 'transparent' }}>
+                            <div className="w-14 h-14 rounded-full overflow-hidden shadow-sm shrink-0 border-2" style={{ borderColor: user.nameColor || 'transparent' }}>
                                 <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover scale-[1.02]" />
                             </div>
                         ) : (
@@ -2097,7 +2091,7 @@ function App() {
                                {user.avatar ? <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover scale-[1.02]" /> : <Icon name="user" size={40} className="opacity-30 text-slate-900 dark:text-white" />}
                            </div>
                            {user.avatar && (
-                               <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); const updated = {...user, avatar: null}; setUser(updated); safeStorageSet('legacy_user', JSON.stringify(updated)); syncProfileToCloud(updated); }} className="absolute top-0 right-0 p-1.5 bg-rose-500 text-white rounded-full shadow-md hover:scale-110 active:scale-95 transition-transform z-10 border-2 border-white dark:border-zinc-900"><Icon name="x" size={12}/></button>
+                               <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); const updated = {...user, avatar: null}; setUser(updated); safeStorageSet('legacy_user', JSON.stringify(updated)); syncProfileToCloud(updated); }} className="absolute top-0 -right-1 w-7 h-7 flex items-center justify-center bg-rose-500 text-white rounded-full shadow-md hover:scale-110 active:scale-95 transition-transform z-10 border-2 border-white dark:border-zinc-900"><Icon name="x" size={12}/></button>
                            )}
                        </div>
                        <label className="w-full sm:flex-1 py-4 px-4 rounded-2xl cursor-pointer shadow-sm font-bold text-sm text-center border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 hover:scale-[1.02] active:scale-95 transition-transform">
@@ -2336,7 +2330,8 @@ function App() {
         {/* --- VIEWER --- */}
         {viewingEntry && !showEditor && (() => {
            const bookRoot = getBookRoot(viewingEntry.id);
-           const allBookEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
+           const unsortedEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
+           const allBookEntries = [...unsortedEntries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
            const cIdx = allBookEntries.findIndex(ex => ex && ex.id === viewingEntry.id);
            const prevPage = cIdx > 0 ? allBookEntries[cIdx - 1] : null;
            const nextPage = cIdx < allBookEntries.length - 1 ? allBookEntries[cIdx + 1] : null;
@@ -2445,7 +2440,10 @@ function App() {
         })()}
 
         {/* --- PRINT VIEW ONLY --- */}
-        {viewingEntry && !showEditor && (
+        {viewingEntry && !showEditor && (() => {
+          const bookRoot = getBookRoot(viewingEntry.id);
+          const chronologicalBookEntries = [...getAllBookEntries(bookRoot?.id || viewingEntry.id)].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          return (
           <div className="print-only w-full max-w-4xl mx-auto p-8">
             <div className="print-title-page page-break-after">
                <h1 style={{fontSize: '56px', marginBottom: '20px', fontFamily: 'Inter, sans-serif'}}>{user.appName || 'Legacy Vision Journal'}</h1>
@@ -2457,14 +2455,14 @@ function App() {
             <div className="print-toc page-break-after">
                <h2 style={{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px', fontFamily: 'Inter, sans-serif'}}>Inhaltsverzeichnis</h2>
                <ul style={{listStyle: 'none', padding: 0}}>
-                   {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
+                   {chronologicalBookEntries.map((e, idx) => (
                        <li key={idx} style={{marginBottom: '15px', fontSize: '18px'}}><strong>{idx+1}.</strong> {e.title || 'Ohne Titel'}</li>
                    ))}
                </ul>
             </div>
 
             <div className="print-book-content">
-               {getAllBookEntries(getBookRoot(viewingEntry.id)?.id || viewingEntry.id).map((e, idx) => (
+               {chronologicalBookEntries.map((e, idx) => (
                    <div key={e.id} className="page-break-after" style={{ marginBottom: '60px', paddingTop: '20px' }}>
                        <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
                            <h1 style={{ fontSize: '36px', fontWeight: 'bold', marginBottom: '10px', fontFamily: 'Inter, sans-serif' }}>{e.title || 'Ohne Titel'}</h1>
@@ -2490,7 +2488,8 @@ function App() {
                ))}
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* --- EDITOR MODAL --- */}
         {showEditor && (
