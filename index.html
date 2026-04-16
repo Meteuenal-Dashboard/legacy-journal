@@ -640,20 +640,21 @@ function App() {
   // --- Login Bypass & Firebase Setup ---
   useEffect(() => {
     const initFB = async () => {
-       const savedStr = safeStorageGet('legacy_user');
-       let localUser = null;
-       if (savedStr) {
+       const initialSavedStr = safeStorageGet('legacy_user');
+       let initiallyHasUser = false;
+       if (initialSavedStr) {
            try {
-               localUser = JSON.parse(savedStr);
+               const localUser = JSON.parse(initialSavedStr);
                setUser(localUser);
                setView(localUser.pin ? 'pin_entry' : (localUser.name ? 'dashboard' : 'onboarding'));
+               initiallyHasUser = !!localUser.name;
                setIsLoaded(true);
            } catch(e) {}
        }
 
        let authTimeout = setTimeout(() => {
            if (!isLoaded) {
-               if (!localUser) setView('onboarding');
+               if (!safeStorageGet('legacy_user')) setView('onboarding');
                setIsLoaded(true);
            }
        }, 5000);
@@ -669,6 +670,14 @@ function App() {
           setFb({ db: firestoreDb, auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot });
 
           const handleUserLoad = async (u) => {
+              // Immer den absolut frischesten Stand aus dem Speicher holen
+              const currentLocalStr = safeStorageGet('legacy_user');
+              let hasLocal = false;
+              let currentLocalUser = null;
+              if (currentLocalStr) {
+                  try { currentLocalUser = JSON.parse(currentLocalStr); hasLocal = !!currentLocalUser.name; } catch(e){}
+              }
+
               try {
                   const profileSnap = await getDoc(doc(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'profile', 'data'));
                   if (profileSnap.exists()) {
@@ -683,26 +692,30 @@ function App() {
                           });
                       }
                       
-                      if (!localUser) {
+                      if (!hasLocal) {
                            if (data.encryptedData) {
                                setView('cloud_pin_sync'); 
                                return;
                            } else if (data.rawData) {
-                               const loadedUser = { ...user, ...data.rawData, ...(fetchedProfile || {}) };
+                               const loadedUser = { name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false, uiScale: 1, ...data.rawData, ...(fetchedProfile || {}) };
                                setUser(loadedUser);
                                safeStorageSet('legacy_user', JSON.stringify(loadedUser));
                                setView(loadedUser.pin ? 'pin_entry' : 'dashboard');
                                return;
                            }
-                      } else if (fetchedProfile) {
-                           const merged = { ...fetchedProfile, ...localUser };
-                           safeStorageSet('legacy_user', JSON.stringify(merged));
-                           syncProfileToCloud(merged);
+                      } else {
+                           if (fetchedProfile) {
+                               const merged = { ...currentLocalUser, ...fetchedProfile };
+                               safeStorageSet('legacy_user', JSON.stringify(merged));
+                               syncProfileToCloud(merged);
+                           }
+                           setView(currentLocalUser.pin ? 'pin_entry' : 'dashboard');
+                           return;
                       }
                   }
               } catch(e) {}
               
-              if (!localUser) {
+              if (!hasLocal) {
                   try {
                       const entriesSnap = await getDocs(collection(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'entries'));
                       if (!entriesSnap.empty) {
@@ -711,24 +724,26 @@ function App() {
                       }
                   } catch(e) {}
                   setView('onboarding'); 
+              } else {
+                  setView(currentLocalUser.pin ? 'pin_entry' : 'dashboard');
               }
           };
 
           onAuthStateChanged(auth, (u) => {
               clearTimeout(authTimeout);
+              const currentLocalStr = safeStorageGet('legacy_user');
               if (u) {
-                  if (u.emailVerified) {
-                      setAuthUser(u);
-                      handleUserLoad(u);
-                  } else { signOut(auth); if(!localUser) setView('auth'); }
+                  // Bei erfolgreichem Auth direkt User verarbeiten (Email-Pflicht für Relogin gelockert)
+                  setAuthUser(u);
+                  handleUserLoad(u);
               } else {
                   setAuthUser(null);
-                  if(!localUser) setView('auth'); 
+                  if(!currentLocalStr) setView('auth'); 
               }
               setIsLoaded(true);
           });
        } catch(e) { 
-           if (!localUser) setView('onboarding');
+           if (!safeStorageGet('legacy_user')) setView('onboarding');
            setIsLoaded(true); 
        }
     };
@@ -969,8 +984,8 @@ function App() {
       try {
           if (authMode === 'login') {
               if (!authPassword) { setAuthError('Passwort fehlt.'); return; }
-              const cred = await fb.signInWithEmailAndPassword(fb.auth, authEmail, authPassword);
-              if (!cred.user.emailVerified) { setAuthError('Bitte bestätige zuerst deine E-Mail (Double Opt-In).'); await fb.signOut(fb.auth); }
+              // Login durchführen - das reicht aus, um onAuthStateChanged aufzurufen
+              await fb.signInWithEmailAndPassword(fb.auth, authEmail, authPassword);
           } else if (authMode === 'register') {
               if (!authPassword) { setAuthError('Passwort fehlt.'); return; }
               const cred = await fb.createUserWithEmailAndPassword(fb.auth, authEmail, authPassword);
