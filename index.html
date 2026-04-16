@@ -822,32 +822,49 @@ function App() {
   const loadLocalEntries = (activePin) => {
       return new Promise((resolve) => {
           if (!db) { resolve(); return; }
-          const transaction = db.transaction('entries', 'readonly');
-          const request = transaction.objectStore('entries').getAll();
-          request.onsuccess = async () => {
-              let loadedEntries = request.result || [];
-              loadedEntries = loadedEntries.filter(e => e != null);
-              if (activePin) {
-                  loadedEntries = await Promise.all(loadedEntries.map(async (e) => {
-                      if (e.encryptedData) {
-                          const decStr = await decryptData(e.encryptedData, activePin);
-                          if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, ...parsed, encryptedData: null, locked: false }; } catch(err){ return { ...e, text: decStr, encryptedData: null, locked: false };} }
-                      } else if (e.cipher && e.iv && e.salt) {
-                          const decStr = await decryptData({cipher: e.cipher, iv: e.iv, salt: e.salt}, activePin);
-                          if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, ...parsed, cipher: null, iv: null, salt: null, locked: false }; } catch(err) { return { ...e, text: decStr, cipher: null, iv: null, salt: null, locked: false };} }
+          try {
+              const transaction = db.transaction('entries', 'readonly');
+              const request = transaction.objectStore('entries').getAll();
+              request.onsuccess = async () => {
+                  try {
+                      let loadedEntries = request.result || [];
+                      loadedEntries = loadedEntries.filter(e => e != null);
+                      if (activePin) {
+                          loadedEntries = await Promise.all(loadedEntries.map(async (e) => {
+                              try {
+                                  if (e.encryptedData) {
+                                      const decStr = await decryptData(e.encryptedData, activePin);
+                                      if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, ...parsed, encryptedData: null, locked: false }; } catch(err){ return { ...e, text: decStr, encryptedData: null, locked: false };} }
+                                  } else if (e.cipher && e.iv && e.salt) {
+                                      const decStr = await decryptData({cipher: e.cipher, iv: e.iv, salt: e.salt}, activePin);
+                                      if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, ...parsed, cipher: null, iv: null, salt: null, locked: false }; } catch(err) { return { ...e, text: decStr, cipher: null, iv: null, salt: null, locked: false };} }
+                                  }
+                              } catch(decErr) {
+                                  console.error("Entschlüsselungsfehler:", decErr);
+                              }
+                              return { ...e, locked: false };
+                          }));
                       }
-                      return { ...e, locked: false };
-                  }));
-              }
-              loadedEntries = loadedEntries.map(e => {
-                  if (!e.date) e.date = e.orderTimestamp || (e.timestamp ? new Date(e.timestamp).toISOString() : new Date().toISOString());
-                  if (!e.orderTimestamp) e.orderTimestamp = e.date;
-                  return e;
-              });
-              setEntries(loadedEntries.sort(sortEntriesChronological));
+                      loadedEntries = loadedEntries.map(e => {
+                          try {
+                              if (!e.date) e.date = e.orderTimestamp || (e.timestamp ? new Date(e.timestamp).toISOString() : new Date().toISOString());
+                              if (!e.orderTimestamp) e.orderTimestamp = e.date;
+                          } catch(dtErr) {
+                              e.date = new Date().toISOString(); e.orderTimestamp = e.date;
+                          }
+                          return e;
+                      });
+                      setEntries(loadedEntries.sort(sortEntriesChronological));
+                  } catch (err) {
+                      console.error("Fehler beim Laden:", err);
+                  } finally {
+                      resolve();
+                  }
+              };
+              request.onerror = () => resolve();
+          } catch(e) {
               resolve();
-          };
-          request.onerror = () => resolve();
+          }
       });
   };
 
@@ -1026,7 +1043,7 @@ function App() {
       setUser(mergedUser);
       safeStorageSet('legacy_user', JSON.stringify(mergedUser));
       
-      setView('loading');
+      // Lade-Bildschirm entfernt: Springt sofort und fließend ins Dashboard
       await loadLocalEntries(pinValue);
       setView(mergedUser.name ? 'dashboard' : 'onboarding');
   };
@@ -1077,6 +1094,8 @@ function App() {
           if (cred) {
               const savedPin = atob(safeStorageGet('legacy_bio_pin'));
               if (savedPin) await handleUnlockSubmit(savedPin);
+          } else {
+              setShowPinFallback(true);
           }
       } catch(e) { 
           setShowPinFallback(true); 
