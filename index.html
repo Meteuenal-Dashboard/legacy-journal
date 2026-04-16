@@ -132,18 +132,38 @@ const createSafeHtml = (htmlStr) => {
   };
 };
 
-const highlightText = (text, query) => {
+const highlightText = (text, query, isTitle = false) => {
   const safeStr = text || '';
   if (!safeStr) return { __html: '' };
-  let safeText = safeStr.replace(/<img[^>]*>/g, '[Bild]');
-  safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { 
-      ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], 
-      ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] 
-  }) : safeText;
-  if (!query) return { __html: safeText };
-  const plainText = safeText.replace(/<[^>]*>?/gm, '');
-  const parts = plainText.split(new RegExp(`(${query})`, 'gi'));
-  const highlighted = parts.map((part, i) =>
+  
+  if (!query) {
+      const safeHTML = window.DOMPurify ? window.DOMPurify.sanitize(safeStr.replace(/<img[^>]*>/g, ' [Bild] '), { 
+          ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], 
+          ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] 
+      }) : safeStr;
+      return { __html: safeHTML };
+  }
+
+  const plainText = safeStr.replace(/<img[^>]*>/g, ' [Bild] ').replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  
+  if (!isTitle) {
+      const match = regex.exec(plainText);
+      if (match) {
+         const start = Math.max(0, match.index - 60);
+         const end = Math.min(plainText.length, match.index + query.length + 60);
+         let snippet = plainText.substring(start, end);
+         if (start > 0) snippet = '...' + snippet;
+         if (end < plainText.length) snippet = snippet + '...';
+         
+         const highlightedSnippet = snippet.split(regex).map((part, i) => 
+             part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part
+         ).join('');
+         return { __html: highlightedSnippet };
+      }
+  }
+
+  const highlighted = plainText.split(regex).map((part, i) =>
       part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part
   ).join('');
   return { __html: highlighted };
@@ -360,7 +380,7 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
               )}
           </div>
           
-          <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && isCapsuleLocked ? 'text-slate-900 dark:text-white' : 'text-slate-900 dark:text-white group-hover:text-accent transition-colors'}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery)} />
+          <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && isCapsuleLocked ? 'text-slate-900 dark:text-white' : 'text-slate-900 dark:text-white group-hover:text-accent transition-colors'}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery, true)} />
           
           {!isGridView && (entry.tags || entry.people || entry.weather || entry.rating > 0 || entry.location || (entry.locations && entry.locations.length > 0)) && (
              <div className="flex flex-wrap gap-1.5 mb-4">
@@ -383,7 +403,7 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
           )}
 
           {!isCapsuleLocked && entry.text && !isGridView && (
-            <div className="text-[1.05rem] leading-[1.8] opacity-90 legacy-editor-content text-slate-800 dark:text-slate-200 line-clamp-3" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
+            <div className="text-[1.05rem] leading-[1.8] opacity-90 legacy-editor-content text-slate-800 dark:text-slate-200 line-clamp-3" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery, false)} />
           )}
           {isCapsuleLocked && !isGridView && (
              <div className="text-sm font-medium leading-relaxed opacity-40 italic mt-auto">
@@ -1283,7 +1303,7 @@ function App() {
         const newEntry = { 
             id: entryId, title: titleSafe || '', text: currentText, color: state.selectedColor, images: state.selectedImages, audio: state.audioUrl, archived: false, trashed: false, manifested: state.isManifested, category: state.category, mood: state.mood, unlockDate: state.unlockDate, location: state.location, locations: state.locations, parentId: state.parentId, inheritedFrom: state.inheritedFrom, rating: state.rating, tags: state.tags, people: state.people, weather: state.weather, 
             date: existingEntry ? (existingEntry.date || state.date || getLocalISO()) : (state.date || getLocalISO()), 
-            orderTimestamp: existingEntry ? (existingEntry.orderTimestamp || getLocalISO()) : getLocalISO() 
+            orderTimestamp: existingEntry ? (existingEntry.orderTimestamp || state.orderTimestamp || getLocalISO()) : (state.orderTimestamp || state.date || getLocalISO()) 
         };
         
         if (!editingIdRef.current) { setEditingId(entryId); editingIdRef.current = entryId; }
@@ -1329,7 +1349,15 @@ function App() {
 
   const openEditor = (entry = null, pillar = null, customDate = null) => {
     isDirtyRef.current = false;
-    const targetDate = entry && entry.id ? (entry.date || getLocalISO()) : (customDate ? new Date(customDate).toISOString() : getLocalISO());
+    
+    let targetDateStr = getLocalISO();
+    if (customDate) {
+        const now = new Date();
+        const [year, month, day] = customDate.split('-');
+        const customD = new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds());
+        targetDateStr = customD.toISOString();
+    }
+    const targetDate = entry && entry.id ? (entry.date || getLocalISO()) : targetDateStr;
 
     const newEntryState = entry && entry.id ? {
         title: entry.title || '', text: entry.text || '', selectedColor: entry.color || (user.isDark ? COLORS[8] : COLORS[0]), selectedImages: entry.images || [], isManifested: entry.manifested || false, category: entry.category || CATEGORIES[0], mood: entry.mood || null, audioUrl: entry.audio || null, unlockDate: entry.unlockDate || '', location: entry.location || null, locations: entry.locations || (entry.location ? [entry.location] : []), parentId: entry.parentId || '', inheritedFrom: entry.inheritedFrom || null, rating: entry.rating || 0, tags: entry.tags || '', people: entry.people || '', weather: entry.weather || '', date: targetDate, orderTimestamp: entry.orderTimestamp || targetDate
@@ -1409,16 +1437,7 @@ function App() {
           }
       }
       
-      const bookRoot = getBookRoot(entry.id);
-      const unsortedEntries = getAllBookEntries(bookRoot?.id || entry.id);
-      
-      // Sortiere absteigend nach orderTimestamp (neuester / höchster Eintrag zuerst)
-      const sortedDesc = [...unsortedEntries].sort((a, b) => new Date(b.orderTimestamp || b.date).getTime() - new Date(a.orderTimestamp || a.date).getTime());
-      
-      // Wir öffnen immer den allerneuesten Eintrag des ausgewählten Tagebuchs
-      const targetToOpen = sortedDesc[0] || entry; 
-      
-      setViewingEntry(targetToOpen);
+      setViewingEntry(entry);
       setCurrentViewerImgIdx(0);
   };
 
@@ -2133,7 +2152,13 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen pb-safe relative">
+      <div className="min-h-screen pb-safe relative" onTouchStart={handlePullStart} onTouchMove={handlePullMove} onTouchEnd={handlePullEnd}>
+        <div className="fixed top-0 left-0 right-0 flex justify-center pointer-events-none z-[100]" style={{ transform: `translateY(${isRefreshing ? 80 : pullY}px)`, opacity: pullY > 10 || isRefreshing ? 1 : 0, transition: pullStartY.current === null ? 'all 0.3s ease' : 'none' }}>
+            <div className={`w-10 h-10 mt-safe bg-white dark:bg-zinc-800 rounded-full shadow-lg flex items-center justify-center border border-slate-200 dark:border-zinc-700 ${isRefreshing ? 'animate-spin' : ''}`}>
+                <Icon name="refresh-cw" size={20} className="text-accent" style={!isRefreshing ? { transform: `rotate(${pullY * 3}deg)` } : {}} />
+            </div>
+        </div>
+
         <header className="sticky top-0 z-30 bg-white/80 dark:bg-black/80 backdrop-blur-2xl border-b border-slate-200/50 dark:border-zinc-800/50 px-6 py-4 flex justify-between items-center transition-colors duration-300 no-print">
           <div className="flex items-center gap-3 overflow-hidden">
             {view === 'archive' ? <h1 className="text-2xl font-extrabold tracking-tight">Archiv</h1> :
@@ -2602,8 +2627,8 @@ function App() {
                              <button onClick={() => window.print()} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500"><Icon name="printer" size={22}/></button>
                              <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
                              
-                             <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500 cursor-pointer flex items-center justify-center" title="Hauptcover ändern">
-                                 <Icon name="image" size={22}/>
+                             <label className="px-4 py-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform font-bold text-sm cursor-pointer flex items-center justify-center gap-2" style={{ color: user.nameColor }} title="Hauptcover ändern">
+                                 <Icon name="image" size={18}/> <span className="hidden sm:inline">Cover ändern</span>
                                  <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id, 0)} className="hidden" />
                              </label>
 
