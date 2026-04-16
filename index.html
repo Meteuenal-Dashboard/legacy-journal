@@ -339,8 +339,8 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
           </div>
         )}
         {hasImages && (
-          <div className="w-full h-48 sm:h-56 relative overflow-hidden bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
-            <img src={entry.images[0]} className="w-full h-full object-contain transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
+          <div className="w-full relative overflow-hidden bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
+            <img src={entry.images[0]} className="w-full h-auto object-contain transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
           </div>
         )}
         <div className="p-6 relative z-10 flex-1 flex flex-col">
