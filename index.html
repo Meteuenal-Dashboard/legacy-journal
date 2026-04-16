@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Legacy Vision Journal - Ultimate Edition</title>
 
+<!-- PWA & iOS Premium Integration -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -657,6 +658,7 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  // --- Login Bypass & Firebase Setup ---
   useEffect(() => {
     const initFB = async () => {
        const initialSavedStr = safeStorageGet('legacy_user');
@@ -1062,6 +1064,7 @@ function App() {
       setUser(mergedUser);
       safeStorageSet('legacy_user', JSON.stringify(mergedUser));
       
+      // Synchrone Navigation, um Blackscreens zu vermeiden!
       setView(mergedUser.name ? 'dashboard' : 'onboarding');
       loadLocalEntries(pinValue);
   };
@@ -1510,12 +1513,13 @@ function App() {
     });
   }, [entries, searchQuery, activeCategory, view]);
 
-  const renderEntries = visibleEntries; 
+  const renderEntries = [...visibleEntries].sort(sortEntriesChronological);
 
+  // --- NEUE TIMELINE / KALENDER LOGIK ---
   const entriesByDate = useMemo(() => {
       const map = {};
       entries.filter(e => e && !e.trashed).forEach(e => {
-          const d = new Date(e.orderTimestamp || e.date || getLocalISO());
+          const d = new Date(e.date || e.orderTimestamp || getLocalISO());
           const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
           if (!map[dateStr]) map[dateStr] = [];
           map[dateStr].push(e);
@@ -2177,7 +2181,6 @@ function App() {
             )}
           </div>
           <div className="flex gap-2 items-center">
-            {/* Timeline / Calendar Button */}
             <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowTimeline(true); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="calendar-days" size={18}/></button>
             
             {view === 'dashboard' && (
