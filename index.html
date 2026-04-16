@@ -893,12 +893,14 @@ function App() {
                                }
                            } catch(e) { parsed = { text: decStr, title: 'Wiederhergestellter Eintrag' }; }
                            
-                           const fDate = docData.date || parsed.date || docData.orderTimestamp || parsed.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
-                           return { ...docData, ...parsed, id: change.doc.id, date: fDate, orderTimestamp: fDate, encryptedData: null, locked: false }; 
+                           const fDate = docData.date || parsed.date || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
+                           const fOrder = docData.orderTimestamp || parsed.orderTimestamp || fDate;
+                           return { ...docData, ...parsed, id: change.doc.id, date: fDate, orderTimestamp: fOrder, encryptedData: null, locked: false }; 
                        }
                    }
-                   const fbDate = docData.date || docData.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
-                   return { ...docData, id: change.doc.id, title: docData.title || 'Verschlüsselter Eintrag', text: 'Entschlüsselung fehlgeschlagen. Bitte prüfe deine PIN.', date: fbDate, orderTimestamp: fbDate, category: docData.category || 'Sicherheit', locked: false };
+                   const fbDate = docData.date || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
+                   const fbOrder = docData.orderTimestamp || fbDate;
+                   return { ...docData, id: change.doc.id, title: docData.title || 'Verschlüsselter Eintrag', text: 'Entschlüsselung fehlgeschlagen. Bitte prüfe deine PIN.', date: fbDate, orderTimestamp: fbOrder, category: docData.category || 'Sicherheit', locked: false };
                 } 
                 else if (docData.cipher && docData.iv && docData.salt) {
                     if (user.pin) {
@@ -906,20 +908,24 @@ function App() {
                         if (decStr) {
                             let parsed = {};
                             try { parsed = JSON.parse(decStr); } catch(e) { parsed = { text: decStr, title: docData.title || 'Tagebucheintrag' }; }
-                            const fDate = docData.date || parsed.date || docData.orderTimestamp || parsed.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
-                            return { ...docData, ...parsed, id: change.doc.id, date: fDate, orderTimestamp: fDate, cipher: null, iv: null, salt: null, locked: false };
+                            const fDate = docData.date || parsed.date || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
+                            const fOrder = docData.orderTimestamp || parsed.orderTimestamp || fDate;
+                            return { ...docData, ...parsed, id: change.doc.id, date: fDate, orderTimestamp: fOrder, cipher: null, iv: null, salt: null, locked: false };
                         }
                     }
-                    const fbDate = docData.date || docData.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
-                    return { ...docData, id: change.doc.id, title: docData.title || 'Verschlüsselter Legacy-Eintrag', text: 'Entschlüsselung fehlgeschlagen. PIN falsch?', date: fbDate, orderTimestamp: fbDate, category: docData.category || 'Sicherheit', locked: false };
+                    const fbDate = docData.date || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
+                    const fbOrder = docData.orderTimestamp || fbDate;
+                    return { ...docData, id: change.doc.id, title: docData.title || 'Verschlüsselter Legacy-Eintrag', text: 'Entschlüsselung fehlgeschlagen. PIN falsch?', date: fbDate, orderTimestamp: fbOrder, category: docData.category || 'Sicherheit', locked: false };
                 }
                 else if (docData.rawData) {
-                    const fbDate = docData.rawData.date || docData.rawData.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
-                    return { ...docData.rawData, id: change.doc.id, date: fbDate, orderTimestamp: fbDate, locked: false };
+                    const fbDate = docData.rawData.date || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
+                    const fbOrder = docData.rawData.orderTimestamp || docData.orderTimestamp || fbDate;
+                    return { ...docData.rawData, id: change.doc.id, date: fbDate, orderTimestamp: fbOrder, locked: false };
                 }
                 
-                const fDate = docData.date || docData.orderTimestamp || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
-                return { ...docData, id: change.doc.id, date: fDate, orderTimestamp: fDate, locked: false };
+                const fDate = docData.date || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
+                const fOrder = docData.orderTimestamp || fDate;
+                return { ...docData, id: change.doc.id, date: fDate, orderTimestamp: fOrder, locked: false };
             } catch (e) {
                 return null;
             }
@@ -1398,13 +1404,6 @@ function App() {
       
       saveToDB(clonedCurrent);
       saveToDB(clonedAbove);
-      
-      setEntries(prev => {
-          const map = new Map(prev.map(p => [p.id, p]));
-          map.set(clonedCurrent.id, clonedCurrent);
-          map.set(clonedAbove.id, clonedAbove);
-          return Array.from(map.values()).sort(sortEntriesChronological);
-      });
   };
   
   const moveEntryDown = (e, index) => {
@@ -1427,13 +1426,6 @@ function App() {
       
       saveToDB(clonedCurrent);
       saveToDB(clonedBelow);
-      
-      setEntries(prev => {
-          const map = new Map(prev.map(p => [p.id, p]));
-          map.set(clonedCurrent.id, clonedCurrent);
-          map.set(clonedBelow.id, clonedBelow);
-          return Array.from(map.values()).sort(sortEntriesChronological);
-      });
   };
 
   const visibleEntries = useMemo(() => {
