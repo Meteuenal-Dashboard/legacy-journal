@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Legacy Vision Journal - Ultimate Edition</title>
 
-<!-- PWA & iOS Premium Integration -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -109,6 +108,7 @@ const safeStorageSet = (key, val) => {
     try { localStorage.setItem(key, val); } catch(e) {} 
 };
 
+// ZENTRALE SORTIERUNG: Das Neueste IMMER zuerst!
 const sortEntriesChronological = (a, b) => {
     const getT = (entry) => {
         let d = entry.orderTimestamp || entry.date;
@@ -657,7 +657,6 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // --- Login Bypass & Firebase Setup ---
   useEffect(() => {
     const initFB = async () => {
        const initialSavedStr = safeStorageGet('legacy_user');
@@ -1063,7 +1062,6 @@ function App() {
       setUser(mergedUser);
       safeStorageSet('legacy_user', JSON.stringify(mergedUser));
       
-      // Synchrone Navigation, um Blackscreens zu vermeiden!
       setView(mergedUser.name ? 'dashboard' : 'onboarding');
       loadLocalEntries(pinValue);
   };
@@ -1438,7 +1436,13 @@ function App() {
           }
       }
       
-      setViewingEntry(entry);
+      const bookRoot = getBookRoot(entry.id);
+      const unsortedEntries = getAllBookEntries(bookRoot?.id || entry.id);
+      
+      const sortedDesc = [...unsortedEntries].sort(sortEntriesChronological);
+      const targetToOpen = sortedDesc[0] || entry; 
+      
+      setViewingEntry(targetToOpen);
       setCurrentViewerImgIdx(0);
   };
 
@@ -1508,7 +1512,6 @@ function App() {
 
   const renderEntries = visibleEntries; 
 
-  // --- NEUE TIMELINE / KALENDER LOGIK ---
   const entriesByDate = useMemo(() => {
       const map = {};
       entries.filter(e => e && !e.trashed).forEach(e => {
@@ -1517,9 +1520,8 @@ function App() {
           if (!map[dateStr]) map[dateStr] = [];
           map[dateStr].push(e);
       });
-      // Sortiere die Einträge eines jeden Tages nach Uhrzeit (älteste zuerst für diesen Tag)
       Object.keys(map).forEach(k => {
-          map[k].sort((a,b) => new Date(a.orderTimestamp || a.date).getTime() - new Date(b.orderTimestamp || b.date).getTime());
+          map[k].sort(sortEntriesChronological);
       });
       return map;
   }, [entries]);
@@ -1622,9 +1624,8 @@ function App() {
       const touchEnd = e.changedTouches[0].clientX; const distance = touchStart - touchEnd;
       const bookRoot = getBookRoot(viewingEntry.id);
       
-      // Fürs Wischen/Lesen nutzen wir die chronologische Reihenfolge
       const unsortedEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
-      const chronologicalBookEntries = [...unsortedEntries].sort((a, b) => new Date(a.orderTimestamp || a.date).getTime() - new Date(b.orderTimestamp || b.date).getTime());
+      const chronologicalBookEntries = [...unsortedEntries].sort(sortEntriesChronological);
       
       let swipeNext = null, swipePrev = null;
       if (chronologicalBookEntries.length > 1) {
@@ -1632,7 +1633,6 @@ function App() {
           if (cIdx > 0) swipePrev = chronologicalBookEntries[cIdx - 1]; 
           if (cIdx < chronologicalBookEntries.length - 1) swipeNext = chronologicalBookEntries[cIdx + 1]; 
       } else {
-          // Im Dashboard
           const sorted = visibleEntries.sort(sortEntriesChronological);
           const cIdx = sorted.findIndex(ex => ex && ex.id === viewingEntry.id);
           if (cIdx > 0) swipePrev = sorted[cIdx - 1]; 
@@ -2604,7 +2604,7 @@ function App() {
              {(() => {
                  const bookRoot = getBookRoot(viewingEntry.id);
                  const unsortedEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
-                 const allBookEntries = [...unsortedEntries].sort((a, b) => new Date(a.orderTimestamp || a.date).getTime() - new Date(b.orderTimestamp || b.date).getTime());
+                 const allBookEntries = [...unsortedEntries].sort(sortEntriesChronological);
                  const cIdx = allBookEntries.findIndex(ex => ex && ex.id === viewingEntry.id);
                  const prevPage = cIdx > 0 ? allBookEntries[cIdx - 1] : null;
                  const nextPage = cIdx < allBookEntries.length - 1 ? allBookEntries[cIdx + 1] : null;
@@ -2715,7 +2715,7 @@ function App() {
         {/* --- PRINT VIEW ONLY --- */}
         {viewingEntry && !showEditor && (() => {
           const bookRoot = getBookRoot(viewingEntry.id);
-          const chronologicalBookEntries = [...getAllBookEntries(bookRoot?.id || viewingEntry.id)].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          const chronologicalBookEntries = [...getAllBookEntries(bookRoot?.id || viewingEntry.id)].sort(sortEntriesChronological);
           return (
           <div className="print-only w-full max-w-4xl mx-auto p-8">
             <div className="print-title-page page-break-after">
