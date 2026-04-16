@@ -1064,7 +1064,6 @@ function App() {
       setUser(mergedUser);
       safeStorageSet('legacy_user', JSON.stringify(mergedUser));
       
-      // Synchrone Navigation, um Blackscreens zu vermeiden!
       setView(mergedUser.name ? 'dashboard' : 'onboarding');
       loadLocalEntries(pinValue);
   };
@@ -1302,10 +1301,19 @@ function App() {
         
         const existingEntry = entries.find(e => e && e.id === editingIdRef.current);
         
+        let finalDate = state.date || (existingEntry ? existingEntry.date : null) || getLocalISO();
+        let finalOrder = existingEntry ? (existingEntry.orderTimestamp || existingEntry.date || getLocalISO()) : finalDate;
+
+        if (existingEntry && state.date && state.date !== existingEntry.date) {
+            finalOrder = state.date;
+        } else if (!existingEntry && state.date) {
+            finalOrder = state.date;
+        }
+        
         const newEntry = { 
             id: entryId, title: titleSafe || '', text: currentText, color: state.selectedColor, images: state.selectedImages, audio: state.audioUrl, archived: false, trashed: false, manifested: state.isManifested, category: state.category, mood: state.mood, unlockDate: state.unlockDate, location: state.location, locations: state.locations, parentId: state.parentId, inheritedFrom: state.inheritedFrom, rating: state.rating, tags: state.tags, people: state.people, weather: state.weather, 
-            date: existingEntry ? (existingEntry.date || state.date || getLocalISO()) : (state.date || getLocalISO()), 
-            orderTimestamp: existingEntry ? (existingEntry.orderTimestamp || state.orderTimestamp || getLocalISO()) : (state.orderTimestamp || state.date || getLocalISO()) 
+            date: finalDate, 
+            orderTimestamp: finalOrder 
         };
         
         if (!editingIdRef.current) { setEditingId(entryId); editingIdRef.current = entryId; }
@@ -1442,7 +1450,10 @@ function App() {
       const bookRoot = getBookRoot(entry.id);
       const unsortedEntries = getAllBookEntries(bookRoot?.id || entry.id);
       
+      // Einheitliche Sortierung: Neuester Eintrag zuerst!
       const sortedDesc = [...unsortedEntries].sort(sortEntriesChronological);
+      
+      // Wir öffnen immer den allerneuesten Eintrag des ausgewählten Tagebuchs
       const targetToOpen = sortedDesc[0] || entry; 
       
       setViewingEntry(targetToOpen);
@@ -1519,11 +1530,12 @@ function App() {
   const entriesByDate = useMemo(() => {
       const map = {};
       entries.filter(e => e && !e.trashed).forEach(e => {
-          const d = new Date(e.date || e.orderTimestamp || getLocalISO());
+          const d = new Date(e.orderTimestamp || e.date || getLocalISO());
           const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
           if (!map[dateStr]) map[dateStr] = [];
           map[dateStr].push(e);
       });
+      // Sortiere die Einträge eines jeden Tages (neueste zuerst für diesen Tag)
       Object.keys(map).forEach(k => {
           map[k].sort(sortEntriesChronological);
       });
@@ -1628,6 +1640,7 @@ function App() {
       const touchEnd = e.changedTouches[0].clientX; const distance = touchStart - touchEnd;
       const bookRoot = getBookRoot(viewingEntry.id);
       
+      // Einheitliche chronologische Sortierung (neueste zuerst)
       const unsortedEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
       const chronologicalBookEntries = [...unsortedEntries].sort(sortEntriesChronological);
       
@@ -1637,6 +1650,7 @@ function App() {
           if (cIdx > 0) swipePrev = chronologicalBookEntries[cIdx - 1]; 
           if (cIdx < chronologicalBookEntries.length - 1) swipeNext = chronologicalBookEntries[cIdx + 1]; 
       } else {
+          // Im Dashboard
           const sorted = visibleEntries.sort(sortEntriesChronological);
           const cIdx = sorted.findIndex(ex => ex && ex.id === viewingEntry.id);
           if (cIdx > 0) swipePrev = sorted[cIdx - 1]; 
@@ -2181,6 +2195,7 @@ function App() {
             )}
           </div>
           <div className="flex gap-2 items-center">
+            {/* Timeline / Calendar Button */}
             <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowTimeline(true); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="calendar-days" size={18}/></button>
             
             {view === 'dashboard' && (
