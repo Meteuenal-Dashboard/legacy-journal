@@ -1043,7 +1043,6 @@ function App() {
       setUser(mergedUser);
       safeStorageSet('legacy_user', JSON.stringify(mergedUser));
       
-      // Lade-Bildschirm entfernt: Springt sofort und fließend ins Dashboard
       await loadLocalEntries(pinValue);
       setView(mergedUser.name ? 'dashboard' : 'onboarding');
   };
@@ -1093,7 +1092,11 @@ function App() {
           });
           if (cred) {
               const savedPin = atob(safeStorageGet('legacy_bio_pin'));
-              if (savedPin) await handleUnlockSubmit(savedPin);
+              if (savedPin) {
+                  handleUnlockSubmit(savedPin);
+              } else {
+                  setShowPinFallback(true);
+              }
           } else {
               setShowPinFallback(true);
           }
@@ -1621,22 +1624,6 @@ function App() {
       setTouchStart(null);
   };
 
-  const handlePullStart = (e) => { if (window.scrollY <= 0 && view === 'dashboard' && !viewingEntry && !showEditor && !showTimeline) { pullStartY.current = e.touches[0].clientY; } };
-  const handlePullMove = (e) => {
-      if (pullStartY.current !== null) {
-          const y = e.touches[0].clientY; const dy = y - pullStartY.current;
-          if (dy > 0) { if (dy < 100) setPullY(dy); else setPullY(100 + (dy - 100) * 0.2); } else { setPullY(0); }
-      }
-  };
-  const handlePullEnd = () => {
-      if (pullY > 60) {
-          setIsRefreshing(true); setPullY(60);
-          if (user.cloudSync && fb && authUser) syncProfileToCloud(user);
-          setTimeout(() => { setIsRefreshing(false); setPullY(0); }, 1500);
-      } else { setPullY(0); }
-      pullStartY.current = null;
-  };
-
   const getCanvasCoordinates = (e) => {
       if (!canvasRef.current) return { x: 0, y: 0 };
       const rect = canvasRef.current.getBoundingClientRect();
@@ -2146,13 +2133,7 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen pb-safe relative" onTouchStart={handlePullStart} onTouchMove={handlePullMove} onTouchEnd={handlePullEnd}>
-        <div className="fixed top-0 left-0 right-0 flex justify-center pointer-events-none z-[100]" style={{ transform: `translateY(${isRefreshing ? 80 : pullY}px)`, opacity: pullY > 10 || isRefreshing ? 1 : 0, transition: pullStartY.current === null ? 'all 0.3s ease' : 'none' }}>
-            <div className={`w-10 h-10 mt-safe bg-white dark:bg-zinc-800 rounded-full shadow-lg flex items-center justify-center border border-slate-200 dark:border-zinc-700 ${isRefreshing ? 'animate-spin' : ''}`}>
-                <Icon name="refresh-cw" size={20} className="text-accent" style={!isRefreshing ? { transform: `rotate(${pullY * 3}deg)` } : {}} />
-            </div>
-        </div>
-
+      <div className="min-h-screen pb-safe relative">
         <header className="sticky top-0 z-30 bg-white/80 dark:bg-black/80 backdrop-blur-2xl border-b border-slate-200/50 dark:border-zinc-800/50 px-6 py-4 flex justify-between items-center transition-colors duration-300 no-print">
           <div className="flex items-center gap-3 overflow-hidden">
             {view === 'archive' ? <h1 className="text-2xl font-extrabold tracking-tight">Archiv</h1> :
@@ -2828,7 +2809,7 @@ function App() {
                       </div>
                   )}
 
-                  {/* HIGH-PERFORMANCE EDITOR DIV (Flash fixed with 'key' prop!) */}
+                  {/* HIGH-PERFORMANCE EDITOR DIV */}
                   <div 
                       key={editingId || 'new_entry'}
                       ref={editorRef} 
