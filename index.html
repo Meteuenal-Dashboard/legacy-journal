@@ -121,14 +121,12 @@ const safeParseDate = (dInput) => {
     
     let dStr = String(dInput).trim();
     
-    // ISO-Strings direkt verarbeiten
     if (/^\d{4}-\d{2}-\d{2}/.test(dStr)) {
         let time = new Date(dStr).getTime();
         if (isNaN(time)) time = new Date(dStr + 'Z').getTime();
         return isNaN(time) ? new Date(0) : new Date(time);
     }
     
-    // Fängt deutsches Format ab: TT.MM.JJJJ (z.B. 01.04.2026)
     const deMatch = dStr.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
     if (deMatch) {
         const timeMatch = dStr.match(/\s(\d{2}:\d{2}:\d{2})/);
@@ -143,7 +141,7 @@ const safeParseDate = (dInput) => {
     return isNaN(time) ? new Date(0) : new Date(time);
 };
 
-// ZENTRALE SORTIERUNG: Das Neueste IMMER zuerst! (Strikt nach Kalendertag! NaN sicher)
+// ZENTRALE SORTIERUNG: Strikt nach OrderTimestamp (erlaubt freies Verschieben durch Pfeile)
 const sortEntriesChronological = (a, b) => {
     const timeA = safeParseDate(a.date).getTime() || 0;
     const timeB = safeParseDate(b.date).getTime() || 0;
@@ -151,15 +149,13 @@ const sortEntriesChronological = (a, b) => {
     const dateA = new Date(timeA);
     const dateB = new Date(timeB);
     
-    // Wir löschen die Uhrzeit für den Vergleich, um strikt den TAG zu priorisieren
     const dayA = new Date(dateA.getFullYear(), dateA.getMonth(), dateA.getDate()).getTime() || 0;
     const dayB = new Date(dateB.getFullYear(), dateB.getMonth(), dateB.getDate()).getTime() || 0;
     
     if (dayA !== dayB) {
-        return dayB - dayA; // Wenn es unterschiedliche Tage sind, gewinnt IMMER der neuere Tag
+        return dayB - dayA; 
     }
     
-    // Wenn es derselbe Tag ist, nutzen wir orderTimestamp für die manuelle Sortierung (Up/Down)
     const orderA = safeParseDate(a.orderTimestamp || a.date).getTime() || 0;
     const orderB = safeParseDate(b.orderTimestamp || b.date).getTime() || 0;
     
@@ -221,9 +217,7 @@ const highlightText = (text, query, isTitle = false) => {
 // --- INTELLIGENTE BILD-ERKENNUNG (COVER) ---
 const getCoverImage = (entry) => {
     if (!entry) return null;
-    // 1. Priorität: Echtes Cover-Bild
     if (entry.images && entry.images.length > 0) return entry.images[0];
-    // 2. Priorität: Bild aus dem Text extrahieren (falls vorhanden)
     if (entry.text) {
         const match = entry.text.match(/<img[^>]+src="([^">]+)"/);
         if (match) return match[1];
@@ -421,8 +415,8 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
           </div>
         )}
         {hasImages && (
-          <div className="w-full relative overflow-hidden bg-black/5 dark:bg-black/20 flex items-center justify-center pt-2 pb-2">
-            <img src={coverUrl} className="w-full h-auto max-h-[350px] object-contain transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
+          <div className="w-full relative overflow-hidden flex items-center justify-center bg-slate-100 dark:bg-zinc-800">
+            <img src={coverUrl} className="w-full h-auto block transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
           </div>
         )}
         <div className="p-6 relative z-10 flex-1 flex flex-col">
@@ -566,6 +560,7 @@ function App() {
   
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [showAuthPassword, setShowAuthPassword] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authMsg, setAuthMsg] = useState('');
   const [authMode, setAuthMode] = useState('login');
@@ -588,6 +583,7 @@ function App() {
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
   const [showPinFallback, setShowPinFallback] = useState(false);
+  const [showPinPassword, setShowPinPassword] = useState(false);
   
   const [isChangingPin, setIsChangingPin] = useState(false);
   const [oldPinInput, setOldPinInput] = useState('');
@@ -1107,7 +1103,12 @@ function App() {
               setAuthMsg('Passwort-Reset-Link gesendet!'); setTimeout(() => setAuthMode('login'), 3000);
           }
       } catch (e) {
-          setAuthError('Fehler aufgetreten. Daten prüfen.');
+          let errorMsg = 'Fehler aufgetreten. Daten prüfen.';
+          if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') errorMsg = 'Falsches Passwort oder E-Mail-Adresse.';
+          else if (e.code === 'auth/user-not-found') errorMsg = 'Benutzer nicht gefunden.';
+          else if (e.code === 'auth/email-already-in-use') errorMsg = 'Diese E-Mail wird bereits verwendet.';
+          else if (e.message) errorMsg = e.message;
+          setAuthError(errorMsg);
       }
   };
 
@@ -1136,11 +1137,10 @@ function App() {
       setUser(mergedUser);
       safeStorageSet('legacy_user', JSON.stringify(mergedUser));
       
-      // Direkter Zugriff ohne Ladebildschirm!
+      // Direkter Zugriff ohne Ladebildschirm-Flackern!
       if (entries.length === 0) {
           await loadLocalEntries(pinValue);
       }
-      
       setView(mergedUser.name ? 'dashboard' : 'onboarding');
   };
 
@@ -1545,18 +1545,16 @@ function App() {
       const current = renderEntries[index];
       const above = renderEntries[index - 1];
       
-      let temp = current.orderTimestamp || current.date;
-      let tempAbove = above.orderTimestamp || above.date;
+      let tCurrent = safeParseDate(current.orderTimestamp || current.date).getTime();
+      let tAbove = safeParseDate(above.orderTimestamp || above.date).getTime();
       
-      if (temp === tempAbove) {
-          tempAbove = new Date(safeParseDate(temp).getTime() + 1000).toISOString();
+      // tAbove muss strikt größer sein als tCurrent, damit current nach dem Tausch vor above landet
+      if (tAbove <= tCurrent) {
+          tAbove = tCurrent + 1000; 
       }
 
-      const clonedCurrent = {...current, orderTimestamp: tempAbove};
-      const clonedAbove = {...above, orderTimestamp: temp};
-      
-      saveToDB(clonedCurrent);
-      saveToDB(clonedAbove);
+      saveToDB({...current, orderTimestamp: new Date(tAbove).toISOString()});
+      saveToDB({...above, orderTimestamp: new Date(tCurrent).toISOString()});
   };
   
   const moveEntryDown = (e, index) => {
@@ -1567,18 +1565,16 @@ function App() {
       const current = renderEntries[index];
       const below = renderEntries[index + 1];
       
-      let temp = current.orderTimestamp || current.date;
-      let tempBelow = below.orderTimestamp || below.date;
+      let tCurrent = safeParseDate(current.orderTimestamp || current.date).getTime();
+      let tBelow = safeParseDate(below.orderTimestamp || below.date).getTime();
       
-      if (temp === tempBelow) {
-          tempBelow = new Date(safeParseDate(temp).getTime() - 1000).toISOString();
+      // tCurrent muss strikt größer sein als tBelow
+      if (tCurrent <= tBelow) {
+          tCurrent = tBelow + 1000;
       }
 
-      const clonedCurrent = {...current, orderTimestamp: tempBelow};
-      const clonedBelow = {...below, orderTimestamp: temp};
-      
-      saveToDB(clonedCurrent);
-      saveToDB(clonedBelow);
+      saveToDB({...current, orderTimestamp: new Date(tBelow).toISOString()});
+      saveToDB({...below, orderTimestamp: new Date(tCurrent).toISOString()});
   };
 
   const visibleEntries = useMemo(() => {
@@ -1614,10 +1610,6 @@ function App() {
       });
       Object.keys(map).forEach(k => { map[k].sort(sortEntriesChronological); });
       return map;
-  }, [entries]);
-
-  const allEntriesSortedDesc = useMemo(() => {
-      return [...entries].filter(e => e && !e.trashed).sort(sortEntriesChronological);
   }, [entries]);
 
   const getCalendarDays = (monthDate) => {
@@ -2054,8 +2046,18 @@ function App() {
           <div className="space-y-4">
             {authError && <div className="p-4 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-2xl text-sm font-semibold text-center border border-rose-100 dark:border-rose-500/20">{authError}</div>}
             {authMsg && <div className="p-4 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl text-sm font-semibold text-center border border-emerald-100 dark:border-emerald-500/20">{authMsg}</div>}
+            
             <input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} className="w-full p-4 rounded-2xl outline-none text-base font-medium bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-slate-400 dark:focus:border-zinc-600 transition-colors placeholder:opacity-40" placeholder="E-Mail Adresse" />
-            {authMode !== 'reset' && <input type="password" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} className="w-full p-4 rounded-2xl outline-none text-base font-medium bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-slate-400 dark:focus:border-zinc-600 transition-colors placeholder:opacity-40" placeholder="Passwort" />}
+            
+            {authMode !== 'reset' && (
+                <div className="relative w-full">
+                    <input type={showAuthPassword ? "text" : "password"} value={authPassword} onChange={e=>setAuthPassword(e.target.value)} className="w-full p-4 rounded-2xl outline-none text-base font-medium bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-slate-400 dark:focus:border-zinc-600 transition-colors placeholder:opacity-40 pr-12" placeholder="Passwort" />
+                    <button type="button" onClick={() => setShowAuthPassword(!showAuthPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                        <Icon name={showAuthPassword ? "eye-off" : "eye"} size={20} />
+                    </button>
+                </div>
+            )}
+            
             <button onClick={handleAuthAction} className="w-full py-4 rounded-2xl font-bold text-base bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-all shadow-md mt-2">{authMode === 'login' ? 'Einloggen' : authMode === 'register' ? 'Account erstellen' : 'Link anfordern'}</button>
             <div className="flex flex-col gap-2 pt-4">
                 {authMode === 'login' ? (
@@ -2144,8 +2146,13 @@ function App() {
                     <div className="w-full h-px bg-slate-100 dark:bg-zinc-800 mb-8"></div>
                     <h2 className="text-xl font-bold mb-2">App entsperren</h2>
                     <p className="opacity-60 text-sm font-medium px-4 mb-6">Gib deine PIN ein, um dein lokales Journal zu entschlüsseln.</p>
+                    <div className="w-full relative">
+                        <input type={showPinPassword ? "text" : "password"} inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockSubmit(pinInput); }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none mb-6 bg-slate-100 dark:bg-zinc-800 border border-transparent focus:border-slate-300 dark:focus:border-zinc-600 transition-colors placeholder:opacity-30 font-bold" placeholder="••••" />
+                        <button type="button" onClick={() => setShowPinPassword(!showPinPassword)} className="absolute right-4 top-[10px] p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                            <Icon name={showPinPassword ? "eye-off" : "eye"} size={20} />
+                        </button>
+                    </div>
                     <div className="w-full">
-                        <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockSubmit(pinInput); }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none mb-6 bg-slate-100 dark:bg-zinc-800 border border-transparent focus:border-slate-300 dark:focus:border-zinc-600 transition-colors placeholder:opacity-30 font-bold" placeholder="••••" />
                         <button onClick={() => handleUnlockSubmit(pinInput)} className="w-full py-4 font-bold rounded-2xl bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-transform shadow-md mb-4 text-lg">Entsperren</button>
                         {user.biometric && safeStorageGet('legacy_bio_pin') && (
                             <button onClick={() => { setShowPinFallback(false); }} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm flex items-center justify-center gap-2 mb-4"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
@@ -2413,9 +2420,9 @@ function App() {
           )}
 
           {view === 'map' && (
-             <div className="flex-1 flex flex-col gap-4 animate-fade-in pb-24 h-full">
-                <div className="flex-1 relative rounded-[2rem] overflow-hidden shadow-lg border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900">
-                    <div ref={mapRef} className="absolute inset-0 w-full h-full"></div>
+             <div className="flex-1 flex flex-col gap-4 animate-fade-in pb-24 h-full min-h-[50vh]">
+                <div className="flex-1 relative rounded-[2rem] overflow-hidden shadow-lg border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900" style={{ minHeight: '400px' }}>
+                    <div ref={mapRef} className="absolute inset-0 w-full h-full z-10"></div>
                 </div>
                 <div className="p-4 bg-white/90 dark:bg-black/90 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200 dark:border-zinc-800 flex justify-between items-center shrink-0">
                     <div className="font-bold text-sm">Orte deines Lebens</div>
@@ -2557,14 +2564,21 @@ function App() {
                          const isSelected = timelineSelectedDate === day.dateStr;
                          
                          let coverUrl = null;
-                         const entryWithCoverThisDay = dayEntries.find(e => getCoverImage(e));
-                         if (entryWithCoverThisDay) {
-                             coverUrl = getCoverImage(entryWithCoverThisDay);
-                         } else {
-                             const targetTimeEnd = safeParseDate(`${day.dateStr}T23:59:59Z`).getTime();
-                             const pastEntryWithCover = allEntriesSortedDesc.find(e => safeParseDate(e.date).getTime() <= targetTimeEnd && getCoverImage(e));
-                             if (pastEntryWithCover) {
-                                 coverUrl = getCoverImage(pastEntryWithCover);
+                         
+                         const today = new Date();
+                         today.setHours(23, 59, 59, 999);
+                         const isFuture = day.date > today;
+                         
+                         if (!isFuture) {
+                             const entryWithCoverThisDay = dayEntries.find(e => getCoverImage(e));
+                             if (entryWithCoverThisDay) {
+                                 coverUrl = getCoverImage(entryWithCoverThisDay);
+                             } else {
+                                 const targetTimeEnd = safeParseDate(`${day.dateStr}T23:59:59Z`).getTime();
+                                 const pastEntryWithCover = allEntriesSortedDesc.find(e => safeParseDate(e.date).getTime() <= targetTimeEnd && getCoverImage(e));
+                                 if (pastEntryWithCover) {
+                                     coverUrl = getCoverImage(pastEntryWithCover);
+                                 }
                              }
                          }
 
