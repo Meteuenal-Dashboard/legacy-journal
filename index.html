@@ -141,7 +141,7 @@ const safeParseDate = (dInput) => {
     return isNaN(time) ? new Date(0) : new Date(time);
 };
 
-// ZENTRALE SORTIERUNG: Strikt nach OrderTimestamp (erlaubt freies Verschieben durch Pfeile)
+// ZENTRALE SORTIERUNG: Strikt nach Kalendertag, dann nach OrderTimestamp (für Up/Down Pfeile)
 const sortEntriesChronological = (a, b) => {
     const timeA = safeParseDate(a.date).getTime() || 0;
     const timeB = safeParseDate(b.date).getTime() || 0;
@@ -414,9 +414,10 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
             <Icon name="sparkles" size={12}/> Highlight
           </div>
         )}
+        {/* VOLLBILD-BILD OHNE VERZERRUNG */}
         {hasImages && (
-          <div className="w-full relative overflow-hidden flex items-center justify-center bg-slate-100 dark:bg-zinc-800">
-            <img src={coverUrl} className="w-full h-auto block transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
+          <div className="w-full relative bg-slate-100 dark:bg-zinc-800">
+            <img src={coverUrl} className="w-full h-auto block" alt="Cover" />
           </div>
         )}
         <div className="p-6 relative z-10 flex-1 flex flex-col">
@@ -638,12 +639,6 @@ function App() {
   const isDirtyRef = useRef(false);
   const currentEntryRef = useRef({});
   const editingIdRef = useRef(null);
-
-  const [touchStart, setTouchStart] = useState(null);
-  const isDrawingRef = useRef(isDrawing);
-  const showEditorRef = useRef(showEditor);
-  const viewingEntryRef = useRef(viewingEntry);
-  const showTimelineRef = useRef(showTimeline);
   const viewRef = useRef(view);
   const biometricAttempted = useRef(false);
 
@@ -652,6 +647,10 @@ function App() {
   useEffect(() => {
       entriesRef.current = entries;
   }, [entries]);
+
+  useEffect(() => {
+      viewRef.current = view;
+  }, [view]);
 
   const syncProfileToCloud = async (userData) => {
       if (!fb || !fb.auth || !fb.auth.currentUser || !userData.cloudSync) return;
@@ -677,14 +676,6 @@ function App() {
   };
 
   useEffect(() => {
-      isDrawingRef.current = isDrawing;
-      showEditorRef.current = showEditor;
-      viewingEntryRef.current = viewingEntry;
-      showTimelineRef.current = showTimeline;
-      viewRef.current = view;
-  }, [isDrawing, showEditor, viewingEntry, showTimeline, view]);
-
-  useEffect(() => {
       document.documentElement.style.fontSize = `${(user.uiScale || 1) * 100}%`;
   }, [user.uiScale]);
 
@@ -697,25 +688,6 @@ function App() {
        return () => clearTimeout(timer);
     }
   }, [user, isLoaded]);
-
-  useEffect(() => {
-    try { window.history.pushState({ isApp: true }, ''); } catch(e) {}
-    const handlePopState = (e) => {
-      e.preventDefault();
-      let trapped = false;
-      if (isDrawingRef.current) { setIsDrawing(false); trapped = true; }
-      else if (showEditorRef.current) { checkSaveEntry(true); trapped = true; } 
-      else if (viewingEntryRef.current) { setViewingEntry(null); setCurrentViewerImgIdx(0); trapped = true; }
-      else if (showTimelineRef.current) { setShowTimeline(false); trapped = true; }
-      else if (viewRef.current !== 'dashboard' && viewRef.current !== 'loading' && viewRef.current !== 'auth' && viewRef.current !== 'pin_entry' && viewRef.current !== 'onboarding' && viewRef.current !== 'cloud_pin_sync') { setView('dashboard'); trapped = true; }
-
-      if (trapped) {
-          try { window.history.pushState({ isApp: true }, ''); } catch(e) {}
-      }
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
 
   // --- Login Bypass & Firebase Setup ---
   useEffect(() => {
@@ -757,6 +729,13 @@ function App() {
                   try { currentLocalUser = JSON.parse(currentLocalStr); hasLocal = !!currentLocalUser.name; } catch(e){}
               }
 
+              const proceedToApp = (userData) => {
+                  const isAuthScreen = ['loading', 'auth', 'onboarding', 'pin_entry'].includes(viewRef.current);
+                  if (isAuthScreen) {
+                      setView(userData.pin ? 'pin_entry' : (userData.name ? 'dashboard' : 'onboarding'));
+                  }
+              };
+
               try {
                   const profileSnap = await getDoc(doc(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'profile', 'data'));
                   if (profileSnap.exists()) {
@@ -773,13 +752,13 @@ function App() {
                       
                       if (!hasLocal) {
                            if (data.encryptedData) {
-                               if (viewRef.current === 'loading' || viewRef.current === 'onboarding') setView('cloud_pin_sync'); 
+                               if (['loading', 'auth', 'onboarding'].includes(viewRef.current)) setView('cloud_pin_sync'); 
                                return;
                            } else if (data.rawData) {
                                const loadedUser = { name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false, uiScale: 1, ...data.rawData, ...(fetchedProfile || {}) };
                                setUser(loadedUser);
                                safeStorageSet('legacy_user', JSON.stringify(loadedUser));
-                               if (viewRef.current === 'loading' || viewRef.current === 'onboarding') setView(loadedUser.pin ? 'pin_entry' : 'dashboard');
+                               proceedToApp(loadedUser);
                                return;
                            }
                       } else {
@@ -788,9 +767,7 @@ function App() {
                                safeStorageSet('legacy_user', JSON.stringify(merged));
                                syncProfileToCloud(merged);
                            }
-                           if (viewRef.current === 'loading' || viewRef.current === 'pin_entry') {
-                               setView(currentLocalUser.pin ? 'pin_entry' : 'dashboard');
-                           }
+                           proceedToApp(currentLocalUser);
                            return;
                       }
                   }
@@ -800,15 +777,13 @@ function App() {
                   try {
                       const entriesSnap = await getDocs(collection(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'entries'));
                       if (!entriesSnap.empty) {
-                          if (viewRef.current === 'loading' || viewRef.current === 'onboarding') setView('cloud_pin_sync'); 
+                          if (['loading', 'auth', 'onboarding'].includes(viewRef.current)) setView('cloud_pin_sync'); 
                           return;
                       }
                   } catch(e) {}
-                  if (viewRef.current === 'loading' || viewRef.current === 'pin_entry') setView('onboarding'); 
+                  if (['loading', 'auth', 'pin_entry'].includes(viewRef.current)) setView('onboarding'); 
               } else {
-                  if (viewRef.current === 'loading' || viewRef.current === 'pin_entry') {
-                      setView(currentLocalUser.pin ? 'pin_entry' : 'dashboard');
-                  }
+                  proceedToApp(currentLocalUser);
               }
           };
 
@@ -928,9 +903,7 @@ function App() {
                                       const decStr = await decryptData({cipher: e.cipher, iv: e.iv, salt: e.salt}, activePin);
                                       if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, ...parsed, cipher: null, iv: null, salt: null, locked: false }; } catch(err) { return { ...e, text: decStr, cipher: null, iv: null, salt: null, locked: false };} }
                                   }
-                              } catch(decErr) {
-                                  console.error("Entschlüsselungsfehler:", decErr);
-                              }
+                              } catch(decErr) {}
                               return { ...e, locked: false };
                           }));
                       }
@@ -944,16 +917,11 @@ function App() {
                           return e;
                       });
                       setEntries(loadedEntries.sort(sortEntriesChronological));
-                  } catch (err) {
-                      console.error("Fehler beim Laden:", err);
-                  } finally {
-                      resolve();
-                  }
+                  } catch (err) {} 
+                  finally { resolve(); }
               };
               request.onerror = () => resolve();
-          } catch(e) {
-              resolve();
-          }
+          } catch(e) { resolve(); }
       });
   };
 
@@ -1139,7 +1107,9 @@ function App() {
       
       // Direkter Zugriff ohne Ladebildschirm-Flackern!
       if (entries.length === 0) {
-          await loadLocalEntries(pinValue);
+          try {
+              await loadLocalEntries(pinValue);
+          } catch (e) {}
       }
       setView(mergedUser.name ? 'dashboard' : 'onboarding');
   };
@@ -1187,13 +1157,11 @@ function App() {
           const cred = await navigator.credentials.get({ 
               publicKey: { challenge, rpId, allowCredentials, userVerification: "discouraged" } 
           });
-          if (cred) {
-              const savedPin = atob(safeStorageGet('legacy_bio_pin'));
-              if (savedPin) {
-                  handleUnlockSubmit(savedPin);
-              } else {
-                  setShowPinFallback(true);
-              }
+          
+          const savedPin64 = safeStorageGet('legacy_bio_pin');
+          if (cred && savedPin64) {
+              const savedPin = atob(savedPin64);
+              handleUnlockSubmit(savedPin);
           } else {
               setShowPinFallback(true);
           }
@@ -1544,13 +1512,20 @@ function App() {
       
       const current = renderEntries[index];
       const above = renderEntries[index - 1];
+
+      const dayCurrent = safeParseDate(current.date).toDateString();
+      const dayAbove = safeParseDate(above.date).toDateString();
+      
+      if (dayCurrent !== dayAbove) {
+          showDialog({title: 'Info', message: 'Einträge können nur innerhalb desselben Tages verschoben werden.'});
+          return;
+      }
       
       let tCurrent = safeParseDate(current.orderTimestamp || current.date).getTime();
       let tAbove = safeParseDate(above.orderTimestamp || above.date).getTime();
       
-      // tAbove muss strikt größer sein als tCurrent, damit current nach dem Tausch vor above landet
-      if (tAbove <= tCurrent) {
-          tAbove = tCurrent + 1000; 
+      if (tCurrent === tAbove) {
+          tAbove += 1000;
       }
 
       saveToDB({...current, orderTimestamp: new Date(tAbove).toISOString()});
@@ -1564,13 +1539,20 @@ function App() {
       
       const current = renderEntries[index];
       const below = renderEntries[index + 1];
+
+      const dayCurrent = safeParseDate(current.date).toDateString();
+      const dayBelow = safeParseDate(below.date).toDateString();
+      
+      if (dayCurrent !== dayBelow) {
+          showDialog({title: 'Info', message: 'Einträge können nur innerhalb desselben Tages verschoben werden.'});
+          return;
+      }
       
       let tCurrent = safeParseDate(current.orderTimestamp || current.date).getTime();
       let tBelow = safeParseDate(below.orderTimestamp || below.date).getTime();
       
-      // tCurrent muss strikt größer sein als tBelow
-      if (tCurrent <= tBelow) {
-          tCurrent = tBelow + 1000;
+      if (tCurrent === tBelow) {
+          tBelow -= 1000;
       }
 
       saveToDB({...current, orderTimestamp: new Date(tBelow).toISOString()});
@@ -1610,6 +1592,10 @@ function App() {
       });
       Object.keys(map).forEach(k => { map[k].sort(sortEntriesChronological); });
       return map;
+  }, [entries]);
+
+  const allEntriesSortedDesc = useMemo(() => {
+      return [...entries].filter(e => e && !e.trashed).sort(sortEntriesChronological);
   }, [entries]);
 
   const getCalendarDays = (monthDate) => {
@@ -2050,10 +2036,10 @@ function App() {
             <input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} className="w-full p-4 rounded-2xl outline-none text-base font-medium bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-slate-400 dark:focus:border-zinc-600 transition-colors placeholder:opacity-40" placeholder="E-Mail Adresse" />
             
             {authMode !== 'reset' && (
-                <div className="relative w-full">
+                <div className="relative w-full mb-6">
                     <input type={showAuthPassword ? "text" : "password"} value={authPassword} onChange={e=>setAuthPassword(e.target.value)} className="w-full p-4 rounded-2xl outline-none text-base font-medium bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-slate-400 dark:focus:border-zinc-600 transition-colors placeholder:opacity-40 pr-12" placeholder="Passwort" />
                     <button type="button" onClick={() => setShowAuthPassword(!showAuthPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
-                        <Icon name={showAuthPassword ? "eye-off" : "eye"} size={20} />
+                        <Icon name={showAuthPassword ? "eye-off" : "eye"} size={24} />
                     </button>
                 </div>
             )}
@@ -2146,10 +2132,10 @@ function App() {
                     <div className="w-full h-px bg-slate-100 dark:bg-zinc-800 mb-8"></div>
                     <h2 className="text-xl font-bold mb-2">App entsperren</h2>
                     <p className="opacity-60 text-sm font-medium px-4 mb-6">Gib deine PIN ein, um dein lokales Journal zu entschlüsseln.</p>
-                    <div className="w-full relative">
-                        <input type={showPinPassword ? "text" : "password"} inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockSubmit(pinInput); }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none mb-6 bg-slate-100 dark:bg-zinc-800 border border-transparent focus:border-slate-300 dark:focus:border-zinc-600 transition-colors placeholder:opacity-30 font-bold" placeholder="••••" />
-                        <button type="button" onClick={() => setShowPinPassword(!showPinPassword)} className="absolute right-4 top-[10px] p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
-                            <Icon name={showPinPassword ? "eye-off" : "eye"} size={20} />
+                    <div className="w-full relative mb-6">
+                        <input type={showPinPassword ? "text" : "password"} inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockSubmit(pinInput); }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none bg-slate-100 dark:bg-zinc-800 border border-transparent focus:border-slate-300 dark:focus:border-zinc-600 transition-colors placeholder:opacity-30 font-bold pr-12" placeholder="••••" />
+                        <button type="button" onClick={() => setShowPinPassword(!showPinPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                            <Icon name={showPinPassword ? "eye-off" : "eye"} size={24} />
                         </button>
                     </div>
                     <div className="w-full">
@@ -2207,7 +2193,6 @@ function App() {
             )}
           </div>
           <div className="flex gap-2 items-center">
-            {/* Timeline / Calendar Button */}
             <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowTimeline(true); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="calendar-days" size={18}/></button>
             
             {view === 'dashboard' && (
@@ -2675,8 +2660,8 @@ function App() {
 
                          <div className="max-w-3xl w-full mx-auto p-6 sm:p-12 pb-32 screen-only flex-1 flex flex-col">
                             {viewingEntry.images && viewingEntry.images.length > 0 && (
-                              <div className="relative w-full aspect-video rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-10 group bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
-                                  <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-full object-contain transition-transform duration-700" alt="Cover" />
+                              <div className="relative w-full rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-10 group bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
+                                  <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-auto block transition-transform duration-700" alt="Cover" />
                                   
                                   <label className="absolute top-4 right-4 w-12 h-12 bg-black/60 text-white rounded-full flex items-center justify-center shadow-xl cursor-pointer z-[60] hover:bg-black/80 transition-colors border-2 border-white/20" title="Dieses Bild ändern">
                                       <Icon name="image" size={20}/>
