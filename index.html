@@ -143,16 +143,30 @@ const safeParseDate = (dInput) => {
     return isNaN(time) ? new Date(0) : new Date(time);
 };
 
-// ZENTRALE SORTIERUNG: Das Neueste IMMER zuerst! (Strikt nach Timestamp)
+// ZENTRALE SORTIERUNG: Das Neueste IMMER zuerst! (Strikt nach Kalendertag!)
 const sortEntriesChronological = (a, b) => {
-    const timeA = safeParseDate(a.orderTimestamp || a.date).getTime();
-    const timeB = safeParseDate(b.orderTimestamp || b.date).getTime();
-    if (timeA === timeB) {
-        const dateA = safeParseDate(a.date).getTime();
-        const dateB = safeParseDate(b.date).getTime();
-        return dateB - dateA;
+    const timeA = safeParseDate(a.date).getTime();
+    const timeB = safeParseDate(b.date).getTime();
+    
+    const dateA = new Date(timeA);
+    const dateB = new Date(timeB);
+    
+    // Wir löschen die Uhrzeit für den Vergleich, um strikt den TAG zu priorisieren
+    const dayA = new Date(dateA.getFullYear(), dateA.getMonth(), dateA.getDate()).getTime();
+    const dayB = new Date(dateB.getFullYear(), dateB.getMonth(), dateB.getDate()).getTime();
+    
+    if (dayA !== dayB) {
+        return dayB - dayA; // Wenn es unterschiedliche Tage sind, gewinnt IMMER der neuere Tag
     }
-    return timeB - timeA; 
+    
+    // Wenn es derselbe Tag ist, nutzen wir orderTimestamp für die manuelle Sortierung (Up/Down)
+    const orderA = safeParseDate(a.orderTimestamp || a.date).getTime();
+    const orderB = safeParseDate(b.orderTimestamp || b.date).getTime();
+    
+    if (orderA === orderB) {
+        return timeB - timeA;
+    }
+    return orderB - orderA;
 };
 
 const getLocalISO = () => new Date().toISOString();
@@ -207,9 +221,7 @@ const highlightText = (text, query, isTitle = false) => {
 // --- INTELLIGENTE BILD-ERKENNUNG (COVER) ---
 const getCoverImage = (entry) => {
     if (!entry) return null;
-    // 1. Priorität: Echtes Cover-Bild
     if (entry.images && entry.images.length > 0) return entry.images[0];
-    // 2. Priorität: Bild aus dem Text extrahieren (falls vorhanden)
     if (entry.text) {
         const match = entry.text.match(/<img[^>]+src="([^">]+)"/);
         if (match) return match[1];
@@ -401,15 +413,15 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
     const isCapsuleLocked = entry.unlockDate;
 
     return (
-      <div onClick={() => onClick(entry)} className={`group relative rounded-[2rem] overflow-hidden cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col h-full' : ''}`}>
+      <div onClick={() => onClick(entry, false)} className={`group relative rounded-[2rem] overflow-hidden cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col h-full' : ''}`}>
         {entry.manifested && (
           <div className="absolute top-4 right-4 z-20 bg-amber-400 text-amber-950 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
             <Icon name="sparkles" size={12}/> Highlight
           </div>
         )}
         {hasImages && (
-          <div className="w-full relative overflow-hidden bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
-            <img src={coverUrl} className="w-full h-auto object-cover aspect-video transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
+          <div className="w-full relative overflow-hidden bg-black/5 dark:bg-black/20 flex items-center justify-center pt-2">
+            <img src={coverUrl} className="w-full h-auto max-h-[350px] object-contain transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
           </div>
         )}
         <div className="p-6 relative z-10 flex-1 flex flex-col">
@@ -1475,7 +1487,7 @@ function App() {
       });
   };
 
-  const handleOpenEntry = async (entry) => {
+  const handleOpenEntry = async (entry, forceExact = false) => {
       if (!entry) return;
       if (entry.unlockDate) {
           try {
@@ -1498,8 +1510,20 @@ function App() {
           }
       }
       
-      // FIX: Springt ab sofort genau auf den ausgewählten Eintrag!
-      setViewingEntry(entry);
+      // FIX: Wenn von Zeitreise/Erkenntnisse/Karte aufgerufen, öffne EXAKT diesen Eintrag!
+      if (forceExact) {
+          setViewingEntry(entry);
+          setCurrentViewerImgIdx(0);
+          return;
+      }
+      
+      // Standard-Verhalten für Dashboard: Neuestes Kapitel des Buches öffnen
+      const bookRoot = getBookRoot(entry.id);
+      const unsortedEntries = getAllBookEntries(bookRoot?.id || entry.id);
+      const sortedDesc = [...unsortedEntries].sort(sortEntriesChronological);
+      const targetToOpen = sortedDesc[0] || entry; 
+      
+      setViewingEntry(targetToOpen);
       setCurrentViewerImgIdx(0);
   };
 
@@ -1580,10 +1604,6 @@ function App() {
       });
       Object.keys(map).forEach(k => { map[k].sort(sortEntriesChronological); });
       return map;
-  }, [entries]);
-
-  const allEntriesSortedDesc = useMemo(() => {
-      return [...entries].filter(e => e && !e.trashed).sort(sortEntriesChronological);
   }, [entries]);
 
   const getCalendarDays = (monthDate) => {
@@ -2057,7 +2077,7 @@ function App() {
                   const icon = window.L.divIcon({ html: iconHtml, className: 'avatar-marker', iconSize: [54, 54], iconAnchor: [27, 27] });
                   const marker = window.L.marker([group.lat, group.lng], { icon }).addTo(map);
                   marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b><br/><span style="color:#000;">Letzter: ${safeParseDate(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>`);
-                  marker.on('click', () => { setView('dashboard'); handleOpenEntry(e); });
+                  marker.on('click', () => { setView('dashboard'); handleOpenEntry(e, true); });
               } else {
                   const iconHtml = `
                     <div style="position: relative; width: 16px; height: 16px;">
@@ -2067,7 +2087,7 @@ function App() {
                   const icon = window.L.divIcon({ html: iconHtml, className: 'avatar-marker', iconSize: [16, 16], iconAnchor: [8, 8] });
                   const marker = window.L.marker([group.lat, group.lng], { icon }).addTo(map);
                   marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b><br/><span style="color:#000;">Letzter: ${safeParseDate(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>`);
-                  marker.on('click', () => { setView('dashboard'); handleOpenEntry(e); });
+                  marker.on('click', () => { setView('dashboard'); handleOpenEntry(e, true); });
               }
           });
 
@@ -2283,7 +2303,7 @@ function App() {
                       <div className="grid gap-4">
                           {visibleEntries.map(e => (
                               <div key={e.id} className="p-5 bg-white dark:bg-zinc-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-zinc-800 flex justify-between items-center gap-4">
-                                  <div className="overflow-hidden flex-1 cursor-pointer" onClick={() => handleOpenEntry(e)}>
+                                  <div className="overflow-hidden flex-1 cursor-pointer" onClick={() => handleOpenEntry(e, true)}>
                                       <h4 className="font-bold truncate text-lg hover:text-accent transition-colors">{e.title || 'Ohne Titel'}</h4>
                                       <p className="text-xs font-bold uppercase tracking-widest opacity-50 mt-1">{safeParseDate(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category}</p>
                                   </div>
@@ -2319,7 +2339,7 @@ function App() {
                       <div className="grid gap-4">
                           {visibleEntries.map(e => (
                               <div key={e.id} className="p-5 bg-white dark:bg-zinc-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-zinc-800 flex justify-between items-center gap-4">
-                                  <div className="overflow-hidden flex-1 cursor-pointer" onClick={() => handleOpenEntry(e)}>
+                                  <div className="overflow-hidden flex-1 cursor-pointer" onClick={() => handleOpenEntry(e, true)}>
                                       <h4 className="font-bold truncate text-lg hover:text-accent transition-colors">{e.title || 'Ohne Titel'}</h4>
                                       <p className="text-xs font-bold uppercase tracking-widest opacity-50 mt-1">{safeParseDate(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category}</p>
                                   </div>
@@ -2514,7 +2534,7 @@ function App() {
                    <div className="text-center py-20 opacity-40"><Icon name="quote" size={56} className="mx-auto mb-6"/><p className="font-bold text-lg">Noch keine Erkenntnisse zitiert.</p></div>
                 ) : (
                    allQuotes.map(q => (
-                      <div key={q.id} onClick={()=>{const e=entries.find(x=>x && x.id===q.entryId); if(e){ handleOpenEntry(e);}}} className="p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border shadow-sm cursor-pointer hover:-translate-y-1 hover:shadow-md transition-all relative overflow-hidden" style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
+                      <div key={q.id} onClick={()=>{const e=entries.find(x=>x && x.id===q.entryId); if(e){ handleOpenEntry(e, true);}}} className="p-8 rounded-[2.5rem] bg-white dark:bg-zinc-900 border shadow-sm cursor-pointer hover:-translate-y-1 hover:shadow-md transition-all relative overflow-hidden" style={{ borderColor: getSubtleBorderColor(user.nameColor, user.isDark) }}>
                          <div className="flex gap-4 items-start">
                              <div className="shrink-0 mt-1" style={{ color: user.nameColor }}><Icon name="quote" size={28} /></div>
                              <div className="flex-1">
@@ -2656,7 +2676,7 @@ function App() {
                              <TimelineSwipeableEntry 
                                  key={e.id}
                                  entry={e}
-                                 onClick={() => { setShowTimeline(false); handleOpenEntry(e); }}
+                                 onClick={() => { setShowTimeline(false); handleOpenEntry(e, true); }}
                                  onArchivePrompt={promptArchiveTimeline}
                                  onTrashPrompt={promptTrashTimeline}
                              />
