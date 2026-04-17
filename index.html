@@ -109,32 +109,15 @@ const safeStorageSet = (key, val) => {
     try { localStorage.setItem(key, val); } catch(e) {} 
 };
 
-// --- ROBUSTER DATUMS PARSER (Fix für MM/DD/YYYY Bug) ---
-const safeParseDate = (dInput) => {
-    if (!dInput) return new Date(0);
-    if (dInput instanceof Date) return dInput;
-    if (typeof dInput === 'number') return new Date(dInput);
-    
-    let dStr = String(dInput).trim();
-    
-    // Fängt deutsches Format ab: TT.MM.JJJJ (verhindert, dass der 01.04 als 4. Januar gelesen wird)
-    const deMatch = dStr.match(/^(\d{2})\.(\d{2})\.(\d{4})/);
-    if (deMatch) {
-        const timeMatch = dStr.match(/\s(\d{2}:\d{2}:\d{2})/);
-        const timePart = timeMatch ? timeMatch[1] : '12:00:00';
-        return new Date(`${deMatch[3]}-${deMatch[2]}-${deMatch[1]}T${timePart}Z`);
-    }
-    
-    let time = new Date(dStr).getTime();
-    if (isNaN(time)) time = new Date(dStr + 'Z').getTime();
-    if (isNaN(time)) time = new Date(dStr.replace(' ', 'T') + 'Z').getTime();
-    
-    return isNaN(time) ? new Date(0) : new Date(time);
-};
-
-// ZENTRALE SORTIERUNG: Das Neueste IMMER zuerst! (Jetzt extrem robust)
+// ZENTRALE SORTIERUNG: Das Neueste IMMER zuerst!
 const sortEntriesChronological = (a, b) => {
-    const getT = (entry) => safeParseDate(entry.orderTimestamp || entry.date).getTime();
+    const getT = (entry) => {
+        let d = entry.orderTimestamp || entry.date;
+        if (!d) return 0;
+        let time = new Date(d).getTime();
+        if (isNaN(time)) time = new Date(d + 'Z').getTime();
+        return isNaN(time) ? 0 : time;
+    };
     return getT(b) - getT(a); 
 };
 
@@ -384,7 +367,7 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
         <div className="p-6 relative z-10 flex-1 flex flex-col">
           <div className="flex items-center justify-between mb-3 gap-2">
               <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-50 flex-wrap flex-1">
-                <span>{safeParseDate(entry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                <span>{new Date(entry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                 {!isGridView && <><span>•</span><span>{entry.category || 'Allgemein'}</span></>}
                 {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span></>}
                 {entry.audio && <><span className="text-emerald-500 flex items-center ml-1"><Icon name="mic" size={12}/></span></>}
@@ -499,7 +482,7 @@ const TimelineSwipeableEntry = ({ entry, onClick, onArchivePrompt, onTrashPrompt
                 )}
                 <div className="flex-1 overflow-hidden pointer-events-none">
                     <h4 className="font-bold text-sm text-accent truncate mb-1">{entry.title || 'Ohne Titel'}</h4>
-                    <p className="text-[10px] opacity-60 font-bold tracking-widest uppercase">{safeParseDate(entry.orderTimestamp || entry.date).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})} UHR</p>
+                    <p className="text-[10px] opacity-60 font-bold tracking-widest uppercase">{new Date(entry.orderTimestamp || entry.date).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})} UHR</p>
                 </div>
             </button>
         </div>
@@ -800,8 +783,11 @@ function App() {
           let loadedEntries = request.result || [];
           loadedEntries = loadedEntries.filter(e => e != null).map(e => {
               if (e.date) {
-                  const d = safeParseDate(e.date);
-                  e.date = d.toISOString();
+                  const d = new Date(e.date);
+                  if (isNaN(d.getTime())) {
+                      const repaired = new Date(e.date + 'Z');
+                      if (!isNaN(repaired.getTime())) e.date = repaired.toISOString();
+                  }
               }
               return { ...e, locked: false };
           });
@@ -1486,7 +1472,7 @@ function App() {
       let tempAbove = above.orderTimestamp || above.date;
       
       if (temp === tempAbove) {
-          tempAbove = new Date(safeParseDate(temp).getTime() + 1000).toISOString();
+          tempAbove = new Date(new Date(temp).getTime() + 1000).toISOString();
       }
 
       const clonedCurrent = {...current, orderTimestamp: tempAbove};
@@ -1508,7 +1494,7 @@ function App() {
       let tempBelow = below.orderTimestamp || below.date;
       
       if (temp === tempBelow) {
-          tempBelow = new Date(safeParseDate(temp).getTime() - 1000).toISOString();
+          tempBelow = new Date(new Date(temp).getTime() - 1000).toISOString();
       }
 
       const clonedCurrent = {...current, orderTimestamp: tempBelow};
@@ -1540,11 +1526,11 @@ function App() {
 
   const renderEntries = [...visibleEntries].sort(sortEntriesChronological);
 
-  // --- NEUE TIMELINE / KALENDER LOGIK (Jetzt fehlerfrei mit sicherem Datumsparser) ---
+  // --- NEUE TIMELINE / KALENDER LOGIK ---
   const entriesByDate = useMemo(() => {
       const map = {};
       entries.filter(e => e && !e.trashed).forEach(e => {
-          const d = safeParseDate(e.orderTimestamp || e.date || getLocalISO());
+          const d = new Date(e.orderTimestamp || e.date || getLocalISO());
           const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
           if (!map[dateStr]) map[dateStr] = [];
           map[dateStr].push(e);
@@ -1601,13 +1587,13 @@ function App() {
           }
       }); 
       return quotes.sort((a,b) => {
-          const tA = safeParseDate(a.date).getTime() || 0;
-          const tB = safeParseDate(b.date).getTime() || 0;
+          const tA = new Date(a.date).getTime() || 0;
+          const tB = new Date(b.date).getTime() || 0;
           return tB - tA;
       }); 
   }, [entries, view]);
   
-  const heatmapData = useMemo(() => { return Array.from({ length: 30 }).map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (29 - i)); const dateStr = d.toDateString(); return { date: dateStr, count: entries.filter(e => e && !e.trashed && safeParseDate(e.date || getLocalISO()).toDateString() === dateStr).length }; }); }, [entries]);
+  const heatmapData = useMemo(() => { return Array.from({ length: 30 }).map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (29 - i)); const dateStr = d.toDateString(); return { date: dateStr, count: entries.filter(e => e && !e.trashed && new Date(e.date || getLocalISO()).toDateString() === dateStr).length }; }); }, [entries]);
   const { completedPillars, totalPillars, progressPercent } = useMemo(() => { const completed = PILLARS.filter(p => entries.some(e => e && !e.trashed && (e.title || '') === p.title)).length; return { completedPillars: completed, totalPillars: PILLARS.length, progressPercent: Math.round((completed / PILLARS.length) * 100) }; }, [entries]);
   
   const getAllBookEntries = (rootId) => { 
@@ -1949,7 +1935,7 @@ function App() {
 
           let imgCounter = 1;
           entries.filter(e => e && !e.trashed).forEach(e => {
-              let mdContent = `# ${e.title || 'Ohne Titel'}\n\nDatum: ${safeParseDate(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}\nKategorie: ${e.category}\n\n${(e.text || '').replace(/<[^>]*>?/gm, '')}`;
+              let mdContent = `# ${e.title || 'Ohne Titel'}\n\nDatum: ${new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}\nKategorie: ${e.category}\n\n${(e.text || '').replace(/<[^>]*>?/gm, '')}`;
               if (e.images && e.images.length > 0) {
                   e.images.forEach(imgBase64 => {
                       const base64Data = imgBase64.split(',')[1];
@@ -1960,7 +1946,7 @@ function App() {
                   });
               }
               const safeTitle = (e.title || 'Eintrag').replace(/[^a-z0-9]/gi, '_').toLowerCase();
-              textsFolder.file(`${safeParseDate(e.date).toISOString().split('T')[0]}_${safeTitle}.md`, mdContent);
+              textsFolder.file(`${new Date(e.date).toISOString().split('T')[0]}_${safeTitle}.md`, mdContent);
           });
 
           const content = await zip.generateAsync({type:"blob"});
@@ -2027,7 +2013,7 @@ function App() {
                     </div>`;
                   const icon = window.L.divIcon({ html: iconHtml, className: 'avatar-marker', iconSize: [54, 54], iconAnchor: [27, 27] });
                   const marker = window.L.marker([group.lat, group.lng], { icon }).addTo(map);
-                  marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b><br/><span style="color:#000;">Letzter: ${safeParseDate(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>`);
+                  marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b><br/><span style="color:#000;">Letzter: ${new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>`);
                   marker.on('click', () => { setView('dashboard'); handleOpenEntry(e); });
               } else {
                   const iconHtml = `
@@ -2037,7 +2023,7 @@ function App() {
                     </div>`;
                   const icon = window.L.divIcon({ html: iconHtml, className: 'avatar-marker', iconSize: [16, 16], iconAnchor: [8, 8] });
                   const marker = window.L.marker([group.lat, group.lng], { icon }).addTo(map);
-                  marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b><br/><span style="color:#000;">Letzter: ${safeParseDate(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>`);
+                  marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b><br/><span style="color:#000;">Letzter: ${new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>`);
                   marker.on('click', () => { setView('dashboard'); handleOpenEntry(e); });
               }
           });
@@ -2256,7 +2242,7 @@ function App() {
                               <div key={e.id} className="p-5 bg-white dark:bg-zinc-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-zinc-800 flex justify-between items-center gap-4">
                                   <div className="overflow-hidden flex-1 cursor-pointer" onClick={() => handleOpenEntry(e)}>
                                       <h4 className="font-bold truncate text-lg hover:text-accent transition-colors">{e.title || 'Ohne Titel'}</h4>
-                                      <p className="text-xs font-bold uppercase tracking-widest opacity-50 mt-1">{safeParseDate(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category}</p>
+                                      <p className="text-xs font-bold uppercase tracking-widest opacity-50 mt-1">{new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category}</p>
                                   </div>
                                   <div className="flex gap-2 shrink-0">
                                       <button onClick={() => saveToDB({...e, archived: false})} className="w-12 h-12 flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Wiederherstellen"><Icon name="rotate-ccw" size={20}/></button>
@@ -2292,7 +2278,7 @@ function App() {
                               <div key={e.id} className="p-5 bg-white dark:bg-zinc-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-zinc-800 flex justify-between items-center gap-4">
                                   <div className="overflow-hidden flex-1 cursor-pointer" onClick={() => handleOpenEntry(e)}>
                                       <h4 className="font-bold truncate text-lg hover:text-accent transition-colors">{e.title || 'Ohne Titel'}</h4>
-                                      <p className="text-xs font-bold uppercase tracking-widest opacity-50 mt-1">{safeParseDate(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category}</p>
+                                      <p className="text-xs font-bold uppercase tracking-widest opacity-50 mt-1">{new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category}</p>
                                   </div>
                                   <div className="flex gap-2 shrink-0">
                                       <button onClick={() => saveToDB({...e, trashed: false})} className="w-12 h-12 flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Wiederherstellen"><Icon name="rotate-ccw" size={20}/></button>
@@ -2490,7 +2476,7 @@ function App() {
                              <div className="shrink-0 mt-1" style={{ color: user.nameColor }}><Icon name="quote" size={28} /></div>
                              <div className="flex-1">
                                  <p className="text-[1.05rem] leading-[1.8] font-medium legacy-content text-slate-800 dark:text-slate-200 mb-4 opacity-90">{q.text}</p>
-                                 <div className="text-xs font-bold uppercase tracking-widest opacity-40 text-slate-500">{q.title} • {safeParseDate(q.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
+                                 <div className="text-xs font-bold uppercase tracking-widest opacity-40 text-slate-500">{q.title} • {new Date(q.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
                              </div>
                          </div>
                       </div>
@@ -2694,7 +2680,7 @@ function App() {
 
                             <h1 className="text-4xl sm:text-6xl font-extrabold mb-8 tracking-tighter leading-[1.1] text-slate-900 dark:text-white">{viewingEntry.title || 'Ohne Titel'}</h1>
                             <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
-                              <span>{safeParseDate(viewingEntry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                              <span>{new Date(viewingEntry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
                             </div>
                             
                             <div className="flex flex-wrap gap-2 mb-12 no-print">
@@ -2772,7 +2758,7 @@ function App() {
                        <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
                            <h1 style={{ fontSize: '36px', fontWeight: 'bold', marginBottom: '10px', fontFamily: 'Inter, sans-serif' }}>{e.title || 'Ohne Titel'}</h1>
                            <p style={{ opacity: 0.6, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '12px' }}>
-                               {safeParseDate(e.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category || 'Allgemein'}
+                               {new Date(e.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category || 'Allgemein'}
                            </p>
                            <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', flexWrap: 'wrap', marginTop: '15px', fontSize: '12px' }}>
                                {e.tags && <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>Tags: {e.tags}</span>}
