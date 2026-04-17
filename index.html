@@ -141,11 +141,28 @@ const safeParseDate = (dInput) => {
     return isNaN(time) ? new Date(0) : new Date(time);
 };
 
-// ZENTRALE SORTIERUNG: Komplett auf orderTimestamp basiert - Erlaubt absolut freies Verschieben!
+// ZENTRALE SORTIERUNG: Strikt nach Kalendertag, dann nach OrderTimestamp (für Up/Down Pfeile)
 const sortEntriesChronological = (a, b) => {
+    const timeA = safeParseDate(a.date).getTime() || 0;
+    const timeB = safeParseDate(b.date).getTime() || 0;
+    
+    const dateA = new Date(timeA);
+    const dateB = new Date(timeB);
+    
+    const dayA = new Date(dateA.getFullYear(), dateA.getMonth(), dateA.getDate()).getTime() || 0;
+    const dayB = new Date(dateB.getFullYear(), dateB.getMonth(), dateB.getDate()).getTime() || 0;
+    
+    if (dayA !== dayB) {
+        return dayB - dayA; 
+    }
+    
     const orderA = safeParseDate(a.orderTimestamp || a.date).getTime() || 0;
     const orderB = safeParseDate(b.orderTimestamp || b.date).getTime() || 0;
-    return orderB - orderA;
+    
+    if (orderA !== orderB) {
+        return orderB - orderA;
+    }
+    return timeB - timeA;
 };
 
 const getLocalISO = () => new Date().toISOString();
@@ -414,8 +431,8 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
               
               {showMoveControls && !isGridView && (
                   <div className="flex gap-1 shrink-0 z-20 ml-2">
-                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveUp(e); }} className="w-8 h-8 bg-white/80 dark:bg-black/80 backdrop-blur rounded-full flex items-center justify-center shadow-sm text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-black hover:text-accent transition-colors"><Icon name="chevron-up" size={16}/></button>
-                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveDown(e); }} className="w-8 h-8 bg-white/80 dark:bg-black/80 backdrop-blur rounded-full flex items-center justify-center shadow-sm text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-black hover:text-accent transition-colors"><Icon name="chevron-down" size={16}/></button>
+                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveUp(e, entry); }} className="w-8 h-8 bg-white/80 dark:bg-black/80 backdrop-blur rounded-full flex items-center justify-center shadow-sm text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-black hover:text-accent transition-colors"><Icon name="chevron-up" size={16}/></button>
+                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveDown(e, entry); }} className="w-8 h-8 bg-white/80 dark:bg-black/80 backdrop-blur rounded-full flex items-center justify-center shadow-sm text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-black hover:text-accent transition-colors"><Icon name="chevron-down" size={16}/></button>
                   </div>
               )}
           </div>
@@ -530,8 +547,8 @@ const TimelineSwipeableEntry = ({ entry, onClick, onMoveUp, onMoveDown, onArchiv
                 </button>
                 {/* PFEILTASTEN FÜR DIE ZEITREISE (COVER AUSWÄHLEN) */}
                 <div className="flex gap-1 shrink-0 z-20 ml-2 pl-2 border-l border-slate-100 dark:border-zinc-800/50">
-                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveUp(e); }} className="w-8 h-8 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-up" size={16}/></button>
-                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveDown(e); }} className="w-8 h-8 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-down" size={16}/></button>
+                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveUp(e, entry); }} className="w-8 h-8 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-up" size={16}/></button>
+                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveDown(e, entry); }} className="w-8 h-8 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-down" size={16}/></button>
                 </div>
             </div>
         </div>
@@ -543,7 +560,8 @@ function App() {
   const [fb, setFb] = useState(null);
   const [authUser, setAuthUser] = useState(null);
   
-  const [user, setUser] = useState({ name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false, uiScale: 1 });
+  const defaultUser = { name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false, uiScale: 1 };
+  const [user, setUser] = useState(defaultUser);
   const [entries, setEntries] = useState([]);
   
   const [view, setView] = useState('loading'); 
@@ -707,7 +725,7 @@ function App() {
        if (initialSavedStr) {
            try {
                const localUser = JSON.parse(initialSavedStr);
-               setUser(localUser);
+               setUser(prev => ({...defaultUser, ...prev, ...localUser}));
                if (localUser.pin) {
                    setView('pin_entry');
                } else if (localUser.name) {
@@ -781,7 +799,7 @@ function App() {
                                if (['loading', 'auth', 'onboarding'].includes(viewRef.current)) setView('cloud_pin_sync'); 
                                return;
                            } else if (data.rawData) {
-                               const loadedUser = { name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false, uiScale: 1, ...data.rawData, ...(fetchedProfile || {}) };
+                               const loadedUser = { ...defaultUser, ...data.rawData, ...(fetchedProfile || {}) };
                                setUser(loadedUser);
                                safeStorageSet('legacy_user', JSON.stringify(loadedUser));
                                proceedToApp(loadedUser);
@@ -1451,36 +1469,48 @@ function App() {
       e.preventDefault();
       e.stopPropagation();
       
-      const idx = renderEntries.findIndex(ex => ex.id === targetEntry.id);
+      const dayStr = safeParseDate(targetEntry.date).toDateString();
+      const sameDayEntries = entries.filter(ex => !ex.trashed && safeParseDate(ex.date).toDateString() === dayStr).sort(sortEntriesChronological);
+      
+      const idx = sameDayEntries.findIndex(ex => ex.id === targetEntry.id);
       if (idx <= 0) return;
       
-      const above = renderEntries[idx - 1];
+      const above = sameDayEntries[idx - 1];
       
       let tCurrent = safeParseDate(targetEntry.orderTimestamp || targetEntry.date).getTime();
       let tAbove = safeParseDate(above.orderTimestamp || above.date).getTime();
       
-      if (tAbove <= tCurrent) tAbove = tCurrent + 1000; 
-
-      saveToDB({...targetEntry, orderTimestamp: new Date(tAbove).toISOString()});
-      saveToDB({...above, orderTimestamp: new Date(tCurrent).toISOString()});
+      let newCurrentTime = tAbove;
+      let newAboveTime = tCurrent;
+      
+      if (newCurrentTime <= newAboveTime) newCurrentTime = newAboveTime + 1000;
+      
+      saveToDB({...targetEntry, orderTimestamp: new Date(newCurrentTime).toISOString()});
+      saveToDB({...above, orderTimestamp: new Date(newAboveTime).toISOString()});
   };
   
   const moveEntryDown = (e, targetEntry) => {
       e.preventDefault();
       e.stopPropagation();
       
-      const idx = renderEntries.findIndex(ex => ex.id === targetEntry.id);
-      if (idx >= renderEntries.length - 1 || idx === -1) return;
+      const dayStr = safeParseDate(targetEntry.date).toDateString();
+      const sameDayEntries = entries.filter(ex => !ex.trashed && safeParseDate(ex.date).toDateString() === dayStr).sort(sortEntriesChronological);
       
-      const below = renderEntries[idx + 1];
+      const idx = sameDayEntries.findIndex(ex => ex.id === targetEntry.id);
+      if (idx === -1 || idx >= sameDayEntries.length - 1) return;
+      
+      const below = sameDayEntries[idx + 1];
       
       let tCurrent = safeParseDate(targetEntry.orderTimestamp || targetEntry.date).getTime();
       let tBelow = safeParseDate(below.orderTimestamp || below.date).getTime();
       
-      if (tCurrent <= tBelow) tCurrent = tBelow + 1000;
-
-      saveToDB({...targetEntry, orderTimestamp: new Date(tBelow).toISOString()});
-      saveToDB({...below, orderTimestamp: new Date(tCurrent).toISOString()});
+      let newCurrentTime = tBelow;
+      let newBelowTime = tCurrent;
+      
+      if (newCurrentTime >= newBelowTime) newBelowTime = newCurrentTime + 1000;
+      
+      saveToDB({...targetEntry, orderTimestamp: new Date(newCurrentTime).toISOString()});
+      saveToDB({...below, orderTimestamp: new Date(newBelowTime).toISOString()});
   };
 
   const visibleEntries = useMemo(() => {
