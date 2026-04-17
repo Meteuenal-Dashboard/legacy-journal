@@ -89,7 +89,7 @@
     .print-only{display:block!important;width:100%!important;max-width:100%!important;padding:0!important;}
     .page-break-after{page-break-after:always;}
     .group{box-shadow:none!important;border:none!important;background:#ffffff!important;color:#000000!important;page-break-inside:avoid;margin-bottom:24px!important;}
-    img{max-width:100%!important;max-height:500px!important;object-fit:contain!important;margin-bottom:2rem!important;page-break-inside:avoid;border-radius:0.5rem!important;}
+    img{max-width:100%!important;max-height:auto!important;object-fit:contain!important;margin-bottom:2rem!important;page-break-inside:avoid;border-radius:0.5rem!important;}
     *{color:#000000!important;font-family:'Inter',sans-serif!important;} 
     h1,h2,h3{page-break-after:avoid;font-family:'Inter',sans-serif!important;}
     .print-title-page{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center;}
@@ -143,7 +143,7 @@ const safeParseDate = (dInput) => {
     return isNaN(time) ? new Date(0) : new Date(time);
 };
 
-// ZENTRALE SORTIERUNG: Das Neueste IMMER zuerst! (Strikt nach Kalendertag! NaN sicher)
+// ZENTRALE SORTIERUNG: Strikt nach Kalendertag, dann nach OrderTimestamp (für Up/Down Pfeile)
 const sortEntriesChronological = (a, b) => {
     const timeA = safeParseDate(a.date).getTime() || 0;
     const timeB = safeParseDate(b.date).getTime() || 0;
@@ -156,10 +156,9 @@ const sortEntriesChronological = (a, b) => {
     const dayB = new Date(dateB.getFullYear(), dateB.getMonth(), dateB.getDate()).getTime() || 0;
     
     if (dayA !== dayB) {
-        return dayB - dayA; // Wenn es unterschiedliche Tage sind, gewinnt IMMER der neuere Tag
+        return dayB - dayA; 
     }
     
-    // Wenn es derselbe Tag ist, nutzen wir orderTimestamp für die manuelle Sortierung (Up/Down)
     const orderA = safeParseDate(a.orderTimestamp || a.date).getTime() || 0;
     const orderB = safeParseDate(b.orderTimestamp || b.date).getTime() || 0;
     
@@ -221,9 +220,7 @@ const highlightText = (text, query, isTitle = false) => {
 // --- INTELLIGENTE BILD-ERKENNUNG (COVER) ---
 const getCoverImage = (entry) => {
     if (!entry) return null;
-    // 1. Priorität: Echtes Cover-Bild
     if (entry.images && entry.images.length > 0) return entry.images[0];
-    // 2. Priorität: Bild aus dem Text extrahieren (falls vorhanden)
     if (entry.text) {
         const match = entry.text.match(/<img[^>]+src="([^">]+)"/);
         if (match) return match[1];
@@ -302,8 +299,8 @@ class ErrorBoundary extends React.Component {
         <div className="min-h-screen flex items-center justify-center bg-black text-white p-8 text-center">
           <div>
               <h1 className="text-2xl font-bold mb-4">Ein Moment bitte...</h1>
-              <p className="opacity-70 mb-8">Die App hat sich verschluckt.</p>
-              <button type="button" onClick={() => window.location.reload()} className="px-6 py-3 bg-white text-black font-bold rounded-full">Neu laden</button>
+              <p className="opacity-70 mb-8">Die App hat sich kurz verschluckt.</p>
+              <button type="button" onClick={() => window.location.reload()} className="px-6 py-3 bg-white text-black font-bold rounded-full hover:scale-105 transition-transform">Neu laden</button>
           </div>
         </div>
       );
@@ -420,9 +417,10 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
             <Icon name="sparkles" size={12}/> Highlight
           </div>
         )}
+        {/* VOLLBILD BILD - Keine Verzerrung, kein Abschneiden! */}
         {hasImages && (
-          <div className="w-full relative overflow-hidden bg-black/5 dark:bg-black/20 flex items-center justify-center pt-2 pb-2">
-            <img src={coverUrl} className="w-full h-auto max-h-[350px] object-contain transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
+          <div className="w-full relative bg-slate-100 dark:bg-zinc-800">
+            <img src={coverUrl} className="w-full h-auto block" alt="Cover" />
           </div>
         )}
         <div className="p-6 relative z-10 flex-1 flex flex-col">
@@ -487,7 +485,7 @@ const ColorBtn = ({color, isBg, user, setUser}) => (
    <button onClick={() => isBg ? setUser({...user, appBgColor: color}) : setUser({...user, textColor: color, nameColor: color})} className={`w-10 h-10 rounded-full border-2 transition-transform ${ (isBg ? user.appBgColor : user.textColor) === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
 );
 
-const TimelineSwipeableEntry = ({ entry, onClick, onArchivePrompt, onTrashPrompt }) => {
+const TimelineSwipeableEntry = ({ entry, onClick, onMoveUp, onMoveDown, onArchivePrompt, onTrashPrompt }) => {
     const [offsetX, setOffsetX] = useState(0);
     const startX = useRef(null);
     const dragged = useRef(false);
@@ -525,29 +523,31 @@ const TimelineSwipeableEntry = ({ entry, onClick, onArchivePrompt, onTrashPrompt
                 <div className="text-emerald-600 font-bold flex items-center gap-2 opacity-80 text-sm"><Icon name="archive" size={16}/> Archiv</div>
                 <div className="text-rose-600 font-bold flex items-center gap-2 opacity-80 text-sm">Löschen <Icon name="trash-2" size={16}/></div>
             </div>
-            <button 
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-                onClick={(e) => {
-                    if (dragged.current) { e.preventDefault(); return; }
-                    onClick(entry);
-                }} 
-                style={{ transform: `translateX(${offsetX}px)`, transition: startX.current === null ? 'transform 0.2s ease-out' : 'none' }}
-                className="relative z-10 w-full text-left p-3 flex items-center gap-4 bg-white dark:bg-zinc-900/90 shadow-sm"
-            >
-                {coverUrl ? (
-                    <img src={coverUrl} className="w-14 h-14 rounded-xl object-cover shrink-0 pointer-events-none" />
-                ) : (
-                    <div className="w-14 h-14 rounded-xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 pointer-events-none">
-                        <Icon name="book" size={24} className="opacity-40" />
+            
+            <div style={{ transform: `translateX(${offsetX}px)`, transition: startX.current === null ? 'transform 0.2s ease-out' : 'none' }} className="relative z-10 w-full bg-white dark:bg-zinc-900/90 shadow-sm flex items-center p-3">
+                <button 
+                    onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
+                    onClick={(e) => { if (dragged.current) { e.preventDefault(); return; } onClick(entry); }} 
+                    className="flex-1 flex items-center gap-4 text-left"
+                >
+                    {coverUrl ? (
+                        <img src={coverUrl} className="w-14 h-14 rounded-xl object-cover shrink-0 pointer-events-none" />
+                    ) : (
+                        <div className="w-14 h-14 rounded-xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 pointer-events-none">
+                            <Icon name="book" size={24} className="opacity-40" />
+                        </div>
+                    )}
+                    <div className="overflow-hidden pointer-events-none">
+                        <h4 className="font-bold text-sm text-accent truncate mb-1">{entry.title || 'Ohne Titel'}</h4>
+                        <p className="text-[10px] opacity-60 font-bold tracking-widest uppercase">{safeParseDate(entry.orderTimestamp || entry.date).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})} UHR</p>
                     </div>
-                )}
-                <div className="flex-1 overflow-hidden pointer-events-none">
-                    <h4 className="font-bold text-sm text-accent truncate mb-1">{entry.title || 'Ohne Titel'}</h4>
-                    <p className="text-[10px] opacity-60 font-bold tracking-widest uppercase">{safeParseDate(entry.orderTimestamp || entry.date).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})} UHR</p>
+                </button>
+                {/* PFEILTASTEN FÜR DIE ZEITREISE (COVER AUSWÄHLEN) */}
+                <div className="flex gap-1 shrink-0 z-20 ml-2 pl-2 border-l border-slate-100 dark:border-zinc-800/50">
+                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveUp(e); }} className="w-8 h-8 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-up" size={16}/></button>
+                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveDown(e); }} className="w-8 h-8 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-down" size={16}/></button>
                 </div>
-            </button>
+            </div>
         </div>
     );
 };
@@ -566,6 +566,7 @@ function App() {
   
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [showAuthPassword, setShowAuthPassword] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authMsg, setAuthMsg] = useState('');
   const [authMode, setAuthMode] = useState('login');
@@ -588,6 +589,7 @@ function App() {
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
   const [showPinFallback, setShowPinFallback] = useState(false);
+  const [showPinPassword, setShowPinPassword] = useState(false);
   
   const [isChangingPin, setIsChangingPin] = useState(false);
   const [oldPinInput, setOldPinInput] = useState('');
@@ -642,12 +644,6 @@ function App() {
   const isDirtyRef = useRef(false);
   const currentEntryRef = useRef({});
   const editingIdRef = useRef(null);
-
-  const [touchStart, setTouchStart] = useState(null);
-  const isDrawingRef = useRef(isDrawing);
-  const showEditorRef = useRef(showEditor);
-  const viewingEntryRef = useRef(viewingEntry);
-  const showTimelineRef = useRef(showTimeline);
   const viewRef = useRef(view);
   const biometricAttempted = useRef(false);
 
@@ -656,6 +652,10 @@ function App() {
   useEffect(() => {
       entriesRef.current = entries;
   }, [entries]);
+
+  useEffect(() => {
+      viewRef.current = view;
+  }, [view]);
 
   const syncProfileToCloud = async (userData) => {
       if (!fb || !fb.auth || !fb.auth.currentUser || !userData.cloudSync) return;
@@ -679,14 +679,6 @@ function App() {
           await fb.setDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', fb.auth.currentUser.uid, 'profile', 'data'), payload); 
       } catch(e) {}
   };
-
-  useEffect(() => {
-      isDrawingRef.current = isDrawing;
-      showEditorRef.current = showEditor;
-      viewingEntryRef.current = viewingEntry;
-      showTimelineRef.current = showTimeline;
-      viewRef.current = view;
-  }, [isDrawing, showEditor, viewingEntry, showTimeline, view]);
 
   useEffect(() => {
       document.documentElement.style.fontSize = `${(user.uiScale || 1) * 100}%`;
@@ -721,7 +713,6 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // --- Login Bypass & Firebase Setup ---
   useEffect(() => {
     const initFB = async () => {
        const initialSavedStr = safeStorageGet('legacy_user');
@@ -730,7 +721,14 @@ function App() {
            try {
                const localUser = JSON.parse(initialSavedStr);
                setUser(localUser);
-               setView(localUser.pin ? 'pin_entry' : (localUser.name ? 'dashboard' : 'onboarding'));
+               if (localUser.pin) {
+                   setView('pin_entry');
+               } else if (localUser.name) {
+                   await loadLocalEntries(null);
+                   setView('dashboard');
+               } else {
+                   setView('onboarding');
+               }
                initiallyHasUser = !!localUser.name;
                setIsLoaded(true);
            } catch(e) {}
@@ -761,6 +759,22 @@ function App() {
                   try { currentLocalUser = JSON.parse(currentLocalStr); hasLocal = !!currentLocalUser.name; } catch(e){}
               }
 
+              const proceedToApp = async (userData) => {
+                  const isAuthScreen = ['loading', 'auth', 'onboarding', 'pin_entry'].includes(viewRef.current);
+                  if (isAuthScreen) {
+                      if (userData.pin) {
+                          setView('pin_entry');
+                      } else {
+                          if (userData.name) {
+                              await loadLocalEntries(null);
+                              setView('dashboard');
+                          } else {
+                              setView('onboarding');
+                          }
+                      }
+                  }
+              };
+
               try {
                   const profileSnap = await getDoc(doc(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'profile', 'data'));
                   if (profileSnap.exists()) {
@@ -777,13 +791,13 @@ function App() {
                       
                       if (!hasLocal) {
                            if (data.encryptedData) {
-                               if (viewRef.current === 'loading' || viewRef.current === 'onboarding') setView('cloud_pin_sync'); 
+                               if (['loading', 'auth', 'onboarding'].includes(viewRef.current)) setView('cloud_pin_sync'); 
                                return;
                            } else if (data.rawData) {
                                const loadedUser = { name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false, uiScale: 1, ...data.rawData, ...(fetchedProfile || {}) };
                                setUser(loadedUser);
                                safeStorageSet('legacy_user', JSON.stringify(loadedUser));
-                               if (viewRef.current === 'loading' || viewRef.current === 'onboarding') setView(loadedUser.pin ? 'pin_entry' : 'dashboard');
+                               proceedToApp(loadedUser);
                                return;
                            }
                       } else {
@@ -792,9 +806,7 @@ function App() {
                                safeStorageSet('legacy_user', JSON.stringify(merged));
                                syncProfileToCloud(merged);
                            }
-                           if (viewRef.current === 'loading' || viewRef.current === 'pin_entry') {
-                               setView(currentLocalUser.pin ? 'pin_entry' : 'dashboard');
-                           }
+                           proceedToApp(currentLocalUser);
                            return;
                       }
                   }
@@ -804,15 +816,13 @@ function App() {
                   try {
                       const entriesSnap = await getDocs(collection(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'entries'));
                       if (!entriesSnap.empty) {
-                          if (viewRef.current === 'loading' || viewRef.current === 'onboarding') setView('cloud_pin_sync'); 
+                          if (['loading', 'auth', 'onboarding'].includes(viewRef.current)) setView('cloud_pin_sync'); 
                           return;
                       }
                   } catch(e) {}
-                  if (viewRef.current === 'loading' || viewRef.current === 'pin_entry') setView('onboarding'); 
+                  if (['loading', 'auth', 'pin_entry'].includes(viewRef.current)) setView('onboarding'); 
               } else {
-                  if (viewRef.current === 'loading' || viewRef.current === 'pin_entry') {
-                      setView(currentLocalUser.pin ? 'pin_entry' : 'dashboard');
-                  }
+                  proceedToApp(currentLocalUser);
               }
           };
 
@@ -847,70 +857,6 @@ function App() {
       }
   };
 
-  useEffect(() => {
-    const loadApp = async () => {
-      try {
-        const database = await ensureDb();
-        const transaction = database.transaction('entries', 'readonly'); const request = transaction.objectStore('entries').getAll();
-
-        request.onsuccess = async () => {
-          let loadedEntries = request.result || [];
-          loadedEntries = loadedEntries.filter(e => e != null).map(e => {
-              if (e.date) {
-                  const d = safeParseDate(e.date);
-                  e.date = d.toISOString();
-              }
-              return { ...e, locked: false };
-          });
-
-          const savedUser = safeStorageGet('legacy_user');
-          let currentUser = user;
-          if (savedUser) { 
-              try { currentUser = { ...user, ...JSON.parse(savedUser) }; setUser(currentUser); } catch(e){} 
-          }
-
-          if (currentUser.pin) {
-            loadedEntries = await Promise.all(loadedEntries.map(async (e) => {
-              if (e.encryptedData) {
-                const decStr = await decryptData(e.encryptedData, currentUser.pin);
-                if (decStr) { 
-                    try { 
-                        const parsed = JSON.parse(decStr); 
-                        return { ...e, ...parsed, encryptedData: null, locked: false }; 
-                    } catch(err){ return { ...e, text: decStr, encryptedData: null, locked: false };} 
-                }
-              } else if (e.cipher && e.iv && e.salt) {
-                  const decStr = await decryptData({cipher: e.cipher, iv: e.iv, salt: e.salt}, currentUser.pin);
-                  if (decStr) {
-                      try {
-                          const parsed = JSON.parse(decStr);
-                          return { ...e, ...parsed, cipher: null, iv: null, salt: null, locked: false };
-                      } catch(err) { return { ...e, text: decStr, cipher: null, iv: null, salt: null, locked: false };}
-                  }
-              }
-              return { ...e, locked: false };
-            }));
-          } else {
-             loadedEntries = loadedEntries.map(e => ({ ...e, locked: false }));
-          }
-          
-          loadedEntries = loadedEntries.map(e => {
-             if (!e.date) {
-                 e.date = e.orderTimestamp || (e.timestamp ? new Date(e.timestamp).toISOString() : new Date().toISOString());
-             }
-             if (!e.orderTimestamp) {
-                 e.orderTimestamp = e.date;
-             }
-             return e;
-          });
-
-          setEntries(loadedEntries.sort(sortEntriesChronological));
-        };
-      } catch (e) { }
-    };
-    loadApp();
-  }, []);
-
   const loadLocalEntries = async (activePin) => {
       const currentDb = await ensureDb();
       if (!currentDb) return;
@@ -932,9 +878,7 @@ function App() {
                                       const decStr = await decryptData({cipher: e.cipher, iv: e.iv, salt: e.salt}, activePin);
                                       if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, ...parsed, cipher: null, iv: null, salt: null, locked: false }; } catch(err) { return { ...e, text: decStr, cipher: null, iv: null, salt: null, locked: false };} }
                                   }
-                              } catch(decErr) {
-                                  console.error("Entschlüsselungsfehler:", decErr);
-                              }
+                              } catch(decErr) {}
                               return { ...e, locked: false };
                           }));
                       }
@@ -948,16 +892,11 @@ function App() {
                           return e;
                       });
                       setEntries(loadedEntries.sort(sortEntriesChronological));
-                  } catch (err) {
-                      console.error("Fehler beim Laden:", err);
-                  } finally {
-                      resolve();
-                  }
+                  } catch (err) {} 
+                  finally { resolve(); }
               };
               request.onerror = () => resolve();
-          } catch(e) {
-              resolve();
-          }
+          } catch(e) { resolve(); }
       });
   };
 
@@ -1107,7 +1046,12 @@ function App() {
               setAuthMsg('Passwort-Reset-Link gesendet!'); setTimeout(() => setAuthMode('login'), 3000);
           }
       } catch (e) {
-          setAuthError('Fehler aufgetreten. Daten prüfen.');
+          let errorMsg = 'Fehler aufgetreten. Daten prüfen.';
+          if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') errorMsg = 'Falsches Passwort oder E-Mail-Adresse.';
+          else if (e.code === 'auth/user-not-found') errorMsg = 'Benutzer nicht gefunden.';
+          else if (e.code === 'auth/email-already-in-use') errorMsg = 'Diese E-Mail wird bereits verwendet.';
+          else if (e.message) errorMsg = e.message;
+          setAuthError(errorMsg);
       }
   };
 
@@ -1136,11 +1080,9 @@ function App() {
       setUser(mergedUser);
       safeStorageSet('legacy_user', JSON.stringify(mergedUser));
       
-      // Direkter Zugriff ohne Ladebildschirm!
       if (entries.length === 0) {
           await loadLocalEntries(pinValue);
       }
-      
       setView(mergedUser.name ? 'dashboard' : 'onboarding');
   };
 
@@ -1187,13 +1129,11 @@ function App() {
           const cred = await navigator.credentials.get({ 
               publicKey: { challenge, rpId, allowCredentials, userVerification: "discouraged" } 
           });
-          if (cred) {
-              const savedPin = atob(safeStorageGet('legacy_bio_pin'));
-              if (savedPin) {
-                  handleUnlockSubmit(savedPin);
-              } else {
-                  setShowPinFallback(true);
-              }
+          
+          const savedPin64 = safeStorageGet('legacy_bio_pin');
+          if (cred && savedPin64) {
+              const savedPin = atob(savedPin64);
+              handleUnlockSubmit(savedPin);
           } else {
               setShowPinFallback(true);
           }
@@ -1251,28 +1191,6 @@ function App() {
           showDialog({title: 'Verbindungsfehler', message: 'Ein Fehler ist aufgetreten.', icon: 'x'});
       }
   };
-
-  useEffect(() => {
-    const metaThemeColor = document.getElementById("meta-theme-color");
-    if (user.appBgColor) {
-        document.body.style.setProperty('background-color', user.appBgColor, 'important');
-        if (metaThemeColor) metaThemeColor.setAttribute("content", user.appBgColor);
-        const isBgDark = isDarkColor(user.appBgColor);
-        if(isBgDark) document.documentElement.classList.add('dark');
-        else document.documentElement.classList.remove('dark');
-    } else {
-        document.body.style.removeProperty('background-color');
-        if (user.isDark) { document.documentElement.classList.add('dark'); if (metaThemeColor) metaThemeColor.setAttribute("content", "#000000"); } 
-        else { document.documentElement.classList.remove('dark'); if (metaThemeColor) metaThemeColor.setAttribute("content", "#f8fafc"); }
-    }
-    if (user.textColor) {
-        document.body.style.setProperty('color', user.textColor, 'important');
-    } else {
-        document.body.style.removeProperty('color');
-        const isBgDark = user.appBgColor ? isDarkColor(user.appBgColor) : user.isDark;
-        document.body.style.setProperty('color', isBgDark ? '#ffffff' : '#18181b', 'important');
-    }
-  }, [user.appBgColor, user.textColor, user.isDark]);
 
   const syncSingleEntryToCloud = async (plainEntry, pin) => {
       if (!fb || !fb.auth.currentUser || !user.cloudSync) return;
@@ -1537,48 +1455,54 @@ function App() {
       setCurrentViewerImgIdx(0);
   };
 
-  const moveEntryUp = (e, index) => {
+  const moveEntryUp = (e, index, list = renderEntries) => {
       e.preventDefault();
       e.stopPropagation();
       if (index <= 0) return;
       
-      const current = renderEntries[index];
-      const above = renderEntries[index - 1];
-      
-      let temp = current.orderTimestamp || current.date;
-      let tempAbove = above.orderTimestamp || above.date;
-      
-      if (temp === tempAbove) {
-          tempAbove = new Date(safeParseDate(temp).getTime() + 1000).toISOString();
-      }
+      const current = list[index];
+      const above = list[index - 1];
 
-      const clonedCurrent = {...current, orderTimestamp: tempAbove};
-      const clonedAbove = {...above, orderTimestamp: temp};
+      const dayCurrent = safeParseDate(current.date).toDateString();
+      const dayAbove = safeParseDate(above.date).toDateString();
       
-      saveToDB(clonedCurrent);
-      saveToDB(clonedAbove);
+      if (dayCurrent !== dayAbove) {
+          showDialog({title: 'Info', message: 'Einträge können nur innerhalb desselben Tages verschoben werden.'});
+          return;
+      }
+      
+      let tCurrent = safeParseDate(current.orderTimestamp || current.date).getTime();
+      let tAbove = safeParseDate(above.orderTimestamp || above.date).getTime();
+      
+      if (tAbove <= tCurrent) tAbove = tCurrent + 1000; 
+
+      saveToDB({...current, orderTimestamp: new Date(tAbove).toISOString()});
+      saveToDB({...above, orderTimestamp: new Date(tCurrent).toISOString()});
   };
   
-  const moveEntryDown = (e, index) => {
+  const moveEntryDown = (e, index, list = renderEntries) => {
       e.preventDefault();
       e.stopPropagation();
-      if (index >= renderEntries.length - 1) return;
+      if (index >= list.length - 1) return;
       
-      const current = renderEntries[index];
-      const below = renderEntries[index + 1];
-      
-      let temp = current.orderTimestamp || current.date;
-      let tempBelow = below.orderTimestamp || below.date;
-      
-      if (temp === tempBelow) {
-          tempBelow = new Date(safeParseDate(temp).getTime() - 1000).toISOString();
-      }
+      const current = list[index];
+      const below = list[index + 1];
 
-      const clonedCurrent = {...current, orderTimestamp: tempBelow};
-      const clonedBelow = {...below, orderTimestamp: temp};
+      const dayCurrent = safeParseDate(current.date).toDateString();
+      const dayBelow = safeParseDate(below.date).toDateString();
       
-      saveToDB(clonedCurrent);
-      saveToDB(clonedBelow);
+      if (dayCurrent !== dayBelow) {
+          showDialog({title: 'Info', message: 'Einträge können nur innerhalb desselben Tages verschoben werden.'});
+          return;
+      }
+      
+      let tCurrent = safeParseDate(current.orderTimestamp || current.date).getTime();
+      let tBelow = safeParseDate(below.orderTimestamp || below.date).getTime();
+      
+      if (tCurrent <= tBelow) tCurrent = tBelow + 1000;
+
+      saveToDB({...current, orderTimestamp: new Date(tBelow).toISOString()});
+      saveToDB({...below, orderTimestamp: new Date(tCurrent).toISOString()});
   };
 
   const visibleEntries = useMemo(() => {
@@ -2039,6 +1963,79 @@ function App() {
 
   const importBackup = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async (e) => { try { let data = null; if (file.name.toLowerCase().endsWith('.html')) { const doc = new DOMParser().parseFromString(e.target.result, 'text/html'); const script = doc.getElementById('legacy-injected-data'); if (script && script.textContent && script.textContent !== 'null') data = JSON.parse(script.textContent); else throw new Error("Keine Daten"); } else data = JSON.parse(e.target.result); if (data && data.entries && db) { const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); let mergedCount = 0; const pinToUse = data.user ? data.user.pin : user.pin; const entriesToSave = await Promise.all(data.entries.map(async (en) => { let dbE = { ...en }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []); return dbE; })); entriesToSave.forEach(en => { if (!entries.find(ex => ex && ex.id === en.id)) { if (data.user && data.user.name !== user.name) en.inheritedFrom = data.user.name; store.put(en); mergedCount++; } }); const req = store.getAll(); req.onsuccess = async () => { let loadedEntries = req.result || []; loadedEntries = loadedEntries.filter(e => e != null); if (user.pin) loadedEntries = await Promise.all(loadedEntries.map(async (en) => { if (en.encryptedData) { const decStr = await decryptData(en.encryptedData, user.pin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...en, text: parsed.text, title: parsed.title }; } catch(err){} } } return en; })); setEntries(loadedEntries.sort(sortEntriesChronological)); showDialog({ title: 'Erfolg', message: `${mergedCount} neue Seiten importiert.`, icon: 'check' }); }; } } catch (err) { showDialog({ title: 'Fehler', message: 'Ungültige Datei.', icon: 'x' }); } }; reader.readAsText(file); };
 
+  useEffect(() => {
+      if (view === 'map' && mapRef.current && window.L) {
+          if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; }
+
+          const map = window.L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView([51.1657, 10.4515], 3);
+          window.L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+          const currentHour = new Date().getHours();
+          const mapIsDark = currentHour < 6 || currentHour >= 18;
+          const tileUrl = mapIsDark ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+          
+          window.L.tileLayer(tileUrl).addTo(map);
+          
+          let hasMarkers = false;
+          const bounds = window.L.latLngBounds();
+
+          const locationGroups = {};
+          entries.filter(e => e && !e.trashed).forEach(e => {
+              if (e.locations && e.locations.length > 0) {
+                  e.locations.forEach(loc => {
+                      if(!loc || !loc.lat || !loc.lng) return;
+                      hasMarkers = true;
+                      bounds.extend([loc.lat, loc.lng]);
+                      const key = `${Number(loc.lat).toFixed(3)}_${Number(loc.lng).toFixed(3)}`;
+                      if (!locationGroups[key]) locationGroups[key] = { lat: loc.lat, lng: loc.lng, entries: [] };
+                      locationGroups[key].entries.push(e);
+                  });
+              } else if (e.location && e.location.lat) {
+                  hasMarkers = true;
+                  bounds.extend([e.location.lat, e.location.lng]);
+                  const key = `${Number(e.location.lat).toFixed(3)}_${Number(e.location.lng).toFixed(3)}`;
+                  if (!locationGroups[key]) locationGroups[key] = { lat: e.location.lat, lng: e.location.lng, entries: [] };
+                  locationGroups[key].entries.push(e);
+              }
+          });
+
+          Object.values(locationGroups).forEach(group => {
+              const e = group.entries[0];
+              const count = group.entries.length;
+              
+              const coverUrl = getCoverImage(e);
+              if (coverUrl) {
+                  const iconHtml = `
+                    <div style="position: relative; width: 54px; height: 54px;">
+                        <div style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; border: 3px solid ${user.nameColor || '#f59e0b'}; box-shadow: 0 4px 10px rgba(0,0,0,0.4); background-color: #000;">
+                            <img src="${coverUrl}" style="width: 100%; height: 100%; object-fit: cover;" />
+                        </div>
+                        ${count > 1 ? `<div style="position: absolute; top: -4px; right: -4px; background: #ef4444; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 10;">${count}x</div>` : ''}
+                    </div>`;
+                  const icon = window.L.divIcon({ html: iconHtml, className: 'avatar-marker', iconSize: [54, 54], iconAnchor: [27, 27] });
+                  const marker = window.L.marker([group.lat, group.lng], { icon }).addTo(map);
+                  marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b><br/><span style="color:#000;">Letzter: ${safeParseDate(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>`);
+                  marker.on('click', () => { setView('dashboard'); handleOpenEntry(e, true); });
+              } else {
+                  const iconHtml = `
+                    <div style="position: relative; width: 16px; height: 16px;">
+                        <div style="width: 100%; height: 100%; border-radius: 50%; background-color: ${user.nameColor || '#f59e0b'}; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>
+                        ${count > 1 ? `<div style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 10;">${count}x</div>` : ''}
+                    </div>`;
+                  const icon = window.L.divIcon({ html: iconHtml, className: 'avatar-marker', iconSize: [16, 16], iconAnchor: [8, 8] });
+                  const marker = window.L.marker([group.lat, group.lng], { icon }).addTo(map);
+                  marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b><br/><span style="color:#000;">Letzter: ${safeParseDate(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>`);
+                  marker.on('click', () => { setView('dashboard'); handleOpenEntry(e, true); });
+              }
+          });
+
+          if (hasMarkers) map.fitBounds(bounds, { padding: [50, 50] });
+          mapInstance.current = map;
+          setTimeout(() => map.invalidateSize(), 200);
+      }
+  }, [view, entries, user.nameColor]);
+
+  // Haupt-Rendern (Vermeidet Duplikate durch striktes if-else)
   if (importId && !isLoaded) return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="w-12 h-12 border-4 border-amber-50 border-t-transparent rounded-full animate-spin"></div></div>;
   if (view === 'loading' || !isLoaded) return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-black"><div className="w-8 h-8 border-4 border-slate-300 dark:border-zinc-800 border-t-black dark:border-t-white rounded-full animate-spin"></div></div>;
 
@@ -2054,8 +2051,18 @@ function App() {
           <div className="space-y-4">
             {authError && <div className="p-4 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-2xl text-sm font-semibold text-center border border-rose-100 dark:border-rose-500/20">{authError}</div>}
             {authMsg && <div className="p-4 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl text-sm font-semibold text-center border border-emerald-100 dark:border-emerald-500/20">{authMsg}</div>}
+            
             <input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} className="w-full p-4 rounded-2xl outline-none text-base font-medium bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-slate-400 dark:focus:border-zinc-600 transition-colors placeholder:opacity-40" placeholder="E-Mail Adresse" />
-            {authMode !== 'reset' && <input type="password" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} className="w-full p-4 rounded-2xl outline-none text-base font-medium bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-slate-400 dark:focus:border-zinc-600 transition-colors placeholder:opacity-40" placeholder="Passwort" />}
+            
+            {authMode !== 'reset' && (
+                <div className="relative w-full mb-6">
+                    <input type={showAuthPassword ? "text" : "password"} value={authPassword} onChange={e=>setAuthPassword(e.target.value)} className="w-full p-4 rounded-2xl outline-none text-base font-medium bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-slate-400 dark:focus:border-zinc-600 transition-colors placeholder:opacity-40 pr-12" placeholder="Passwort" />
+                    <button type="button" onClick={() => setShowAuthPassword(!showAuthPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors z-10">
+                        <Icon name={showAuthPassword ? "eye-off" : "eye"} size={20} />
+                    </button>
+                </div>
+            )}
+            
             <button onClick={handleAuthAction} className="w-full py-4 rounded-2xl font-bold text-base bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-all shadow-md mt-2">{authMode === 'login' ? 'Einloggen' : authMode === 'register' ? 'Account erstellen' : 'Link anfordern'}</button>
             <div className="flex flex-col gap-2 pt-4">
                 {authMode === 'login' ? (
@@ -2144,8 +2151,13 @@ function App() {
                     <div className="w-full h-px bg-slate-100 dark:bg-zinc-800 mb-8"></div>
                     <h2 className="text-xl font-bold mb-2">App entsperren</h2>
                     <p className="opacity-60 text-sm font-medium px-4 mb-6">Gib deine PIN ein, um dein lokales Journal zu entschlüsseln.</p>
+                    <div className="w-full relative mb-6">
+                        <input type={showPinPassword ? "text" : "password"} inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockSubmit(pinInput); }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none bg-slate-100 dark:bg-zinc-800 border border-transparent focus:border-slate-300 dark:focus:border-zinc-600 transition-colors placeholder:opacity-30 font-bold pr-12" placeholder="••••" />
+                        <button type="button" onClick={() => setShowPinPassword(!showPinPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors z-10">
+                            <Icon name={showPinPassword ? "eye-off" : "eye"} size={24} />
+                        </button>
+                    </div>
                     <div className="w-full">
-                        <input type="password" inputMode="numeric" pattern="[0-9]*" autoFocus value={pinInput} onChange={(e) => setPinInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockSubmit(pinInput); }} className="w-full p-4 text-center text-3xl tracking-[1em] rounded-2xl outline-none mb-6 bg-slate-100 dark:bg-zinc-800 border border-transparent focus:border-slate-300 dark:focus:border-zinc-600 transition-colors placeholder:opacity-30 font-bold" placeholder="••••" />
                         <button onClick={() => handleUnlockSubmit(pinInput)} className="w-full py-4 font-bold rounded-2xl bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 transition-transform shadow-md mb-4 text-lg">Entsperren</button>
                         {user.biometric && safeStorageGet('legacy_bio_pin') && (
                             <button onClick={() => { setShowPinFallback(false); }} className="w-full py-4 font-bold rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm flex items-center justify-center gap-2 mb-4"><Icon name="fingerprint" size={20}/> Biometrisch entsperren</button>
@@ -2200,7 +2212,6 @@ function App() {
             )}
           </div>
           <div className="flex gap-2 items-center">
-            {/* Timeline / Calendar Button */}
             <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowTimeline(true); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="calendar-days" size={18}/></button>
             
             {view === 'dashboard' && (
@@ -2413,11 +2424,11 @@ function App() {
           )}
 
           {view === 'map' && (
-             <div className="flex-1 flex flex-col gap-4 animate-fade-in pb-24 h-full">
-                <div className="flex-1 relative rounded-[2rem] overflow-hidden shadow-lg border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900">
-                    <div ref={mapRef} className="absolute inset-0 w-full h-full"></div>
+             <div className="flex-1 flex flex-col gap-4 animate-fade-in pb-24 h-full min-h-[60vh] relative z-0">
+                <div className="flex-1 relative rounded-[2rem] overflow-hidden shadow-lg border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 w-full h-full absolute inset-0">
+                    <div ref={mapRef} className="absolute inset-0 w-full h-full z-10 bg-slate-100 dark:bg-zinc-900"></div>
                 </div>
-                <div className="p-4 bg-white/90 dark:bg-black/90 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200 dark:border-zinc-800 flex justify-between items-center shrink-0">
+                <div className="p-4 bg-white/90 dark:bg-black/90 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200 dark:border-zinc-800 flex justify-between items-center shrink-0 absolute bottom-28 left-4 right-4 z-20">
                     <div className="font-bold text-sm">Orte deines Lebens</div>
                     <div className="text-xs opacity-70 font-bold">{entries.filter(e => e && e.location && !e.trashed).length} Markierungen</div>
                 </div>
@@ -2557,14 +2568,21 @@ function App() {
                          const isSelected = timelineSelectedDate === day.dateStr;
                          
                          let coverUrl = null;
-                         const entryWithCoverThisDay = dayEntries.find(e => getCoverImage(e));
-                         if (entryWithCoverThisDay) {
-                             coverUrl = getCoverImage(entryWithCoverThisDay);
-                         } else {
-                             const targetTimeEnd = safeParseDate(`${day.dateStr}T23:59:59Z`).getTime();
-                             const pastEntryWithCover = allEntriesSortedDesc.find(e => safeParseDate(e.date).getTime() <= targetTimeEnd && getCoverImage(e));
-                             if (pastEntryWithCover) {
-                                 coverUrl = getCoverImage(pastEntryWithCover);
+                         
+                         const today = new Date();
+                         today.setHours(23, 59, 59, 999);
+                         const isFuture = day.date > today;
+                         
+                         if (!isFuture) {
+                             const entryWithCoverThisDay = dayEntries.find(e => getCoverImage(e));
+                             if (entryWithCoverThisDay) {
+                                 coverUrl = getCoverImage(entryWithCoverThisDay);
+                             } else {
+                                 const targetTimeEnd = safeParseDate(`${day.dateStr}T23:59:59Z`).getTime();
+                                 const pastEntryWithCover = allEntriesSortedDesc.find(e => safeParseDate(e.date).getTime() <= targetTimeEnd && getCoverImage(e));
+                                 if (pastEntryWithCover) {
+                                     coverUrl = getCoverImage(pastEntryWithCover);
+                                 }
                              }
                          }
 
@@ -2604,11 +2622,13 @@ function App() {
                  {/* Entries List */}
                  {timelineSelectedDate && (
                      <div className="px-6 space-y-3 pb-12 animate-fade-in">
-                         {(entriesByDate[timelineSelectedDate] || []).map(e => (
+                         {(entriesByDate[timelineSelectedDate] || []).map((e, index) => (
                              <TimelineSwipeableEntry 
                                  key={e.id}
                                  entry={e}
                                  onClick={() => { setShowTimeline(false); handleOpenEntry(e, true); }}
+                                 onMoveUp={(evt) => moveEntryUp(evt, index, entriesByDate[timelineSelectedDate])}
+                                 onMoveDown={(evt) => moveEntryDown(evt, index, entriesByDate[timelineSelectedDate])}
                                  onArchivePrompt={promptArchiveTimeline}
                                  onTrashPrompt={promptTrashTimeline}
                              />
@@ -2743,7 +2763,9 @@ function App() {
         {/* --- PRINT VIEW ONLY --- */}
         {viewingEntry && !showEditor && (() => {
           const bookRoot = getBookRoot(viewingEntry.id);
-          const chronologicalBookEntries = [...getAllBookEntries(bookRoot?.id || viewingEntry.id)].sort(sortEntriesChronological);
+          // CHRONOLOGISCH SORTIEREN FÜR DEN DRUCK (VOM ÄLTESTEN ZUM NEUESTEN)
+          const chronologicalBookEntries = [...getAllBookEntries(bookRoot?.id || viewingEntry.id)].sort((a, b) => safeParseDate(a.date).getTime() - safeParseDate(b.date).getTime());
+          
           return (
           <div className="print-only w-full max-w-4xl mx-auto p-8">
             <div className="print-title-page page-break-after">
@@ -2826,8 +2848,8 @@ function App() {
               <div className="p-4 md:p-8 max-w-3xl mx-auto w-full flex flex-col">
                   {selectedImages.length > 0 && (
                       <div className="mb-8 w-full flex flex-col items-center">
-                          <div className="relative w-full h-48 sm:h-64 rounded-[2rem] overflow-hidden shadow-sm group border border-slate-200 dark:border-zinc-800 shrink-0 bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
-                              <img src={selectedImages[0]} className="w-full h-full object-contain" />
+                          <div className="relative w-full rounded-[2rem] overflow-hidden shadow-sm group border border-slate-200 dark:border-zinc-800 shrink-0 bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
+                              <img src={selectedImages[0]} className="w-full h-auto block" />
                               <button onClick={()=>{setSelectedImages(prev=>prev.slice(1)); isDirtyRef.current=true;}} className="absolute top-4 right-4 p-3 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"><Icon name="x" size={16}/></button>
                           </div>
                           {selectedImages.length > 1 && (
