@@ -121,14 +121,12 @@ const safeParseDate = (dInput) => {
     
     let dStr = String(dInput).trim();
     
-    // ISO-Strings direkt verarbeiten
     if (/^\d{4}-\d{2}-\d{2}/.test(dStr)) {
         let time = new Date(dStr).getTime();
         if (isNaN(time)) time = new Date(dStr + 'Z').getTime();
         return isNaN(time) ? new Date(0) : new Date(time);
     }
     
-    // Fängt deutsches Format ab: TT.MM.JJJJ (z.B. 01.04.2026)
     const deMatch = dStr.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
     if (deMatch) {
         const timeMatch = dStr.match(/\s(\d{2}:\d{2}:\d{2})/);
@@ -143,30 +141,28 @@ const safeParseDate = (dInput) => {
     return isNaN(time) ? new Date(0) : new Date(time);
 };
 
-// ZENTRALE SORTIERUNG: Das Neueste IMMER zuerst! (Strikt nach Kalendertag!)
+// ZENTRALE SORTIERUNG: Das Neueste IMMER zuerst! (Strikt nach Kalendertag! NaN sicher)
 const sortEntriesChronological = (a, b) => {
-    const timeA = safeParseDate(a.date).getTime();
-    const timeB = safeParseDate(b.date).getTime();
+    const timeA = safeParseDate(a.date).getTime() || 0;
+    const timeB = safeParseDate(b.date).getTime() || 0;
     
     const dateA = new Date(timeA);
     const dateB = new Date(timeB);
     
-    // Wir löschen die Uhrzeit für den Vergleich, um strikt den TAG zu priorisieren
-    const dayA = new Date(dateA.getFullYear(), dateA.getMonth(), dateA.getDate()).getTime();
-    const dayB = new Date(dateB.getFullYear(), dateB.getMonth(), dateB.getDate()).getTime();
+    const dayA = new Date(dateA.getFullYear(), dateA.getMonth(), dateA.getDate()).getTime() || 0;
+    const dayB = new Date(dateB.getFullYear(), dateB.getMonth(), dateB.getDate()).getTime() || 0;
     
     if (dayA !== dayB) {
-        return dayB - dayA; // Wenn es unterschiedliche Tage sind, gewinnt IMMER der neuere Tag
+        return dayB - dayA; 
     }
     
-    // Wenn es derselbe Tag ist, nutzen wir orderTimestamp für die manuelle Sortierung (Up/Down)
-    const orderA = safeParseDate(a.orderTimestamp || a.date).getTime();
-    const orderB = safeParseDate(b.orderTimestamp || b.date).getTime();
+    const orderA = safeParseDate(a.orderTimestamp || a.date).getTime() || 0;
+    const orderB = safeParseDate(b.orderTimestamp || b.date).getTime() || 0;
     
-    if (orderA === orderB) {
-        return timeB - timeA;
+    if (orderA !== orderB) {
+        return orderB - orderA;
     }
-    return orderB - orderA;
+    return timeB - timeA;
 };
 
 const getLocalISO = () => new Date().toISOString();
@@ -261,7 +257,6 @@ const encryptData = async (text, pin) => {
         
         return { cipher: btoa(binary), iv: ivStr, salt: saltStr };
     } catch(e) { 
-        console.error("Encryption failed", e); 
         return null; 
     }
 };
@@ -835,10 +830,21 @@ function App() {
     initFB();
   }, []);
 
+  const ensureDb = async () => {
+      if (db) return db;
+      try {
+          const database = await initDB();
+          setDb(database);
+          return database;
+      } catch(e) {
+          return null;
+      }
+  };
+
   useEffect(() => {
     const loadApp = async () => {
       try {
-        const database = await initDB(); setDb(database);
+        const database = await ensureDb();
         const transaction = database.transaction('entries', 'readonly'); const request = transaction.objectStore('entries').getAll();
 
         request.onsuccess = async () => {
@@ -899,11 +905,12 @@ function App() {
     loadApp();
   }, []);
 
-  const loadLocalEntries = (activePin) => {
+  const loadLocalEntries = async (activePin) => {
+      const currentDb = await ensureDb();
+      if (!currentDb) return;
       return new Promise((resolve) => {
-          if (!db) { resolve(); return; }
           try {
-              const transaction = db.transaction('entries', 'readonly');
+              const transaction = currentDb.transaction('entries', 'readonly');
               const request = transaction.objectStore('entries').getAll();
               request.onsuccess = async () => {
                   try {
@@ -1123,7 +1130,6 @@ function App() {
       setUser(mergedUser);
       safeStorageSet('legacy_user', JSON.stringify(mergedUser));
       
-      // VERZÖGERUNG UM DAS FLACKERN "Keine Einträge" ZU VERHINDERN
       setView('loading'); 
       await loadLocalEntries(pinValue);
       setTimeout(() => {
@@ -1427,7 +1433,6 @@ function App() {
     if (customDate) {
         const now = new Date();
         const timeStr = now.toISOString().split('T')[1] || "12:00:00.000Z";
-        // Korrekte Formatierung mit dem exakt ausgewählten Tag!
         targetDateStr = `${customDate}T${timeStr}`;
     }
     const targetDate = entry && entry.id ? (entry.date || getLocalISO()) : targetDateStr;
@@ -1510,14 +1515,12 @@ function App() {
           }
       }
       
-      // FIX: Wenn von Zeitreise/Erkenntnisse/Karte aufgerufen, öffne EXAKT diesen Eintrag!
       if (forceExact) {
           setViewingEntry(entry);
           setCurrentViewerImgIdx(0);
           return;
       }
       
-      // Standard-Verhalten für Dashboard: Neuestes Kapitel des Buches öffnen
       const bookRoot = getBookRoot(entry.id);
       const unsortedEntries = getAllBookEntries(bookRoot?.id || entry.id);
       const sortedDesc = [...unsortedEntries].sort(sortEntriesChronological);
@@ -2024,78 +2027,6 @@ function App() {
   const downloadFullApp = () => { const cloneDocument = document.cloneNode(true); const rootDiv = cloneDocument.getElementById('root'); if (rootDiv) rootDiv.innerHTML = ''; const existingInjected = cloneDocument.getElementById('legacy-injected-data'); if (existingInjected) existingInjected.remove(); const data = { user, entries }; const scriptEl = cloneDocument.createElement('script'); scriptEl.id = 'legacy-injected-data'; scriptEl.type = 'application/json'; scriptEl.textContent = JSON.stringify(data); cloneDocument.head.appendChild(scriptEl); const htmlContent = "<!DOCTYPE html>\n" + cloneDocument.documentElement.outerHTML; const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Legacy_${new Date().toISOString().split('T')[0]}.html`; a.click(); URL.revokeObjectURL(a.href); showDialog({ title: 'Erledigt!', message: 'App als HTML-Backup gespeichert.', icon: 'download' }); };
 
   const importBackup = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async (e) => { try { let data = null; if (file.name.toLowerCase().endsWith('.html')) { const doc = new DOMParser().parseFromString(e.target.result, 'text/html'); const script = doc.getElementById('legacy-injected-data'); if (script && script.textContent && script.textContent !== 'null') data = JSON.parse(script.textContent); else throw new Error("Keine Daten"); } else data = JSON.parse(e.target.result); if (data && data.entries && db) { const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); let mergedCount = 0; const pinToUse = data.user ? data.user.pin : user.pin; const entriesToSave = await Promise.all(data.entries.map(async (en) => { let dbE = { ...en }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []); return dbE; })); entriesToSave.forEach(en => { if (!entries.find(ex => ex && ex.id === en.id)) { if (data.user && data.user.name !== user.name) en.inheritedFrom = data.user.name; store.put(en); mergedCount++; } }); const req = store.getAll(); req.onsuccess = async () => { let loadedEntries = req.result || []; loadedEntries = loadedEntries.filter(e => e != null); if (user.pin) loadedEntries = await Promise.all(loadedEntries.map(async (en) => { if (en.encryptedData) { const decStr = await decryptData(en.encryptedData, user.pin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...en, text: parsed.text, title: parsed.title }; } catch(err){} } } return en; })); setEntries(loadedEntries.sort(sortEntriesChronological)); showDialog({ title: 'Erfolg', message: `${mergedCount} neue Seiten importiert.`, icon: 'check' }); }; } } catch (err) { showDialog({ title: 'Fehler', message: 'Ungültige Datei.', icon: 'x' }); } }; reader.readAsText(file); };
-
-  useEffect(() => {
-      if (view === 'map' && mapRef.current && window.L) {
-          if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; }
-
-          const map = window.L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView([51.1657, 10.4515], 3);
-          window.L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-          const currentHour = new Date().getHours();
-          const mapIsDark = currentHour < 6 || currentHour >= 18;
-          const tileUrl = mapIsDark ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-          
-          window.L.tileLayer(tileUrl).addTo(map);
-          
-          let hasMarkers = false;
-          const bounds = window.L.latLngBounds();
-
-          const locationGroups = {};
-          entries.filter(e => e && !e.trashed).forEach(e => {
-              if (e.locations && e.locations.length > 0) {
-                  e.locations.forEach(loc => {
-                      if(!loc || !loc.lat || !loc.lng) return;
-                      hasMarkers = true;
-                      bounds.extend([loc.lat, loc.lng]);
-                      const key = `${Number(loc.lat).toFixed(3)}_${Number(loc.lng).toFixed(3)}`;
-                      if (!locationGroups[key]) locationGroups[key] = { lat: loc.lat, lng: loc.lng, entries: [] };
-                      locationGroups[key].entries.push(e);
-                  });
-              } else if (e.location && e.location.lat) {
-                  hasMarkers = true;
-                  bounds.extend([e.location.lat, e.location.lng]);
-                  const key = `${Number(e.location.lat).toFixed(3)}_${Number(e.location.lng).toFixed(3)}`;
-                  if (!locationGroups[key]) locationGroups[key] = { lat: e.location.lat, lng: e.location.lng, entries: [] };
-                  locationGroups[key].entries.push(e);
-              }
-          });
-
-          Object.values(locationGroups).forEach(group => {
-              const e = group.entries[0];
-              const count = group.entries.length;
-              
-              const coverUrl = getCoverImage(e);
-              if (coverUrl) {
-                  const iconHtml = `
-                    <div style="position: relative; width: 54px; height: 54px;">
-                        <div style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; border: 3px solid ${user.nameColor || '#f59e0b'}; box-shadow: 0 4px 10px rgba(0,0,0,0.4); background-color: #000;">
-                            <img src="${coverUrl}" style="width: 100%; height: 100%; object-fit: cover;" />
-                        </div>
-                        ${count > 1 ? `<div style="position: absolute; top: -4px; right: -4px; background: #ef4444; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 10;">${count}x</div>` : ''}
-                    </div>`;
-                  const icon = window.L.divIcon({ html: iconHtml, className: 'avatar-marker', iconSize: [54, 54], iconAnchor: [27, 27] });
-                  const marker = window.L.marker([group.lat, group.lng], { icon }).addTo(map);
-                  marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b><br/><span style="color:#000;">Letzter: ${safeParseDate(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>`);
-                  marker.on('click', () => { setView('dashboard'); handleOpenEntry(e, true); });
-              } else {
-                  const iconHtml = `
-                    <div style="position: relative; width: 16px; height: 16px;">
-                        <div style="width: 100%; height: 100%; border-radius: 50%; background-color: ${user.nameColor || '#f59e0b'}; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>
-                        ${count > 1 ? `<div style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 10;">${count}x</div>` : ''}
-                    </div>`;
-                  const icon = window.L.divIcon({ html: iconHtml, className: 'avatar-marker', iconSize: [16, 16], iconAnchor: [8, 8] });
-                  const marker = window.L.marker([group.lat, group.lng], { icon }).addTo(map);
-                  marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b><br/><span style="color:#000;">Letzter: ${safeParseDate(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>`);
-                  marker.on('click', () => { setView('dashboard'); handleOpenEntry(e, true); });
-              }
-          });
-
-          if (hasMarkers) map.fitBounds(bounds, { padding: [50, 50] });
-          mapInstance.current = map;
-          setTimeout(() => map.invalidateSize(), 200);
-      }
-  }, [view, entries, user.nameColor]);
 
   if (importId && !isLoaded) return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="w-12 h-12 border-4 border-amber-50 border-t-transparent rounded-full animate-spin"></div></div>;
   if (view === 'loading' || !isLoaded) return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-black"><div className="w-8 h-8 border-4 border-slate-300 dark:border-zinc-800 border-t-black dark:border-t-white rounded-full animate-spin"></div></div>;
