@@ -53,6 +53,7 @@
   
   @keyframes fade-in{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}} 
   .animate-fade-in{animation:fade-in 0.3s cubic-bezier(0.16,1,0.3,1) forwards;}
+  .delay-300 { animation-delay: 0.3s; animation-fill-mode: backwards; }
   @keyframes slide-up{from{transform:translateY(24px);opacity:0;}to{transform:translateY(0);opacity:1;}} 
   .animate-slide-up{animation:slide-up 0.4s cubic-bezier(0.16,1,0.3,1) forwards;}
   @keyframes pulse-flame{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.8;transform:scale(1.05);}} 
@@ -109,15 +110,49 @@ const safeStorageSet = (key, val) => {
     try { localStorage.setItem(key, val); } catch(e) {} 
 };
 
+// --- ROBUSTER DATUMS PARSER ---
+const safeParseDate = (dInput) => {
+    if (!dInput) return new Date(0);
+    if (dInput instanceof Date) {
+        if (isNaN(dInput.getTime())) return new Date(0);
+        return dInput;
+    }
+    if (typeof dInput === 'number') return new Date(dInput);
+    
+    let dStr = String(dInput).trim();
+    
+    // ISO-Strings direkt verarbeiten
+    if (/^\d{4}-\d{2}-\d{2}/.test(dStr)) {
+        let time = new Date(dStr).getTime();
+        if (isNaN(time)) time = new Date(dStr + 'Z').getTime();
+        return isNaN(time) ? new Date(0) : new Date(time);
+    }
+    
+    // Fängt deutsches Format ab: TT.MM.JJJJ (z.B. 01.04.2026)
+    const deMatch = dStr.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+    if (deMatch) {
+        const timeMatch = dStr.match(/\s(\d{2}:\d{2}:\d{2})/);
+        const timePart = timeMatch ? timeMatch[1] : '12:00:00';
+        return new Date(`${deMatch[3]}-${deMatch[2].padStart(2, '0')}-${deMatch[1].padStart(2, '0')}T${timePart}Z`);
+    }
+    
+    let time = new Date(dStr).getTime();
+    if (isNaN(time)) time = new Date(dStr + 'Z').getTime();
+    if (isNaN(time)) time = new Date(dStr.replace(' ', 'T') + 'Z').getTime();
+    
+    return isNaN(time) ? new Date(0) : new Date(time);
+};
+
+// ZENTRALE SORTIERUNG: Das Neueste IMMER zuerst! (Strikt nach Timestamp)
 const sortEntriesChronological = (a, b) => {
-    const getT = (entry) => {
-        let d = entry.orderTimestamp || entry.date;
-        if (!d) return 0;
-        let time = new Date(d).getTime();
-        if (isNaN(time)) time = new Date(d + 'Z').getTime();
-        return isNaN(time) ? 0 : time;
-    };
-    return getT(b) - getT(a); 
+    const timeA = safeParseDate(a.orderTimestamp || a.date).getTime();
+    const timeB = safeParseDate(b.orderTimestamp || b.date).getTime();
+    if (timeA === timeB) {
+        const dateA = safeParseDate(a.date).getTime();
+        const dateB = safeParseDate(b.date).getTime();
+        return dateB - dateA;
+    }
+    return timeB - timeA; 
 };
 
 const getLocalISO = () => new Date().toISOString();
@@ -132,21 +167,54 @@ const createSafeHtml = (htmlStr) => {
   };
 };
 
-const highlightText = (text, query) => {
+const highlightText = (text, query, isTitle = false) => {
   const safeStr = text || '';
   if (!safeStr) return { __html: '' };
-  let safeText = safeStr.replace(/<img[^>]*>/g, '[Bild]');
-  safeText = window.DOMPurify ? window.DOMPurify.sanitize(safeText, { 
-      ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], 
-      ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] 
-  }) : safeText;
-  if (!query) return { __html: safeText };
-  const plainText = safeText.replace(/<[^>]*>?/gm, '');
-  const parts = plainText.split(new RegExp(`(${query})`, 'gi'));
-  const highlighted = parts.map((part, i) =>
+  
+  if (!query) {
+      const safeHTML = window.DOMPurify ? window.DOMPurify.sanitize(safeStr.replace(/<img[^>]*>/g, ' [Bild] '), { 
+          ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], 
+          ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] 
+      }) : safeStr;
+      return { __html: safeHTML };
+  }
+
+  const plainText = safeStr.replace(/<img[^>]*>/g, ' [Bild] ').replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  
+  if (!isTitle) {
+      const match = regex.exec(plainText);
+      if (match) {
+         const start = Math.max(0, match.index - 60);
+         const end = Math.min(plainText.length, match.index + query.length + 60);
+         let snippet = plainText.substring(start, end);
+         if (start > 0) snippet = '...' + snippet;
+         if (end < plainText.length) snippet = snippet + '...';
+         
+         const highlightedSnippet = snippet.split(regex).map((part, i) => 
+             part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part
+         ).join('');
+         return { __html: highlightedSnippet };
+      }
+  }
+
+  const highlighted = plainText.split(regex).map((part, i) =>
       part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part
   ).join('');
   return { __html: highlighted };
+};
+
+// --- INTELLIGENTE BILD-ERKENNUNG (COVER) ---
+const getCoverImage = (entry) => {
+    if (!entry) return null;
+    // 1. Priorität: Echtes Cover-Bild
+    if (entry.images && entry.images.length > 0) return entry.images[0];
+    // 2. Priorität: Bild aus dem Text extrahieren (falls vorhanden)
+    if (entry.text) {
+        const match = entry.text.match(/<img[^>]+src="([^">]+)"/);
+        if (match) return match[1];
+    }
+    return null;
 };
 
 const encHelper = new TextEncoder();
@@ -323,7 +391,8 @@ const initDB = () => {
 
 const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQuery, onMoveUp, onMoveDown, showMoveControls }) => {
     if (!entry) return null;
-    const hasImages = entry.images && entry.images.length > 0;
+    const coverUrl = getCoverImage(entry);
+    const hasImages = !!coverUrl;
     
     const cardBgClass = entry.manifested 
         ? 'bg-amber-50/30 dark:bg-amber-900/20 border-amber-400 dark:border-amber-500 border-2 shadow-lg shadow-amber-500/20' 
@@ -340,13 +409,13 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
         )}
         {hasImages && (
           <div className="w-full relative overflow-hidden bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
-            <img src={entry.images[0]} className="w-full h-auto object-contain transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
+            <img src={coverUrl} className="w-full h-auto object-cover aspect-video transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
           </div>
         )}
         <div className="p-6 relative z-10 flex-1 flex flex-col">
           <div className="flex items-center justify-between mb-3 gap-2">
               <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-50 flex-wrap flex-1">
-                <span>{new Date(entry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                <span>{safeParseDate(entry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                 {!isGridView && <><span>•</span><span>{entry.category || 'Allgemein'}</span></>}
                 {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span></>}
                 {entry.audio && <><span className="text-emerald-500 flex items-center ml-1"><Icon name="mic" size={12}/></span></>}
@@ -360,7 +429,7 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
               )}
           </div>
           
-          <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && isCapsuleLocked ? 'text-slate-900 dark:text-white' : 'text-slate-900 dark:text-white group-hover:text-accent transition-colors'}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery)} />
+          <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && isCapsuleLocked ? 'text-slate-900 dark:text-white' : 'text-slate-900 dark:text-white group-hover:text-accent transition-colors'}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery, true)} />
           
           {!isGridView && (entry.tags || entry.people || entry.weather || entry.rating > 0 || entry.location || (entry.locations && entry.locations.length > 0)) && (
              <div className="flex flex-wrap gap-1.5 mb-4">
@@ -383,7 +452,7 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
           )}
 
           {!isCapsuleLocked && entry.text && !isGridView && (
-            <div className="text-[1.05rem] leading-[1.8] opacity-90 legacy-editor-content text-slate-800 dark:text-slate-200 line-clamp-3" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery)} />
+            <div className="text-[1.05rem] leading-[1.8] opacity-90 legacy-editor-content text-slate-800 dark:text-slate-200 line-clamp-3" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery, false)} />
           )}
           {isCapsuleLocked && !isGridView && (
              <div className="text-sm font-medium leading-relaxed opacity-40 italic mt-auto">
@@ -435,6 +504,8 @@ const TimelineSwipeableEntry = ({ entry, onClick, onArchivePrompt, onTrashPrompt
         setTimeout(() => { dragged.current = false; }, 100);
     };
 
+    const coverUrl = getCoverImage(entry);
+
     return (
         <div className="relative w-full rounded-2xl overflow-hidden bg-slate-200 dark:bg-zinc-800 shrink-0 border border-slate-100 dark:border-zinc-800/50">
             <div className="absolute inset-0 flex justify-between items-center px-4">
@@ -452,8 +523,8 @@ const TimelineSwipeableEntry = ({ entry, onClick, onArchivePrompt, onTrashPrompt
                 style={{ transform: `translateX(${offsetX}px)`, transition: startX.current === null ? 'transform 0.2s ease-out' : 'none' }}
                 className="relative z-10 w-full text-left p-3 flex items-center gap-4 bg-white dark:bg-zinc-900/90 shadow-sm"
             >
-                {entry.images && entry.images.length > 0 ? (
-                    <img src={entry.images[0]} className="w-14 h-14 rounded-xl object-cover shrink-0 pointer-events-none" />
+                {coverUrl ? (
+                    <img src={coverUrl} className="w-14 h-14 rounded-xl object-cover shrink-0 pointer-events-none" />
                 ) : (
                     <div className="w-14 h-14 rounded-xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 pointer-events-none">
                         <Icon name="book" size={24} className="opacity-40" />
@@ -461,7 +532,7 @@ const TimelineSwipeableEntry = ({ entry, onClick, onArchivePrompt, onTrashPrompt
                 )}
                 <div className="flex-1 overflow-hidden pointer-events-none">
                     <h4 className="font-bold text-sm text-accent truncate mb-1">{entry.title || 'Ohne Titel'}</h4>
-                    <p className="text-[10px] opacity-60 font-bold tracking-widest uppercase">{new Date(entry.orderTimestamp || entry.date).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})} UHR</p>
+                    <p className="text-[10px] opacity-60 font-bold tracking-widest uppercase">{safeParseDate(entry.orderTimestamp || entry.date).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})} UHR</p>
                 </div>
             </button>
         </div>
@@ -762,11 +833,8 @@ function App() {
           let loadedEntries = request.result || [];
           loadedEntries = loadedEntries.filter(e => e != null).map(e => {
               if (e.date) {
-                  const d = new Date(e.date);
-                  if (isNaN(d.getTime())) {
-                      const repaired = new Date(e.date + 'Z');
-                      if (!isNaN(repaired.getTime())) e.date = repaired.toISOString();
-                  }
+                  const d = safeParseDate(e.date);
+                  e.date = d.toISOString();
               }
               return { ...e, locked: false };
           });
@@ -1043,8 +1111,12 @@ function App() {
       setUser(mergedUser);
       safeStorageSet('legacy_user', JSON.stringify(mergedUser));
       
+      // VERZÖGERUNG UM DAS FLACKERN "Keine Einträge" ZU VERHINDERN
+      setView('loading'); 
       await loadLocalEntries(pinValue);
-      setView(mergedUser.name ? 'dashboard' : 'onboarding');
+      setTimeout(() => {
+          setView(mergedUser.name ? 'dashboard' : 'onboarding');
+      }, 100);
   };
 
   const submitPin = () => handleUnlockSubmit(pinInput);
@@ -1280,10 +1352,19 @@ function App() {
         
         const existingEntry = entries.find(e => e && e.id === editingIdRef.current);
         
+        let finalDate = state.date || (existingEntry ? existingEntry.date : null) || getLocalISO();
+        let finalOrder = existingEntry ? (existingEntry.orderTimestamp || existingEntry.date || getLocalISO()) : finalDate;
+
+        if (existingEntry && state.date && state.date !== existingEntry.date) {
+            finalOrder = state.date;
+        } else if (!existingEntry && state.date) {
+            finalOrder = state.date;
+        }
+        
         const newEntry = { 
             id: entryId, title: titleSafe || '', text: currentText, color: state.selectedColor, images: state.selectedImages, audio: state.audioUrl, archived: false, trashed: false, manifested: state.isManifested, category: state.category, mood: state.mood, unlockDate: state.unlockDate, location: state.location, locations: state.locations, parentId: state.parentId, inheritedFrom: state.inheritedFrom, rating: state.rating, tags: state.tags, people: state.people, weather: state.weather, 
-            date: existingEntry ? (existingEntry.date || state.date || getLocalISO()) : (state.date || getLocalISO()), 
-            orderTimestamp: existingEntry ? (existingEntry.orderTimestamp || getLocalISO()) : getLocalISO() 
+            date: finalDate, 
+            orderTimestamp: finalOrder 
         };
         
         if (!editingIdRef.current) { setEditingId(entryId); editingIdRef.current = entryId; }
@@ -1329,7 +1410,15 @@ function App() {
 
   const openEditor = (entry = null, pillar = null, customDate = null) => {
     isDirtyRef.current = false;
-    const targetDate = entry && entry.id ? (entry.date || getLocalISO()) : (customDate ? new Date(customDate).toISOString() : getLocalISO());
+    
+    let targetDateStr = getLocalISO();
+    if (customDate) {
+        const now = new Date();
+        const timeStr = now.toISOString().split('T')[1] || "12:00:00.000Z";
+        // Korrekte Formatierung mit dem exakt ausgewählten Tag!
+        targetDateStr = `${customDate}T${timeStr}`;
+    }
+    const targetDate = entry && entry.id ? (entry.date || getLocalISO()) : targetDateStr;
 
     const newEntryState = entry && entry.id ? {
         title: entry.title || '', text: entry.text || '', selectedColor: entry.color || (user.isDark ? COLORS[8] : COLORS[0]), selectedImages: entry.images || [], isManifested: entry.manifested || false, category: entry.category || CATEGORIES[0], mood: entry.mood || null, audioUrl: entry.audio || null, unlockDate: entry.unlockDate || '', location: entry.location || null, locations: entry.locations || (entry.location ? [entry.location] : []), parentId: entry.parentId || '', inheritedFrom: entry.inheritedFrom || null, rating: entry.rating || 0, tags: entry.tags || '', people: entry.people || '', weather: entry.weather || '', date: targetDate, orderTimestamp: entry.orderTimestamp || targetDate
@@ -1409,16 +1498,8 @@ function App() {
           }
       }
       
-      const bookRoot = getBookRoot(entry.id);
-      const unsortedEntries = getAllBookEntries(bookRoot?.id || entry.id);
-      
-      // Sortiere absteigend nach orderTimestamp (neuester / höchster Eintrag zuerst)
-      const sortedDesc = [...unsortedEntries].sort((a, b) => new Date(b.orderTimestamp || b.date).getTime() - new Date(a.orderTimestamp || a.date).getTime());
-      
-      // Wir öffnen immer den allerneuesten Eintrag des ausgewählten Tagebuchs
-      const targetToOpen = sortedDesc[0] || entry; 
-      
-      setViewingEntry(targetToOpen);
+      // FIX: Springt ab sofort genau auf den ausgewählten Eintrag!
+      setViewingEntry(entry);
       setCurrentViewerImgIdx(0);
   };
 
@@ -1434,7 +1515,7 @@ function App() {
       let tempAbove = above.orderTimestamp || above.date;
       
       if (temp === tempAbove) {
-          tempAbove = new Date(new Date(temp).getTime() + 1000).toISOString();
+          tempAbove = new Date(safeParseDate(temp).getTime() + 1000).toISOString();
       }
 
       const clonedCurrent = {...current, orderTimestamp: tempAbove};
@@ -1456,7 +1537,7 @@ function App() {
       let tempBelow = below.orderTimestamp || below.date;
       
       if (temp === tempBelow) {
-          tempBelow = new Date(new Date(temp).getTime() - 1000).toISOString();
+          tempBelow = new Date(safeParseDate(temp).getTime() - 1000).toISOString();
       }
 
       const clonedCurrent = {...current, orderTimestamp: tempBelow};
@@ -1486,22 +1567,23 @@ function App() {
     });
   }, [entries, searchQuery, activeCategory, view]);
 
-  const renderEntries = visibleEntries; 
+  const renderEntries = [...visibleEntries].sort(sortEntriesChronological);
 
   // --- NEUE TIMELINE / KALENDER LOGIK ---
   const entriesByDate = useMemo(() => {
       const map = {};
       entries.filter(e => e && !e.trashed).forEach(e => {
-          const d = new Date(e.orderTimestamp || e.date || getLocalISO());
+          const d = safeParseDate(e.orderTimestamp || e.date || getLocalISO());
           const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
           if (!map[dateStr]) map[dateStr] = [];
           map[dateStr].push(e);
       });
-      // Sortiere die Einträge eines jeden Tages nach Uhrzeit (älteste zuerst für diesen Tag)
-      Object.keys(map).forEach(k => {
-          map[k].sort((a,b) => new Date(a.orderTimestamp || a.date).getTime() - new Date(b.orderTimestamp || b.date).getTime());
-      });
+      Object.keys(map).forEach(k => { map[k].sort(sortEntriesChronological); });
       return map;
+  }, [entries]);
+
+  const allEntriesSortedDesc = useMemo(() => {
+      return [...entries].filter(e => e && !e.trashed).sort(sortEntriesChronological);
   }, [entries]);
 
   const getCalendarDays = (monthDate) => {
@@ -1549,13 +1631,13 @@ function App() {
           }
       }); 
       return quotes.sort((a,b) => {
-          const tA = new Date(a.date).getTime() || 0;
-          const tB = new Date(b.date).getTime() || 0;
+          const tA = safeParseDate(a.date).getTime() || 0;
+          const tB = safeParseDate(b.date).getTime() || 0;
           return tB - tA;
       }); 
   }, [entries, view]);
   
-  const heatmapData = useMemo(() => { return Array.from({ length: 30 }).map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (29 - i)); const dateStr = d.toDateString(); return { date: dateStr, count: entries.filter(e => e && !e.trashed && new Date(e.date || getLocalISO()).toDateString() === dateStr).length }; }); }, [entries]);
+  const heatmapData = useMemo(() => { return Array.from({ length: 30 }).map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (29 - i)); const dateStr = d.toDateString(); return { date: dateStr, count: entries.filter(e => e && !e.trashed && safeParseDate(e.date || getLocalISO()).toDateString() === dateStr).length }; }); }, [entries]);
   const { completedPillars, totalPillars, progressPercent } = useMemo(() => { const completed = PILLARS.filter(p => entries.some(e => e && !e.trashed && (e.title || '') === p.title)).length; return { completedPillars: completed, totalPillars: PILLARS.length, progressPercent: Math.round((completed / PILLARS.length) * 100) }; }, [entries]);
   
   const getAllBookEntries = (rootId) => { 
@@ -1602,9 +1684,8 @@ function App() {
       const touchEnd = e.changedTouches[0].clientX; const distance = touchStart - touchEnd;
       const bookRoot = getBookRoot(viewingEntry.id);
       
-      // Fürs Wischen/Lesen nutzen wir die chronologische Reihenfolge
       const unsortedEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
-      const chronologicalBookEntries = [...unsortedEntries].sort((a, b) => new Date(a.orderTimestamp || a.date).getTime() - new Date(b.orderTimestamp || b.date).getTime());
+      const chronologicalBookEntries = [...unsortedEntries].sort(sortEntriesChronological);
       
       let swipeNext = null, swipePrev = null;
       if (chronologicalBookEntries.length > 1) {
@@ -1612,7 +1693,6 @@ function App() {
           if (cIdx > 0) swipePrev = chronologicalBookEntries[cIdx - 1]; 
           if (cIdx < chronologicalBookEntries.length - 1) swipeNext = chronologicalBookEntries[cIdx + 1]; 
       } else {
-          // Im Dashboard
           const sorted = visibleEntries.sort(sortEntriesChronological);
           const cIdx = sorted.findIndex(ex => ex && ex.id === viewingEntry.id);
           if (cIdx > 0) swipePrev = sorted[cIdx - 1]; 
@@ -1897,7 +1977,7 @@ function App() {
 
           let imgCounter = 1;
           entries.filter(e => e && !e.trashed).forEach(e => {
-              let mdContent = `# ${e.title || 'Ohne Titel'}\n\nDatum: ${new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}\nKategorie: ${e.category}\n\n${(e.text || '').replace(/<[^>]*>?/gm, '')}`;
+              let mdContent = `# ${e.title || 'Ohne Titel'}\n\nDatum: ${safeParseDate(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}\nKategorie: ${e.category}\n\n${(e.text || '').replace(/<[^>]*>?/gm, '')}`;
               if (e.images && e.images.length > 0) {
                   e.images.forEach(imgBase64 => {
                       const base64Data = imgBase64.split(',')[1];
@@ -1908,7 +1988,7 @@ function App() {
                   });
               }
               const safeTitle = (e.title || 'Eintrag').replace(/[^a-z0-9]/gi, '_').toLowerCase();
-              textsFolder.file(`${new Date(e.date).toISOString().split('T')[0]}_${safeTitle}.md`, mdContent);
+              textsFolder.file(`${safeParseDate(e.date).toISOString().split('T')[0]}_${safeTitle}.md`, mdContent);
           });
 
           const content = await zip.generateAsync({type:"blob"});
@@ -1965,17 +2045,18 @@ function App() {
               const e = group.entries[0];
               const count = group.entries.length;
               
-              if (e.images && e.images.length > 0) {
+              const coverUrl = getCoverImage(e);
+              if (coverUrl) {
                   const iconHtml = `
                     <div style="position: relative; width: 54px; height: 54px;">
                         <div style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; border: 3px solid ${user.nameColor || '#f59e0b'}; box-shadow: 0 4px 10px rgba(0,0,0,0.4); background-color: #000;">
-                            <img src="${e.images[0]}" style="width: 100%; height: 100%; object-fit: cover;" />
+                            <img src="${coverUrl}" style="width: 100%; height: 100%; object-fit: cover;" />
                         </div>
                         ${count > 1 ? `<div style="position: absolute; top: -4px; right: -4px; background: #ef4444; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 10;">${count}x</div>` : ''}
                     </div>`;
                   const icon = window.L.divIcon({ html: iconHtml, className: 'avatar-marker', iconSize: [54, 54], iconAnchor: [27, 27] });
                   const marker = window.L.marker([group.lat, group.lng], { icon }).addTo(map);
-                  marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b><br/><span style="color:#000;">Letzter: ${new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>`);
+                  marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b><br/><span style="color:#000;">Letzter: ${safeParseDate(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>`);
                   marker.on('click', () => { setView('dashboard'); handleOpenEntry(e); });
               } else {
                   const iconHtml = `
@@ -1985,7 +2066,7 @@ function App() {
                     </div>`;
                   const icon = window.L.divIcon({ html: iconHtml, className: 'avatar-marker', iconSize: [16, 16], iconAnchor: [8, 8] });
                   const marker = window.L.marker([group.lat, group.lng], { icon }).addTo(map);
-                  marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b><br/><span style="color:#000;">Letzter: ${new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>`);
+                  marker.bindPopup(`<b style="color:#000;">${count} Einträge hier</b><br/><span style="color:#000;">Letzter: ${safeParseDate(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>`);
                   marker.on('click', () => { setView('dashboard'); handleOpenEntry(e); });
               }
           });
@@ -2169,7 +2250,7 @@ function App() {
             {view !== 'dashboard' && <button type="button" onClick={handleBackNavigation} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="x" size={18} /></button>}
           </div>
           {isSearchOpen && view === 'dashboard' && (
-            <div className="absolute top-full left-0 right-0 p-4 bg-white/90 dark:bg-black/90 backdrop-blur-2xl border-b border-slate-200/50 dark:border-zinc-800/50 shadow-xl animate-slide-up z-50">
+            <div className="absolute top-full left-0 right-0 p-4 bg-white/90 dark:bg-black/90 backdrop-blur-2xl border-b border-slate-200/50 dark:border-zinc-800/50 shadow-xl z-50">
               <input type="text" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Suchen..." autoFocus className="w-full p-4 rounded-2xl bg-slate-100 dark:bg-zinc-900 border-none outline-none font-medium focus:ring-2 focus:ring-slate-300 dark:focus:ring-zinc-700 transition-shadow" />
             </div>
           )}
@@ -2204,7 +2285,7 @@ function App() {
                               <div key={e.id} className="p-5 bg-white dark:bg-zinc-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-zinc-800 flex justify-between items-center gap-4">
                                   <div className="overflow-hidden flex-1 cursor-pointer" onClick={() => handleOpenEntry(e)}>
                                       <h4 className="font-bold truncate text-lg hover:text-accent transition-colors">{e.title || 'Ohne Titel'}</h4>
-                                      <p className="text-xs font-bold uppercase tracking-widest opacity-50 mt-1">{new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category}</p>
+                                      <p className="text-xs font-bold uppercase tracking-widest opacity-50 mt-1">{safeParseDate(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category}</p>
                                   </div>
                                   <div className="flex gap-2 shrink-0">
                                       <button onClick={() => saveToDB({...e, archived: false})} className="w-12 h-12 flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Wiederherstellen"><Icon name="rotate-ccw" size={20}/></button>
@@ -2240,7 +2321,7 @@ function App() {
                               <div key={e.id} className="p-5 bg-white dark:bg-zinc-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-zinc-800 flex justify-between items-center gap-4">
                                   <div className="overflow-hidden flex-1 cursor-pointer" onClick={() => handleOpenEntry(e)}>
                                       <h4 className="font-bold truncate text-lg hover:text-accent transition-colors">{e.title || 'Ohne Titel'}</h4>
-                                      <p className="text-xs font-bold uppercase tracking-widest opacity-50 mt-1">{new Date(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category}</p>
+                                      <p className="text-xs font-bold uppercase tracking-widest opacity-50 mt-1">{safeParseDate(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category}</p>
                                   </div>
                                   <div className="flex gap-2 shrink-0">
                                       <button onClick={() => saveToDB({...e, trashed: false})} className="w-12 h-12 flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm" title="Wiederherstellen"><Icon name="rotate-ccw" size={20}/></button>
@@ -2438,7 +2519,7 @@ function App() {
                              <div className="shrink-0 mt-1" style={{ color: user.nameColor }}><Icon name="quote" size={28} /></div>
                              <div className="flex-1">
                                  <p className="text-[1.05rem] leading-[1.8] font-medium legacy-content text-slate-800 dark:text-slate-200 mb-4 opacity-90">{q.text}</p>
-                                 <div className="text-xs font-bold uppercase tracking-widest opacity-40 text-slate-500">{q.title} • {new Date(q.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
+                                 <div className="text-xs font-bold uppercase tracking-widest opacity-40 text-slate-500">{q.title} • {safeParseDate(q.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
                              </div>
                          </div>
                       </div>
@@ -2448,7 +2529,7 @@ function App() {
           )}
 
           {['dashboard', 'archive'].includes(view) && visibleEntries.length === 0 && !searchQuery && (
-            <div className="flex flex-col items-center justify-center py-32 text-center opacity-40 animate-fade-in">
+            <div className="flex flex-col items-center justify-center py-32 text-center opacity-40 animate-fade-in delay-300">
               <Icon name="book-open" size={64} className="mb-6"/>
               <p className="text-2xl font-bold font-serif">{view === 'archive' ? 'Archiv leer.' : 'Noch keine Einträge.'}</p>
             </div>
@@ -2520,26 +2601,41 @@ function App() {
                          if (!day) return <div key={`empty-${i}`} className="w-10 h-10 sm:w-12 sm:h-12 mx-auto"></div>;
                          
                          const dayEntries = entriesByDate[day.dateStr] || [];
-                         const firstEntryWithImage = dayEntries.find(e => e.images && e.images.length > 0);
                          const hasEntries = dayEntries.length > 0;
                          const isSelected = timelineSelectedDate === day.dateStr;
+                         
+                         let coverUrl = null;
+                         const entryWithCoverThisDay = dayEntries.find(e => getCoverImage(e));
+                         if (entryWithCoverThisDay) {
+                             coverUrl = getCoverImage(entryWithCoverThisDay);
+                         } else {
+                             const targetTimeEnd = safeParseDate(`${day.dateStr}T23:59:59Z`).getTime();
+                             const pastEntryWithCover = allEntriesSortedDesc.find(e => safeParseDate(e.date).getTime() <= targetTimeEnd && getCoverImage(e));
+                             if (pastEntryWithCover) {
+                                 coverUrl = getCoverImage(pastEntryWithCover);
+                             }
+                         }
 
                          return (
                              <button
                                  key={day.dateStr}
                                  onClick={() => setTimelineSelectedDate(day.dateStr)}
-                                 className={`relative w-10 h-10 sm:w-12 sm:h-12 mx-auto rounded-full flex items-center justify-center font-bold text-sm sm:text-base transition-transform hover:scale-110 active:scale-95
+                                 className={`relative w-10 h-10 sm:w-12 sm:h-12 mx-auto rounded-full flex items-center justify-center font-bold text-sm sm:text-base transition-transform hover:scale-110 active:scale-95 overflow-hidden shadow-sm
                                  ${isSelected ? 'ring-2 ring-accent ring-offset-2 ring-offset-slate-50 dark:ring-offset-[#0a0a0a]' : ''}
-                                 ${!hasEntries ? 'text-slate-500 dark:text-slate-400' : ''}`}
+                                 ${!hasEntries && !coverUrl ? 'bg-slate-200 dark:bg-zinc-800 text-slate-500' : ''}`}
                              >
-                                 {firstEntryWithImage ? (
-                                     <img src={firstEntryWithImage.images[0]} className="w-full h-full object-cover rounded-full shadow-sm" />
-                                 ) : hasEntries ? (
-                                     <div className="w-full h-full rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-accent">
-                                         <Icon name="book" size={18} className=""/>
-                                     </div>
+                                 {coverUrl ? (
+                                     <>
+                                         <img src={coverUrl} className="absolute inset-0 w-full h-full object-cover" />
+                                         <div className="absolute inset-0 bg-black/40"></div>
+                                         <span className="relative z-10 text-white drop-shadow-md">{day.day}</span>
+                                         {hasEntries && <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-accent rounded-full shadow-sm border border-black/50"></div>}
+                                     </>
                                  ) : (
-                                     day.day
+                                     <>
+                                        <span className="relative z-10">{day.day}</span>
+                                        {hasEntries && <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-accent rounded-full"></div>}
+                                     </>
                                  )}
                              </button>
                          )
@@ -2584,7 +2680,7 @@ function App() {
              {(() => {
                  const bookRoot = getBookRoot(viewingEntry.id);
                  const unsortedEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
-                 const allBookEntries = [...unsortedEntries].sort((a, b) => new Date(a.orderTimestamp || a.date).getTime() - new Date(b.orderTimestamp || b.date).getTime());
+                 const allBookEntries = [...unsortedEntries].sort(sortEntriesChronological);
                  const cIdx = allBookEntries.findIndex(ex => ex && ex.id === viewingEntry.id);
                  const prevPage = cIdx > 0 ? allBookEntries[cIdx - 1] : null;
                  const nextPage = cIdx < allBookEntries.length - 1 ? allBookEntries[cIdx + 1] : null;
@@ -2602,8 +2698,8 @@ function App() {
                              <button onClick={() => window.print()} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500"><Icon name="printer" size={22}/></button>
                              <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
                              
-                             <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500 cursor-pointer flex items-center justify-center" title="Hauptcover ändern">
-                                 <Icon name="image" size={22}/>
+                             <label className="px-4 py-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform font-bold text-sm cursor-pointer flex items-center justify-center gap-2" style={{ color: user.nameColor }} title="Hauptcover ändern">
+                                 <Icon name="image" size={18}/> <span className="hidden sm:inline">Cover ändern</span>
                                  <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id, 0)} className="hidden" />
                              </label>
 
@@ -2642,7 +2738,7 @@ function App() {
 
                             <h1 className="text-4xl sm:text-6xl font-extrabold mb-8 tracking-tighter leading-[1.1] text-slate-900 dark:text-white">{viewingEntry.title || 'Ohne Titel'}</h1>
                             <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
-                              <span>{new Date(viewingEntry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                              <span>{safeParseDate(viewingEntry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
                             </div>
                             
                             <div className="flex flex-wrap gap-2 mb-12 no-print">
@@ -2695,7 +2791,7 @@ function App() {
         {/* --- PRINT VIEW ONLY --- */}
         {viewingEntry && !showEditor && (() => {
           const bookRoot = getBookRoot(viewingEntry.id);
-          const chronologicalBookEntries = [...getAllBookEntries(bookRoot?.id || viewingEntry.id)].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          const chronologicalBookEntries = [...getAllBookEntries(bookRoot?.id || viewingEntry.id)].sort(sortEntriesChronological);
           return (
           <div className="print-only w-full max-w-4xl mx-auto p-8">
             <div className="print-title-page page-break-after">
@@ -2720,7 +2816,7 @@ function App() {
                        <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
                            <h1 style={{ fontSize: '36px', fontWeight: 'bold', marginBottom: '10px', fontFamily: 'Inter, sans-serif' }}>{e.title || 'Ohne Titel'}</h1>
                            <p style={{ opacity: 0.6, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '12px' }}>
-                               {new Date(e.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category || 'Allgemein'}
+                               {safeParseDate(e.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category || 'Allgemein'}
                            </p>
                            <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', flexWrap: 'wrap', marginTop: '15px', fontSize: '12px' }}>
                                {e.tags && <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>Tags: {e.tags}</span>}
@@ -2809,7 +2905,6 @@ function App() {
                       </div>
                   )}
 
-                  {/* HIGH-PERFORMANCE EDITOR DIV */}
                   <div 
                       key={editingId || 'new_entry'}
                       ref={editorRef} 
