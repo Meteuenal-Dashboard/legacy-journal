@@ -322,8 +322,8 @@ const TimelineSwipeableEntry = ({ entry, allEntries, onClick, onMoveUp, onMoveDo
                     </div>
                 </button>
                 <div className="flex gap-1 shrink-0 z-20 ml-2 pl-2 border-l border-slate-100 dark:border-zinc-800/50">
-                    <button type="button" onTouchStart={(e) => e.stopPropagation()} onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (onMoveUp) onMoveUp(e); }} className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-up" size={20}/></button>
-                    <button type="button" onTouchStart={(e) => e.stopPropagation()} onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (onMoveDown) onMoveDown(e); }} className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-down" size={20}/></button>
+                    <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (onMoveUp) onMoveUp(e); }} className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors cursor-pointer"><Icon name="chevron-up" size={20}/></button>
+                    <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (onMoveDown) onMoveDown(e); }} className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors cursor-pointer"><Icon name="chevron-down" size={20}/></button>
                 </div>
             </div>
         </div>
@@ -1947,7 +1947,7 @@ function App() {
   return (
     <ErrorBoundary>
       <div className="min-h-screen pb-safe relative">
-        <header className="sticky top-0 z-30 bg-white/80 dark:bg-black/80 backdrop-blur-2xl border-b border-slate-200/50 dark:border-zinc-800/50 px-6 py-4 flex justify-between items-center transition-colors duration-300 no-print">
+        <header className="sticky top-0 z-30 pt-safe bg-white/80 dark:bg-black/80 backdrop-blur-2xl border-b border-slate-200/50 dark:border-zinc-800/50 px-6 py-4 flex justify-between items-center transition-colors duration-300 no-print">
           <div className="flex items-center gap-3 overflow-hidden">
             {view === 'archive' ? <h1 className="text-2xl font-extrabold tracking-tight">Archiv</h1> :
              view === 'trash' ? <h1 className="text-2xl font-extrabold tracking-tight text-rose-500">Papierkorb</h1> :
@@ -1969,16 +1969,16 @@ function App() {
               </>
             )}
           </div>
-          <div className="flex gap-2 items-center">
-            <button type="button" onClick={() => openWithHistory(() => setShowTimeline(true))} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors relative z-50 cursor-pointer"><Icon name="calendar-days" size={18}/></button>
+          <div className="flex gap-2 items-center relative z-50">
+            <button type="button" onClick={(e) => { e.preventDefault(); openWithHistory(() => setShowTimeline(true)); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer"><Icon name="calendar-days" size={18}/></button>
             
             {view === 'dashboard' && (
               <>
-                <button type="button" onClick={() => setIsSearchOpen(!isSearchOpen)} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors relative z-50 cursor-pointer"><Icon name="search" size={18}/></button>
-                <button type="button" onClick={() => openWithHistory(() => setView('menu'))} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors relative z-50 cursor-pointer"><Icon name="menu" size={18}/></button>
+                <button type="button" onClick={() => setIsSearchOpen(!isSearchOpen)} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer"><Icon name="search" size={18}/></button>
+                <button type="button" onClick={() => openWithHistory(() => setView('menu'))} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer"><Icon name="menu" size={18}/></button>
               </>
             )}
-            {view !== 'dashboard' && <button type="button" onClick={() => window.history.back()} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors relative z-50 cursor-pointer"><Icon name="x" size={18} /></button>}
+            {view !== 'dashboard' && <button type="button" onClick={() => window.history.back()} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer"><Icon name="x" size={18} /></button>}
           </div>
           {isSearchOpen && view === 'dashboard' && (
             <div className="absolute top-full left-0 right-0 p-4 bg-white/90 dark:bg-black/90 backdrop-blur-2xl border-b border-slate-200/50 dark:border-zinc-800/50 shadow-xl z-50">
@@ -2259,15 +2259,20 @@ function App() {
                  const hasImages = !!coverUrl;
                  
                  return (
-                     <div key={entry.id} data-id={entry.id} onClick={() => handleOpenEntry(entry, false)} className="relative aspect-square rounded-[1.5rem] overflow-hidden cursor-pointer shadow-sm border border-slate-100 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 group hover:scale-[1.02] active:scale-95 transition-transform duration-300">
-                         {hasImages ? (
-                             <img src={coverUrl} className="w-full h-full object-cover block pointer-events-none" alt="Cover" />
-                         ) : (
-                             <div className="w-full h-full flex items-center justify-center p-4 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-zinc-800 dark:to-zinc-900 text-center pointer-events-none">
-                                 <h4 className="font-bold text-xs sm:text-sm text-slate-700 dark:text-slate-300 opacity-80 line-clamp-3">{entry.title || 'Neuer Eintrag'}</h4>
-                             </div>
-                         )}
-                         {entry.manifested && <div className="absolute top-2 right-2 z-10 w-3 h-3 bg-amber-400 rounded-full shadow-sm"></div>}
+                     <div key={entry.id} data-id={entry.id} onClick={() => handleOpenEntry(entry, false)} className="flex flex-col cursor-pointer group">
+                         <div className="relative aspect-square rounded-[1.5rem] overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 group-hover:scale-[1.02] group-active:scale-95 transition-transform duration-300">
+                             {hasImages ? (
+                                 <img src={coverUrl} className="w-full h-full object-cover block pointer-events-none" alt="Cover" />
+                             ) : (
+                                 <div className="w-full h-full flex items-center justify-center p-4 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-zinc-800 dark:to-zinc-900 text-center pointer-events-none">
+                                     <h4 className="font-bold text-xs sm:text-sm text-slate-700 dark:text-slate-300 opacity-80 line-clamp-3">{entry.title || 'Neuer Eintrag'}</h4>
+                                 </div>
+                             )}
+                             {entry.manifested && <div className="absolute top-2 right-2 z-10 w-3 h-3 bg-amber-400 rounded-full shadow-sm"></div>}
+                         </div>
+                         <div className="mt-2 text-center px-1">
+                             <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 truncate">{entry.category || 'Allgemein'}</p>
+                         </div>
                      </div>
                  );
               })}
