@@ -88,35 +88,45 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useMemo } = React;
 
-const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
-const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
+const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { console.warn('Legacy Error:', e); return null; } };
+const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) { console.warn('Legacy Error:', e); } };
 
+// iOS/Safari robust Date parser
 const safeParseDate = (dInput) => {
     if (!dInput) return new Date(0);
     if (dInput instanceof Date) { if (isNaN(dInput.getTime())) return new Date(0); return dInput; }
     if (typeof dInput === 'number') return new Date(dInput);
+    
     let dStr = String(dInput).trim();
-    if (/^\d{4}-\d{2}-\d{2}/.test(dStr)) {
-        let time = new Date(dStr).getTime();
-        if (isNaN(time)) time = new Date(dStr + 'Z').getTime();
-        return isNaN(time) ? new Date(0) : new Date(time);
+    
+    // Fix iOS missing 'T' issue for DB timestamps
+    if (/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}/.test(dStr)) {
+        dStr = dStr.replace(' ', 'T') + 'Z';
     }
-    const deMatch = dStr.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
-    if (deMatch) {
-        const timePart = dStr.match(/\s(\d{2}:\d{2}:\d{2})/) ? dStr.match(/\s(\d{2}:\d{2}:\d{2})/)[1] : '12:00:00';
-        return new Date(`${deMatch[3]}-${deMatch[2].padStart(2, '0')}-${deMatch[1].padStart(2, '0')}T${timePart}Z`);
-    }
+
     let time = new Date(dStr).getTime();
     if (isNaN(time)) time = new Date(dStr + 'Z').getTime();
+    if (isNaN(time)) time = new Date(dStr.replace(' ', 'T')).getTime();
     if (isNaN(time)) time = new Date(dStr.replace(' ', 'T') + 'Z').getTime();
+    
+    if (isNaN(time)) {
+        const deMatch = dStr.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+        if (deMatch) {
+            const timePart = dStr.match(/\s(\d{2}:\d{2}:\d{2})/) ? dStr.match(/\s(\d{2}:\d{2}:\d{2})/)[1] : '12:00:00';
+            time = new Date(`${deMatch[3]}-${deMatch[2].padStart(2, '0')}-${deMatch[1].padStart(2, '0')}T${timePart}Z`).getTime();
+        }
+    }
+    
     return isNaN(time) ? new Date(0) : new Date(time);
 };
 
 const sortEntriesDashboard = (a, b) => (safeParseDate(b.orderTimestamp || b.date).getTime() || 0) - (safeParseDate(a.orderTimestamp || a.date).getTime() || 0);
 
 const sortEntriesChronological = (a, b) => {
-    const dayA = new Date(safeParseDate(a.date).getFullYear(), safeParseDate(a.date).getMonth(), safeParseDate(a.date).getDate()).getTime();
-    const dayB = new Date(safeParseDate(b.date).getFullYear(), safeParseDate(b.date).getMonth(), safeParseDate(b.date).getDate()).getTime();
+    const dA = safeParseDate(a.date);
+    const dB = safeParseDate(b.date);
+    const dayA = new Date(dA.getFullYear(), dA.getMonth(), dA.getDate()).getTime();
+    const dayB = new Date(dB.getFullYear(), dB.getMonth(), dB.getDate()).getTime();
     if (dayA !== dayB) return dayB - dayA; 
     return (safeParseDate(b.orderTimestamp || b.date).getTime() || 0) - (safeParseDate(a.orderTimestamp || a.date).getTime() || 0);
 };
@@ -182,7 +192,7 @@ const encryptData = async (text, pin) => {
         let binary = '';
         for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
         return { cipher: btoa(binary), iv: ivStr, salt: saltStr };
-    } catch(e) { return null; }
+    } catch(e) { console.warn('Encryption failed:', e); return null; }
 };
 
 const decryptData = async (encryptedObj, pin) => {
@@ -197,7 +207,7 @@ const decryptData = async (encryptedObj, pin) => {
         const key = await window.crypto.subtle.deriveKey({ name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" }, keyMaterial, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
         const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, cipher);
         return decHelper.decode(decrypted);
-    } catch(e) { return null; }
+    } catch(e) { console.warn('Decryption failed:', e); return null; }
 };
 
 class ErrorBoundary extends React.Component {
@@ -314,7 +324,7 @@ function App() {
   const defaultUser = { name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false, uiScale: 1 };
   
   const [view, setView] = useState('loading');
-  const [user, setUser] = useState(() => { const savedStr = safeStorageGet('legacy_user'); if (savedStr) { try { return { ...defaultUser, ...JSON.parse(savedStr) }; } catch(e){} } return defaultUser; });
+  const [user, setUser] = useState(() => { const savedStr = safeStorageGet('legacy_user'); if (savedStr) { try { return { ...defaultUser, ...JSON.parse(savedStr) }; } catch(e){ console.warn(e) } } return defaultUser; });
   const [entries, setEntries] = useState([]);
   const [isLoaded, setIsLoaded] = useState(false);
   
@@ -364,6 +374,10 @@ function App() {
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const gridRef = useRef(null);
+
+  // GANZ WICHTIG: Referenzen für die Swipe-Funktion im Viewer
+  const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
 
   const [peerId, setPeerId] = useState(null);
   const [peerInstance, setPeerInstance] = useState(null);
@@ -431,7 +445,7 @@ function App() {
           let payload = { timestamp: Date.now(), publicProfile: { name: userData.name || '', motto: userData.motto || '', avatar: userData.avatar || null, nameColor: userData.nameColor, isDark: userData.isDark } };
           if (userData.pin) { const encrypted = await encryptData(JSON.stringify(userData), userData.pin); if (encrypted) payload.encryptedData = encrypted; } else { payload.rawData = userData; }
           await fb.setDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', fb.auth.currentUser.uid, 'profile', 'data'), payload); 
-      } catch(e) {}
+      } catch(e) { console.warn('Sync Profile:', e); }
   };
 
   useEffect(() => { document.documentElement.style.fontSize = `${(user.uiScale || 1) * 100}%`; }, [user.uiScale]);
@@ -441,22 +455,19 @@ function App() {
       action();
   };
 
+  // KORRIGIERTES POPSTATE: Beendet die Endlosschleife des Pfeils oben links
   useEffect(() => {
     const handlePopState = (e) => {
-      let trapped = false;
-      if (isDrawing) { setIsDrawing(false); trapped = true; }
-      else if (showEditor) { checkSaveEntry(true); trapped = true; } 
-      else if (viewingEntry) { setViewingEntry(null); setCurrentViewerImgIdx(0); trapped = true; }
-      else if (showTimeline) { setShowTimeline(false); trapped = true; }
-      else if (!['dashboard', 'loading', 'auth', 'pin_entry', 'onboarding', 'cloud_pin_sync'].includes(view)) { setView('dashboard'); trapped = true; }
-      
-      if (trapped) { try { window.history.pushState({ modal: true }, ''); } catch(e) {} }
+      if (isDrawing) { setIsDrawing(false); }
+      else if (showEditor) { checkSaveEntry(false); setShowEditor(false); } 
+      else if (viewingEntry) { setViewingEntry(null); setCurrentViewerImgIdx(0); }
+      else if (showTimeline) { setShowTimeline(false); }
+      else if (!['dashboard', 'loading', 'auth', 'pin_entry', 'onboarding', 'cloud_pin_sync'].includes(view)) { setView('dashboard'); }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [isDrawing, showEditor, viewingEntry, showTimeline, view]);
 
-  // BLITZSTART OHNE WARTESCHLEIFE
   useEffect(() => {
     const bootApp = async () => {
         const initialSavedStr = safeStorageGet('legacy_user');
@@ -524,7 +535,7 @@ function App() {
                               else if (['auth', 'pin_entry'].includes(viewRef.current)) setView('onboarding'); 
                           }
                       }
-                  } catch(e){}
+                  } catch(e){ console.warn('Auth Setup:', e); }
               } else {
                   setAuthUser(null);
                   if(!safeStorageGet('legacy_user')) setView('auth'); 
@@ -536,7 +547,7 @@ function App() {
     bootApp();
   }, []);
 
-  const ensureDb = async () => { if (db) return db; try { const database = await initDB(); setDb(database); return database; } catch(e) { return null; } };
+  const ensureDb = async () => { if (db) return db; try { const database = await initDB(); setDb(database); return database; } catch(e) { console.warn('DB Init:', e); return null; } };
 
   const loadLocalEntries = async (activePin) => {
       const currentDb = await ensureDb(); if (!currentDb) return;
@@ -561,7 +572,7 @@ function App() {
                           return e;
                       });
                       setEntries(loadedEntries.sort(sortEntriesChronological));
-                  } catch (err) {} finally { resolve(); }
+                  } catch (err) { console.warn('Load Entries Error:', err); } finally { resolve(); }
               };
               request.onerror = () => resolve();
           } catch(e) { resolve(); }
@@ -632,7 +643,7 @@ function App() {
             if (removedIds.length > 0) next = next.filter(e => !removedIds.includes(e.id));
             updatedEntries.forEach(upd => { const idx = next.findIndex(e => e.id === upd.id); if (idx >= 0) next[idx] = upd; else next.push(upd); });
             const sorted = next.sort(sortEntriesChronological);
-            if (db) { try { const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); updatedEntries.forEach(item => store.put(item)); removedIds.forEach(id => store.delete(id)); } catch(err) {} }
+            if (db) { try { const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); updatedEntries.forEach(item => store.put(item)); removedIds.forEach(id => store.delete(id)); } catch(err) { console.warn('Sync DB:', err); } }
             return sorted;
         });
     });
@@ -775,7 +786,7 @@ function App() {
           let payloadToSave = { id: plainEntry.id, timestamp: plainEntry.timestamp || Date.now() };
           if (pin) { const encrypted = await encryptData(JSON.stringify(plainEntry), pin); if (encrypted) payloadToSave.encryptedData = encrypted; } else { payloadToSave.rawData = plainEntry; }
           await fb.setDoc(fb.doc(fb.db, 'artifacts', appId, 'users', userId, 'entries', plainEntry.id), payloadToSave); 
-      } catch(e) {}
+      } catch(e) { console.warn('Cloud Sync Error', e); }
   };
   
   const deleteSingleEntryFromCloud = async (id) => {
@@ -819,7 +830,7 @@ function App() {
         });
     };
     updateMemory();
-    if (db) { try { const tx = db.transaction('entries', 'readwrite'); tx.objectStore('entries').put(plainEntry); } catch (e) {} }
+    if (db) { try { const tx = db.transaction('entries', 'readwrite'); tx.objectStore('entries').put(plainEntry); } catch (e) { console.warn('Local Save Error:', e); } }
   };
 
   const deleteFromDB = async (id) => { 
@@ -834,6 +845,7 @@ function App() {
       });
   };
 
+  // KORRIGIERTER AUTO-SAVE / SPEICHERN: Kein window.history.back mehr tief in der Logik
   const checkSaveEntry = (closeAndRead = false) => {
     try {
         const state = currentEntryRef.current;
@@ -844,9 +856,9 @@ function App() {
         const hasInlineImage = currentText.includes('<img');
         const isEmpty = !titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && !hasInlineImage && (!state.selectedImages || state.selectedImages.length === 0) && !state.audioUrl && !state.weather && !state.tags && !state.people;
         
-        if (isEmpty && closeAndRead) { window.history.back(); return; }
+        if (isEmpty) return; 
         
-        const existingEntry = entries.find(e => e && e.id === editingIdRef.current);
+        const existingEntry = entriesRef.current.find(e => e && e.id === editingIdRef.current);
         
         let finalDate = state.date || (existingEntry ? existingEntry.date : null) || getLocalISO();
         let finalOrder = existingEntry ? (existingEntry.orderTimestamp || existingEntry.date || getLocalISO()) : finalDate;
@@ -861,8 +873,9 @@ function App() {
         if (!editingIdRef.current) { setEditingId(entryId); editingIdRef.current = entryId; }
         saveToDB(newEntry);
         isDirtyRef.current = false;
-        if (closeAndRead) { window.history.back(); } else { setAutoSaveStatus('Gespeichert'); setTimeout(()=>setAutoSaveStatus(''), 2000); }
-    } catch (err) { if (closeAndRead) window.history.back(); }
+        
+        setAutoSaveStatus('Gespeichert'); setTimeout(()=>setAutoSaveStatus(''), 2000); 
+    } catch (err) { console.warn('Save logic error:', err); }
   };
 
   useEffect(() => { 
@@ -931,8 +944,6 @@ function App() {
       const bookRoot = getBookRoot(entry.id);
       const unsortedEntries = getAllBookEntries(bookRoot?.id || entry.id);
       
-      // FÜR DAS LESE-FENSTER: Wir sortieren ASCENDING, sodass der älteste Eintrag (zuerst erstellt) vorne ist
-      // und der NEUESTE Tag ganz hinten. Wir öffnen automatisch die LETZTE Seite (den neusten Eintrag).
       const sortedAsc = [...unsortedEntries].sort(sortEntriesAscending);
       const targetToOpen = sortedAsc[sortedAsc.length - 1] || entry; 
       
@@ -1026,7 +1037,6 @@ function App() {
     });
   }, [entries, searchQuery, activeCategory, view]);
 
-  // Auf dem Dashboard nach der Drag&Drop-Reihenfolge sortieren
   const renderEntries = [...visibleEntries].sort(sortEntriesDashboard);
 
   useEffect(() => {
@@ -1048,10 +1058,11 @@ function App() {
       }
   }, [view, renderEntries]);
 
+  // KORRIGIERT: Zwingende Gruppierung nach originalem Datum (nicht nach modifiziertem orderTimestamp)
   const entriesByDate = useMemo(() => {
       const map = {};
       entries.filter(e => e && !e.trashed).forEach(e => {
-          const d = safeParseDate(e.orderTimestamp || e.date || getLocalISO());
+          const d = safeParseDate(e.date || getLocalISO());
           const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
           if (!map[dateStr]) map[dateStr] = [];
           map[dateStr].push(e);
@@ -1136,20 +1147,12 @@ function App() {
       return current; 
   };
 
-  const handleBackNavigation = () => {
-      if (['wisdom', 'map', 'burn', 'quotes', 'archive', 'trash', 'settings'].includes(view)) {
-          openWithHistory(() => setView('menu'));
-      } else {
-          setView('dashboard');
-      }
-  };
-
   const handleTouchStartViewer = (e) => { 
       touchStartX.current = e.touches[0].clientX; 
       touchStartY.current = e.touches[0].clientY; 
   };
 
-  // ROBUSTE WISCH-LOGIK FÜR DAS LESE-FENSTER (SWIPE)
+  // KORRIGIERTER SWIPE-VERLAUF: Funktioniert jetzt ohne Abstürze!
   const handleTouchEndViewer = (e) => {
       if (touchStartX.current === null || touchStartY.current === null || !viewingEntryRef.current) return;
       
@@ -1159,7 +1162,6 @@ function App() {
       const deltaX = touchStartX.current - touchEndX;
       const deltaY = touchStartY.current - touchEndY;
       
-      // Nur Swipen, wenn es stark horizontal und kaum vertikal war
       if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
           const bookRoot = getBookRoot(viewingEntryRef.current.id);
           const unsortedEntries = getAllBookEntries(bookRoot?.id || viewingEntryRef.current.id);
@@ -1172,9 +1174,7 @@ function App() {
               if (cIdx < chronologicalBookEntries.length - 1) swipeNext = chronologicalBookEntries[cIdx + 1]; 
           }
           
-          // Nach Links wischen (deltaX > 0) -> Weiter in die Zukunft (Nächste Seite)
           if (deltaX > 50 && swipeNext) { setViewingEntry(swipeNext); setCurrentViewerImgIdx(0); }
-          // Nach Rechts wischen (deltaX < 0) -> Zurück in die Vergangenheit (Vorherige Seite)
           else if (deltaX < -50 && swipePrev) { setViewingEntry(swipePrev); setCurrentViewerImgIdx(0); }
       }
       
@@ -1283,7 +1283,6 @@ function App() {
               const targetEntry = entriesRef.current.find(ex => ex.id === targetId);
               if (targetEntry) {
                   let newImages = [...(targetEntry.images || [])];
-                  // Overwrite the specific image
                   if (newImages.length === 0) newImages = [base64]; else newImages[imgIndex] = base64;
                   const updatedEntry = {...targetEntry, images: newImages};
                   saveToDB(updatedEntry);
@@ -1945,7 +1944,6 @@ function App() {
             </div>
           )}
 
-          {/* GRID LAYOUT WIE GEWÜNSCHT: NUR BILDER, KLEINER, MIT SORTABLE JS (DRAG & DROP) */}
           {['dashboard', 'archive'].includes(view) && visibleEntries.length > 0 && (
             <div ref={view === 'dashboard' && !searchQuery && activeCategory === 'Alle' ? gridRef : null} className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 pb-32`}>
               {renderEntries.map((entry, idx) => {
@@ -2205,7 +2203,6 @@ function App() {
         {/* --- PRINT VIEW ONLY --- */}
         {viewingEntry && !showEditor && (() => {
           const bookRoot = getBookRoot(viewingEntry.id);
-          // CHRONOLOGISCH SORTIEREN FÜR DEN DRUCK (VOM ÄLTESTEN ZUM NEUESTEN)
           const chronologicalBookEntries = [...getAllBookEntries(bookRoot?.id || viewingEntry.id)].sort((a, b) => safeParseDate(a.date).getTime() - safeParseDate(b.date).getTime());
           
           return (
