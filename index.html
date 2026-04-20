@@ -88,21 +88,18 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useMemo } = React;
 
-const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { console.warn('Legacy Error:', e); return null; } };
-const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) { console.warn('Legacy Error:', e); } };
+// --- UTILITY FUNKTIONEN (Außerhalb von React zur Performance-Optimierung) ---
 
-// iOS/Safari robust Date parser
+const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { console.error('Storage Read Error:', e); return null; } };
+const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) { console.error('Storage Write Error:', e); } };
+
 const safeParseDate = (dInput) => {
     if (!dInput) return new Date(0);
     if (dInput instanceof Date) { if (isNaN(dInput.getTime())) return new Date(0); return dInput; }
     if (typeof dInput === 'number') return new Date(dInput);
     
     let dStr = String(dInput).trim();
-    
-    // Fix iOS missing 'T' issue for DB timestamps
-    if (/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}/.test(dStr)) {
-        dStr = dStr.replace(' ', 'T') + 'Z';
-    }
+    if (/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}/.test(dStr)) dStr = dStr.replace(' ', 'T') + 'Z';
 
     let time = new Date(dStr).getTime();
     if (isNaN(time)) time = new Date(dStr + 'Z').getTime();
@@ -116,12 +113,10 @@ const safeParseDate = (dInput) => {
             time = new Date(`${deMatch[3]}-${deMatch[2].padStart(2, '0')}-${deMatch[1].padStart(2, '0')}T${timePart}Z`).getTime();
         }
     }
-    
     return isNaN(time) ? new Date(0) : new Date(time);
 };
 
 const sortEntriesDashboard = (a, b) => (safeParseDate(b.orderTimestamp || b.date).getTime() || 0) - (safeParseDate(a.orderTimestamp || a.date).getTime() || 0);
-
 const sortEntriesChronological = (a, b) => {
     const dA = safeParseDate(a.date);
     const dB = safeParseDate(b.date);
@@ -130,7 +125,6 @@ const sortEntriesChronological = (a, b) => {
     if (dayA !== dayB) return dayB - dayA; 
     return (safeParseDate(b.orderTimestamp || b.date).getTime() || 0) - (safeParseDate(a.orderTimestamp || a.date).getTime() || 0);
 };
-
 const sortEntriesAscending = (a, b) => safeParseDate(a.orderTimestamp || a.date).getTime() - safeParseDate(b.orderTimestamp || b.date).getTime();
 
 const getLocalISO = () => new Date().toISOString();
@@ -140,26 +134,6 @@ const createSafeHtml = (htmlStr) => {
   return { __html: window.DOMPurify ? window.DOMPurify.sanitize(safeStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] }) : safeStr };
 };
 
-const highlightText = (text, query, isTitle = false) => {
-  const safeStr = text || '';
-  if (!safeStr) return { __html: '' };
-  if (!query) return { __html: window.DOMPurify ? window.DOMPurify.sanitize(safeStr.replace(/<img[^>]*>/g, ' [Bild] '), { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] }) : safeStr };
-  
-  const plainText = safeStr.replace(/<img[^>]*>/g, ' [Bild] ').replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
-  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-  if (!isTitle) {
-      const match = regex.exec(plainText);
-      if (match) {
-         const start = Math.max(0, match.index - 60);
-         let snippet = plainText.substring(start, Math.min(plainText.length, match.index + query.length + 60));
-         if (start > 0) snippet = '...' + snippet;
-         if (Math.min(plainText.length, match.index + query.length + 60) < plainText.length) snippet = snippet + '...';
-         return { __html: snippet.split(regex).map((part, i) => part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part).join('') };
-      }
-  }
-  return { __html: plainText.split(regex).map((part, i) => part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part).join('') };
-};
-
 const getCoverImage = (entry) => {
     if (!entry) return null;
     if (entry.images && entry.images.length > 0) return entry.images[0];
@@ -167,6 +141,47 @@ const getCoverImage = (entry) => {
     return null;
 };
 
+const getCoverImageForCard = (entry, allEntries) => {
+    if (!entry) return null;
+    const bookEntries = [entry, ...allEntries.filter(e => !e.trashed && e.parentId === entry.id)].sort(sortEntriesDashboard);
+    for (const e of bookEntries) {
+        const cover = getCoverImage(e);
+        if (cover) return cover;
+    }
+    return null;
+};
+
+const getBookRoot = (entryId, entries) => { 
+    let current = entries.find(e => e && e.id === entryId && !e.trashed); 
+    let safeGuard = 0; 
+    const visited = new Set(); 
+    while (current && current.parentId && safeGuard < 1000) { 
+        if (visited.has(current.id)) break; 
+        visited.add(current.id); 
+        const p = entries.find(e => e && e.id === current.parentId && !e.trashed); 
+        if (p && p.id !== current.id) current = p; else break; 
+        safeGuard++; 
+    } 
+    return current; 
+};
+
+const getAllBookEntries = (rootId, entries) => { 
+    const result = []; 
+    const visited = new Set(); 
+    const traverse = (id, depth=0) => { 
+        if (depth > 1000 || visited.has(id)) return; 
+        visited.add(id); 
+        const entry = entries.find(e => e && e.id === id && !e.trashed); 
+        if (entry && !result.find(r => r.id === entry.id)) { 
+            result.push(entry); 
+            entries.filter(e => e && e.parentId === id && !e.trashed).sort(sortEntriesChronological).forEach(c => traverse(c.id, depth+1)); 
+        } 
+    }; 
+    traverse(rootId); 
+    return result; 
+};
+
+// --- CRYPTO ---
 const encHelper = new TextEncoder();
 const decHelper = new TextDecoder();
 const cryptoKeyCache = {}; 
@@ -192,7 +207,7 @@ const encryptData = async (text, pin) => {
         let binary = '';
         for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
         return { cipher: btoa(binary), iv: ivStr, salt: saltStr };
-    } catch(e) { console.warn('Encryption failed:', e); return null; }
+    } catch(e) { console.error('Encryption failed:', e); return null; }
 };
 
 const decryptData = async (encryptedObj, pin) => {
@@ -207,17 +222,29 @@ const decryptData = async (encryptedObj, pin) => {
         const key = await window.crypto.subtle.deriveKey({ name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" }, keyMaterial, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
         const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, cipher);
         return decHelper.decode(decrypted);
-    } catch(e) { console.warn('Decryption failed:', e); return null; }
+    } catch(e) { console.error('Decryption failed:', e); return null; }
 };
+
+const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+
+const initDB = () => new Promise((resolve, reject) => { 
+    const req = indexedDB.open('LegacyVisionDB', 4); 
+    req.onupgradeneeded = (e) => { const db = e.target.result; if (!db.objectStoreNames.contains('entries')) db.createObjectStore('entries', { keyPath: 'id' }); }; 
+    req.onsuccess = () => resolve(req.result); 
+    req.onerror = () => { console.error("IndexedDB Init Error"); reject(req.error); }; 
+});
+
+// --- KOMPONENTEN ---
 
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { hasError: false, error: null }; }
   static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(error, errorInfo) { console.error("ErrorBoundary caught an error", error, errorInfo); }
   render() {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-black text-white p-8 text-center">
-          <div><h1 className="text-2xl font-bold mb-4">Ein Moment bitte...</h1><button type="button" onClick={() => window.location.reload()} className="px-6 py-3 bg-white text-black font-bold rounded-full">Neu laden</button></div>
+          <div><h1 className="text-2xl font-bold mb-4">Ein Fehler ist aufgetreten</h1><button type="button" onClick={() => window.location.reload()} className="px-6 py-3 bg-white text-black font-bold rounded-full">App neu laden</button></div>
         </div>
       );
     }
@@ -245,10 +272,6 @@ const getSubtleBorderColor = (c, isD) => { if (!c) return isD ? 'rgba(255,255,25
 const CATEGORIES = ['Allgemein', 'Tagebuch', 'Ideen', 'Gesundheit', 'Vision', 'Ziele', 'Bücher', 'Familie'];
 const PILLARS = [{ id: 'm1', phase: 'Fundament', title: '1. Das Nordstern-Manifest', desc: 'Definiere deine absoluten, unverhandelbaren Grundwerte.' }, { id: 'm2', phase: 'Fundament', title: '2. Der Zeitgeist-Stempel', desc: 'Historischer Kontext: Was passiert gerade auf der Welt?' }, { id: 'm3', phase: 'Fundament', title: '3. Das Geistige Testament', desc: 'Vererbe deinen Charakter. Welche Lebensweisheiten möchtest du weitergeben?' }, { id: 'm6', phase: 'Kommunikation', title: '6. Die Zeitkapsel', desc: 'Eine Botschaft an die Zukunft. Nutze die Datums-Siegelfunktion.' }, { id: 'm11', phase: 'Struktur', title: '11. Purer Text (Agnostisch)', desc: 'Schreibe in einfachen Sätzen rohe Fakten auf, völlig ohne Emotionen.' }, { id: 'm16', phase: 'Tiefe', title: '16. Emotionaler Farb-Code', desc: 'Vergib deiner aktuellen Lebensphase eine Farbe und erkläre, warum.' }, { id: 'm21', phase: 'Anpassung', title: '21. Der Pivot-Tracker', desc: 'Hebe Momente hervor, in denen du dein Leben radikal in eine neue Richtung gelenkt hast.' }, { id: 'm25', phase: 'Anpassung', title: '25. Raum für Unbegreifliches', desc: 'Platz für Konzepte und Lebensrealitäten, die es heute noch gar nicht gibt.' }];
 
-const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
-
-const initDB = () => new Promise((resolve, reject) => { const req = indexedDB.open('LegacyVisionDB', 4); req.onupgradeneeded = (e) => { const db = e.target.result; if (!db.objectStoreNames.contains('entries')) db.createObjectStore('entries', { keyPath: 'id' }); }; req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); });
-
 const EdBtn = ({cmd, arg, icon, txt, onClick, isDirtyRef}) => (
     <button onMouseDown={e=>{ if(cmd){ e.preventDefault(); document.execCommand(cmd, false, arg); if(isDirtyRef) isDirtyRef.current=true; } }} onClick={onClick} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800">
         {icon ? <Icon name={icon} size={18} /> : <span className="font-bold text-sm">{txt}</span>}
@@ -264,16 +287,6 @@ const ColorBtn = ({color, isBg, user, setUser}) => (
        safeStorageSet('legacy_user', JSON.stringify(newUser));
    }} className={`w-10 h-10 rounded-full border-2 transition-transform ${ (isBg ? user.appBgColor : user.textColor) === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
 );
-
-const getCoverImageForCard = (entry, allEntries) => {
-    if (!entry) return null;
-    const bookEntries = [entry, ...allEntries.filter(e => !e.trashed && e.parentId === entry.id)].sort(sortEntriesDashboard);
-    for (const e of bookEntries) {
-        if (e.images && e.images.length > 0) return e.images[0];
-        if (e.text) { const match = e.text.match(/<img[^>]+src="([^">]+)"/); if (match) return match[1]; }
-    }
-    return null;
-};
 
 const TimelineSwipeableEntry = ({ entry, allEntries, onClick, onMoveUp, onMoveDown, onArchivePrompt, onTrashPrompt }) => {
     const [offsetX, setOffsetX] = useState(0);
@@ -317,6 +330,657 @@ const TimelineSwipeableEntry = ({ entry, allEntries, onClick, onMoveUp, onMoveDo
     );
 };
 
+// ==========================================
+// EIGENSTÄNDIGE EDITOR-KOMPONENTE
+// ==========================================
+const LegacyEditor = ({ config, onSave, onClose, user, showDialog }) => {
+    // Isoliertes lokales State Management zur Verhinderung von App-Rerenders
+    const [title, setTitle] = useState('');
+    const [category, setCategory] = useState(CATEGORIES[0]);
+    const [selectedColor, setSelectedColor] = useState(user.isDark ? COLORS[8] : COLORS[0]);
+    const [selectedImages, setSelectedImages] = useState([]);
+    const [audioUrl, setAudioUrl] = useState(null);
+    const [isManifested, setIsManifested] = useState(false);
+    const [unlockDate, setUnlockDate] = useState('');
+    const [location, setLocation] = useState(null);
+    const [locations, setLocations] = useState([]);
+    const [rating, setRating] = useState(0);
+    const [tags, setTags] = useState('');
+    const [people, setPeople] = useState('');
+    const [weather, setWeather] = useState('');
+    
+    // Non-UI States
+    const [isDrawing, setIsDrawing] = useState(false);
+    const [isRecording, setIsRecording] = useState(false);
+    const [picker, setPicker] = useState(null);
+    const [autoSaveStatus, setAutoSaveStatus] = useState('');
+    
+    const editorRef = useRef(null);
+    const canvasRef = useRef(null);
+    const isDirtyRef = useRef(false);
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
+    
+    // Persistent Storage for Data
+    const entryIdRef = useRef(generateId());
+    const dateRef = useRef(getLocalISO());
+    const orderTimestampRef = useRef(getLocalISO());
+    const initialContentRef = useRef('');
+    const parentIdRef = useRef('');
+    const inheritedFromRef = useRef(null);
+    const pillarGuidanceRef = useRef(null);
+    const moodRef = useRef(null);
+
+    useEffect(() => {
+        let initTitle = '';
+        if (config.entry) {
+            initTitle = config.entry.title || '';
+            initialContentRef.current = config.entry.text || '';
+            entryIdRef.current = config.entry.id;
+            dateRef.current = config.entry.date || getLocalISO();
+            orderTimestampRef.current = config.entry.orderTimestamp || config.entry.date || getLocalISO();
+            setCategory(config.entry.category || CATEGORIES[0]);
+            setSelectedColor(config.entry.color || (user.isDark ? COLORS[8] : COLORS[0]));
+            setSelectedImages(config.entry.images || []);
+            setIsManifested(config.entry.manifested || false);
+            setAudioUrl(config.entry.audio || null);
+            setUnlockDate(config.entry.unlockDate || '');
+            setLocation(config.entry.location || null);
+            setLocations(config.entry.locations || (config.entry.location ? [config.entry.location] : []));
+            setRating(config.entry.rating || 0);
+            setTags(config.entry.tags || '');
+            setPeople(config.entry.people || '');
+            setWeather(config.entry.weather || '');
+            parentIdRef.current = config.entry.parentId || '';
+            inheritedFromRef.current = config.entry.inheritedFrom || null;
+            moodRef.current = config.entry.mood || null;
+        } else if (config.parent) {
+            initTitle = config.parent.title || '';
+            parentIdRef.current = config.parent.id;
+            setCategory(config.parent.category || CATEGORIES[0]);
+        } else if (config.pillar) {
+            initTitle = config.pillar.title;
+            setCategory('Weisheit');
+            pillarGuidanceRef.current = config.pillar.desc;
+        }
+        
+        if (config.customDate) {
+            const now = new Date(); const timeStr = now.toISOString().split('T')[1] || "12:00:00.000Z";
+            dateRef.current = `${config.customDate}T${timeStr}`;
+            orderTimestampRef.current = dateRef.current;
+        }
+        
+        setTitle(initTitle);
+    }, [config]);
+
+    const handlePerformSave = (closeAfter = false) => {
+        const currentText = editorRef.current ? editorRef.current.innerHTML : initialContentRef.current;
+        const hasInlineImage = currentText.includes('<img');
+        const isEmpty = !title.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && !hasInlineImage && selectedImages.length === 0 && !audioUrl && !weather && !tags && !people;
+        
+        if (isEmpty) {
+            if (closeAfter) onClose();
+            return;
+        }
+
+        const newEntry = {
+            id: entryIdRef.current, title: title.trim(), text: currentText, color: selectedColor, images: selectedImages, audio: audioUrl,
+            archived: false, trashed: false, manifested: isManifested, category, mood: moodRef.current, unlockDate, location, locations,
+            parentId: parentIdRef.current, inheritedFrom: inheritedFromRef.current, rating, tags, people, weather,
+            date: dateRef.current, orderTimestamp: orderTimestampRef.current
+        };
+
+        onSave(newEntry);
+        isDirtyRef.current = false;
+        
+        if (closeAfter) {
+            onClose();
+        } else {
+            setAutoSaveStatus('Gespeichert');
+            setTimeout(() => setAutoSaveStatus(''), 2000);
+        }
+    };
+
+    // AutoSave Loop
+    useEffect(() => {
+        const timer = setInterval(() => {
+            if (isDirtyRef.current) handlePerformSave(false);
+        }, 3000);
+        return () => {
+            clearInterval(timer);
+            // Save exactly ONCE on unmount to prevent data loss
+            if (isDirtyRef.current) handlePerformSave(false);
+        };
+    }, [title, selectedColor, selectedImages, audioUrl, isManifested, category, unlockDate, location, locations, rating, tags, people, weather]);
+
+    // Handle Hardware Back Button natively inside the Editor
+    useEffect(() => {
+        const popHandler = (e) => {
+            e.preventDefault();
+            handlePerformSave(true);
+        };
+        window.addEventListener('popstate', popHandler);
+        return () => window.removeEventListener('popstate', popHandler);
+    }, [title, selectedColor, selectedImages, audioUrl, isManifested, category, unlockDate, location, locations, rating, tags, people, weather]);
+
+
+    const handleFileUpload = (e, type) => {
+        const files = Array.from(e.target.files);
+        if (!files.length) return;
+        if (type === 'image') {
+            const MAX_SIZE = 800; 
+            const processedPromises = files.map(file => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            let width = img.width; let height = img.height;
+                            if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
+                            canvas.width = width; canvas.height = height; canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                            resolve(canvas.toDataURL('image/jpeg', 0.6)); 
+                        };
+                        img.src = event.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                });
+            });
+            Promise.all(processedPromises).then(base64Images => {
+                setSelectedImages(prev => [...prev, ...base64Images]);
+                isDirtyRef.current = true;
+            });
+        }
+        e.target.value = null; 
+    };
+
+    const wrapImage = (img) => {
+        if (!img || !img.parentNode) return; 
+        if (img.closest('.inline-img-wrapper')) return; 
+        const wrapper = document.createElement('span'); wrapper.className = 'inline-img-wrapper'; wrapper.contentEditable = 'false';
+        const delBtn = document.createElement('span'); delBtn.className = 'delete-img-btn'; delBtn.innerText = 'X';
+        const clonedImg = img.cloneNode(true); clonedImg.removeAttribute('style'); clonedImg.style.width = '120px'; clonedImg.style.height = 'auto';
+        wrapper.appendChild(clonedImg); wrapper.appendChild(delBtn);
+        img.parentNode.replaceChild(wrapper, img);
+        const space = document.createTextNode('\u00A0');
+        if (wrapper.nextSibling) wrapper.parentNode.insertBefore(space, wrapper.nextSibling); else wrapper.parentNode.appendChild(space);
+        isDirtyRef.current = true;
+    };
+
+    const handleEditorInput = () => {
+        isDirtyRef.current = true;
+        if (editorRef.current) {
+            const nakedImgs = editorRef.current.querySelectorAll('img:not(.inline-img-wrapper img)');
+            if (nakedImgs.length > 0) {
+                nakedImgs.forEach(img => {
+                    if (!img.src) return;
+                    setTimeout(() => {
+                        if (!img.isConnected || img.closest('.inline-img-wrapper')) return;
+                        if (img.src.startsWith('blob:')) {
+                            fetch(img.src).then(r => r.blob()).then(blob => {
+                                const reader = new FileReader(); reader.onload = () => { img.src = reader.result; wrapImage(img); }; reader.readAsDataURL(blob);
+                            }).catch(() => wrapImage(img));
+                        } else { wrapImage(img); }
+                    }, 100);
+                });
+            }
+        }
+    };
+
+    const handleEditorPaste = (e) => {
+        const clipboardData = e.clipboardData || window.clipboardData || (e.nativeEvent && e.nativeEvent.clipboardData);
+        if (!clipboardData) return;
+        if (clipboardData.items) {
+            for (let i = 0; i < clipboardData.items.length; i++) {
+                if (clipboardData.items[i].type.indexOf('image') !== -1) {
+                    const blob = clipboardData.items[i].getAsFile();
+                    if (!blob) continue;
+                    e.preventDefault();
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const base64 = event.target.result;
+                        if (editorRef.current) {
+                            editorRef.current.focus(); document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false"><img src="${base64}" /><span class="delete-img-btn">X</span></span>&nbsp;`);
+                            isDirtyRef.current = true;
+                        }
+                    };
+                    reader.readAsDataURL(blob); break; 
+                }
+            }
+        }
+    };
+
+    const handleEditorClick = (e) => {
+        if (e.target.classList.contains('delete-img-btn')) {
+            e.target.closest('.inline-img-wrapper').remove(); isDirtyRef.current = true;
+        } else if (e.target.tagName === 'IMG' && e.target.closest('.inline-img-wrapper')) {
+            const wrapper = e.target.closest('.inline-img-wrapper'); const img = wrapper.querySelector('img');
+            setPicker({ title: 'Sticker / Bild anpassen', currentValue: null, options: [{label: 'Klein', value: '120px'}, {label: 'Mittel', value: '250px'}, {label: 'Groß', value: '100%'}], onSelect: (val) => { img.style.width = val; isDirtyRef.current = true; } });
+        } else if (e.target.tagName === 'IMG' && !e.target.closest('.inline-img-wrapper')) {
+            const img = e.target;
+            setPicker({ title: 'Sticker / Bild anpassen', currentValue: null, options: [{label: 'Klein', value: '120px'}, {label: 'Mittel', value: '250px'}, {label: 'Groß', value: '100%'}, {label: '❌ Löschen', value: 'delete'}], onSelect: (val) => { if (val === 'delete') { img.remove(); } else { img.style.width = val; img.style.height = 'auto'; } isDirtyRef.current = true; } });
+        }
+    };
+
+    const getCanvasCoordinates = (e) => {
+        if (!canvasRef.current) return { x: 0, y: 0 };
+        const rect = canvasRef.current.getBoundingClientRect();
+        if (e.touches && e.touches.length > 0) return { x: (e.touches[0].clientX - rect.left), y: (e.touches[0].clientY - rect.top) };
+        return { x: (e.clientX - rect.left), y: (e.clientY - rect.top) };
+    };
+    const startDrawing = (e) => { if (!canvasRef.current) return; const {x, y} = getCanvasCoordinates(e); const ctx = canvasRef.current.getContext('2d'); ctx.beginPath(); ctx.moveTo(x, y); canvasRef.current.isPainting = true; };
+    const draw = (e) => { if (!canvasRef.current?.isPainting) return; const {x, y} = getCanvasCoordinates(e); const ctx = canvasRef.current.getContext('2d'); ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.strokeStyle = user.isDark ? '#ffffff' : '#000000'; ctx.lineTo(x, y); ctx.stroke(); };
+    const stopDrawing = () => { if (canvasRef.current) canvasRef.current.isPainting = false; };
+    
+    useEffect(() => { 
+        let canvasEl = canvasRef.current; 
+        const preventScroll = (e) => e.preventDefault(); 
+        if (isDrawing && canvasEl) { 
+            canvasEl.addEventListener('touchstart', preventScroll, { passive: false }); 
+            canvasEl.addEventListener('touchmove', preventScroll, { passive: false }); 
+            setTimeout(() => { 
+                if (!canvasEl) return; 
+                const rect = canvasEl.parentElement.getBoundingClientRect(); 
+                const dpr = window.devicePixelRatio || 1;
+                canvasEl.width = rect.width * dpr; canvasEl.height = rect.height * dpr; 
+                const ctx = canvasEl.getContext('2d'); 
+                ctx.scale(dpr, dpr);
+                ctx.fillStyle = user.isDark ? '#18181b' : '#ffffff'; ctx.fillRect(0, 0, rect.width, rect.height); 
+            }, 50); 
+        } 
+        return () => { if (canvasEl) { canvasEl.removeEventListener('touchstart', preventScroll); canvasEl.removeEventListener('touchmove', preventScroll); } }; 
+    }, [isDrawing, user.isDark]);
+
+    const startRecording = async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); mediaRecorderRef.current = new MediaRecorder(stream); audioChunksRef.current = []; mediaRecorderRef.current.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); }; mediaRecorderRef.current.onstop = () => { const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); const reader = new FileReader(); reader.readAsDataURL(blob); reader.onloadend = () => { setAudioUrl(reader.result); isDirtyRef.current = true; }; }; mediaRecorderRef.current.start(); setIsRecording(true); } catch (err) { showDialog({ title: 'Fehler', message: 'Mikrofon verweigert.', icon: 'mic-off' }); } };
+    const stopRecording = () => { if (mediaRecorderRef.current) { mediaRecorderRef.current.stop(); setIsRecording(false); } };
+
+    return (
+        <div className="fixed inset-0 z-[200] flex flex-col overflow-hidden bg-white dark:bg-black">
+            <header className="flex-none flex justify-between items-center p-4 sm:p-6 shrink-0 z-50 pt-safe bg-white/95 dark:bg-black/95 border-b border-slate-100 dark:border-zinc-900">
+                <button onClick={() => { handlePerformSave(true); window.history.back(); }} className="p-3 bg-slate-100 dark:bg-zinc-900 rounded-2xl text-slate-900 dark:text-white hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
+                <div className="flex items-center gap-4">
+                    <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">{autoSaveStatus}</span>
+                    <button onClick={() => handlePerformSave(true)} className="px-6 py-3 bg-accent text-white rounded-2xl font-bold text-sm shadow-xl shadow-accent/20 hover:scale-105 active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || '#000000', color: isDarkColor(user.nameColor || '#000000') ? '#ffffff' : '#000000' }}>Fertig</button>
+                </div>
+            </header>
+
+            <div className="flex-none px-4 sm:px-8 pt-6 pb-2 shrink-0 bg-white dark:bg-black z-40 border-b-[3px] border-slate-200 dark:border-zinc-800 focus-within:border-accent transition-colors">
+              <input type="text" placeholder="Titel der Vision..." value={title} onChange={e=>{setTitle(e.target.value); isDirtyRef.current=true;}} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tighter outline-none pb-3 placeholder-slate-300 dark:placeholder-zinc-700 text-slate-900 dark:text-white" />
+            </div>
+
+            <div className="flex-none flex items-center gap-2 p-2 px-4 overflow-x-auto hide-scrollbar border-b border-slate-100 dark:border-zinc-900 bg-slate-50 dark:bg-zinc-950 shrink-0 shadow-sm z-40">
+                <EdBtn cmd="formatBlock" arg="H1" txt="H1" isDirtyRef={isDirtyRef} />
+                <EdBtn cmd="formatBlock" arg="H2" txt="H2" isDirtyRef={isDirtyRef} />
+                <EdBtn cmd="formatBlock" arg="P" txt="T" isDirtyRef={isDirtyRef} />
+                <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
+                <EdBtn cmd="bold" icon="bold" isDirtyRef={isDirtyRef} />
+                <EdBtn cmd="italic" icon="italic" isDirtyRef={isDirtyRef} />
+                <EdBtn cmd="formatBlock" arg="blockquote" icon="quote" isDirtyRef={isDirtyRef} />
+                <EdBtn cmd="insertOrderedList" icon="list-ordered" isDirtyRef={isDirtyRef} />
+                <EdBtn cmd="insertUnorderedList" icon="list" isDirtyRef={isDirtyRef} />
+                <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
+                <label className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm cursor-pointer flex items-center justify-center relative overflow-hidden shrink-0 border border-slate-100 dark:border-zinc-800" title="Bild einfügen"><Icon name="image" size={18} /><input type="file" accept="image/*" multiple onChange={e=>handleFileUpload(e,'image')} className="absolute opacity-0 w-[200%] h-[200%] top-0 left-0 cursor-pointer" /></label>
+                <button onClick={() => setIsDrawing(true)} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="pen-tool" size={18} /></button>
+                <button onClick={isRecording ? stopRecording : startRecording} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800 ${isRecording ? 'bg-rose-500 text-white animate-pulse' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:text-accent'}`}>{isRecording ? <Icon name="square" size={18}/> : <Icon name="mic" size={18}/>}</button>
+                <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
+                <button onClick={()=>{setIsManifested(!isManifested); isDirtyRef.current=true;}} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 border ${isManifested ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-500 border-amber-200 dark:border-amber-900/50' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:text-amber-500 border-slate-100 dark:border-zinc-800'}`}><Icon name="sparkles" size={18}/></button>
+                <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
+                {EDITOR_COLORS.map(c => <button key={c} onMouseDown={e=>{e.preventDefault(); document.execCommand('foreColor', false, c); isDirtyRef.current=true;}} className="w-8 h-8 rounded-full border-2 shadow-sm shrink-0 transition-transform hover:scale-110 active:scale-95" style={{backgroundColor: c, borderColor: isDarkColor(c) ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}}></button> )}
+            </div>
+            
+            <div className="flex-auto overflow-y-auto relative bg-white dark:bg-black custom-scrollbar">
+              <div className="p-4 md:p-8 max-w-3xl mx-auto w-full flex flex-col">
+                  {selectedImages.length > 0 && (
+                      <div className="mb-8 w-full flex flex-col items-center">
+                          <div className="relative w-full rounded-[2rem] overflow-hidden shadow-sm group border border-slate-200 dark:border-zinc-800 shrink-0 bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
+                              <img src={selectedImages[0]} className="w-full h-auto block" />
+                              <button onClick={()=>{setSelectedImages(prev=>prev.slice(1)); isDirtyRef.current=true;}} className="absolute top-4 right-4 p-3 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"><Icon name="x" size={16}/></button>
+                          </div>
+                          {selectedImages.length > 1 && (
+                              <div className="flex gap-3 mt-4 overflow-x-auto hide-scrollbar snap-x w-full max-w-full">
+                                  {selectedImages.slice(1).map((img, i) => (
+                                      <div key={i+1} className="relative w-24 h-24 rounded-2xl overflow-hidden shadow-sm shrink-0 snap-start group border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800">
+                                          <img src={img} className="w-full h-full object-contain" />
+                                          <button onClick={()=>{setSelectedImages(prev=>prev.filter((_,idx)=>idx!==i+1)); isDirtyRef.current=true;}} className="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"><Icon name="x" size={10}/></button>
+                                      </div>
+                                  ))}
+                              </div>
+                          )}
+                      </div>
+                  )}
+
+                  {pillarGuidanceRef.current && (
+                      <div className="p-4 rounded-3xl bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-900/30 text-amber-700 dark:text-amber-400 font-medium text-sm mb-6 flex gap-4 leading-relaxed">
+                          <Icon name="book-open" size={24} className="shrink-0 mt-0.5 opacity-80" /> {pillarGuidanceRef.current}
+                      </div>
+                  )}
+
+                  {audioUrl && (
+                      <div className="mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 relative w-full">
+                         <span className="text-[10px] font-bold uppercase tracking-widest opacity-50 mb-3 block">Audio-Log</span>
+                         <audio src={audioUrl} controls className="w-full" />
+                         <button onClick={()=>{setAudioUrl(null); isDirtyRef.current=true;}} className="absolute top-4 right-4 p-2 bg-slate-200 dark:bg-zinc-800 rounded-full text-slate-500 hover:text-rose-500"><Icon name="x" size={14}/></button>
+                      </div>
+                  )}
+
+                  <div 
+                      ref={editorRef} 
+                      contentEditable 
+                      onClick={handleEditorClick}
+                      onPaste={handleEditorPaste}
+                      onInput={handleEditorInput} 
+                      className="outline-none text-[1.05rem] leading-[1.8] font-medium legacy-editor-content text-slate-800 dark:text-slate-200 pb-8 min-h-full w-full" 
+                      data-placeholder="Was wirst du hinterlassen? Text tippen oder Sticker einfügen..." 
+                      dangerouslySetInnerHTML={{__html: initialContentRef.current}} 
+                  />
+              </div>
+            </div>
+
+            <div className="flex-none p-3 border-t border-slate-100 dark:border-zinc-900 bg-white/95 dark:bg-black/95 backdrop-blur-xl shrink-0 flex items-center gap-3 overflow-x-auto hide-scrollbar z-50 pb-safe shadow-[0_-4px_6px_rgba(0,0,0,0.02)]">
+               <button onClick={()=>setPicker({title:'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c, value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;}})} className="h-10 px-4 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs font-bold flex items-center gap-2 shrink-0">{category} <Icon name="chevron-down" size={12}/></button>
+               <div className="h-10 flex items-center gap-1 bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0">
+                  {[1,2,3,4,5].map(star => <Icon key={star} name="star" size={14} className={`cursor-pointer transition-colors ${rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-zinc-700'}`} onClick={() => {setRating(rating === star ? 0 : star); isDirtyRef.current=true;}} />)}
+               </div>
+               <div className="h-10 flex items-center bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
+                   <Icon name="tag" size={12} className="text-slate-400 mr-2 shrink-0" />
+                   <input type="text" placeholder="Tags (Komma...)" value={tags} onChange={e=>{setTags(e.target.value); isDirtyRef.current=true;}} className="bg-transparent border-none outline-none text-xs font-bold placeholder:opacity-50 w-full text-slate-900 dark:text-white" />
+               </div>
+               <div className="h-10 flex items-center bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
+                   <Icon name="user" size={12} className="text-slate-400 mr-2 shrink-0" />
+                   <input type="text" placeholder="Personen..." value={people} onChange={e=>{setPeople(e.target.value); isDirtyRef.current=true;}} className="bg-transparent border-none outline-none text-xs font-bold placeholder:opacity-50 w-full text-slate-900 dark:text-white" />
+               </div>
+               <div className={`h-10 relative px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 cursor-pointer overflow-hidden ${unlockDate ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}>
+                  <Icon name="calendar-clock" size={14}/> {unlockDate ? new Date(unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Zeitsiegel'}
+                  <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); isDirtyRef.current=true;}} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
+               </div>
+               {locations.map((loc, idx) => (
+                   <div key={idx} className="h-10 px-4 rounded-xl border border-emerald-300 dark:border-emerald-700/50 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 text-xs font-bold flex items-center gap-2 shrink-0">
+                       <Icon name="map-pin" size={14}/> {loc.name} • {loc.time} {loc.weather ? `• ${loc.weather}` : ''}
+                       <button onClick={(e) => { e.stopPropagation(); setLocations(prev => prev.filter((_, i) => i !== idx)); isDirtyRef.current=true; }} className="ml-1 opacity-60 hover:opacity-100 hover:text-rose-500 transition-colors"><Icon name="x" size={14}/></button>
+                   </div>
+               ))}
+               <button onClick={async ()=>{
+                   if(!("geolocation" in navigator)){showDialog({title:'Fehler', message:'Ortung nicht unterstützt.'}); return;}
+                   navigator.geolocation.getCurrentPosition(async (p) => { 
+                       const lat = p.coords.latitude; const lng = p.coords.longitude; let locName = "GPS Standort"; let formattedTime = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + " Uhr"; let wStr = "";
+                       try { const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`); const geoData = await geoRes.json(); if(geoData && geoData.address) { locName = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.road || "Unbekannter Ort"; } } catch(e) { console.warn("Geocoding failed", e); }
+                       try { const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`); const data = await res.json(); const temp = Math.round(data.current_weather.temperature); const wcode = data.current_weather.weathercode; wStr = `${temp}°C`; if (wcode === 0) wStr += ' ☀️'; else if (wcode <= 3) wStr += ' ⛅'; else if (wcode <= 48) wStr += ' ☁️'; else if (wcode <= 67) wStr += ' 🌧️'; else if (wcode <= 79) wStr += ' 🌨️'; else if (wcode <= 99) wStr += ' ⛈️'; } catch(e) { console.warn("Weather API failed", e); }
+                       const newLoc = {lat, lng, name: locName, time: formattedTime, weather: wStr}; setLocations(prev => [...prev, newLoc]); isDirtyRef.current=true; 
+                       showDialog({title:'GPS erfasst', message:`Ort (${locName}) und Wetter wurden gesichert.`, icon:'map-pin'}); 
+                   }, ()=>showDialog({title:'Fehler', message:'Ortung fehlgeschlagen.'}));
+               }} className={`h-10 px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors`}><Icon name="plus" size={14}/> GPS hinzufügen</button>
+            </div>
+
+            {/* Drawing Modal Inner */}
+            {isDrawing && (
+              <div className="fixed inset-0 z-[300] bg-slate-900 flex flex-col no-print">
+                <header className="flex justify-between items-center p-4 bg-slate-950 text-white pt-safe border-b border-white/10">
+                  <button onClick={() => setIsDrawing(false)} className="p-3 bg-white/10 rounded-2xl hover:bg-white/20 transition-colors"><Icon name="x"/></button>
+                  <span className="font-bold">Zeichnen</span>
+                  <button onClick={() => {
+                      if(canvasRef.current) {
+                          const base64 = canvasRef.current.toDataURL();
+                          if (editorRef.current) {
+                              editorRef.current.focus();
+                              document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false"><img src="${base64}" /><span class="delete-img-btn">X</span></span>&nbsp;`);
+                              isDirtyRef.current = true;
+                              handlePerformSave(false);
+                          }
+                          setIsDrawing(false);
+                      }
+                  }} className="px-6 py-2 bg-accent text-black font-bold rounded-2xl">Fertig</button>
+                </header>
+                <div className="flex-1 bg-white relative touch-none">
+                  <canvas ref={canvasRef} className="absolute inset-0 w-full h-full cursor-crosshair touch-none" onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing} onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
+                </div>
+                <div className="p-4 pb-safe bg-slate-950 flex justify-center border-t border-white/10">
+                  <button onClick={() => {
+                      if(canvasRef.current){
+                          const ctx = canvasRef.current.getContext('2d');
+                          ctx.fillStyle = user.isDark ? '#18181b' : '#ffffff';
+                          ctx.fillRect(0,0,canvasRef.current.width, canvasRef.current.height);
+                      }
+                  }} className="p-4 bg-white/10 rounded-2xl text-white hover:bg-white/20"><Icon name="eraser"/></button>
+                </div>
+              </div>
+            )}
+
+            {/* Editor Image Picker */}
+            {picker && (
+              <div className="fixed inset-0 z-[250] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setPicker(null)}>
+                <div className="w-full max-w-sm rounded-[2.5rem] shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up flex flex-col overflow-hidden max-h-[70vh]" onClick={e => e.stopPropagation()}>
+                  <div className="p-6 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
+                     <h3 className="font-extrabold text-xl tracking-tight">{picker.title}</h3>
+                     <button onClick={()=>setPicker(null)} className="p-2 rounded-full bg-slate-100 dark:bg-zinc-800"><Icon name="x" size={20}/></button>
+                  </div>
+                  <div className="overflow-y-auto custom-scrollbar p-3 space-y-1">
+                     {picker.options.map(opt => (
+                        <button key={opt.value} onClick={()=>{picker.onSelect(opt.value); setPicker(null);}} className={`w-full text-left p-5 rounded-[1.5rem] font-bold text-sm flex justify-between items-center transition-all ${picker.currentValue===opt.value ? 'text-white dark:text-black shadow-md scale-[1.02]' : 'hover:bg-slate-50 dark:hover:bg-zinc-800'}`} style={picker.currentValue === opt.value ? { backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') } : {}}>
+                           {opt.label} {picker.currentValue===opt.value && <Icon name="check" size={18}/>}
+                        </button>
+                     ))}
+                  </div>
+                </div>
+              </div>
+            )}
+        </div>
+    );
+};
+
+// ==========================================
+// EIGENSTÄNDIGE LESE-KOMPONENTE (VIEWER)
+// ==========================================
+const LegacyViewer = ({ entry, allEntries, onClose, onEdit, onStartChapter, user, showDialog, saveToDB }) => {
+    const [currentViewerImgIdx, setCurrentViewerImgIdx] = useState(0);
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const touchStartX = useRef(null);
+    const touchStartY = useRef(null);
+
+    const bookRoot = getBookRoot(entry.id, allEntries);
+    const unsortedEntries = getAllBookEntries(bookRoot?.id || entry.id, allEntries);
+    const allBookEntries = [...unsortedEntries].sort(sortEntriesAscending);
+    const cIdx = allBookEntries.findIndex(ex => ex && ex.id === entry.id);
+    const prevPage = cIdx > 0 ? allBookEntries[cIdx - 1] : null;
+    const nextPage = cIdx < allBookEntries.length - 1 ? allBookEntries[cIdx + 1] : null;
+
+    useEffect(() => {
+        // Handle Back Geste/Button im Viewer
+        const popHandler = (e) => {
+            e.preventDefault();
+            onClose();
+        };
+        window.addEventListener('popstate', popHandler);
+        return () => window.removeEventListener('popstate', popHandler);
+    }, [onClose]);
+
+    const handleTouchStartViewer = (e) => { 
+        touchStartX.current = e.touches[0].clientX; 
+        touchStartY.current = e.touches[0].clientY; 
+    };
+
+    const handleTouchEndViewer = (e) => {
+        if (touchStartX.current === null || touchStartY.current === null || !entry) return;
+        
+        const touchEndX = e.changedTouches[0].clientX;
+        const touchEndY = e.changedTouches[0].clientY;
+        
+        const deltaX = touchStartX.current - touchEndX;
+        const deltaY = touchStartY.current - touchEndY;
+        
+        if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
+            let swipeNext = null, swipePrev = null;
+            if (allBookEntries.length > 1) {
+                if (cIdx > 0) swipePrev = allBookEntries[cIdx - 1]; 
+                if (cIdx < allBookEntries.length - 1) swipeNext = allBookEntries[cIdx + 1]; 
+            }
+            if (deltaX > 50 && swipeNext) { onEdit(swipeNext, true); setCurrentViewerImgIdx(0); }
+            else if (deltaX < -50 && swipePrev) { onEdit(swipePrev, true); setCurrentViewerImgIdx(0); }
+        }
+        touchStartX.current = null; touchStartY.current = null;
+    };
+
+    const handleReadAloud = () => { 
+        if (isSpeaking) { window.speechSynthesis.cancel(); setIsSpeaking(false); return; } 
+        const plainText = ((entry.title || '') + ". " + (entry.text || '')).replace(/<[^>]*>?/gm, ''); 
+        if (!plainText.trim()) return; 
+        setIsSpeaking(true); 
+        const utterance = new SpeechSynthesisUtterance(plainText); 
+        utterance.lang = 'de-DE'; utterance.onend = () => setIsSpeaking(false); 
+        window.speechSynthesis.speak(utterance); 
+    };
+
+    const handleMainCoverUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_SIZE = 800; let width = img.width; let height = img.height;
+                if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
+                canvas.width = width; canvas.height = height; canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                const base64 = canvas.toDataURL('image/jpeg', 0.6);
+                if (bookRoot) {
+                    let newImages = [...(bookRoot.images || [])];
+                    if (newImages.length === 0) newImages = [base64]; else newImages[0] = base64;
+                    saveToDB({...bookRoot, images: newImages});
+                    showDialog({ title: 'Hauptcover aktualisiert', message: 'Titelbild gespeichert.', icon: 'check' });
+                }
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+        e.target.value = null;
+    };
+
+    const handleBookCoverUpload = (e, imgIndex) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_SIZE = 800; let width = img.width; let height = img.height;
+                if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
+                canvas.width = width; canvas.height = height; canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                const base64 = canvas.toDataURL('image/jpeg', 0.6);
+                let newImages = [...(entry.images || [])];
+                if (newImages.length === 0) newImages = [base64]; else newImages[imgIndex] = base64;
+                saveToDB({...entry, images: newImages});
+                showDialog({ title: 'Bild aktualisiert', message: 'Erfolgreich geändert.', icon: 'check' });
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+        e.target.value = null;
+    };
+
+    return (
+        <div className="fixed inset-0 z-[80] overflow-y-auto bg-white dark:bg-black custom-scrollbar flex flex-col screen-only" onTouchStart={handleTouchStartViewer} onTouchEnd={handleTouchEndViewer}>
+            {prevPage && <button onClick={() => { onEdit(prevPage, true); setCurrentViewerImgIdx(0); }} className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 p-4 bg-white/50 dark:bg-black/50 backdrop-blur-md shadow-sm rounded-full hover:scale-110 active:scale-95 transition-transform z-50 text-slate-800 dark:text-white"><Icon name="chevron-left" size={24}/></button>}
+            {nextPage && <button onClick={() => { onEdit(nextPage, true); setCurrentViewerImgIdx(0); }} className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 p-4 bg-white/50 dark:bg-black/50 backdrop-blur-md shadow-sm rounded-full hover:scale-110 active:scale-95 transition-transform z-50 text-slate-800 dark:text-white"><Icon name="chevron-right" size={24}/></button>}
+
+            <div className="sticky top-0 z-40 flex justify-between items-center py-4 px-6 md:px-10 bg-white/90 dark:bg-black/90 backdrop-blur-xl border-b border-slate-100 dark:border-zinc-900 shrink-0 no-print transition-colors">
+                <div className="flex gap-3">
+                    <button onClick={() => { window.history.back(); onClose(); }} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
+                </div>
+                <div className="flex gap-2 sm:gap-3 items-center">
+                    <button onClick={() => window.print()} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500"><Icon name="printer" size={22}/></button>
+                    <button onClick={handleReadAloud} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
+                    
+                    <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform cursor-pointer flex items-center justify-center text-slate-500" title="Hauptcover ändern">
+                        <Icon name="image" size={22}/>
+                        <input type="file" accept="image/*" onChange={handleMainCoverUpload} className="hidden" />
+                    </label>
+
+                    <button onClick={() => onEdit(entry)} className="px-4 sm:px-6 py-3 rounded-2xl font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
+                </div>
+            </div>
+
+            <div className="max-w-3xl w-full mx-auto p-6 sm:p-12 pb-32 screen-only flex-1 flex flex-col">
+                {entry.images && entry.images.length > 0 && (
+                    <div className="relative w-full rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-10 group bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
+                        <img src={entry.images[currentViewerImgIdx]} className="w-full h-auto block transition-transform duration-700" alt="Cover" />
+                        
+                        <label className="absolute top-4 right-4 w-12 h-12 bg-black/60 text-white rounded-full flex items-center justify-center shadow-xl cursor-pointer z-[60] hover:bg-black/80 transition-colors border-2 border-white/20" title="Dieses Bild ändern">
+                            <Icon name="image" size={20}/>
+                            <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, currentViewerImgIdx)} className="hidden" />
+                        </label>
+
+                        {entry.images.length > 1 && (
+                            <>
+                                <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p - 1 + entry.images.length) % entry.images.length); }} className="absolute left-6 top-1/2 -translate-y-1/2 bg-black/50 text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print backdrop-blur-md hover:bg-black/70"><Icon name="chevron-left" size={24}/></button>
+                                <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p + 1) % entry.images.length); }} className="absolute right-6 top-1/2 -translate-y-1/2 bg-black/50 text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print backdrop-blur-md hover:bg-black/70"><Icon name="chevron-right" size={24}/></button>
+                                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 bg-black/40 px-4 py-2 rounded-full backdrop-blur-md no-print">
+                                    {entry.images.map((_, i) => <div key={i} className={`w-2.5 h-2.5 rounded-full transition-colors shadow-sm ${i === currentViewerImgIdx ? 'bg-white' : 'bg-white/40'}`} />)}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
+
+                {(!entry.images || entry.images.length === 0) && (
+                    <label className="mb-8 w-fit px-6 py-3 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 font-bold text-sm cursor-pointer hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors flex items-center gap-2 border border-slate-200 dark:border-zinc-700 shadow-sm" title="Cover hinzufügen">
+                        <Icon name="image" size={18}/> Cover hinzufügen
+                        <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, 0)} className="hidden" />
+                    </label>
+                )}
+
+                <h1 className="text-4xl sm:text-6xl font-extrabold mb-8 tracking-tighter leading-[1.1] text-slate-900 dark:text-white">{entry.title || 'Ohne Titel'}</h1>
+                <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
+                    <span>{safeParseDate(entry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                </div>
+                
+                <div className="flex flex-wrap gap-2 mb-12 no-print">
+                    {entry.tags && entry.tags.split(',').map(t => t.trim()).filter(t=>t).map((t, i) => (
+                        <span key={i} className="px-4 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="tag" size={14}/> {t}</span>
+                    ))}
+                    {entry.people && entry.people.split(',').map(p => p.trim()).filter(p=>p).map((p, i) => (
+                        <span key={i} className="px-4 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="user" size={14}/> {p}</span>
+                    ))}
+                    {entry.weather && (
+                        <span className="px-4 py-1.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-xl text-xs font-bold flex items-center gap-1.5 w-full sm:w-auto"><Icon name="sun" size={14}/> {entry.weather}</span>
+                    )}
+                    {entry.locations && entry.locations.length > 0 ? entry.locations.map((loc, i) => (
+                        <span key={`loc-view-${i}`} className="px-4 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="map-pin" size={14}/> {loc.name} • {loc.time} {loc.weather ? `• ${loc.weather}` : ''}</span>
+                    )) : (entry.location && (
+                        <span className="px-4 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="map-pin" size={14}/> {entry.location.name ? `${entry.location.name} (${entry.location.time})` : 'GPS-Siegel'}</span>
+                    ))}
+                    {entry.rating > 0 && (
+                        <div className="flex items-center gap-1 ml-auto bg-amber-50 dark:bg-amber-900/30 px-4 py-1.5 rounded-xl">
+                            {[1,2,3,4,5].map(star => <Icon key={star} name="star" size={16} className={entry.rating >= star ? 'text-amber-500 fill-amber-500' : 'text-amber-200 dark:text-amber-900'} />)}
+                        </div>
+                    )}
+                </div>
+
+                <div className="text-[1.05rem] leading-[1.8] font-medium legacy-content text-slate-800 dark:text-slate-200 opacity-90" dangerouslySetInnerHTML={createSafeHtml(entry.text)} />
+                {entry.audio && <div className="mt-12 p-6 rounded-[2rem] bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm no-print"><span className="text-xs font-bold uppercase tracking-widest opacity-50 mb-4 block">Audio-Log</span><audio src={entry.audio} controls className="w-full" /></div>}
+                
+                <div className="mt-20 pt-10 border-t border-slate-100 dark:border-zinc-800 flex justify-center no-print">
+                    <button onClick={() => onStartChapter(entry)} className="px-8 py-4 font-bold rounded-full flex items-center gap-3 hover:scale-105 active:scale-95 transition-transform shadow-lg text-lg" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}><Icon name="plus" size={24}/> Neues Kapitel anfügen</button>
+                </div>
+
+                {allBookEntries.length > 1 && (
+                    <div className="flex justify-between items-center mt-16 pt-8 border-t border-slate-100 dark:border-zinc-800 no-print pb-24">
+                        {prevPage ? (
+                            <button onClick={() => { onEdit(prevPage, true); setCurrentViewerImgIdx(0); }} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100 transition-colors" style={{ color: user.nameColor }}><Icon name="arrow-left" size={18}/> Vorherige Seite</button>
+                        ) : <div/>}
+                        <span className="text-xs font-bold opacity-30 uppercase tracking-widest">Seite {cIdx + 1} von {allBookEntries.length}</span>
+                        {nextPage ? (
+                            <button onClick={() => { onEdit(nextPage, true); setCurrentViewerImgIdx(0); }} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100 transition-colors" style={{ color: user.nameColor }}>Nächste Seite <Icon name="arrow-right" size={18}/></button>
+                        ) : <div/>}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// ==========================================
+// HAUPT-APP
+// ==========================================
 function App() {
   const [db, setDb] = useState(null);
   const [fb, setFb] = useState(null);
@@ -328,23 +992,22 @@ function App() {
   const [entries, setEntries] = useState([]);
   const [isLoaded, setIsLoaded] = useState(false);
   
+  // Auth States
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [showAuthPassword, setShowAuthPassword] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authMsg, setAuthMsg] = useState('');
   const [authMode, setAuthMode] = useState('login');
-  const [syncingCloud, setSyncingCloud] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('Alle');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [dialog, setDialog] = useState(null);
-  const [picker, setPicker] = useState(null);
 
   const [viewingEntry, setViewingEntry] = useState(null);
+  const [editorConfig, setEditorConfig] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
-  const [currentViewerImgIdx, setCurrentViewerImgIdx] = useState(0);
   
   const [showTimeline, setShowTimeline] = useState(false); 
   const [timelineMonth, setTimelineMonth] = useState(() => new Date()); 
@@ -360,64 +1023,24 @@ function App() {
   const [newPinInput, setNewPinInput] = useState('');
   const [confirmPinInput, setConfirmPinInput] = useState('');
 
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const audioPlayerRef = useRef(new Audio());
-  const [isRecording, setIsRecording] = useState(false);
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
-
   const [burnText, setBurnText] = useState('');
   const [isBurning, setIsBurning] = useState(false);
-  const [isDrawing, setIsDrawing] = useState(false);
   
-  const canvasRef = useRef(null);
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const gridRef = useRef(null);
-
-  // GANZ WICHTIG: Referenzen für die Swipe-Funktion im Viewer
-  const touchStartX = useRef(null);
-  const touchStartY = useRef(null);
 
   const [peerId, setPeerId] = useState(null);
   const [peerInstance, setPeerInstance] = useState(null);
   const [syncStatus, setSyncStatus] = useState('');
   const [importId, setImportId] = useState(() => new URLSearchParams(window.location.search).get('import'));
 
-  const [editingId, setEditingId] = useState(null);
-  const [title, setTitle] = useState('');
-  const [text, setText] = useState(''); 
-  const [selectedColor, setSelectedColor] = useState(COLORS[8]);
-  const [selectedImages, setSelectedImages] = useState([]); 
-  const [audioUrl, setAudioUrl] = useState(null);
-  const [isManifested, setIsManifested] = useState(false);
-  const [unlockDate, setUnlockDate] = useState('');
-  const [location, setLocation] = useState(null);
-  const [locations, setLocations] = useState([]); 
-  const [category, setCategory] = useState(CATEGORIES[0]);
-  const [mood, setMood] = useState(null);
-  const [entryDate, setEntryDate] = useState('');
-  const [rating, setRating] = useState(0);
-  const [tags, setTags] = useState('');
-  const [people, setPeople] = useState('');
-  const [weather, setWeather] = useState('');
-  const [parentId, setParentId] = useState('');
-  const [inheritedFrom, setInheritedFrom] = useState(null);
-  const [pillarGuidance, setPillarGuidance] = useState(null);
-  const [autoSaveStatus, setAutoSaveStatus] = useState('');
-
-  const editorRef = useRef(null);
-  const isDirtyRef = useRef(false);
-  const currentEntryRef = useRef({});
-  const editingIdRef = useRef(null);
   const viewRef = useRef(view);
   const biometricAttempted = useRef(false);
   const entriesRef = useRef(entries);
-  const viewingEntryRef = useRef(viewingEntry);
   
   useEffect(() => { entriesRef.current = entries; }, [entries]);
   useEffect(() => { viewRef.current = view; }, [view]);
-  useEffect(() => { viewingEntryRef.current = viewingEntry; }, [viewingEntry]);
 
   // SPERRT DIE APP IM HINTERGRUND SOFORT
   useEffect(() => {
@@ -455,18 +1078,16 @@ function App() {
       action();
   };
 
-  // KORRIGIERTES POPSTATE: Beendet die Endlosschleife des Pfeils oben links
   useEffect(() => {
     const handlePopState = (e) => {
-      if (isDrawing) { setIsDrawing(false); }
-      else if (showEditor) { checkSaveEntry(false); setShowEditor(false); } 
-      else if (viewingEntry) { setViewingEntry(null); setCurrentViewerImgIdx(0); }
+      if (showEditor) { setShowEditor(false); } 
+      else if (viewingEntry) { setViewingEntry(null); }
       else if (showTimeline) { setShowTimeline(false); }
       else if (!['dashboard', 'loading', 'auth', 'pin_entry', 'onboarding', 'cloud_pin_sync'].includes(view)) { setView('dashboard'); }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [isDrawing, showEditor, viewingEntry, showTimeline, view]);
+  }, [showEditor, viewingEntry, showTimeline, view]);
 
   useEffect(() => {
     const bootApp = async () => {
@@ -535,7 +1156,7 @@ function App() {
                               else if (['auth', 'pin_entry'].includes(viewRef.current)) setView('onboarding'); 
                           }
                       }
-                  } catch(e){ console.warn('Auth Setup:', e); }
+                  } catch(e){ console.error('Auth Setup Error:', e); }
               } else {
                   setAuthUser(null);
                   if(!safeStorageGet('legacy_user')) setView('auth'); 
@@ -547,7 +1168,7 @@ function App() {
     bootApp();
   }, []);
 
-  const ensureDb = async () => { if (db) return db; try { const database = await initDB(); setDb(database); return database; } catch(e) { console.warn('DB Init:', e); return null; } };
+  const ensureDb = async () => { if (db) return db; try { const database = await initDB(); setDb(database); return database; } catch(e) { return null; } };
 
   const loadLocalEntries = async (activePin) => {
       const currentDb = await ensureDb(); if (!currentDb) return;
@@ -564,7 +1185,7 @@ function App() {
                               try {
                                   if (e.encryptedData) { const decStr = await decryptData(e.encryptedData, activePin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, ...parsed, encryptedData: null, locked: false }; } catch(err){ return { ...e, text: decStr, encryptedData: null, locked: false };} } } 
                                   else if (e.cipher && e.iv && e.salt) { const decStr = await decryptData({cipher: e.cipher, iv: e.iv, salt: e.salt}, activePin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, ...parsed, cipher: null, iv: null, salt: null, locked: false }; } catch(err) { return { ...e, text: decStr, cipher: null, iv: null, salt: null, locked: false };} } }
-                              } catch(decErr) {} return { ...e, locked: false };
+                              } catch(decErr) { console.error(decErr); } return { ...e, locked: false };
                           }));
                       }
                       loadedEntries = loadedEntries.map(e => {
@@ -572,7 +1193,7 @@ function App() {
                           return e;
                       });
                       setEntries(loadedEntries.sort(sortEntriesChronological));
-                  } catch (err) { console.warn('Load Entries Error:', err); } finally { resolve(); }
+                  } catch (err) { console.error('Load Entries Error:', err); } finally { resolve(); }
               };
               request.onerror = () => resolve();
           } catch(e) { resolve(); }
@@ -643,7 +1264,7 @@ function App() {
             if (removedIds.length > 0) next = next.filter(e => !removedIds.includes(e.id));
             updatedEntries.forEach(upd => { const idx = next.findIndex(e => e.id === upd.id); if (idx >= 0) next[idx] = upd; else next.push(upd); });
             const sorted = next.sort(sortEntriesChronological);
-            if (db) { try { const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); updatedEntries.forEach(item => store.put(item)); removedIds.forEach(id => store.delete(id)); } catch(err) { console.warn('Sync DB:', err); } }
+            if (db) { try { const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); updatedEntries.forEach(item => store.put(item)); removedIds.forEach(id => store.delete(id)); } catch(err) { console.error('Sync DB Error:', err); } }
             return sorted;
         });
     });
@@ -786,12 +1407,12 @@ function App() {
           let payloadToSave = { id: plainEntry.id, timestamp: plainEntry.timestamp || Date.now() };
           if (pin) { const encrypted = await encryptData(JSON.stringify(plainEntry), pin); if (encrypted) payloadToSave.encryptedData = encrypted; } else { payloadToSave.rawData = plainEntry; }
           await fb.setDoc(fb.doc(fb.db, 'artifacts', appId, 'users', userId, 'entries', plainEntry.id), payloadToSave); 
-      } catch(e) { console.warn('Cloud Sync Error', e); }
+      } catch(e) { console.error('Cloud Sync Error', e); }
   };
   
   const deleteSingleEntryFromCloud = async (id) => {
       if (!fb || !fb.auth.currentUser || !user.cloudSync) return;
-      try { await fb.deleteDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', fb.auth.currentUser.uid, 'entries', id)); } catch(e) {}
+      try { await fb.deleteDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', fb.auth.currentUser.uid, 'entries', id)); } catch(e) { console.error('Delete Cloud Error', e); }
   };
 
   useEffect(() => {
@@ -813,11 +1434,6 @@ function App() {
     }
   }, [importId, isLoaded, db]);
 
-  useEffect(() => {
-     editingIdRef.current = editingId;
-     currentEntryRef.current = { ...currentEntryRef.current, title, selectedColor, selectedImages, audioUrl, isManifested, category, mood, unlockDate, location, locations, parentId, inheritedFrom, rating, tags, people, weather, date: entryDate };
-  }, [editingId, title, selectedColor, selectedImages, audioUrl, isManifested, category, mood, unlockDate, location, locations, parentId, inheritedFrom, rating, tags, people, weather, entryDate]);
-
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; 
     const plainEntry = { ...entry, timestamp: Date.now(), locked: false, encryptedData: null, cipher: null, iv: null, salt: null };
@@ -830,7 +1446,7 @@ function App() {
         });
     };
     updateMemory();
-    if (db) { try { const tx = db.transaction('entries', 'readwrite'); tx.objectStore('entries').put(plainEntry); } catch (e) { console.warn('Local Save Error:', e); } }
+    if (db) { try { const tx = db.transaction('entries', 'readwrite'); tx.objectStore('entries').put(plainEntry); } catch (e) { console.error('Local Save Error:', e); } }
   };
 
   const deleteFromDB = async (id) => { 
@@ -845,45 +1461,6 @@ function App() {
       });
   };
 
-  // KORRIGIERTER AUTO-SAVE / SPEICHERN: Kein window.history.back mehr tief in der Logik
-  const checkSaveEntry = (closeAndRead = false) => {
-    try {
-        const state = currentEntryRef.current;
-        const entryId = editingIdRef.current || generateId(); 
-        const currentText = editorRef.current ? editorRef.current.innerHTML : (state.text || ''); 
-        const titleSafe = state.title || '';
-        
-        const hasInlineImage = currentText.includes('<img');
-        const isEmpty = !titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && !hasInlineImage && (!state.selectedImages || state.selectedImages.length === 0) && !state.audioUrl && !state.weather && !state.tags && !state.people;
-        
-        if (isEmpty) return; 
-        
-        const existingEntry = entriesRef.current.find(e => e && e.id === editingIdRef.current);
-        
-        let finalDate = state.date || (existingEntry ? existingEntry.date : null) || getLocalISO();
-        let finalOrder = existingEntry ? (existingEntry.orderTimestamp || existingEntry.date || getLocalISO()) : finalDate;
-
-        if (existingEntry && state.date && state.date !== existingEntry.date) { finalOrder = state.date; } else if (!existingEntry && state.date) { finalOrder = state.date; }
-        
-        const newEntry = { 
-            id: entryId, title: titleSafe || '', text: currentText, color: state.selectedColor, images: state.selectedImages, audio: state.audioUrl, archived: false, trashed: false, manifested: state.isManifested, category: state.category, mood: state.mood, unlockDate: state.unlockDate, location: state.location, locations: state.locations, parentId: state.parentId, inheritedFrom: state.inheritedFrom, rating: state.rating, tags: state.tags, people: state.people, weather: state.weather, 
-            date: finalDate, orderTimestamp: finalOrder 
-        };
-        
-        if (!editingIdRef.current) { setEditingId(entryId); editingIdRef.current = entryId; }
-        saveToDB(newEntry);
-        isDirtyRef.current = false;
-        
-        setAutoSaveStatus('Gespeichert'); setTimeout(()=>setAutoSaveStatus(''), 2000); 
-    } catch (err) { console.warn('Save logic error:', err); }
-  };
-
-  useEffect(() => { 
-      if (!showEditor || view === 'burn') return; 
-      const timer = setInterval(() => { if (isDirtyRef.current) checkSaveEntry(false); }, 3000); 
-      return () => clearInterval(timer); 
-  }, [showEditor, view]);
-
   const handleSavePin = () => {
       if (newPinInput.length < 4) { showDialog({title: 'Fehler', message: 'Die neue PIN muss mindestens 4 Zeichen lang sein.', icon: 'x'}); return; }
       if (newPinInput !== confirmPinInput) { showDialog({title: 'Fehler', message: 'Die neuen PINs stimmen nicht überein.', icon: 'x'}); return; }
@@ -895,28 +1472,13 @@ function App() {
   };
 
   const openEditor = (entry = null, pillar = null, customDate = null) => {
-    isDirtyRef.current = false;
-    let targetDateStr = getLocalISO();
-    if (customDate) { const now = new Date(); const timeStr = now.toISOString().split('T')[1] || "12:00:00.000Z"; targetDateStr = `${customDate}T${timeStr}`; }
-    const targetDate = entry && entry.id ? (entry.date || getLocalISO()) : targetDateStr;
-
-    const newEntryState = entry && entry.id ? {
-        title: entry.title || '', text: entry.text || '', selectedColor: entry.color || (user.isDark ? COLORS[8] : COLORS[0]), selectedImages: entry.images || [], isManifested: entry.manifested || false, category: entry.category || CATEGORIES[0], mood: entry.mood || null, audioUrl: entry.audio || null, unlockDate: entry.unlockDate || '', location: entry.location || null, locations: entry.locations || (entry.location ? [entry.location] : []), parentId: entry.parentId || '', inheritedFrom: entry.inheritedFrom || null, rating: entry.rating || 0, tags: entry.tags || '', people: entry.people || '', weather: entry.weather || '', date: targetDate, orderTimestamp: entry.orderTimestamp || targetDate
-    } : {
-        title: pillar ? pillar.title : '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isManifested: false, category: pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory), mood: null, audioUrl: null, unlockDate: '', location: null, locations: [], parentId: '', inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: targetDate, orderTimestamp: targetDate
-    };
-
-    currentEntryRef.current = newEntryState; editingIdRef.current = entry && entry.id ? entry.id : null;
-    setEditingId(editingIdRef.current);
-    setTitle(newEntryState.title); setText(newEntryState.text); setSelectedColor(newEntryState.selectedColor); setSelectedImages(newEntryState.selectedImages); setIsManifested(newEntryState.isManifested); setCategory(newEntryState.category); setMood(newEntryState.mood); setAudioUrl(newEntryState.audioUrl); setUnlockDate(newEntryState.unlockDate); setLocation(newEntryState.location); setLocations(newEntryState.locations); setParentId(newEntryState.parentId); setInheritedFrom(newEntryState.inheritedFrom); setRating(newEntryState.rating); setTags(newEntryState.tags); setPeople(newEntryState.people); setWeather(newEntryState.weather); setEntryDate(newEntryState.date); setPillarGuidance(pillar ? pillar.desc : null);
+    setEditorConfig({ entry, pillar, customDate });
     openWithHistory(() => setShowEditor(true));
   };
 
   const startNewChapter = (parent) => { 
-    isDirtyRef.current = false; setViewingEntry(null); 
-    const newEntryState = { title: parent.title || '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isManifested: false, category: parent.category || CATEGORIES[0], mood: null, audioUrl: null, unlockDate: '', location: null, locations: [], parentId: parent.id, inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: getLocalISO(), orderTimestamp: getLocalISO() };
-    currentEntryRef.current = newEntryState; editingIdRef.current = null;
-    setEditingId(null); setTitle(newEntryState.title); setText(newEntryState.text); setSelectedColor(newEntryState.selectedColor); setSelectedImages(newEntryState.selectedImages); setAudioUrl(newEntryState.audioUrl); setIsManifested(newEntryState.isManifested); setUnlockDate(newEntryState.unlockDate); setLocation(newEntryState.location); setLocations(newEntryState.locations); setCategory(newEntryState.category); setMood(newEntryState.mood); setParentId(newEntryState.parentId); setInheritedFrom(newEntryState.inheritedFrom); setRating(newEntryState.rating); setTags(newEntryState.tags); setPeople(newEntryState.people); setWeather(newEntryState.weather); setEntryDate(newEntryState.date); setPillarGuidance(null);
+    setViewingEntry(null); 
+    setEditorConfig({ parent });
     openWithHistory(() => setShowEditor(true)); 
   };
 
@@ -939,15 +1501,14 @@ function App() {
           }
       }
       
-      if (forceExact) { openWithHistory(() => { setViewingEntry(entry); setCurrentViewerImgIdx(0); }); return; }
+      if (forceExact) { openWithHistory(() => { setViewingEntry(entry); }); return; }
       
-      const bookRoot = getBookRoot(entry.id);
-      const unsortedEntries = getAllBookEntries(bookRoot?.id || entry.id);
-      
+      const bookRoot = getBookRoot(entry.id, entriesRef.current);
+      const unsortedEntries = getAllBookEntries(bookRoot?.id || entry.id, entriesRef.current);
       const sortedAsc = [...unsortedEntries].sort(sortEntriesAscending);
       const targetToOpen = sortedAsc[sortedAsc.length - 1] || entry; 
       
-      openWithHistory(() => { setViewingEntry(targetToOpen); setCurrentViewerImgIdx(0); });
+      openWithHistory(() => { setViewingEntry(targetToOpen); });
   };
 
   const moveEntryUp = (e, targetEntry) => {
@@ -1042,12 +1603,8 @@ function App() {
   useEffect(() => {
       if (view === 'dashboard' && gridRef.current && window.Sortable) {
           const sortable = window.Sortable.create(gridRef.current, {
-              delay: 300, 
-              delayOnTouchOnly: true,
-              animation: 250,
-              easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
-              ghostClass: 'sortable-ghost',
-              dragClass: 'sortable-drag',
+              delay: 300, delayOnTouchOnly: true, animation: 250, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+              ghostClass: 'sortable-ghost', dragClass: 'sortable-drag',
               onEnd: (evt) => {
                   if (evt.oldIndex === evt.newIndex) return;
                   const draggedId = evt.item.getAttribute('data-id');
@@ -1058,7 +1615,6 @@ function App() {
       }
   }, [view, renderEntries]);
 
-  // KORRIGIERT: Zwingende Gruppierung nach originalem Datum (nicht nach modifiziertem orderTimestamp)
   const entriesByDate = useMemo(() => {
       const map = {};
       entries.filter(e => e && !e.trashed).forEach(e => {
@@ -1116,104 +1672,7 @@ function App() {
   
   const heatmapData = useMemo(() => { return Array.from({ length: 30 }).map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (29 - i)); const dateStr = d.toDateString(); return { date: dateStr, count: entries.filter(e => e && !e.trashed && safeParseDate(e.date || getLocalISO()).toDateString() === dateStr).length }; }); }, [entries]);
   const { completedPillars, totalPillars, progressPercent } = useMemo(() => { const completed = PILLARS.filter(p => entries.some(e => e && !e.trashed && (e.title || '') === p.title)).length; return { completedPillars: completed, totalPillars: PILLARS.length, progressPercent: Math.round((completed / PILLARS.length) * 100) }; }, [entries]);
-  
-  const getAllBookEntries = (rootId) => { 
-      const result = []; 
-      const visited = new Set(); 
-      const traverse = (id, depth=0) => { 
-          if (depth > 1000 || visited.has(id)) return; 
-          visited.add(id); 
-          const entry = entries.find(e => e && e.id === id && !e.trashed); 
-          if (entry && !result.find(r => r.id === entry.id)) { 
-              result.push(entry); 
-              entries.filter(e => e && e.parentId === id && !e.trashed).sort(sortEntriesChronological).forEach(c => traverse(c.id, depth+1)); 
-          } 
-      }; 
-      traverse(rootId); 
-      return result; 
-  };
-  
-  const getBookRoot = (entryId) => { 
-      let current = entries.find(e => e && e.id === entryId && !e.trashed); 
-      let safeGuard = 0; 
-      const visited = new Set(); 
-      while (current && current.parentId && safeGuard < 1000) { 
-          if (visited.has(current.id)) break; 
-          visited.add(current.id); 
-          const p = entries.find(e => e && e.id === current.parentId && !e.trashed); 
-          if (p && p.id !== current.id) current = p; else break; 
-          safeGuard++; 
-      } 
-      return current; 
-  };
 
-  const handleTouchStartViewer = (e) => { 
-      touchStartX.current = e.touches[0].clientX; 
-      touchStartY.current = e.touches[0].clientY; 
-  };
-
-  // KORRIGIERTER SWIPE-VERLAUF: Funktioniert jetzt ohne Abstürze!
-  const handleTouchEndViewer = (e) => {
-      if (touchStartX.current === null || touchStartY.current === null || !viewingEntryRef.current) return;
-      
-      const touchEndX = e.changedTouches[0].clientX;
-      const touchEndY = e.changedTouches[0].clientY;
-      
-      const deltaX = touchStartX.current - touchEndX;
-      const deltaY = touchStartY.current - touchEndY;
-      
-      if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
-          const bookRoot = getBookRoot(viewingEntryRef.current.id);
-          const unsortedEntries = getAllBookEntries(bookRoot?.id || viewingEntryRef.current.id);
-          const chronologicalBookEntries = [...unsortedEntries].sort(sortEntriesAscending);
-          
-          let swipeNext = null, swipePrev = null;
-          if (chronologicalBookEntries.length > 1) {
-              const cIdx = chronologicalBookEntries.findIndex(ex => ex && ex.id === viewingEntryRef.current.id);
-              if (cIdx > 0) swipePrev = chronologicalBookEntries[cIdx - 1]; 
-              if (cIdx < chronologicalBookEntries.length - 1) swipeNext = chronologicalBookEntries[cIdx + 1]; 
-          }
-          
-          if (deltaX > 50 && swipeNext) { setViewingEntry(swipeNext); setCurrentViewerImgIdx(0); }
-          else if (deltaX < -50 && swipePrev) { setViewingEntry(swipePrev); setCurrentViewerImgIdx(0); }
-      }
-      
-      touchStartX.current = null; touchStartY.current = null;
-  };
-
-  const getCanvasCoordinates = (e) => {
-      if (!canvasRef.current) return { x: 0, y: 0 };
-      const rect = canvasRef.current.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-      if (e.touches && e.touches.length > 0) return { x: (e.touches[0].clientX - rect.left), y: (e.touches[0].clientY - rect.top) };
-      return { x: (e.clientX - rect.left), y: (e.clientY - rect.top) };
-  };
-  const startDrawing = (e) => { if (!canvasRef.current) return; const {x, y} = getCanvasCoordinates(e); const ctx = canvasRef.current.getContext('2d'); ctx.beginPath(); ctx.moveTo(x, y); canvasRef.current.isPainting = true; };
-  const draw = (e) => { if (!canvasRef.current?.isPainting) return; const {x, y} = getCanvasCoordinates(e); const ctx = canvasRef.current.getContext('2d'); ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.strokeStyle = user.isDark ? '#ffffff' : '#000000'; ctx.lineTo(x, y); ctx.stroke(); };
-  const stopDrawing = () => { if (canvasRef.current) canvasRef.current.isPainting = false; };
-  
-  useEffect(() => { 
-      let canvasEl = canvasRef.current; 
-      const preventScroll = (e) => e.preventDefault(); 
-      if (isDrawing && canvasEl) { 
-          canvasEl.addEventListener('touchstart', preventScroll, { passive: false }); 
-          canvasEl.addEventListener('touchmove', preventScroll, { passive: false }); 
-          setTimeout(() => { 
-              if (!canvasEl) return; 
-              const rect = canvasEl.parentElement.getBoundingClientRect(); 
-              const dpr = window.devicePixelRatio || 1;
-              canvasEl.width = rect.width * dpr; canvasEl.height = rect.height * dpr; 
-              const ctx = canvasEl.getContext('2d'); 
-              ctx.scale(dpr, dpr);
-              ctx.fillStyle = user.isDark ? '#18181b' : '#ffffff'; ctx.fillRect(0, 0, rect.width, rect.height); 
-          }, 50); 
-      } 
-      return () => { if (canvasEl) { canvasEl.removeEventListener('touchstart', preventScroll); canvasEl.removeEventListener('touchmove', preventScroll); } }; 
-  }, [isDrawing, user.isDark]);
-
-  const startRecording = async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); mediaRecorderRef.current = new MediaRecorder(stream); audioChunksRef.current = []; mediaRecorderRef.current.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); }; mediaRecorderRef.current.onstop = () => { const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); const reader = new FileReader(); reader.readAsDataURL(blob); reader.onloadend = () => { setAudioUrl(reader.result); currentEntryRef.current.audioUrl = reader.result; isDirtyRef.current = true; checkSaveEntry(false); }; }; mediaRecorderRef.current.start(); setIsRecording(true); } catch (err) { showDialog({ title: 'Fehler', message: 'Mikrofon verweigert.', icon: 'mic-off' }); } };
-  const stopRecording = () => { if (mediaRecorderRef.current) { mediaRecorderRef.current.stop(); setIsRecording(false); } };
-  const handleReadAloud = (entry) => { if (!entry) return; if (isSpeaking) { window.speechSynthesis.cancel(); setIsSpeaking(false); return; } const plainText = ((entry.title || '') + ". " + (entry.text || '')).replace(/<[^>]*>?/gm, ''); if (!plainText.trim()) return; setIsSpeaking(true); const utterance = new SpeechSynthesisUtterance(plainText); utterance.lang = 'de-DE'; utterance.onend = () => setIsSpeaking(false); window.speechSynthesis.speak(utterance); };
   const triggerBurn = () => { setIsBurning(true); setTimeout(() => { setBurnText(''); setIsBurning(false); setView('dashboard'); showDialog({ title: 'Katharsis', message: 'Dem Feuer übergeben.', icon: 'flame' }); }, 2500); };
   
   const handleAvatarUpload = (e) => { 
@@ -1239,161 +1698,6 @@ function App() {
       } 
   };
 
-  const handleMainCoverUpload = (e, currentEntry) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (event) => {
-          const img = new Image();
-          img.onload = () => {
-              const canvas = document.createElement('canvas');
-              const MAX_SIZE = 800; let width = img.width; let height = img.height;
-              if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
-              canvas.width = width; canvas.height = height; canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-              const base64 = canvas.toDataURL('image/jpeg', 0.6);
-              
-              const rootEntry = getBookRoot(currentEntry.id);
-              if (rootEntry) {
-                  let newImages = [...(rootEntry.images || [])];
-                  if (newImages.length === 0) newImages = [base64]; else newImages[0] = base64;
-                  const updatedEntry = {...rootEntry, images: newImages};
-                  saveToDB(updatedEntry);
-                  showDialog({ title: 'Hauptcover aktualisiert', message: 'Das Titelbild für dieses Tagebuch wurde geändert.', icon: 'check' });
-                  if (viewingEntryRef.current && viewingEntryRef.current.id === rootEntry.id) setViewingEntry(updatedEntry);
-              }
-          };
-          img.src = event.target.result;
-      };
-      reader.readAsDataURL(file);
-      e.target.value = null;
-  };
-
-  const handleBookCoverUpload = (e, targetId, imgIndex = 0) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (event) => {
-          const img = new Image();
-          img.onload = () => {
-              const canvas = document.createElement('canvas');
-              const MAX_SIZE = 800; let width = img.width; let height = img.height;
-              if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
-              canvas.width = width; canvas.height = height; canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-              const base64 = canvas.toDataURL('image/jpeg', 0.6);
-              const targetEntry = entriesRef.current.find(ex => ex.id === targetId);
-              if (targetEntry) {
-                  let newImages = [...(targetEntry.images || [])];
-                  if (newImages.length === 0) newImages = [base64]; else newImages[imgIndex] = base64;
-                  const updatedEntry = {...targetEntry, images: newImages};
-                  saveToDB(updatedEntry);
-                  showDialog({ title: 'Bild aktualisiert', message: 'Das Bild wurde erfolgreich geändert.', icon: 'check' });
-                  if (viewingEntryRef.current && viewingEntryRef.current.id === targetId) setViewingEntry(updatedEntry);
-              }
-          };
-          img.src = event.target.result;
-      };
-      reader.readAsDataURL(file);
-      e.target.value = null;
-  };
-
-  const handleFileUpload = (e, type) => {
-    const files = Array.from(e.target.files);
-    if (!files.length) return;
-    if (type === 'image') {
-      const MAX_SIZE = 800; 
-      const processedPromises = files.map(file => {
-          return new Promise((resolve) => {
-              const reader = new FileReader();
-              reader.onload = (event) => {
-                  const img = new Image();
-                  img.onload = () => {
-                      const canvas = document.createElement('canvas');
-                      let width = img.width; let height = img.height;
-                      if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
-                      canvas.width = width; canvas.height = height; canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                      resolve(canvas.toDataURL('image/jpeg', 0.6)); 
-                  };
-                  img.src = event.target.result;
-              };
-              reader.readAsDataURL(file);
-          });
-      });
-      Promise.all(processedPromises).then(base64Images => {
-          setSelectedImages(prev => { const newImgs = [...prev, ...base64Images]; currentEntryRef.current.selectedImages = newImgs; return newImgs; });
-          isDirtyRef.current = true; checkSaveEntry(false); 
-      });
-    }
-    e.target.value = null; 
-  };
-
-  const wrapImage = (img) => {
-      if (!img || !img.parentNode) return; 
-      if (img.closest('.inline-img-wrapper')) return; 
-      const wrapper = document.createElement('span'); wrapper.className = 'inline-img-wrapper'; wrapper.contentEditable = 'false';
-      const delBtn = document.createElement('span'); delBtn.className = 'delete-img-btn'; delBtn.innerText = 'X';
-      const clonedImg = img.cloneNode(true); clonedImg.removeAttribute('style'); clonedImg.style.width = '120px'; clonedImg.style.height = 'auto';
-      wrapper.appendChild(clonedImg); wrapper.appendChild(delBtn);
-      img.parentNode.replaceChild(wrapper, img);
-      const space = document.createTextNode('\u00A0');
-      if (wrapper.nextSibling) wrapper.parentNode.insertBefore(space, wrapper.nextSibling); else wrapper.parentNode.appendChild(space);
-      isDirtyRef.current = true;
-  };
-
-  const handleEditorInput = () => {
-      isDirtyRef.current = true;
-      if (editorRef.current) {
-          const nakedImgs = editorRef.current.querySelectorAll('img:not(.inline-img-wrapper img)');
-          if (nakedImgs.length > 0) {
-              nakedImgs.forEach(img => {
-                  if (!img.src) return;
-                  setTimeout(() => {
-                      if (!img.isConnected || img.closest('.inline-img-wrapper')) return;
-                      if (img.src.startsWith('blob:')) {
-                          fetch(img.src).then(r => r.blob()).then(blob => {
-                              const reader = new FileReader(); reader.onload = () => { img.src = reader.result; wrapImage(img); checkSaveEntry(false); }; reader.readAsDataURL(blob);
-                          }).catch(() => wrapImage(img));
-                      } else { wrapImage(img); checkSaveEntry(false); }
-                  }, 100);
-              });
-          }
-      }
-  };
-
-  const handleEditorPaste = (e) => {
-      const clipboardData = e.clipboardData || window.clipboardData || (e.nativeEvent && e.nativeEvent.clipboardData);
-      if (!clipboardData) return;
-      if (clipboardData.items) {
-          for (let i = 0; i < clipboardData.items.length; i++) {
-              if (clipboardData.items[i].type.indexOf('image') !== -1) {
-                  const blob = clipboardData.items[i].getAsFile();
-                  if (!blob) continue;
-                  e.preventDefault();
-                  const reader = new FileReader();
-                  reader.onload = (event) => {
-                      const base64 = event.target.result;
-                      if (editorRef.current) {
-                          editorRef.current.focus(); document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false"><img src="${base64}" /><span class="delete-img-btn">X</span></span>&nbsp;`);
-                          isDirtyRef.current = true; checkSaveEntry(false);
-                      }
-                  };
-                  reader.readAsDataURL(blob); break; 
-              }
-          }
-      }
-  };
-
-  const handleEditorClick = (e) => {
-      if (e.target.classList.contains('delete-img-btn')) {
-          e.target.closest('.inline-img-wrapper').remove(); isDirtyRef.current = true; checkSaveEntry(false);
-      } else if (e.target.tagName === 'IMG' && e.target.closest('.inline-img-wrapper')) {
-          const wrapper = e.target.closest('.inline-img-wrapper'); const img = wrapper.querySelector('img');
-          setPicker({ title: 'Sticker / Bild anpassen', currentValue: null, options: [{label: 'Klein', value: '120px'}, {label: 'Mittel', value: '250px'}, {label: 'Groß', value: '100%'}], onSelect: (val) => { img.style.width = val; isDirtyRef.current = true; checkSaveEntry(false); } });
-      } else if (e.target.tagName === 'IMG' && !e.target.closest('.inline-img-wrapper')) {
-          const img = e.target;
-          setPicker({ title: 'Sticker / Bild anpassen', currentValue: null, options: [{label: 'Klein', value: '120px'}, {label: 'Mittel', value: '250px'}, {label: 'Groß', value: '100%'}, {label: '❌ Löschen', value: 'delete'}], onSelect: (val) => { if (val === 'delete') { img.remove(); } else { img.style.width = val; img.style.height = 'auto'; } isDirtyRef.current = true; checkSaveEntry(false); } });
-      }
-  };
-
   const exportEternityArchive = async () => {
       if (!window.JSZip) { showDialog({title: 'Fehler', message: 'JSZip Modul nicht geladen.'}); return; }
       showDialog({title: 'Archiv wird erstellt', message: 'Deine Gedanken werden für die Ewigkeit als reiner Text (.md) verpackt. Bitte warten...', icon: 'loader'});
@@ -1409,10 +1713,6 @@ function App() {
           const a = document.createElement('a'); a.href = url; a.download = `Legacy_Ewigkeits_Archiv_${new Date().toISOString().split('T')[0]}.zip`; a.click(); URL.revokeObjectURL(url); setDialog(null);
       } catch(err) { showDialog({title: 'Fehler', message: 'ZIP Erstellung fehlgeschlagen.'}); }
   };
-
-  const downloadFullApp = () => { const cloneDocument = document.cloneNode(true); const rootDiv = cloneDocument.getElementById('root'); if (rootDiv) rootDiv.innerHTML = ''; const existingInjected = cloneDocument.getElementById('legacy-injected-data'); if (existingInjected) existingInjected.remove(); const data = { user, entries }; const scriptEl = cloneDocument.createElement('script'); scriptEl.id = 'legacy-injected-data'; scriptEl.type = 'application/json'; scriptEl.textContent = JSON.stringify(data); cloneDocument.head.appendChild(scriptEl); const htmlContent = "<!DOCTYPE html>\n" + cloneDocument.documentElement.outerHTML; const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Legacy_${new Date().toISOString().split('T')[0]}.html`; a.click(); URL.revokeObjectURL(a.href); showDialog({ title: 'Erledigt!', message: 'App als HTML-Backup gespeichert.', icon: 'download' }); };
-
-  const importBackup = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async (e) => { try { let data = null; if (file.name.toLowerCase().endsWith('.html')) { const doc = new DOMParser().parseFromString(e.target.result, 'text/html'); const script = doc.getElementById('legacy-injected-data'); if (script && script.textContent && script.textContent !== 'null') data = JSON.parse(script.textContent); else throw new Error("Keine Daten"); } else data = JSON.parse(e.target.result); if (data && data.entries && db) { const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); let mergedCount = 0; const pinToUse = data.user ? data.user.pin : user.pin; const entriesToSave = await Promise.all(data.entries.map(async (en) => { let dbE = { ...en }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []); return dbE; })); entriesToSave.forEach(en => { if (!entries.find(ex => ex && ex.id === en.id)) { if (data.user && data.user.name !== user.name) en.inheritedFrom = data.user.name; store.put(en); mergedCount++; } }); const req = store.getAll(); req.onsuccess = async () => { let loadedEntries = req.result || []; loadedEntries = loadedEntries.filter(e => e != null); if (user.pin) loadedEntries = await Promise.all(loadedEntries.map(async (en) => { if (en.encryptedData) { const decStr = await decryptData(en.encryptedData, user.pin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...en, text: parsed.text, title: parsed.title }; } catch(err){} } } return en; })); setEntries(loadedEntries.sort(sortEntriesChronological)); showDialog({ title: 'Erfolg', message: `${mergedCount} neue Seiten importiert.`, icon: 'check' }); }; } } catch (err) { showDialog({ title: 'Fehler', message: 'Ungültige Datei.', icon: 'x' }); } }; reader.readAsText(file); };
 
   useEffect(() => {
       if (view === 'map' && mapRef.current && window.L) {
@@ -1967,456 +2267,43 @@ function App() {
           )}
         </main>
 
-        <nav className={`floating-nav transition-opacity duration-300 ${viewingEntry || showEditor || !['dashboard', 'menu'].includes(view) ? 'opacity-0 pointer-events-none hidden' : 'opacity-100'}`}>
+        <nav className={`floating-nav transition-opacity duration-300 ${showEditor || !['dashboard', 'menu'].includes(view) ? 'opacity-0 pointer-events-none hidden' : 'opacity-100'}`}>
           <div className="relative flex justify-between items-center h-[72px] px-6">
-            <button onClick={() => { setViewingEntry(null); setView('dashboard'); }} className={`p-2 transition-all rounded-full ${view === 'dashboard' && !viewingEntry ? 'text-accent scale-110' : 'text-slate-400 opacity-60 hover:opacity-100 hover:scale-105'}`} style={view === 'dashboard' && !viewingEntry ? { color: user.nameColor || '#000000' } : { color: 'inherit' }}>
+            <button onClick={() => setView('dashboard')} className={`p-2 transition-all rounded-full ${view === 'dashboard' ? 'text-accent scale-110' : 'text-slate-400 opacity-60 hover:opacity-100 hover:scale-105'}`} style={view === 'dashboard' ? { color: user.nameColor || '#000000' } : { color: 'inherit' }}>
               <Icon name="layout-grid" size={26} />
             </button>
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                <button onClick={() => { setViewingEntry(null); openEditor(); }} className="w-16 h-16 rounded-[1.5rem] text-white dark:text-black shadow-xl flex items-center justify-center hover:scale-110 active:scale-90 transition-transform border-[4px] border-white dark:border-zinc-800" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') }}>
+                <button onClick={() => openEditor()} className="w-16 h-16 rounded-[1.5rem] text-white dark:text-black shadow-xl flex items-center justify-center hover:scale-110 active:scale-90 transition-transform border-[4px] border-white dark:border-zinc-800" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') }}>
                   <Icon name="plus" size={32} />
                 </button>
             </div>
-            <button onClick={() => { setViewingEntry(null); openWithHistory(() => setView('settings')); }} className={`p-2 transition-all rounded-full ${view === 'settings' && !viewingEntry ? 'text-slate-900 dark:text-white scale-110 shadow-inner bg-slate-100 dark:bg-zinc-800' : 'text-slate-400 hover:text-slate-900 dark:hover:text-white hover:scale-105'}`}>
+            <button onClick={() => openWithHistory(() => setView('settings'))} className={`p-2 transition-all rounded-full ${view === 'settings' ? 'text-slate-900 dark:text-white scale-110 shadow-inner bg-slate-100 dark:bg-zinc-800' : 'text-slate-400 hover:text-slate-900 dark:hover:text-white hover:scale-105'}`}>
               <Icon name="settings" size={26} />
             </button>
           </div>
         </nav>
 
-        {/* --- TIMELINE / CALENDAR MODAL --- */}
-        <div className={`fixed inset-0 z-[150] bg-slate-50 dark:bg-[#0a0a0a] flex-col ${showTimeline ? 'flex' : 'hidden'}`}>
-          <header className="flex-none p-4 sm:p-6 pt-safe flex justify-between items-center">
-             <div className="flex items-center gap-3">
-                <Icon name="calendar-days" size={28} className="text-accent" />
-                <h2 className="text-2xl font-extrabold tracking-tight text-accent">Zeitreise</h2>
-             </div>
-             <button onClick={() => window.history.back()} className="p-2.5 bg-slate-200/50 dark:bg-zinc-800/50 rounded-full hover:scale-105 active:scale-95 transition-transform"><Icon name="x" size={20}/></button>
-          </header>
-
-          <div className="flex-auto overflow-y-auto custom-scrollbar pb-safe">
-             <div className="max-w-2xl mx-auto">
-                 {/* Month Nav */}
-                 <div className="flex justify-between items-center px-6 py-2 mb-4">
-                     <button onClick={() => setTimelineMonth(new Date(timelineMonth.getFullYear(), timelineMonth.getMonth() - 1, 1))} className="p-2.5 bg-slate-200/50 dark:bg-zinc-800/50 rounded-full hover:scale-105 active:scale-95 transition-transform"><Icon name="chevron-left" size={20}/></button>
-                     <h3 className="font-bold text-lg tracking-widest uppercase">{timelineMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}</h3>
-                     <button onClick={() => setTimelineMonth(new Date(timelineMonth.getFullYear(), timelineMonth.getMonth() + 1, 1))} className="p-2.5 bg-slate-200/50 dark:bg-zinc-800/50 rounded-full hover:scale-105 active:scale-95 transition-transform"><Icon name="chevron-right" size={20}/></button>
-                 </div>
-
-                 {/* Days Header */}
-                 <div className="grid grid-cols-7 gap-2 px-6 mb-3 text-center text-xs font-bold opacity-60">
-                     {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map(d => <div key={d}>{d}</div>)}
-                 </div>
-
-                 {/* Calendar Grid */}
-                 <div className="grid grid-cols-7 gap-y-4 gap-x-2 px-6 mb-8">
-                     {getCalendarDays(timelineMonth).map((day, i) => {
-                         if (!day) return <div key={`empty-${i}`} className="w-10 h-10 sm:w-14 sm:h-14 mx-auto"></div>;
-                         
-                         const dayEntries = entriesByDate[day.dateStr] || [];
-                         const hasEntries = dayEntries.length > 0;
-                         const isSelected = timelineSelectedDate === day.dateStr;
-                         
-                         let coverUrl = null;
-                         
-                         const today = new Date();
-                         today.setHours(23, 59, 59, 999);
-                         const isFuture = day.date > today;
-                         
-                         if (!isFuture) {
-                             const entryWithCoverThisDay = dayEntries.find(e => getCoverImage(e));
-                             if (entryWithCoverThisDay) {
-                                 coverUrl = getCoverImage(entryWithCoverThisDay);
-                             } else {
-                                 const targetTimeEnd = safeParseDate(`${day.dateStr}T23:59:59Z`).getTime();
-                                 const pastEntryWithCover = allEntriesSortedDesc.find(e => safeParseDate(e.date).getTime() <= targetTimeEnd && getCoverImage(e));
-                                 if (pastEntryWithCover) {
-                                     coverUrl = getCoverImage(pastEntryWithCover);
-                                 }
-                             }
-                         }
-
-                         return (
-                             <button
-                                 key={day.dateStr}
-                                 onClick={() => setTimelineSelectedDate(day.dateStr)}
-                                 className={`relative w-12 h-12 sm:w-16 sm:h-16 mx-auto rounded-full flex items-center justify-center font-bold text-base sm:text-lg transition-transform hover:scale-110 active:scale-95 overflow-hidden shadow-sm
-                                 ${isSelected ? 'ring-2 ring-accent ring-offset-2 ring-offset-slate-50 dark:ring-offset-[#0a0a0a]' : ''}
-                                 ${!hasEntries && !coverUrl ? 'bg-slate-200 dark:bg-zinc-800 text-slate-500' : ''}`}
-                             >
-                                 {coverUrl ? (
-                                     <img src={coverUrl} className="absolute inset-0 w-full h-full object-cover" />
-                                 ) : (
-                                     <>
-                                        <span className="relative z-10">{day.day}</span>
-                                        {hasEntries && <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-accent rounded-full"></div>}
-                                     </>
-                                 )}
-                             </button>
-                         )
-                     })}
-                 </div>
-
-                 {/* Filter Clear */}
-                 <div className="flex justify-center mb-8 h-10">
-                     {timelineSelectedDate && (
-                         <button onClick={() => setTimelineSelectedDate(null)} className="px-5 py-2.5 bg-slate-200/50 dark:bg-zinc-800/50 rounded-full font-bold text-[10px] tracking-widest uppercase hover:bg-slate-300/50 dark:hover:bg-zinc-700/50 transition-colors">Filter Aufheben</button>
-                     )}
-                 </div>
-
-                 {/* Entries List */}
-                 {timelineSelectedDate && (
-                     <div className="px-6 space-y-3 pb-12 animate-fade-in">
-                         {(entriesByDate[timelineSelectedDate] || []).map((e, index) => (
-                             <TimelineSwipeableEntry 
-                                 key={e.id}
-                                 entry={e}
-                                 allEntries={entries}
-                                 onClick={() => { setShowTimeline(false); handleOpenEntry(e, true); }}
-                                 onArchivePrompt={promptArchiveTimeline}
-                                 onTrashPrompt={promptTrashTimeline}
-                             />
-                         ))}
-                         <button onClick={() => { setShowTimeline(false); openEditor(null, null, timelineSelectedDate); }} className="w-full flex items-center justify-center gap-2 p-4 mt-6 bg-white dark:bg-zinc-900/60 rounded-2xl cursor-pointer hover:scale-[1.02] transition-transform font-bold text-sm text-accent border border-slate-100 dark:border-zinc-800/50 shadow-sm">
-                             <Icon name="plus" size={18} /> Neuer Eintrag für diesen Tag
-                         </button>
-                     </div>
-                 )}
-             </div>
-          </div>
-        </div>
-
-        {/* --- LESE-FENSTER (VIEWER) --- */}
-        {viewingEntry && (
-           <div className={`fixed inset-0 z-[80] overflow-y-auto bg-white dark:bg-black custom-scrollbar flex-col screen-only ${showEditor ? 'hidden' : 'flex'}`} onTouchStart={handleTouchStartViewer} onTouchEnd={handleTouchEndViewer}>
-             
-             {(() => {
-                 const bookRoot = getBookRoot(viewingEntry.id);
-                 const unsortedEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
-                 const allBookEntries = [...unsortedEntries].sort(sortEntriesAscending);
-                 const cIdx = allBookEntries.findIndex(ex => ex && ex.id === viewingEntry.id);
-                 const prevPage = cIdx > 0 ? allBookEntries[cIdx - 1] : null;
-                 const nextPage = cIdx < allBookEntries.length - 1 ? allBookEntries[cIdx + 1] : null;
-                 
-                 return (
-                     <>
-                         {prevPage && <button onClick={() => { setViewingEntry(prevPage); setCurrentViewerImgIdx(0); }} className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 p-4 bg-white/50 dark:bg-black/50 backdrop-blur-md shadow-sm rounded-full hover:scale-110 active:scale-95 transition-transform z-50 text-slate-800 dark:text-white"><Icon name="chevron-left" size={24}/></button>}
-                         {nextPage && <button onClick={() => { setViewingEntry(nextPage); setCurrentViewerImgIdx(0); }} className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 p-4 bg-white/50 dark:bg-black/50 backdrop-blur-md shadow-sm rounded-full hover:scale-110 active:scale-95 transition-transform z-50 text-slate-800 dark:text-white"><Icon name="chevron-right" size={24}/></button>}
-
-                         <div className="sticky top-0 z-40 flex justify-between items-center py-4 px-6 md:px-10 bg-white/90 dark:bg-black/90 backdrop-blur-xl border-b border-slate-100 dark:border-zinc-900 shrink-0 no-print transition-colors">
-                           <div className="flex gap-3">
-                             <button onClick={() => window.history.back()} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
-                           </div>
-                           <div className="flex gap-2 sm:gap-3 items-center">
-                             <button onClick={() => window.print()} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500"><Icon name="printer" size={22}/></button>
-                             <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
-                             
-                             <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform cursor-pointer flex items-center justify-center text-slate-500" title="Hauptcover ändern">
-                                 <Icon name="image" size={22}/>
-                                 <input type="file" accept="image/*" onChange={(e) => handleMainCoverUpload(e, viewingEntry)} className="hidden" />
-                             </label>
-
-                             <button onClick={() => { openEditor(viewingEntry); }} className="px-4 sm:px-6 py-3 rounded-2xl font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
-                           </div>
-                         </div>
-
-                         <div className="max-w-3xl w-full mx-auto p-6 sm:p-12 pb-32 screen-only flex-1 flex flex-col">
-                            {viewingEntry.images && viewingEntry.images.length > 0 && (
-                              <div className="relative w-full rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-10 group bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
-                                  <img src={viewingEntry.images[currentViewerImgIdx]} className="w-full h-auto block transition-transform duration-700" alt="Cover" />
-                                  
-                                  <label className="absolute top-4 right-4 w-12 h-12 bg-black/60 text-white rounded-full flex items-center justify-center shadow-xl cursor-pointer z-[60] hover:bg-black/80 transition-colors border-2 border-white/20" title="Dieses Bild ändern">
-                                      <Icon name="image" size={20}/>
-                                      <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id, currentViewerImgIdx)} className="hidden" />
-                                  </label>
-
-                                  {viewingEntry.images.length > 1 && (
-                                      <>
-                                          <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p - 1 + viewingEntry.images.length) % viewingEntry.images.length); }} className="absolute left-6 top-1/2 -translate-y-1/2 bg-black/50 text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print backdrop-blur-md hover:bg-black/70"><Icon name="chevron-left" size={24}/></button>
-                                          <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p + 1) % viewingEntry.images.length); }} className="absolute right-6 top-1/2 -translate-y-1/2 bg-black/50 text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print backdrop-blur-md hover:bg-black/70"><Icon name="chevron-right" size={24}/></button>
-                                          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 bg-black/40 px-4 py-2 rounded-full backdrop-blur-md no-print">
-                                              {viewingEntry.images.map((_, i) => <div key={i} className={`w-2.5 h-2.5 rounded-full transition-colors shadow-sm ${i === currentViewerImgIdx ? 'bg-white' : 'bg-white/40'}`} />)}
-                                          </div>
-                                      </>
-                                  )}
-                              </div>
-                            )}
-
-                            {(!viewingEntry.images || viewingEntry.images.length === 0) && (
-                                <label className="mb-8 w-fit px-6 py-3 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 font-bold text-sm cursor-pointer hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors flex items-center gap-2 border border-slate-200 dark:border-zinc-700 shadow-sm" title="Cover hinzufügen">
-                                    <Icon name="image" size={18}/> Cover hinzufügen
-                                    <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id, 0)} className="hidden" />
-                                </label>
-                            )}
-
-                            <h1 className="text-4xl sm:text-6xl font-extrabold mb-8 tracking-tighter leading-[1.1] text-slate-900 dark:text-white">{viewingEntry.title || 'Ohne Titel'}</h1>
-                            <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
-                              <span>{safeParseDate(viewingEntry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
-                            </div>
-                            
-                            <div className="flex flex-wrap gap-2 mb-12 no-print">
-                                {viewingEntry.tags && viewingEntry.tags.split(',').map(t => t.trim()).filter(t=>t).map((t, i) => (
-                                    <span key={i} className="px-4 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="tag" size={14}/> {t}</span>
-                                ))}
-                                {viewingEntry.people && viewingEntry.people.split(',').map(p => p.trim()).filter(p=>p).map((p, i) => (
-                                    <span key={i} className="px-4 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="user" size={14}/> {p}</span>
-                                ))}
-                                {viewingEntry.weather && (
-                                    <span className="px-4 py-1.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-xl text-xs font-bold flex items-center gap-1.5 w-full sm:w-auto"><Icon name="sun" size={14}/> {viewingEntry.weather}</span>
-                                )}
-                                {viewingEntry.locations && viewingEntry.locations.length > 0 ? viewingEntry.locations.map((loc, i) => (
-                                    <span key={`loc-view-${i}`} className="px-4 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="map-pin" size={14}/> {loc.name} • {loc.time} {loc.weather ? `• ${loc.weather}` : ''}</span>
-                                )) : (viewingEntry.location && (
-                                    <span className="px-4 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="map-pin" size={14}/> {viewingEntry.location.name ? `${viewingEntry.location.name} (${viewingEntry.location.time})` : 'GPS-Siegel'}</span>
-                                ))}
-                                {viewingEntry.rating > 0 && (
-                                    <div className="flex items-center gap-1 ml-auto bg-amber-50 dark:bg-amber-900/30 px-4 py-1.5 rounded-xl">
-                                        {[1,2,3,4,5].map(star => <Icon key={star} name="star" size={16} className={viewingEntry.rating >= star ? 'text-amber-500 fill-amber-500' : 'text-amber-200 dark:text-amber-900'} />)}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="text-[1.05rem] leading-[1.8] font-medium legacy-content text-slate-800 dark:text-slate-200 opacity-90" dangerouslySetInnerHTML={createSafeHtml(viewingEntry.text)} />
-                            {viewingEntry.audio && <div className="mt-12 p-6 rounded-[2rem] bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm no-print"><span className="text-xs font-bold uppercase tracking-widest opacity-50 mb-4 block">Audio-Log</span><audio src={viewingEntry.audio} controls className="w-full" /></div>}
-                            
-                            <div className="mt-20 pt-10 border-t border-slate-100 dark:border-zinc-800 flex justify-center no-print">
-                                <button onClick={() => startNewChapter(viewingEntry)} className="px-8 py-4 font-bold rounded-full flex items-center gap-3 hover:scale-105 active:scale-95 transition-transform shadow-lg text-lg" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}><Icon name="plus" size={24}/> Neues Kapitel anfügen</button>
-                            </div>
-
-                            {allBookEntries.length > 1 && (
-                                <div className="flex justify-between items-center mt-16 pt-8 border-t border-slate-100 dark:border-zinc-800 no-print pb-24">
-                                    {prevPage ? (
-                                        <button onClick={() => { setViewingEntry(prevPage); setCurrentViewerImgIdx(0); }} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100 transition-colors" style={{ color: user.nameColor }}><Icon name="arrow-left" size={18}/> Vorherige Seite</button>
-                                    ) : <div/>}
-                                    <span className="text-xs font-bold opacity-30 uppercase tracking-widest">Seite {cIdx + 1} von {allBookEntries.length}</span>
-                                    {nextPage ? (
-                                        <button onClick={() => { setViewingEntry(nextPage); setCurrentViewerImgIdx(0); }} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100 transition-colors" style={{ color: user.nameColor }}>Nächste Seite <Icon name="arrow-right" size={18}/></button>
-                                    ) : <div/>}
-                                </div>
-                            )}
-                         </div>
-                     </>
-                 );
-             })()}
-           </div>
+        {showEditor && (
+            <LegacyEditor 
+                config={editorConfig} 
+                onSave={saveToDB} 
+                onClose={() => setShowEditor(false)} 
+                user={user} 
+                showDialog={showDialog} 
+            />
         )}
 
-        {/* --- PRINT VIEW ONLY --- */}
-        {viewingEntry && !showEditor && (() => {
-          const bookRoot = getBookRoot(viewingEntry.id);
-          const chronologicalBookEntries = [...getAllBookEntries(bookRoot?.id || viewingEntry.id)].sort((a, b) => safeParseDate(a.date).getTime() - safeParseDate(b.date).getTime());
-          
-          return (
-          <div className="print-only w-full max-w-4xl mx-auto p-8">
-            <div className="print-title-page page-break-after">
-               <h1 style={{fontSize: '56px', marginBottom: '20px', fontFamily: 'Inter, sans-serif'}}>{user.appName || 'Legacy Vision Journal'}</h1>
-               <h3 style={{fontSize: '24px', opacity: 0.6}}>Verfasst von {user.name}</h3>
-               {user.motto && <p style={{marginTop: '40px', fontStyle: 'italic'}}>{user.motto}</p>}
-               <p style={{position: 'absolute', bottom: '40px', left: '0', right: '0', textAlign: 'center'}}>Generiert am {new Date().toLocaleDateString('de-DE')}</p>
-            </div>
-            
-            <div className="print-toc page-break-after">
-               <h2 style={{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px', fontFamily: 'Inter, sans-serif'}}>Inhaltsverzeichnis</h2>
-               <ul style={{listStyle: 'none', padding: 0}}>
-                   {chronologicalBookEntries.map((e, idx) => (
-                       <li key={idx} style={{marginBottom: '15px', fontSize: '18px'}}><strong>{idx+1}.</strong> {e.title || 'Ohne Titel'}</li>
-                   ))}
-               </ul>
-            </div>
-
-            <div className="print-book-content">
-               {chronologicalBookEntries.map((e, idx) => (
-                   <div key={e.id} className="page-break-after" style={{ marginBottom: '60px', paddingTop: '20px' }}>
-                       <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
-                           <h1 style={{ fontSize: '36px', fontWeight: 'bold', marginBottom: '10px', fontFamily: 'Inter, sans-serif' }}>{e.title || 'Ohne Titel'}</h1>
-                           <p style={{ opacity: 0.6, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '12px' }}>
-                               {safeParseDate(e.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category || 'Allgemein'}
-                           </p>
-                           <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', flexWrap: 'wrap', marginTop: '15px', fontSize: '12px' }}>
-                               {e.tags && <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>Tags: {e.tags}</span>}
-                               {e.people && <span style={{ color: '#6366f1', fontWeight: 'bold' }}>Personen: {e.people}</span>}
-                               {e.locations && e.locations.map((loc, i) => (
-                                   <span key={i} style={{ color: '#059669', fontWeight: 'bold' }}>Ort: {loc.name} • {loc.time} {loc.weather ? `• ${loc.weather}` : ''}</span>
-                               ))}
-                           </div>
-                       </div>
-                       {e.images && e.images.length > 0 && <img src={e.images[0]} style={{ width: '100%', maxHeight: '500px', objectFit: 'contain', marginBottom: '30px', borderRadius: '16px' }} alt="Cover" />}
-                       <div className="text-[1.05rem] leading-[1.8] font-medium legacy-content text-slate-800 dark:text-slate-200" dangerouslySetInnerHTML={createSafeHtml(e.text)}></div>
-                   </div>
-               ))}
-            </div>
-          </div>
-          );
-        })()}
-
-        {/* --- EDITOR MODAL --- */}
-        <div className={`fixed inset-0 z-[200] flex-col overflow-hidden bg-white dark:bg-black ${showEditor ? 'flex' : 'hidden'}`}>
-            
-            <header className="flex-none flex justify-between items-center p-4 sm:p-6 shrink-0 z-50 pt-safe bg-white/95 dark:bg-black/95 border-b border-slate-100 dark:border-zinc-900">
-                <button onClick={() => window.history.back()} className="p-3 bg-slate-100 dark:bg-zinc-900 rounded-2xl text-slate-900 dark:text-white hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
-                <div className="flex items-center gap-4">
-                    <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">{autoSaveStatus}</span>
-                    <button onClick={()=>checkSaveEntry(false)} className="px-6 py-3 bg-accent text-white rounded-2xl font-bold text-sm shadow-xl shadow-accent/20 hover:scale-105 active:scale-95 transition-transform" style={{ backgroundColor: user.nameColor || '#000000', color: isDarkColor(user.nameColor || '#000000') ? '#ffffff' : '#000000' }}>Sichern</button>
-                </div>
-            </header>
-
-            <div className="flex-none px-4 sm:px-8 pt-6 pb-2 shrink-0 bg-white dark:bg-black z-40 border-b-[3px] border-slate-200 dark:border-zinc-800 focus-within:border-accent transition-colors">
-              <input type="text" placeholder="Titel der Vision..." value={title} onChange={e=>{setTitle(e.target.value); isDirtyRef.current=true;}} className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold tracking-tighter outline-none pb-3 placeholder-slate-300 dark:placeholder-zinc-700 text-slate-900 dark:text-white" />
-            </div>
-
-            <div className="flex-none flex items-center gap-2 p-2 px-4 overflow-x-auto hide-scrollbar border-b border-slate-100 dark:border-zinc-900 bg-slate-50 dark:bg-zinc-950 shrink-0 shadow-sm z-40">
-                <EdBtn cmd="formatBlock" arg="H1" txt="H1" isDirtyRef={isDirtyRef} />
-                <EdBtn cmd="formatBlock" arg="H2" txt="H2" isDirtyRef={isDirtyRef} />
-                <EdBtn cmd="formatBlock" arg="P" txt="T" isDirtyRef={isDirtyRef} />
-                <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
-                <EdBtn cmd="bold" icon="bold" isDirtyRef={isDirtyRef} />
-                <EdBtn cmd="italic" icon="italic" isDirtyRef={isDirtyRef} />
-                <EdBtn cmd="formatBlock" arg="blockquote" icon="quote" isDirtyRef={isDirtyRef} />
-                <EdBtn cmd="insertOrderedList" icon="list-ordered" isDirtyRef={isDirtyRef} />
-                <EdBtn cmd="insertUnorderedList" icon="list" isDirtyRef={isDirtyRef} />
-                <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
-                <label className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm cursor-pointer flex items-center justify-center relative overflow-hidden shrink-0 border border-slate-100 dark:border-zinc-800" title="Cover Bild hochladen"><Icon name="image" size={18} /><input type="file" accept="image/*" multiple onChange={e=>handleFileUpload(e,'image')} className="absolute opacity-0 w-[200%] h-[200%] top-0 left-0 cursor-pointer" /></label>
-                <button onClick={() => setIsDrawing(true)} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800"><Icon name="pen-tool" size={18} /></button>
-                <button onClick={isRecording ? stopRecording : startRecording} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800 ${isRecording ? 'bg-rose-500 text-white animate-pulse' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:text-accent'}`}>{isRecording ? <Icon name="square" size={18}/> : <Icon name="mic" size={18}/>}</button>
-                <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
-                <button onClick={()=>{setIsManifested(!isManifested); isDirtyRef.current=true;}} className={`p-2.5 rounded-xl transition-colors shadow-sm shrink-0 border ${isManifested ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-500 border-amber-200 dark:border-amber-900/50' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:text-amber-500 border-slate-100 dark:border-zinc-800'}`}><Icon name="sparkles" size={18}/></button>
-                <div className="w-px bg-slate-200 dark:bg-zinc-800 h-6 mx-1 shrink-0"></div>
-                {EDITOR_COLORS.map(c => <button key={c} onMouseDown={e=>{e.preventDefault(); document.execCommand('foreColor', false, c); isDirtyRef.current=true;}} className="w-8 h-8 rounded-full border-2 shadow-sm shrink-0 transition-transform hover:scale-110 active:scale-95" style={{backgroundColor: c, borderColor: isDarkColor(c) ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}}></button> )}
-            </div>
-            
-            <div className="flex-auto overflow-y-auto relative bg-white dark:bg-black custom-scrollbar">
-              <div className="p-4 md:p-8 max-w-3xl mx-auto w-full flex flex-col">
-                  {selectedImages.length > 0 && (
-                      <div className="mb-8 w-full flex flex-col items-center">
-                          <div className="relative w-full rounded-[2rem] overflow-hidden shadow-sm group border border-slate-200 dark:border-zinc-800 shrink-0 bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
-                              <img src={selectedImages[0]} className="w-full h-auto block" />
-                              <button onClick={()=>{setSelectedImages(prev=>prev.slice(1)); isDirtyRef.current=true;}} className="absolute top-4 right-4 p-3 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"><Icon name="x" size={16}/></button>
-                          </div>
-                          {selectedImages.length > 1 && (
-                              <div className="flex gap-3 mt-4 overflow-x-auto hide-scrollbar snap-x w-full max-w-full">
-                                  {selectedImages.slice(1).map((img, i) => (
-                                      <div key={i+1} className="relative w-24 h-24 rounded-2xl overflow-hidden shadow-sm shrink-0 snap-start group border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800">
-                                          <img src={img} className="w-full h-full object-contain" />
-                                          <button onClick={()=>{setSelectedImages(prev=>prev.filter((_,idx)=>idx!==i+1)); isDirtyRef.current=true;}} className="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"><Icon name="x" size={10}/></button>
-                                      </div>
-                                  ))}
-                              </div>
-                          )}
-                      </div>
-                  )}
-
-                  {pillarGuidance && (
-                      <div className="p-4 rounded-3xl bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-900/30 text-amber-700 dark:text-amber-400 font-medium text-sm mb-6 flex gap-4 leading-relaxed">
-                          <Icon name="book-open" size={24} className="shrink-0 mt-0.5 opacity-80" /> {pillarGuidance}
-                      </div>
-                  )}
-
-                  {audioUrl && (
-                      <div className="mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 relative w-full">
-                         <span className="text-[10px] font-bold uppercase tracking-widest opacity-50 mb-3 block">Audio-Log</span>
-                         <audio src={audioUrl} controls className="w-full" />
-                         <button onClick={()=>{setAudioUrl(null); isDirtyRef.current=true;}} className="absolute top-4 right-4 p-2 bg-slate-200 dark:bg-zinc-800 rounded-full text-slate-500 hover:text-rose-500"><Icon name="x" size={14}/></button>
-                      </div>
-                  )}
-
-                  <div 
-                      key={editingId || 'new_entry'}
-                      ref={editorRef} 
-                      contentEditable 
-                      onClick={handleEditorClick}
-                      onPaste={handleEditorPaste}
-                      onInput={handleEditorInput} 
-                      className="outline-none text-[1.05rem] leading-[1.8] font-medium legacy-editor-content text-slate-800 dark:text-slate-200 pb-8 min-h-full w-full" 
-                      data-placeholder="Was wirst du hinterlassen? Du kannst auch Sticker per Tastatur einfügen..." 
-                      dangerouslySetInnerHTML={{__html: text}} 
-                  />
-              </div>
-            </div>
-
-            <div className="flex-none p-3 border-t border-slate-100 dark:border-zinc-900 bg-white/95 dark:bg-black/95 backdrop-blur-xl shrink-0 flex items-center gap-3 overflow-x-auto hide-scrollbar z-50 pb-safe shadow-[0_-4px_6px_rgba(0,0,0,0.02)]">
-               <button onClick={()=>setPicker({title:'Kategorie', currentValue: category, options: CATEGORIES.map(c=>({label:c, value:c})), onSelect: (v)=>{setCategory(v); isDirtyRef.current=true;}})} className="h-10 px-4 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs font-bold flex items-center gap-2 shrink-0">{category} <Icon name="chevron-down" size={12}/></button>
-               <div className="h-10 flex items-center gap-1 bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0">
-                  {[1,2,3,4,5].map(star => <Icon key={star} name="star" size={14} className={`cursor-pointer transition-colors ${rating >= star ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-zinc-700'}`} onClick={() => {setRating(rating === star ? 0 : star); isDirtyRef.current=true;}} />)}
-               </div>
-               <div className="h-10 flex items-center bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
-                   <Icon name="tag" size={12} className="text-slate-400 mr-2 shrink-0" />
-                   <input type="text" placeholder="Tags (Komma...)" value={tags} onChange={e=>{setTags(e.target.value); isDirtyRef.current=true;}} className="bg-transparent border-none outline-none text-xs font-bold placeholder:opacity-50 w-full text-slate-900 dark:text-white" />
-               </div>
-               <div className="h-10 flex items-center bg-slate-50 dark:bg-zinc-900 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0 min-w-[120px]">
-                   <Icon name="user" size={12} className="text-slate-400 mr-2 shrink-0" />
-                   <input type="text" placeholder="Personen..." value={people} onChange={e=>{setPeople(e.target.value); isDirtyRef.current=true;}} className="bg-transparent border-none outline-none text-xs font-bold placeholder:opacity-50 w-full text-slate-900 dark:text-white" />
-               </div>
-               <div className={`h-10 relative px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 cursor-pointer overflow-hidden ${unlockDate ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400' : 'bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'}`}>
-                  <Icon name="calendar-clock" size={14}/> {unlockDate ? new Date(unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Zeitsiegel'}
-                  <input type="date" value={unlockDate} onChange={e=>{setUnlockDate(e.target.value); isDirtyRef.current=true;}} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
-               </div>
-               {locations.map((loc, idx) => (
-                   <div key={idx} className="h-10 px-4 rounded-xl border border-emerald-300 dark:border-emerald-700/50 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 text-xs font-bold flex items-center gap-2 shrink-0">
-                       <Icon name="map-pin" size={14}/> {loc.name} • {loc.time} {loc.weather ? `• ${loc.weather}` : ''}
-                       <button onClick={(e) => { e.stopPropagation(); setLocations(prev => prev.filter((_, i) => i !== idx)); isDirtyRef.current=true; }} className="ml-1 opacity-60 hover:opacity-100 hover:text-rose-500 transition-colors"><Icon name="x" size={14}/></button>
-                   </div>
-               ))}
-               <button onClick={async ()=>{
-                   if(!("geolocation" in navigator)){showDialog({title:'Fehler', message:'Ortung nicht unterstützt.'}); return;}
-                   navigator.geolocation.getCurrentPosition(async (p) => { 
-                       const lat = p.coords.latitude; const lng = p.coords.longitude; let locName = "GPS Standort"; let formattedTime = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + " Uhr"; let wStr = "";
-                       try { const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`); const geoData = await geoRes.json(); if(geoData && geoData.address) { locName = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.road || "Unbekannter Ort"; } } catch(e) {}
-                       try { const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`); const data = await res.json(); const temp = Math.round(data.current_weather.temperature); const wcode = data.current_weather.weathercode; wStr = `${temp}°C`; if (wcode === 0) wStr += ' ☀️'; else if (wcode <= 3) wStr += ' ⛅'; else if (wcode <= 48) wStr += ' ☁️'; else if (wcode <= 67) wStr += ' 🌧️'; else if (wcode <= 79) wStr += ' 🌨️'; else if (wcode <= 99) wStr += ' ⛈️'; } catch(e) {}
-                       const newLoc = {lat, lng, name: locName, time: formattedTime, weather: wStr}; setLocations(prev => [...prev, newLoc]); isDirtyRef.current=true; 
-                       showDialog({title:'GPS erfasst', message:`Ort (${locName}) und Wetter wurden um ${formattedTime} gesichert.`, icon:'map-pin'}); 
-                   }, ()=>showDialog({title:'Fehler', message:'Ortung fehlgeschlagen.'}));
-               }} className={`h-10 px-4 rounded-xl border text-xs font-bold flex items-center gap-2 shrink-0 bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors`}><Icon name="plus" size={14}/> GPS hinzufügen</button>
-            </div>
-        </div>
-
-        {isDrawing && (
-          <div className="fixed inset-0 z-[300] bg-slate-900 flex flex-col no-print">
-            <header className="flex justify-between items-center p-4 bg-slate-950 text-white pt-safe border-b border-white/10">
-              <button onClick={() => setIsDrawing(false)} className="p-3 bg-white/10 rounded-2xl hover:bg-white/20 transition-colors"><Icon name="x"/></button>
-              <span className="font-bold">Zeichnen</span>
-              <button onClick={() => {
-                  if(canvasRef.current) {
-                      const base64 = canvasRef.current.toDataURL();
-                      if (editorRef.current) {
-                          editorRef.current.focus();
-                          document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false"><img src="${base64}" /><span class="delete-img-btn">X</span></span>&nbsp;`);
-                          isDirtyRef.current = true;
-                          checkSaveEntry(false);
-                      }
-                      setIsDrawing(false);
-                  }
-              }} className="px-6 py-2 bg-accent text-black font-bold rounded-2xl">Fertig</button>
-            </header>
-            <div className="flex-1 bg-white relative touch-none">
-              <canvas ref={canvasRef} className="absolute inset-0 w-full h-full cursor-crosshair touch-none" onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing} onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} />
-            </div>
-            <div className="p-4 pb-safe bg-slate-950 flex justify-center border-t border-white/10">
-              <button onClick={() => {
-                  if(canvasRef.current){
-                      const ctx = canvasRef.current.getContext('2d');
-                      ctx.fillStyle = user.isDark ? '#18181b' : '#ffffff';
-                      ctx.fillRect(0,0,canvasRef.current.width, canvasRef.current.height);
-                  }
-              }} className="p-4 bg-white/10 rounded-2xl text-white hover:bg-white/20"><Icon name="eraser"/></button>
-            </div>
-          </div>
-        )}
-
-        {picker && (
-          <div className="fixed inset-0 z-[250] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-xl animate-fade-in no-print" onClick={() => setPicker(null)}>
-            <div className="w-full max-w-sm rounded-[2.5rem] shadow-2xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 animate-slide-up flex flex-col overflow-hidden max-h-[70vh]" onClick={e => e.stopPropagation()}>
-              <div className="p-6 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
-                 <h3 className="font-extrabold text-xl tracking-tight">{picker.title}</h3>
-                 <button onClick={()=>setPicker(null)} className="p-2 rounded-full bg-slate-100 dark:bg-zinc-800"><Icon name="x" size={20}/></button>
-              </div>
-              <div className="overflow-y-auto custom-scrollbar p-3 space-y-1">
-                 {picker.options.map(opt => (
-                    <button key={opt.value} onClick={()=>{picker.onSelect(opt.value); setPicker(null);}} className={`w-full text-left p-5 rounded-[1.5rem] font-bold text-sm flex justify-between items-center transition-all ${picker.currentValue===opt.value ? 'text-white dark:text-black shadow-md scale-[1.02]' : 'hover:bg-slate-50 dark:hover:bg-zinc-800'}`} style={picker.currentValue === opt.value ? { backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') } : {}}>
-                       {opt.label} {picker.currentValue===opt.value && <Icon name="check" size={18}/>}
-                    </button>
-                 ))}
-              </div>
-            </div>
-          </div>
+        {viewingEntry && !showEditor && (
+            <LegacyViewer 
+                entry={viewingEntry} 
+                allEntries={entries} 
+                onClose={() => setViewingEntry(null)} 
+                onEdit={openEditor} 
+                onStartChapter={startNewChapter}
+                user={user} 
+                showDialog={showDialog} 
+                saveToDB={saveToDB} 
+            />
         )}
 
         {dialog && (
