@@ -130,11 +130,28 @@ const safeParseDate = (dInput) => {
     return isNaN(time) ? new Date(0) : new Date(time);
 };
 
-// SORTIERUNG: Erlaubt absolut freies Verschieben!
+// KORRIGIERTE SORTIERUNG: Erst nach Tag (Datum), dann nach Order-Timestamp für die Reihenfolge innerhalb des Tages
 const sortEntriesChronological = (a, b) => {
+    const timeA = safeParseDate(a.date).getTime() || 0;
+    const timeB = safeParseDate(b.date).getTime() || 0;
+    
+    const dateA = new Date(timeA);
+    const dateB = new Date(timeB);
+    
+    const dayA = new Date(dateA.getFullYear(), dateA.getMonth(), dateA.getDate()).getTime() || 0;
+    const dayB = new Date(dateB.getFullYear(), dateB.getMonth(), dateB.getDate()).getTime() || 0;
+    
+    if (dayA !== dayB) {
+        return dayB - dayA; 
+    }
+    
     const orderA = safeParseDate(a.orderTimestamp || a.date).getTime() || 0;
     const orderB = safeParseDate(b.orderTimestamp || b.date).getTime() || 0;
-    return orderB - orderA;
+    
+    if (orderA !== orderB) {
+        return orderB - orderA;
+    }
+    return timeB - timeA;
 };
 
 const getLocalISO = () => new Date().toISOString();
@@ -277,7 +294,7 @@ const ColorBtn = ({color, isBg, user, setUser}) => (
    }} className={`w-10 h-10 rounded-full border-2 transition-transform ${ (isBg ? user.appBgColor : user.textColor) === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
 );
 
-const TimelineSwipeableEntry = ({ entry, onClick, onMoveUp, onMoveDown, onArchivePrompt, onTrashPrompt }) => {
+const TimelineSwipeableEntry = ({ entry, onClick, onArchivePrompt, onTrashPrompt }) => {
     const [offsetX, setOffsetX] = useState(0);
     const startX = useRef(null);
     const dragged = useRef(false);
@@ -310,10 +327,6 @@ const TimelineSwipeableEntry = ({ entry, onClick, onMoveUp, onMoveDown, onArchiv
                         <p className="text-[10px] opacity-60 font-bold tracking-widest uppercase">{safeParseDate(entry.orderTimestamp || entry.date).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})} UHR</p>
                     </div>
                 </button>
-                <div className="flex gap-1 shrink-0 z-20 ml-2 pl-2 border-l border-slate-100 dark:border-zinc-800/50">
-                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveUp(e); }} className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-up" size={20}/></button>
-                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveDown(e); }} className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-down" size={20}/></button>
-                </div>
             </div>
         </div>
     );
@@ -889,6 +902,9 @@ function App() {
 
   const showDialog = (options) => { setDialog({ type: 'alert', confirmLabel: 'Okay', ...options }); };
 
+  const promptArchiveTimeline = (e) => { showDialog({ title: 'Ins Archiv?', message: `Möchtest du diesen Eintrag ins Archiv verschieben?`, icon: 'archive', confirmLabel: 'Archivieren', onConfirm: () => { saveToDB({...e, archived: true}); }, onCancel: () => {} }); };
+  const promptTrashTimeline = (e) => { showDialog({ title: 'Löschen?', message: `Möchtest du diesen Eintrag in den Papierkorb werfen?`, icon: 'trash-2', iconColor: 'text-rose-500', confirmLabel: 'Löschen', onConfirm: () => { saveToDB({...e, trashed: true}); }, onCancel: () => {} }); };
+
   const handleOpenEntry = async (entry, forceExact = false) => {
       if (!entry) return;
       if (entry.unlockDate) {
@@ -925,17 +941,22 @@ function App() {
       const next = list[newIndex + 1];
       
       let newTime;
+      let targetDate = draggedItem.date;
+      
       if (prev && next) {
           newTime = (new Date(prev.orderTimestamp || prev.date).getTime() + new Date(next.orderTimestamp || next.date).getTime()) / 2;
+          targetDate = prev.date; // Date vom neuen Nachbarn übernehmen
       } else if (prev) {
           newTime = new Date(prev.orderTimestamp || prev.date).getTime() - 1000;
+          targetDate = prev.date;
       } else if (next) {
           newTime = new Date(next.orderTimestamp || next.date).getTime() + 1000;
+          targetDate = next.date;
       } else {
           newTime = Date.now();
       }
       
-      saveToDB({...draggedItem, orderTimestamp: new Date(newTime).toISOString()});
+      saveToDB({...draggedItem, date: targetDate, orderTimestamp: new Date(newTime).toISOString()});
   };
 
   const visibleEntries = useMemo(() => {
@@ -1088,7 +1109,8 @@ function App() {
       const deltaX = touchStartX.current - touchEndX;
       const deltaY = touchStartY.current - touchEndY;
       
-      if (Math.abs(deltaX) > 60 && Math.abs(deltaX) > Math.abs(deltaY)) {
+      // Nur Swipen, wenn es stark horizontal und kaum vertikal war
+      if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY)) {
           const bookRoot = getBookRoot(viewingEntryRef.current.id);
           const unsortedEntries = getAllBookEntries(bookRoot?.id || viewingEntryRef.current.id);
           const chronologicalBookEntries = [...unsortedEntries].sort(sortEntriesChronological);
@@ -1105,8 +1127,8 @@ function App() {
               if (cIdx < sorted.length - 1) swipeNext = sorted[cIdx + 1]; 
           }
           
-          if (deltaX > 60 && swipeNext) { setViewingEntry(swipeNext); setCurrentViewerImgIdx(0); }
-          else if (deltaX < -60 && swipePrev) { setViewingEntry(swipePrev); setCurrentViewerImgIdx(0); }
+          if (deltaX > 40 && swipeNext) { setViewingEntry(swipeNext); setCurrentViewerImgIdx(0); }
+          else if (deltaX < -40 && swipePrev) { setViewingEntry(swipePrev); setCurrentViewerImgIdx(0); }
       }
       
       touchStartX.current = null; touchStartY.current = null;
@@ -1976,8 +1998,6 @@ function App() {
                                  key={e.id}
                                  entry={e}
                                  onClick={() => handleOpenEntry(e, true)}
-                                 onMoveUp={(evt) => moveEntryUp(evt, e)}
-                                 onMoveDown={(evt) => moveEntryDown(evt, e)}
                                  onArchivePrompt={promptArchiveTimeline}
                                  onTrashPrompt={promptTrashTimeline}
                              />
