@@ -770,7 +770,7 @@ const LegacyEditor = ({ config, onSave, onClose, user, showDialog }) => {
 // ==========================================
 // EIGENSTÄNDIGE LESE-KOMPONENTE (VIEWER)
 // ==========================================
-const LegacyViewer = ({ entry, allEntries, onClose, onEdit, onStartChapter, user, showDialog, saveToDB }) => {
+const LegacyViewer = ({ entry, allEntries, onClose, onEdit, onNavigate, onStartChapter, user, showDialog, saveToDB }) => {
     const [currentViewerImgIdx, setCurrentViewerImgIdx] = useState(0);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const touchStartX = useRef(null);
@@ -779,12 +779,22 @@ const LegacyViewer = ({ entry, allEntries, onClose, onEdit, onStartChapter, user
     const bookRoot = getBookRoot(entry.id, allEntries);
     const unsortedEntries = getAllBookEntries(bookRoot?.id || entry.id, allEntries);
     const allBookEntries = [...unsortedEntries].sort(sortEntriesAscending);
-    const cIdx = allBookEntries.findIndex(ex => ex && ex.id === entry.id);
-    const prevPage = cIdx > 0 ? allBookEntries[cIdx - 1] : null;
-    const nextPage = cIdx < allBookEntries.length - 1 ? allBookEntries[cIdx + 1] : null;
+    
+    let isBook = false;
+    let navigationList = [];
+    
+    if (allBookEntries.length > 1) {
+        isBook = true;
+        navigationList = allBookEntries;
+    } else {
+        navigationList = [...allEntries].filter(e => !e.trashed).sort(sortEntriesChronological);
+    }
+
+    const cIdx = navigationList.findIndex(ex => ex && ex.id === entry.id);
+    const prevPage = cIdx > 0 ? navigationList[cIdx - 1] : null;
+    const nextPage = cIdx < navigationList.length - 1 ? navigationList[cIdx + 1] : null;
 
     useEffect(() => {
-        // Handle Back Geste/Button im Viewer
         const popHandler = (e) => {
             e.preventDefault();
             onClose();
@@ -808,13 +818,8 @@ const LegacyViewer = ({ entry, allEntries, onClose, onEdit, onStartChapter, user
         const deltaY = touchStartY.current - touchEndY;
         
         if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
-            let swipeNext = null, swipePrev = null;
-            if (allBookEntries.length > 1) {
-                if (cIdx > 0) swipePrev = allBookEntries[cIdx - 1]; 
-                if (cIdx < allBookEntries.length - 1) swipeNext = allBookEntries[cIdx + 1]; 
-            }
-            if (deltaX > 50 && swipeNext) { onEdit(swipeNext, true); setCurrentViewerImgIdx(0); }
-            else if (deltaX < -50 && swipePrev) { onEdit(swipePrev, true); setCurrentViewerImgIdx(0); }
+            if (deltaX > 50 && nextPage) { onNavigate(nextPage); setCurrentViewerImgIdx(0); }
+            else if (deltaX < -50 && prevPage) { onNavigate(prevPage); setCurrentViewerImgIdx(0); }
         }
         touchStartX.current = null; touchStartY.current = null;
     };
@@ -878,103 +883,141 @@ const LegacyViewer = ({ entry, allEntries, onClose, onEdit, onStartChapter, user
     };
 
     return (
-        <div className="fixed inset-0 z-[80] overflow-y-auto bg-white dark:bg-black custom-scrollbar flex flex-col screen-only" onTouchStart={handleTouchStartViewer} onTouchEnd={handleTouchEndViewer}>
-            {prevPage && <button onClick={() => { onEdit(prevPage, true); setCurrentViewerImgIdx(0); }} className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 p-4 bg-white/50 dark:bg-black/50 backdrop-blur-md shadow-sm rounded-full hover:scale-110 active:scale-95 transition-transform z-50 text-slate-800 dark:text-white"><Icon name="chevron-left" size={24}/></button>}
-            {nextPage && <button onClick={() => { onEdit(nextPage, true); setCurrentViewerImgIdx(0); }} className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 p-4 bg-white/50 dark:bg-black/50 backdrop-blur-md shadow-sm rounded-full hover:scale-110 active:scale-95 transition-transform z-50 text-slate-800 dark:text-white"><Icon name="chevron-right" size={24}/></button>}
+        <>
+            <div className="fixed inset-0 z-[80] overflow-y-auto bg-white dark:bg-black custom-scrollbar flex flex-col screen-only" onTouchStart={handleTouchStartViewer} onTouchEnd={handleTouchEndViewer}>
+                {prevPage && <button onClick={() => { onNavigate(prevPage); setCurrentViewerImgIdx(0); }} className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 p-4 bg-white/50 dark:bg-black/50 backdrop-blur-md shadow-sm rounded-full hover:scale-110 active:scale-95 transition-transform z-50 text-slate-800 dark:text-white"><Icon name="chevron-left" size={24}/></button>}
+                {nextPage && <button onClick={() => { onNavigate(nextPage); setCurrentViewerImgIdx(0); }} className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 p-4 bg-white/50 dark:bg-black/50 backdrop-blur-md shadow-sm rounded-full hover:scale-110 active:scale-95 transition-transform z-50 text-slate-800 dark:text-white"><Icon name="chevron-right" size={24}/></button>}
 
-            <div className="sticky top-0 z-40 flex justify-between items-center py-4 px-6 md:px-10 bg-white/90 dark:bg-black/90 backdrop-blur-xl border-b border-slate-100 dark:border-zinc-900 shrink-0 no-print transition-colors">
-                <div className="flex gap-3">
-                    <button onClick={() => { window.history.back(); onClose(); }} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
-                </div>
-                <div className="flex gap-2 sm:gap-3 items-center">
-                    <button onClick={() => window.print()} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500"><Icon name="printer" size={22}/></button>
-                    <button onClick={handleReadAloud} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
-                    
-                    <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform cursor-pointer flex items-center justify-center text-slate-500" title="Hauptcover ändern">
-                        <Icon name="image" size={22}/>
-                        <input type="file" accept="image/*" onChange={handleMainCoverUpload} className="hidden" />
-                    </label>
-
-                    <button onClick={() => onEdit(entry)} className="px-4 sm:px-6 py-3 rounded-2xl font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
-                </div>
-            </div>
-
-            <div className="max-w-3xl w-full mx-auto p-6 sm:p-12 pb-32 screen-only flex-1 flex flex-col">
-                {entry.images && entry.images.length > 0 && (
-                    <div className="relative w-full rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-10 group bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
-                        <img src={entry.images[currentViewerImgIdx]} className="w-full h-auto block transition-transform duration-700" alt="Cover" />
+                <div className="sticky top-0 z-40 flex justify-between items-center py-4 px-6 md:px-10 bg-white/90 dark:bg-black/90 backdrop-blur-xl border-b border-slate-100 dark:border-zinc-900 shrink-0 no-print transition-colors">
+                    <div className="flex gap-3">
+                        <button onClick={() => { window.history.back(); onClose(); }} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
+                    </div>
+                    <div className="flex gap-2 sm:gap-3 items-center">
+                        <button onClick={() => window.print()} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500"><Icon name="printer" size={22}/></button>
+                        <button onClick={handleReadAloud} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
                         
-                        <label className="absolute top-4 right-4 w-12 h-12 bg-black/60 text-white rounded-full flex items-center justify-center shadow-xl cursor-pointer z-[60] hover:bg-black/80 transition-colors border-2 border-white/20" title="Dieses Bild ändern">
-                            <Icon name="image" size={20}/>
-                            <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, currentViewerImgIdx)} className="hidden" />
+                        <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform cursor-pointer flex items-center justify-center text-slate-500" title="Hauptcover ändern">
+                            <Icon name="image" size={22}/>
+                            <input type="file" accept="image/*" onChange={handleMainCoverUpload} className="hidden" />
                         </label>
 
-                        {entry.images.length > 1 && (
-                            <>
-                                <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p - 1 + entry.images.length) % entry.images.length); }} className="absolute left-6 top-1/2 -translate-y-1/2 bg-black/50 text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print backdrop-blur-md hover:bg-black/70"><Icon name="chevron-left" size={24}/></button>
-                                <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p + 1) % entry.images.length); }} className="absolute right-6 top-1/2 -translate-y-1/2 bg-black/50 text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print backdrop-blur-md hover:bg-black/70"><Icon name="chevron-right" size={24}/></button>
-                                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 bg-black/40 px-4 py-2 rounded-full backdrop-blur-md no-print">
-                                    {entry.images.map((_, i) => <div key={i} className={`w-2.5 h-2.5 rounded-full transition-colors shadow-sm ${i === currentViewerImgIdx ? 'bg-white' : 'bg-white/40'}`} />)}
-                                </div>
-                            </>
+                        <button onClick={() => onEdit(entry)} className="px-4 sm:px-6 py-3 rounded-2xl font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
+                    </div>
+                </div>
+
+                <div className="max-w-3xl w-full mx-auto p-6 sm:p-12 pb-32 screen-only flex-1 flex flex-col">
+                    {entry.images && entry.images.length > 0 && (
+                        <div className="relative w-full rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 dark:border-zinc-800 mb-10 group bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
+                            <img src={entry.images[currentViewerImgIdx]} className="w-full h-auto block transition-transform duration-700" alt="Cover" />
+                            
+                            <label className="absolute top-4 right-4 w-12 h-12 bg-black/60 text-white rounded-full flex items-center justify-center shadow-xl cursor-pointer z-[60] hover:bg-black/80 transition-colors border-2 border-white/20" title="Dieses Bild ändern">
+                                <Icon name="image" size={20}/>
+                                <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, currentViewerImgIdx)} className="hidden" />
+                            </label>
+
+                            {entry.images.length > 1 && (
+                                <>
+                                    <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p - 1 + entry.images.length) % entry.images.length); }} className="absolute left-6 top-1/2 -translate-y-1/2 bg-black/50 text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print backdrop-blur-md hover:bg-black/70"><Icon name="chevron-left" size={24}/></button>
+                                    <button onClick={(e) => { e.stopPropagation(); setCurrentViewerImgIdx(p => (p + 1) % entry.images.length); }} className="absolute right-6 top-1/2 -translate-y-1/2 bg-black/50 text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity no-print backdrop-blur-md hover:bg-black/70"><Icon name="chevron-right" size={24}/></button>
+                                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 bg-black/40 px-4 py-2 rounded-full backdrop-blur-md no-print">
+                                        {entry.images.map((_, i) => <div key={i} className={`w-2.5 h-2.5 rounded-full transition-colors shadow-sm ${i === currentViewerImgIdx ? 'bg-white' : 'bg-white/40'}`} />)}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {(!entry.images || entry.images.length === 0) && (
+                        <label className="mb-8 w-fit px-6 py-3 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 font-bold text-sm cursor-pointer hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors flex items-center gap-2 border border-slate-200 dark:border-zinc-700 shadow-sm" title="Cover hinzufügen">
+                            <Icon name="image" size={18}/> Cover hinzufügen
+                            <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, 0)} className="hidden" />
+                        </label>
+                    )}
+
+                    <h1 className="text-4xl sm:text-6xl font-extrabold mb-8 tracking-tighter leading-[1.1] text-slate-900 dark:text-white">{entry.title || 'Ohne Titel'}</h1>
+                    <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
+                        <span>{safeParseDate(entry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2 mb-12 no-print">
+                        {entry.tags && entry.tags.split(',').map(t => t.trim()).filter(t=>t).map((t, i) => (
+                            <span key={i} className="px-4 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="tag" size={14}/> {t}</span>
+                        ))}
+                        {entry.people && entry.people.split(',').map(p => p.trim()).filter(p=>p).map((p, i) => (
+                            <span key={i} className="px-4 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="user" size={14}/> {p}</span>
+                        ))}
+                        {entry.weather && (
+                            <span className="px-4 py-1.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-xl text-xs font-bold flex items-center gap-1.5 w-full sm:w-auto"><Icon name="sun" size={14}/> {entry.weather}</span>
+                        )}
+                        {entry.locations && entry.locations.length > 0 ? entry.locations.map((loc, i) => (
+                            <span key={`loc-view-${i}`} className="px-4 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="map-pin" size={14}/> {loc.name} • {loc.time} {loc.weather ? `• ${loc.weather}` : ''}</span>
+                        )) : (entry.location && (
+                            <span className="px-4 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="map-pin" size={14}/> {entry.location.name ? `${entry.location.name} (${entry.location.time})` : 'GPS-Siegel'}</span>
+                        ))}
+                        {entry.rating > 0 && (
+                            <div className="flex items-center gap-1 ml-auto bg-amber-50 dark:bg-amber-900/30 px-4 py-1.5 rounded-xl">
+                                {[1,2,3,4,5].map(star => <Icon key={star} name="star" size={16} className={entry.rating >= star ? 'text-amber-500 fill-amber-500' : 'text-amber-200 dark:text-amber-900'} />)}
+                            </div>
                         )}
                     </div>
-                )}
 
-                {(!entry.images || entry.images.length === 0) && (
-                    <label className="mb-8 w-fit px-6 py-3 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 font-bold text-sm cursor-pointer hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors flex items-center gap-2 border border-slate-200 dark:border-zinc-700 shadow-sm" title="Cover hinzufügen">
-                        <Icon name="image" size={18}/> Cover hinzufügen
-                        <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, 0)} className="hidden" />
-                    </label>
-                )}
+                    <div className="text-[1.05rem] leading-[1.8] font-medium legacy-content text-slate-800 dark:text-slate-200 opacity-90" dangerouslySetInnerHTML={createSafeHtml(entry.text)} />
+                    {entry.audio && <div className="mt-12 p-6 rounded-[2rem] bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm no-print"><span className="text-xs font-bold uppercase tracking-widest opacity-50 mb-4 block">Audio-Log</span><audio src={entry.audio} controls className="w-full" /></div>}
+                    
+                    <div className="mt-20 pt-10 border-t border-slate-100 dark:border-zinc-800 flex justify-center no-print">
+                        <button onClick={() => onStartChapter(entry)} className="px-8 py-4 font-bold rounded-full flex items-center gap-3 hover:scale-105 active:scale-95 transition-transform shadow-lg text-lg" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}><Icon name="plus" size={24}/> Neues Kapitel anfügen</button>
+                    </div>
 
-                <h1 className="text-4xl sm:text-6xl font-extrabold mb-8 tracking-tighter leading-[1.1] text-slate-900 dark:text-white">{entry.title || 'Ohne Titel'}</h1>
-                <div className="flex gap-4 mb-6 text-xs font-bold uppercase tracking-widest opacity-50 flex-wrap">
-                    <span>{safeParseDate(entry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
-                </div>
-                
-                <div className="flex flex-wrap gap-2 mb-12 no-print">
-                    {entry.tags && entry.tags.split(',').map(t => t.trim()).filter(t=>t).map((t, i) => (
-                        <span key={i} className="px-4 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="tag" size={14}/> {t}</span>
-                    ))}
-                    {entry.people && entry.people.split(',').map(p => p.trim()).filter(p=>p).map((p, i) => (
-                        <span key={i} className="px-4 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="user" size={14}/> {p}</span>
-                    ))}
-                    {entry.weather && (
-                        <span className="px-4 py-1.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-xl text-xs font-bold flex items-center gap-1.5 w-full sm:w-auto"><Icon name="sun" size={14}/> {entry.weather}</span>
-                    )}
-                    {entry.locations && entry.locations.length > 0 ? entry.locations.map((loc, i) => (
-                        <span key={`loc-view-${i}`} className="px-4 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="map-pin" size={14}/> {loc.name} • {loc.time} {loc.weather ? `• ${loc.weather}` : ''}</span>
-                    )) : (entry.location && (
-                        <span className="px-4 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-1.5"><Icon name="map-pin" size={14}/> {entry.location.name ? `${entry.location.name} (${entry.location.time})` : 'GPS-Siegel'}</span>
-                    ))}
-                    {entry.rating > 0 && (
-                        <div className="flex items-center gap-1 ml-auto bg-amber-50 dark:bg-amber-900/30 px-4 py-1.5 rounded-xl">
-                            {[1,2,3,4,5].map(star => <Icon key={star} name="star" size={16} className={entry.rating >= star ? 'text-amber-500 fill-amber-500' : 'text-amber-200 dark:text-amber-900'} />)}
+                    {navigationList.length > 1 && (
+                        <div className="flex justify-between items-center mt-16 pt-8 border-t border-slate-100 dark:border-zinc-800 no-print pb-24">
+                            {prevPage ? (
+                                <button onClick={() => { onNavigate(prevPage); setCurrentViewerImgIdx(0); }} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100 transition-colors" style={{ color: user.nameColor }}><Icon name="arrow-left" size={18}/> Vorherige {isBook ? 'Seite' : 'Eintrag'}</button>
+                            ) : <div/>}
+                            <span className="text-xs font-bold opacity-30 uppercase tracking-widest">{isBook ? 'Seite' : 'Eintrag'} {cIdx + 1} von {navigationList.length}</span>
+                            {nextPage ? (
+                                <button onClick={() => { onNavigate(nextPage); setCurrentViewerImgIdx(0); }} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100 transition-colors" style={{ color: user.nameColor }}>Nächste{isBook ? ' Seite' : 'r Eintrag'} <Icon name="arrow-right" size={18}/></button>
+                            ) : <div/>}
                         </div>
                     )}
                 </div>
+            </div>
 
-                <div className="text-[1.05rem] leading-[1.8] font-medium legacy-content text-slate-800 dark:text-slate-200 opacity-90" dangerouslySetInnerHTML={createSafeHtml(entry.text)} />
-                {entry.audio && <div className="mt-12 p-6 rounded-[2rem] bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm no-print"><span className="text-xs font-bold uppercase tracking-widest opacity-50 mb-4 block">Audio-Log</span><audio src={entry.audio} controls className="w-full" /></div>}
-                
-                <div className="mt-20 pt-10 border-t border-slate-100 dark:border-zinc-800 flex justify-center no-print">
-                    <button onClick={() => onStartChapter(entry)} className="px-8 py-4 font-bold rounded-full flex items-center gap-3 hover:scale-105 active:scale-95 transition-transform shadow-lg text-lg" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000'), color: isDarkColor(user.nameColor || (user.isDark ? '#ffffff' : '#000000')) ? '#ffffff' : '#000000' }}><Icon name="plus" size={24}/> Neues Kapitel anfügen</button>
+            {/* --- PRINT VIEW ONLY --- */}
+            <div className="print-only w-full max-w-4xl mx-auto p-8">
+                <div className="print-title-page page-break-after">
+                   <h1 style={{fontSize: '56px', marginBottom: '20px', fontFamily: 'Inter, sans-serif'}}>{user.appName || 'Legacy Vision Journal'}</h1>
+                   <h3 style={{fontSize: '24px', opacity: 0.6}}>Verfasst von {user.name}</h3>
+                   {user.motto && <p style={{marginTop: '40px', fontStyle: 'italic'}}>{user.motto}</p>}
+                   <p style={{position: 'absolute', bottom: '40px', left: '0', right: '0', textAlign: 'center'}}>Generiert am {new Date().toLocaleDateString('de-DE')}</p>
                 </div>
-
-                {allBookEntries.length > 1 && (
-                    <div className="flex justify-between items-center mt-16 pt-8 border-t border-slate-100 dark:border-zinc-800 no-print pb-24">
-                        {prevPage ? (
-                            <button onClick={() => { onEdit(prevPage, true); setCurrentViewerImgIdx(0); }} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100 transition-colors" style={{ color: user.nameColor }}><Icon name="arrow-left" size={18}/> Vorherige Seite</button>
-                        ) : <div/>}
-                        <span className="text-xs font-bold opacity-30 uppercase tracking-widest">Seite {cIdx + 1} von {allBookEntries.length}</span>
-                        {nextPage ? (
-                            <button onClick={() => { onEdit(nextPage, true); setCurrentViewerImgIdx(0); }} className="flex items-center gap-2 font-bold text-sm opacity-60 hover:opacity-100 transition-colors" style={{ color: user.nameColor }}>Nächste Seite <Icon name="arrow-right" size={18}/></button>
-                        ) : <div/>}
+                
+                {navigationList.length > 1 && (
+                    <div className="print-toc page-break-after">
+                       <h2 style={{fontSize: '32px', marginBottom: '30px', borderBottom: '1px solid #000', paddingBottom: '10px', fontFamily: 'Inter, sans-serif'}}>Inhaltsverzeichnis</h2>
+                       <ul style={{listStyle: 'none', padding: 0}}>
+                           {navigationList.map((e, idx) => (
+                               <li key={idx} style={{marginBottom: '15px', fontSize: '18px'}}><strong>{idx+1}.</strong> {e.title || 'Ohne Titel'}</li>
+                           ))}
+                       </ul>
                     </div>
                 )}
+
+                <div className="print-book-content">
+                   {navigationList.map((e, idx) => (
+                       <div key={e.id} className="page-break-after" style={{ marginBottom: '60px', paddingTop: '20px' }}>
+                           <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+                               <h1 style={{ fontSize: '36px', fontWeight: 'bold', marginBottom: '10px', fontFamily: 'Inter, sans-serif' }}>{e.title || 'Ohne Titel'}</h1>
+                               <p style={{ opacity: 0.6, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '12px' }}>
+                                   {safeParseDate(e.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {e.category || 'Allgemein'}
+                               </p>
+                           </div>
+                           {e.images && e.images.length > 0 && <img src={e.images[0]} style={{ width: '100%', maxHeight: '500px', objectFit: 'contain', marginBottom: '30px', borderRadius: '16px' }} alt="Cover" />}
+                           <div className="text-[1.05rem] leading-[1.8] font-medium legacy-content text-slate-800 dark:text-slate-200" dangerouslySetInnerHTML={createSafeHtml(e.text)}></div>
+                       </div>
+                   ))}
+                </div>
             </div>
-        </div>
+        </>
     );
 };
 
@@ -2353,8 +2396,8 @@ function App() {
                              <button
                                  key={day.dateStr}
                                  onClick={() => setTimelineSelectedDate(day.dateStr)}
-                                 className={`relative w-12 h-12 sm:w-16 sm:h-16 mx-auto rounded-full flex items-center justify-center font-bold text-base sm:text-lg transition-transform hover:scale-110 active:scale-95 overflow-hidden shadow-sm
-                                 ${isSelected ? 'ring-2 ring-accent ring-offset-2 ring-offset-slate-50 dark:ring-offset-[#0a0a0a]' : ''}
+                                 className={`relative w-12 h-12 sm:w-16 sm:h-16 mx-auto rounded-full flex items-center justify-center font-bold text-base sm:text-lg transition-transform active:scale-95 overflow-hidden shadow-sm hover:scale-105
+                                 ${isSelected ? 'border-[3px] border-accent scale-105 z-10' : 'border border-transparent'}
                                  ${!hasEntries && !coverUrl ? 'bg-slate-200 dark:bg-zinc-800 text-slate-500' : ''}`}
                              >
                                  {coverUrl ? (
@@ -2418,6 +2461,7 @@ function App() {
                 allEntries={entries} 
                 onClose={() => setViewingEntry(null)} 
                 onEdit={openEditor} 
+                onNavigate={(newEntry) => setViewingEntry(newEntry)}
                 onStartChapter={startNewChapter}
                 user={user} 
                 showDialog={showDialog} 
