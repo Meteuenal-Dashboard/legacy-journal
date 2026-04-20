@@ -34,6 +34,8 @@
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Hinzugefügt für perfektes Touch Drag & Drop (Gruppen-Ordner Verhalten) -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 
 <style>
   html,body{overscroll-behavior-y:none;font-family:'Inter',sans-serif;-webkit-tap-highlight-color:transparent;transition:background-color 0.4s,color 0.4s;}
@@ -77,6 +79,10 @@
   .leaflet-marker-icon.avatar-marker{border:none!important;background:transparent!important;}
   .leaflet-control-attribution{display:none!important;}
   
+  /* Drag and Drop Ghost Class */
+  .sortable-ghost { opacity: 0.4; transform: scale(0.95); }
+  .sortable-drag { cursor: grabbing !important; }
+
   .print-only{display:none;}
   @media print{
     @page{margin:2cm;@bottom-center{content:counter(page);font-family:'Inter',sans-serif;font-size:12px;color:#888;}}
@@ -124,7 +130,7 @@ const safeParseDate = (dInput) => {
     return isNaN(time) ? new Date(0) : new Date(time);
 };
 
-// SORTIERUNG: Komplett auf orderTimestamp basiert. Erlaubt absolut freies Verschieben.
+// SORTIERUNG: Erlaubt absolut freies Verschieben!
 const sortEntriesChronological = (a, b) => {
     const orderA = safeParseDate(a.orderTimestamp || a.date).getTime() || 0;
     const orderB = safeParseDate(b.orderTimestamp || b.date).getTime() || 0;
@@ -255,71 +261,6 @@ const generateId = () => Date.now().toString(36) + Math.random().toString(36).su
 
 const initDB = () => new Promise((resolve, reject) => { const req = indexedDB.open('LegacyVisionDB', 4); req.onupgradeneeded = (e) => { const db = e.target.result; if (!db.objectStoreNames.contains('entries')) db.createObjectStore('entries', { keyPath: 'id' }); }; req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); });
 
-const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQuery, onMoveUp, onMoveDown, showMoveControls }) => {
-    if (!entry) return null;
-    const coverUrl = getCoverImage(entry);
-    const hasImages = !!coverUrl;
-    
-    const cardBgClass = entry.manifested 
-        ? 'bg-amber-50/30 dark:bg-amber-900/20 border-amber-400 dark:border-amber-500 border-2 shadow-lg shadow-amber-500/20' 
-        : (isDarkTheme ? 'bg-zinc-900 border-zinc-800 border' : 'bg-white border-slate-100 border shadow-sm');
-        
-    const isCapsuleLocked = entry.unlockDate;
-
-    return (
-      <div onClick={() => onClick(entry, false)} className={`group relative rounded-[2rem] overflow-hidden cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 active:scale-[0.98] ${cardBgClass} ${isGridView ? 'flex flex-col h-full' : ''}`}>
-        {entry.manifested && (
-          <div className="absolute top-4 right-4 z-20 bg-amber-400 text-amber-950 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
-            <Icon name="sparkles" size={12}/> Highlight
-          </div>
-        )}
-        
-        {hasImages && (
-          <div className="w-full relative bg-slate-100 dark:bg-zinc-800 h-40 sm:h-48 overflow-hidden flex items-center justify-center">
-            <img src={coverUrl} className="w-full h-full object-cover block transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
-          </div>
-        )}
-        
-        <div className="p-6 relative z-10 flex-1 flex flex-col">
-          <div className="flex items-center justify-between mb-3 gap-2">
-              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-50 flex-wrap flex-1">
-                <span>{safeParseDate(entry.date || getLocalISO()).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
-                {!isGridView && <><span>•</span><span>{entry.category || 'Allgemein'}</span></>}
-                {isCapsuleLocked && <><span className="text-indigo-500 flex items-center gap-1 ml-auto"><Icon name="clock" size={12}/> {new Date(entry.unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span></>}
-                {entry.audio && <><span className="text-emerald-500 flex items-center ml-1"><Icon name="mic" size={12}/></span></>}
-              </div>
-              
-              {showMoveControls && !isGridView && (
-                  <div className="flex gap-1 shrink-0 z-20 ml-2">
-                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveUp(e); }} className="w-12 h-12 bg-slate-100 dark:bg-zinc-800 rounded-full flex items-center justify-center shadow-sm text-slate-600 dark:text-slate-300 hover:text-accent transition-colors"><Icon name="chevron-up" size={24}/></button>
-                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveDown(e); }} className="w-12 h-12 bg-slate-100 dark:bg-zinc-800 rounded-full flex items-center justify-center shadow-sm text-slate-600 dark:text-slate-300 hover:text-accent transition-colors"><Icon name="chevron-down" size={24}/></button>
-                  </div>
-              )}
-          </div>
-          
-          <h3 className={`font-extrabold ${isGridView ? 'text-xl' : 'text-2xl'} leading-tight tracking-tight mb-3 line-clamp-2 ${hasImages && isCapsuleLocked ? 'text-slate-900 dark:text-white' : 'text-slate-900 dark:text-white group-hover:text-accent transition-colors'}`} dangerouslySetInnerHTML={highlightText(entry.title || 'Ohne Titel', searchQuery, true)} />
-          
-          {!isGridView && (entry.tags || entry.people || entry.weather || entry.rating > 0 || entry.location || (entry.locations && entry.locations.length > 0)) && (
-             <div className="flex flex-wrap gap-1.5 mb-4">
-                {entry.tags && entry.tags.split(',').filter(x=>x.trim()).map((t, i) => <span key={`t-${i}`} className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="tag" size={10}/> {t.trim()}</span>)}
-                {entry.people && entry.people.split(',').filter(x=>x.trim()).map((p, i) => <span key={`p-${i}`} className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="user" size={10}/> {p.trim()}</span>)}
-                {entry.weather && (!entry.locations || entry.locations.length === 0) && <span className="px-2 py-0.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-md text-[10px] font-bold flex items-center gap-1"><Icon name="sun" size={10}/> {entry.weather}</span>}
-             </div>
-          )}
-
-          {!isCapsuleLocked && entry.text && !isGridView && (
-            <div className="text-[1.05rem] leading-[1.8] opacity-90 legacy-editor-content text-slate-800 dark:text-slate-200 line-clamp-3" dangerouslySetInnerHTML={highlightText(entry.text, searchQuery, false)} />
-          )}
-          {isCapsuleLocked && !isGridView && (
-             <div className="text-sm font-medium leading-relaxed opacity-40 italic mt-auto">
-                Inhalt durch Zeitsiegel geschützt.
-             </div>
-          )}
-        </div>
-      </div>
-    );
-};
-
 const EdBtn = ({cmd, arg, icon, txt, onClick, isDirtyRef}) => (
     <button onMouseDown={e=>{ if(cmd){ e.preventDefault(); document.execCommand(cmd, false, arg); if(isDirtyRef) isDirtyRef.current=true; } }} onClick={onClick} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl text-slate-500 hover:text-accent transition-colors shadow-sm shrink-0 border border-slate-100 dark:border-zinc-800">
         {icon ? <Icon name={icon} size={18} /> : <span className="font-bold text-sm">{txt}</span>}
@@ -382,13 +323,14 @@ function App() {
   const [db, setDb] = useState(null);
   const [fb, setFb] = useState(null);
   const [authUser, setAuthUser] = useState(null);
+  
   const defaultUser = { name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false, uiScale: 1 };
   
   const [view, setView] = useState('loading');
   const [user, setUser] = useState(() => { const savedStr = safeStorageGet('legacy_user'); if (savedStr) { try { return { ...defaultUser, ...JSON.parse(savedStr) }; } catch(e){} } return defaultUser; });
   const [entries, setEntries] = useState([]);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isGridView, setIsGridView] = useState(false); 
+  
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [showAuthPassword, setShowAuthPassword] = useState(false);
@@ -396,40 +338,51 @@ function App() {
   const [authMsg, setAuthMsg] = useState('');
   const [authMode, setAuthMode] = useState('login');
   const [syncingCloud, setSyncingCloud] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('Alle');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [dialog, setDialog] = useState(null);
   const [picker, setPicker] = useState(null);
+
   const [viewingEntry, setViewingEntry] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
   const [currentViewerImgIdx, setCurrentViewerImgIdx] = useState(0);
+  
   const [showTimeline, setShowTimeline] = useState(false); 
   const [timelineMonth, setTimelineMonth] = useState(() => new Date()); 
   const [timelineSelectedDate, setTimelineSelectedDate] = useState(null); 
+  
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
   const [showPinFallback, setShowPinFallback] = useState(false);
   const [showPinPassword, setShowPinPassword] = useState(false);
+  
   const [isChangingPin, setIsChangingPin] = useState(false);
   const [oldPinInput, setOldPinInput] = useState('');
   const [newPinInput, setNewPinInput] = useState('');
   const [confirmPinInput, setConfirmPinInput] = useState('');
+
   const [isSpeaking, setIsSpeaking] = useState(false);
   const audioPlayerRef = useRef(new Audio());
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+
   const [burnText, setBurnText] = useState('');
   const [isBurning, setIsBurning] = useState(false);
+
   const [isDrawing, setIsDrawing] = useState(false);
   const canvasRef = useRef(null);
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
+  const gridRef = useRef(null);
+
   const [peerId, setPeerId] = useState(null);
   const [peerInstance, setPeerInstance] = useState(null);
   const [syncStatus, setSyncStatus] = useState('');
   const [importId, setImportId] = useState(() => new URLSearchParams(window.location.search).get('import'));
+
   const [editingId, setEditingId] = useState(null);
   const [title, setTitle] = useState('');
   const [text, setText] = useState(''); 
@@ -546,8 +499,10 @@ function App() {
                                   if (['auth', 'onboarding'].includes(viewRef.current)) setView('cloud_pin_sync'); 
                               } else if (data.rawData) {
                                   const loadedUser = { ...defaultUser, ...data.rawData, ...(data.publicProfile || {}) };
-                                  setUser(loadedUser); safeStorageSet('legacy_user', JSON.stringify(loadedUser));
-                                  if (loadedUser.pin) setView('pin_entry'); else { await loadLocalEntries(null); setView('dashboard'); }
+                                  setUser(loadedUser);
+                                  safeStorageSet('legacy_user', JSON.stringify(loadedUser));
+                                  if (loadedUser.pin) setView('pin_entry');
+                                  else { await loadLocalEntries(null); setView('dashboard'); }
                               }
                           }
                       } else {
@@ -929,13 +884,10 @@ function App() {
     const newEntryState = { title: parent.title || '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isManifested: false, category: parent.category || CATEGORIES[0], mood: null, audioUrl: null, unlockDate: '', location: null, locations: [], parentId: parent.id, inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: getLocalISO(), orderTimestamp: getLocalISO() };
     currentEntryRef.current = newEntryState; editingIdRef.current = null;
     setEditingId(null); setTitle(newEntryState.title); setText(newEntryState.text); setSelectedColor(newEntryState.selectedColor); setSelectedImages(newEntryState.selectedImages); setAudioUrl(newEntryState.audioUrl); setIsManifested(newEntryState.isManifested); setUnlockDate(newEntryState.unlockDate); setLocation(newEntryState.location); setLocations(newEntryState.locations); setCategory(newEntryState.category); setMood(newEntryState.mood); setParentId(newEntryState.parentId); setInheritedFrom(newEntryState.inheritedFrom); setRating(newEntryState.rating); setTags(newEntryState.tags); setPeople(newEntryState.people); setWeather(newEntryState.weather); setEntryDate(newEntryState.date); setPillarGuidance(null);
-    openWithHistory(() => setShowEditor(true));
+    openWithHistory(() => setShowEditor(true)); 
   };
 
   const showDialog = (options) => { setDialog({ type: 'alert', confirmLabel: 'Okay', ...options }); };
-
-  const promptArchiveTimeline = (e) => { showDialog({ title: 'Ins Archiv?', message: `Möchtest du diesen Eintrag ins Archiv verschieben?`, icon: 'archive', confirmLabel: 'Archivieren', onConfirm: () => { saveToDB({...e, archived: true}); }, onCancel: () => {} }); };
-  const promptTrashTimeline = (e) => { showDialog({ title: 'Löschen?', message: `Möchtest du diesen Eintrag in den Papierkorb werfen?`, icon: 'trash-2', iconColor: 'text-rose-500', confirmLabel: 'Löschen', onConfirm: () => { saveToDB({...e, trashed: true}); }, onCancel: () => {} }); };
 
   const handleOpenEntry = async (entry, forceExact = false) => {
       if (!entry) return;
@@ -961,42 +913,29 @@ function App() {
       openWithHistory(() => { setViewingEntry(targetToOpen); setCurrentViewerImgIdx(0); });
   };
 
-  const moveEntryUp = (e, targetEntry) => {
-      e.preventDefault(); e.stopPropagation();
-      const dayStr = safeParseDate(targetEntry.date).toDateString();
-      const sameDayEntries = entries.filter(ex => !ex.trashed && safeParseDate(ex.date).toDateString() === dayStr).sort(sortEntriesChronological);
+  const handleReorder = (draggedId, newIndex, currentList) => {
+      const list = [...currentList];
+      const oldIndex = list.findIndex(e => e.id === draggedId);
+      if (oldIndex === -1 || oldIndex === newIndex) return;
       
-      const idx = sameDayEntries.findIndex(ex => ex.id === targetEntry.id);
-      if (idx <= 0) return;
+      const [draggedItem] = list.splice(oldIndex, 1);
+      list.splice(newIndex, 0, draggedItem);
       
-      const above = sameDayEntries[idx - 1];
-      let tCurrent = safeParseDate(targetEntry.orderTimestamp || targetEntry.date).getTime();
-      let tAbove = safeParseDate(above.orderTimestamp || above.date).getTime();
+      const prev = list[newIndex - 1];
+      const next = list[newIndex + 1];
       
-      let newCurrentTime = tAbove; let newAboveTime = tCurrent;
-      if (newCurrentTime <= newAboveTime) newCurrentTime = newAboveTime + 1000;
+      let newTime;
+      if (prev && next) {
+          newTime = (new Date(prev.orderTimestamp || prev.date).getTime() + new Date(next.orderTimestamp || next.date).getTime()) / 2;
+      } else if (prev) {
+          newTime = new Date(prev.orderTimestamp || prev.date).getTime() - 1000;
+      } else if (next) {
+          newTime = new Date(next.orderTimestamp || next.date).getTime() + 1000;
+      } else {
+          newTime = Date.now();
+      }
       
-      saveToDB({...targetEntry, orderTimestamp: new Date(newCurrentTime).toISOString()});
-      saveToDB({...above, orderTimestamp: new Date(newAboveTime).toISOString()});
-  };
-  
-  const moveEntryDown = (e, targetEntry) => {
-      e.preventDefault(); e.stopPropagation();
-      const dayStr = safeParseDate(targetEntry.date).toDateString();
-      const sameDayEntries = entries.filter(ex => !ex.trashed && safeParseDate(ex.date).toDateString() === dayStr).sort(sortEntriesChronological);
-      
-      const idx = sameDayEntries.findIndex(ex => ex.id === targetEntry.id);
-      if (idx === -1 || idx >= sameDayEntries.length - 1) return;
-      
-      const below = sameDayEntries[idx + 1];
-      let tCurrent = safeParseDate(targetEntry.orderTimestamp || targetEntry.date).getTime();
-      let tBelow = safeParseDate(below.orderTimestamp || below.date).getTime();
-      
-      let newCurrentTime = tBelow; let newBelowTime = tCurrent;
-      if (newCurrentTime >= newBelowTime) newBelowTime = newCurrentTime + 1000;
-      
-      saveToDB({...targetEntry, orderTimestamp: new Date(newCurrentTime).toISOString()});
-      saveToDB({...below, orderTimestamp: new Date(newBelowTime).toISOString()});
+      saveToDB({...draggedItem, orderTimestamp: new Date(newTime).toISOString()});
   };
 
   const visibleEntries = useMemo(() => {
@@ -1019,6 +958,25 @@ function App() {
   }, [entries, searchQuery, activeCategory, view]);
 
   const renderEntries = [...visibleEntries].sort(sortEntriesChronological);
+
+  useEffect(() => {
+      if (view === 'dashboard' && gridRef.current && window.Sortable) {
+          const sortable = window.Sortable.create(gridRef.current, {
+              delay: 300, 
+              delayOnTouchOnly: true,
+              animation: 250,
+              easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+              ghostClass: 'sortable-ghost',
+              dragClass: 'sortable-drag',
+              onEnd: (evt) => {
+                  if (evt.oldIndex === evt.newIndex) return;
+                  const draggedId = evt.item.getAttribute('data-id');
+                  handleReorder(draggedId, evt.newIndex, renderEntries);
+              }
+          });
+          return () => sortable.destroy();
+      }
+  }, [view, renderEntries]);
 
   const entriesByDate = useMemo(() => {
       const map = {};
@@ -1116,9 +1074,6 @@ function App() {
       }
   };
 
-  const touchStartX = useRef(null);
-  const touchStartY = useRef(null);
-
   const handleTouchStartViewer = (e) => { 
       touchStartX.current = e.touches[0].clientX; 
       touchStartY.current = e.touches[0].clientY; 
@@ -1133,7 +1088,7 @@ function App() {
       const deltaX = touchStartX.current - touchEndX;
       const deltaY = touchStartY.current - touchEndY;
       
-      if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY)) {
+      if (Math.abs(deltaX) > 60 && Math.abs(deltaX) > Math.abs(deltaY)) {
           const bookRoot = getBookRoot(viewingEntryRef.current.id);
           const unsortedEntries = getAllBookEntries(bookRoot?.id || viewingEntryRef.current.id);
           const chronologicalBookEntries = [...unsortedEntries].sort(sortEntriesChronological);
@@ -1150,8 +1105,8 @@ function App() {
               if (cIdx < sorted.length - 1) swipeNext = sorted[cIdx + 1]; 
           }
           
-          if (deltaX > 40 && swipeNext) { setViewingEntry(swipeNext); setCurrentViewerImgIdx(0); }
-          else if (deltaX < -40 && swipePrev) { setViewingEntry(swipePrev); setCurrentViewerImgIdx(0); }
+          if (deltaX > 60 && swipeNext) { setViewingEntry(swipeNext); setCurrentViewerImgIdx(0); }
+          else if (deltaX < -60 && swipePrev) { setViewingEntry(swipePrev); setCurrentViewerImgIdx(0); }
       }
       
       touchStartX.current = null; touchStartY.current = null;
@@ -1230,7 +1185,8 @@ function App() {
               const targetEntry = entriesRef.current.find(ex => ex.id === targetId);
               if (targetEntry) {
                   let newImages = [...(targetEntry.images || [])];
-                  if (imgIndex === 0 && newImages.length === 0) newImages = [base64]; else newImages[imgIndex] = base64;
+                  // Overwrite the first image (cover) reliably
+                  if (newImages.length === 0) newImages = [base64]; else newImages[0] = base64;
                   const updatedEntry = {...targetEntry, images: newImages};
                   saveToDB(updatedEntry);
                   showDialog({ title: 'Bild aktualisiert', message: 'Das Bild wurde erfolgreich geändert.', icon: 'check' });
@@ -1892,30 +1848,34 @@ function App() {
             </div>
           )}
 
-          {['dashboard', 'archive'].includes(view) && (
-            <div className={`grid gap-6 pb-32 ${isGridView && view === 'dashboard' ? 'grid-cols-2' : 'grid-cols-1'}`}>
-              {renderEntries.map((entry, idx) => (
-                 <EntryCard 
-                     key={entry.id} 
-                     entry={entry} 
-                     onClick={handleOpenEntry} 
-                     isGridView={isGridView && view === 'dashboard'} 
-                     userColor={user.nameColor} 
-                     isDarkTheme={user.isDark} 
-                     searchQuery={searchQuery}
-                     onMoveUp={(e) => moveEntryUp(e, entry)}
-                     onMoveDown={(e) => moveEntryDown(e, entry)}
-                     showMoveControls={view === 'dashboard' && !searchQuery && activeCategory === 'Alle'}
-                 />
-              ))}
+          {/* GRID LAYOUT WIE GEWÜNSCHT: NUR BILDER, KLEINER, MIT SORTABLE JS (DRAG & DROP) */}
+          {['dashboard', 'archive'].includes(view) && visibleEntries.length > 0 && (
+            <div ref={view === 'dashboard' && !searchQuery && activeCategory === 'Alle' ? gridRef : null} className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 pb-32`}>
+              {renderEntries.map((entry, idx) => {
+                 const coverUrl = getCoverImage(entry);
+                 const hasImages = !!coverUrl;
+                 
+                 return (
+                     <div key={entry.id} data-id={entry.id} onClick={() => handleOpenEntry(entry, true)} className="relative aspect-square rounded-[1.5rem] overflow-hidden cursor-pointer shadow-sm border border-slate-100 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 group hover:scale-[1.02] active:scale-95 transition-transform duration-300">
+                         {hasImages ? (
+                             <img src={coverUrl} className="w-full h-full object-cover block pointer-events-none" alt="Cover" />
+                         ) : (
+                             <div className="w-full h-full flex items-center justify-center p-4 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-zinc-800 dark:to-zinc-900 text-center pointer-events-none">
+                                 <h4 className="font-bold text-xs sm:text-sm text-slate-700 dark:text-slate-300 opacity-80 line-clamp-3">{entry.title || 'Neuer Eintrag'}</h4>
+                             </div>
+                         )}
+                         {entry.manifested && <div className="absolute top-2 right-2 z-10 w-3 h-3 bg-amber-400 rounded-full shadow-sm"></div>}
+                     </div>
+                 );
+              })}
             </div>
           )}
         </main>
 
         <nav className={`floating-nav transition-opacity duration-300 ${viewingEntry || showEditor || !['dashboard', 'menu'].includes(view) ? 'opacity-0 pointer-events-none hidden' : 'opacity-100'}`}>
           <div className="relative flex justify-between items-center h-[72px] px-6">
-            <button onClick={() => { setViewingEntry(null); if(view==='dashboard') setIsGridView(!isGridView); else setView('dashboard'); }} className={`p-2 transition-all rounded-full ${view === 'dashboard' && !viewingEntry ? 'text-accent scale-110' : 'text-slate-400 opacity-60 hover:opacity-100 hover:scale-105'}`} style={view === 'dashboard' && !viewingEntry ? { color: user.nameColor || '#000000' } : { color: 'inherit' }}>
-              <Icon name={isGridView && view === 'dashboard' ? "list" : "layout-grid"} size={26} />
+            <button onClick={() => { setViewingEntry(null); setView('dashboard'); }} className={`p-2 transition-all rounded-full ${view === 'dashboard' && !viewingEntry ? 'text-accent scale-110' : 'text-slate-400 opacity-60 hover:opacity-100 hover:scale-105'}`} style={view === 'dashboard' && !viewingEntry ? { color: user.nameColor || '#000000' } : { color: 'inherit' }}>
+              <Icon name="layout-grid" size={26} />
             </button>
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
                 <button onClick={() => { setViewingEntry(null); openEditor(); }} className="w-16 h-16 rounded-[1.5rem] text-white dark:text-black shadow-xl flex items-center justify-center hover:scale-110 active:scale-90 transition-transform border-[4px] border-white dark:border-zinc-800" style={{ backgroundColor: user.nameColor || (user.isDark ? '#ffffff' : '#000000') }}>
@@ -1955,7 +1915,7 @@ function App() {
                  {/* Calendar Grid */}
                  <div className="grid grid-cols-7 gap-y-4 gap-x-2 px-6 mb-8">
                      {getCalendarDays(timelineMonth).map((day, i) => {
-                         if (!day) return <div key={`empty-${i}`} className="w-10 h-10 sm:w-12 sm:h-12 mx-auto"></div>;
+                         if (!day) return <div key={`empty-${i}`} className="w-10 h-10 sm:w-14 sm:h-14 mx-auto"></div>;
                          
                          const dayEntries = entriesByDate[day.dateStr] || [];
                          const hasEntries = dayEntries.length > 0;
@@ -1984,7 +1944,7 @@ function App() {
                              <button
                                  key={day.dateStr}
                                  onClick={() => setTimelineSelectedDate(day.dateStr)}
-                                 className={`relative w-12 h-12 sm:w-14 sm:h-14 mx-auto rounded-full flex items-center justify-center font-bold text-base sm:text-lg transition-transform hover:scale-110 active:scale-95 overflow-hidden shadow-sm
+                                 className={`relative w-12 h-12 sm:w-16 sm:h-16 mx-auto rounded-full flex items-center justify-center font-bold text-base sm:text-lg transition-transform hover:scale-110 active:scale-95 overflow-hidden shadow-sm
                                  ${isSelected ? 'ring-2 ring-accent ring-offset-2 ring-offset-slate-50 dark:ring-offset-[#0a0a0a]' : ''}
                                  ${!hasEntries && !coverUrl ? 'bg-slate-200 dark:bg-zinc-800 text-slate-500' : ''}`}
                              >
