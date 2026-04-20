@@ -4,28 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Legacy Vision Journal</title>
-
-<!-- PWA Integration -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" id="meta-theme-color" content="#000000">
 <meta name="color-scheme" content="light dark">
-
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icon-192x192.png">
 <script id="legacy-injected-data" type="application/json">null</script>
-
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
 <script src="https://cdn.tailwindcss.com"></script>
-<script>
-  window.tailwind={config:{darkMode:'class',theme:{extend:{fontFamily:{sans:['Inter','sans-serif']},colors:{slate:{50:'#f8fafc',100:'#f1f5f9',900:'#0f172a'},zinc:{800:'#27272a',900:'#18181b',950:'#09090b'},accent:'#f59e0b'}}}}};
-</script>
-
+<script>window.tailwind={config:{darkMode:'class',theme:{extend:{fontFamily:{sans:['Inter','sans-serif']},colors:{slate:{50:'#f8fafc',100:'#f1f5f9',900:'#0f172a'},zinc:{800:'#27272a',900:'#18181b',950:'#09090b'},accent:'#f59e0b'}}}}};</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -34,9 +26,7 @@
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<!-- Hinzugefügt für perfektes Touch Drag & Drop (Gruppen-Ordner Verhalten) -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-
 <style>
   html,body{overscroll-behavior-y:none;font-family:'Inter',sans-serif;-webkit-tap-highlight-color:transparent;transition:background-color 0.4s,color 0.4s;}
   body.modal-open{overflow:hidden!important;}
@@ -46,14 +36,12 @@
   .pt-safe{padding-top:env(safe-area-inset-top,0px);}
   .floating-nav-spacing{padding-bottom:calc(120px + env(safe-area-inset-bottom,20px));}
   h1,h2,h3,h4,h5,h6{font-weight:800;letter-spacing:-0.03em;}
-  
   .animate-fade-in{animation:fade-in 0.3s cubic-bezier(0.16,1,0.3,1) forwards;}
   @keyframes fade-in{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}} 
   .animate-slide-up{animation:slide-up 0.4s cubic-bezier(0.16,1,0.3,1) forwards;}
   @keyframes slide-up{from{transform:translateY(24px);opacity:0;}to{transform:translateY(0);opacity:1;}} 
   @keyframes pulse-flame{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.8;transform:scale(1.05);}} 
   .animate-flame{animation:pulse-flame 2s infinite ease-in-out;}
-  
   .custom-scrollbar::-webkit-scrollbar{display:none;}
   .hide-scrollbar{-ms-overflow-style:none;scrollbar-width:none;}
   .legacy-editor-content p,.legacy-content p{line-height:1.8;margin-bottom:1.2rem;font-size:1.05rem;font-weight:500;}
@@ -66,23 +54,18 @@
   .legacy-editor-content blockquote,.legacy-content blockquote{border-left:4px solid currentColor;padding-left:1.5rem;font-style:normal;font-weight:500;opacity:0.8;background:transparent;margin:1.5rem 0;font-size:1.1em;}
   .floating-nav{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);width:calc(100% - 48px);max-width:400px;background:rgba(255,255,255,0.75);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(226,232,240,0.6);border-radius:2rem;box-shadow:0 20px 40px -10px rgba(0,0,0,0.1);z-index:100;}
   html.dark .floating-nav{background:rgba(24,24,27,0.75);border-color:rgba(39,39,42,0.6);box-shadow:0 20px 40px -10px rgba(0,0,0,0.5);}
-  
   .inline-img-wrapper{display:inline-block;vertical-align:text-bottom;margin:4px;max-width:100%;position:relative;}
   .inline-img-wrapper img{width:120px;height:auto;object-fit:contain;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.1);}
   .delete-img-btn{position:absolute;top:-10px;right:-10px;background:#ef4444;color:white;border-radius:50%;width:24px;height:24px;text-align:center;line-height:24px;cursor:pointer;font-family:sans-serif;font-size:12px;font-weight:bold;box-shadow:0 2px 5px rgba(0,0,0,0.3);z-index:10;display:none;}
   .inline-img-wrapper:hover .delete-img-btn{display:block;}
   .legacy-editor-content>img,.legacy-content>img{border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,0.1);display:inline-block;vertical-align:middle;max-width:100%;}
   [contenteditable="true"]:empty:before{content:attr(data-placeholder);opacity:0.3;pointer-events:none;display:block;font-weight:400;}
-  
   html,body,#root{width:100%;height:100%;overflow-x:hidden;}
   .search-highlight{background-color:rgba(245,158,11,0.3);padding:0 2px;border-radius:3px;border-bottom:1px solid #f59e0b;}
   .leaflet-marker-icon.avatar-marker{border:none!important;background:transparent!important;}
   .leaflet-control-attribution{display:none!important;}
-  
-  /* Drag and Drop Styling */
   .sortable-ghost { opacity: 0.4; transform: scale(0.95); }
   .sortable-drag { cursor: grabbing !important; }
-
   .print-only{display:none;}
   @media print{
     @page{margin:2cm;@bottom-center{content:counter(page);font-family:'Inter',sans-serif;font-size:12px;color:#888;}}
@@ -120,8 +103,7 @@ const safeParseDate = (dInput) => {
     }
     const deMatch = dStr.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
     if (deMatch) {
-        const timeMatch = dStr.match(/\s(\d{2}:\d{2}:\d{2})/);
-        const timePart = timeMatch ? timeMatch[1] : '12:00:00';
+        const timePart = dStr.match(/\s(\d{2}:\d{2}:\d{2})/) ? dStr.match(/\s(\d{2}:\d{2}:\d{2})/)[1] : '12:00:00';
         return new Date(`${deMatch[3]}-${deMatch[2].padStart(2, '0')}-${deMatch[1].padStart(2, '0')}T${timePart}Z`);
     }
     let time = new Date(dStr).getTime();
@@ -130,29 +112,16 @@ const safeParseDate = (dInput) => {
     return isNaN(time) ? new Date(0) : new Date(time);
 };
 
-// SORTIERUNG 1: Für Drag & Drop auf dem Dashboard
-const sortEntriesDashboard = (a, b) => {
-    const orderA = safeParseDate(a.orderTimestamp || a.date).getTime() || 0;
-    const orderB = safeParseDate(b.orderTimestamp || b.date).getTime() || 0;
-    return orderB - orderA;
+const sortEntriesDashboard = (a, b) => (safeParseDate(b.orderTimestamp || b.date).getTime() || 0) - (safeParseDate(a.orderTimestamp || a.date).getTime() || 0);
+
+const sortEntriesChronological = (a, b) => {
+    const dayA = new Date(safeParseDate(a.date).getFullYear(), safeParseDate(a.date).getMonth(), safeParseDate(a.date).getDate()).getTime();
+    const dayB = new Date(safeParseDate(b.date).getFullYear(), safeParseDate(b.date).getMonth(), safeParseDate(b.date).getDate()).getTime();
+    if (dayA !== dayB) return dayB - dayA; 
+    return (safeParseDate(b.orderTimestamp || b.date).getTime() || 0) - (safeParseDate(a.orderTimestamp || a.date).getTime() || 0);
 };
 
-// SORTIERUNG 2: Strikte Chronologie (Nach Kalendertag) für Lese-Fenster und Zeitreise
-const sortEntriesChronological = (a, b) => {
-    const dateA = safeParseDate(a.date);
-    const dateB = safeParseDate(b.date);
-    
-    const dayA = new Date(dateA.getFullYear(), dateA.getMonth(), dateA.getDate()).getTime();
-    const dayB = new Date(dateB.getFullYear(), dateB.getMonth(), dateB.getDate()).getTime();
-    
-    if (dayA !== dayB) {
-        return dayB - dayA; // Neuester Tag zuerst
-    }
-    
-    const orderA = safeParseDate(a.orderTimestamp || a.date).getTime() || 0;
-    const orderB = safeParseDate(b.orderTimestamp || b.date).getTime() || 0;
-    return orderB - orderA;
-};
+const sortEntriesAscending = (a, b) => safeParseDate(a.orderTimestamp || a.date).getTime() - safeParseDate(b.orderTimestamp || b.date).getTime();
 
 const getLocalISO = () => new Date().toISOString();
 
@@ -164,25 +133,21 @@ const createSafeHtml = (htmlStr) => {
 const highlightText = (text, query, isTitle = false) => {
   const safeStr = text || '';
   if (!safeStr) return { __html: '' };
-  if (!query) {
-      return { __html: window.DOMPurify ? window.DOMPurify.sanitize(safeStr.replace(/<img[^>]*>/g, ' [Bild] '), { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] }) : safeStr };
-  }
+  if (!query) return { __html: window.DOMPurify ? window.DOMPurify.sanitize(safeStr.replace(/<img[^>]*>/g, ' [Bild] '), { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] }) : safeStr };
+  
   const plainText = safeStr.replace(/<img[^>]*>/g, ' [Bild] ').replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
   const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
   if (!isTitle) {
       const match = regex.exec(plainText);
       if (match) {
          const start = Math.max(0, match.index - 60);
-         const end = Math.min(plainText.length, match.index + query.length + 60);
-         let snippet = plainText.substring(start, end);
+         let snippet = plainText.substring(start, Math.min(plainText.length, match.index + query.length + 60));
          if (start > 0) snippet = '...' + snippet;
-         if (end < plainText.length) snippet = snippet + '...';
-         const highlightedSnippet = snippet.split(regex).map((part, i) => part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part).join('');
-         return { __html: highlightedSnippet };
+         if (Math.min(plainText.length, match.index + query.length + 60) < plainText.length) snippet = snippet + '...';
+         return { __html: snippet.split(regex).map((part, i) => part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part).join('') };
       }
   }
-  const highlighted = plainText.split(regex).map((part, i) => part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part).join('');
-  return { __html: highlighted };
+  return { __html: plainText.split(regex).map((part, i) => part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part).join('') };
 };
 
 const getCoverImage = (entry) => {
@@ -242,11 +207,7 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-black text-white p-8 text-center">
-          <div>
-              <h1 className="text-2xl font-bold mb-4">Ein Moment bitte...</h1>
-              <p className="opacity-70 mb-8">Die App hat sich kurz verschluckt.</p>
-              <button type="button" onClick={() => window.location.reload()} className="px-6 py-3 bg-white text-black font-bold rounded-full hover:scale-105 transition-transform">Neu laden</button>
-          </div>
+          <div><h1 className="text-2xl font-bold mb-4">Ein Moment bitte...</h1><button type="button" onClick={() => window.location.reload()} className="px-6 py-3 bg-white text-black font-bold rounded-full">Neu laden</button></div>
         </div>
       );
     }
@@ -294,7 +255,17 @@ const ColorBtn = ({color, isBg, user, setUser}) => (
    }} className={`w-10 h-10 rounded-full border-2 transition-transform ${ (isBg ? user.appBgColor : user.textColor) === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
 );
 
-const TimelineSwipeableEntry = ({ entry, onClick, onMoveUp, onMoveDown, onArchivePrompt, onTrashPrompt }) => {
+const getCoverImageForCard = (entry, allEntries) => {
+    if (!entry) return null;
+    const bookEntries = [entry, ...allEntries.filter(e => !e.trashed && e.parentId === entry.id)].sort(sortEntriesDashboard);
+    for (const e of bookEntries) {
+        if (e.images && e.images.length > 0) return e.images[0];
+        if (e.text) { const match = e.text.match(/<img[^>]+src="([^">]+)"/); if (match) return match[1]; }
+    }
+    return null;
+};
+
+const TimelineSwipeableEntry = ({ entry, allEntries, onClick, onMoveUp, onMoveDown, onArchivePrompt, onTrashPrompt }) => {
     const [offsetX, setOffsetX] = useState(0);
     const startX = useRef(null);
     const dragged = useRef(false);
@@ -311,7 +282,7 @@ const TimelineSwipeableEntry = ({ entry, onClick, onMoveUp, onMoveDown, onArchiv
         setOffsetX(0); startX.current = null; setTimeout(() => { dragged.current = false; }, 100);
     };
 
-    const coverUrl = getCoverImage(entry);
+    const coverUrl = getCoverImageForCard(entry, allEntries);
 
     return (
         <div className="relative w-full rounded-2xl overflow-hidden bg-slate-200 dark:bg-zinc-800 shrink-0 border border-slate-100 dark:border-zinc-800/50">
@@ -320,14 +291,13 @@ const TimelineSwipeableEntry = ({ entry, onClick, onMoveUp, onMoveDown, onArchiv
                 <div className="text-rose-600 font-bold flex items-center gap-2 opacity-80 text-sm">Löschen <Icon name="trash-2" size={16}/></div>
             </div>
             <div style={{ transform: `translateX(${offsetX}px)`, transition: startX.current === null ? 'transform 0.2s ease-out' : 'none' }} className="relative z-10 w-full bg-white dark:bg-zinc-900/90 shadow-sm flex items-center p-3">
-                <button onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} onClick={(e) => { if (dragged.current) { e.preventDefault(); return; } onClick(entry); }} className="flex-1 flex items-center gap-4 text-left">
+                <button onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} onClick={(e) => { if (dragged.current) { e.preventDefault(); return; } onClick(); }} className="flex-1 flex items-center gap-4 text-left">
                     {coverUrl ? <img src={coverUrl} className="w-14 h-14 rounded-xl object-cover shrink-0 pointer-events-none" /> : <div className="w-14 h-14 rounded-xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 pointer-events-none"><Icon name="book" size={24} className="opacity-40" /></div>}
                     <div className="overflow-hidden pointer-events-none">
                         <h4 className="font-bold text-sm text-accent truncate mb-1">{entry.title || 'Ohne Titel'}</h4>
                         <p className="text-[10px] opacity-60 font-bold tracking-widest uppercase">{safeParseDate(entry.orderTimestamp || entry.date).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})} UHR</p>
                     </div>
                 </button>
-                {/* PFEILTASTEN FÜR DIE ZEITREISE (COVER AUSWÄHLEN) */}
                 <div className="flex gap-1 shrink-0 z-20 ml-2 pl-2 border-l border-slate-100 dark:border-zinc-800/50">
                     <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveUp(e); }} className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-up" size={20}/></button>
                     <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveDown(e); }} className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-down" size={20}/></button>
@@ -341,7 +311,6 @@ function App() {
   const [db, setDb] = useState(null);
   const [fb, setFb] = useState(null);
   const [authUser, setAuthUser] = useState(null);
-  
   const defaultUser = { name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false, uiScale: 1 };
   
   const [view, setView] = useState('loading');
@@ -389,8 +358,8 @@ function App() {
 
   const [burnText, setBurnText] = useState('');
   const [isBurning, setIsBurning] = useState(false);
-
   const [isDrawing, setIsDrawing] = useState(false);
+  
   const canvasRef = useRef(null);
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
@@ -436,6 +405,26 @@ function App() {
   useEffect(() => { viewRef.current = view; }, [view]);
   useEffect(() => { viewingEntryRef.current = viewingEntry; }, [viewingEntry]);
 
+  // SPERRT DIE APP IM HINTERGRUND SOFORT
+  useEffect(() => {
+      const handleVisibilityChange = () => {
+          if (document.visibilityState === 'hidden') {
+              const savedStr = safeStorageGet('legacy_user');
+              if (savedStr) {
+                  try {
+                      const u = JSON.parse(savedStr);
+                      if (u.pin || u.biometric) {
+                          setView('pin_entry');
+                          biometricAttempted.current = false;
+                      }
+                  } catch(e){}
+              }
+          }
+      };
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+      return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
+
   const syncProfileToCloud = async (userData) => {
       if (!fb || !fb.auth || !fb.auth.currentUser || !userData.cloudSync) return;
       try { 
@@ -467,15 +456,14 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [isDrawing, showEditor, viewingEntry, showTimeline, view]);
 
-  // --- FAST BOOT & FIREBASE INIT ---
+  // BLITZSTART OHNE WARTESCHLEIFE
   useEffect(() => {
     const bootApp = async () => {
         const initialSavedStr = safeStorageGet('legacy_user');
         if (initialSavedStr) {
             const localUser = JSON.parse(initialSavedStr);
             setUser(prev => ({...defaultUser, ...prev, ...localUser}));
-            // IMMER DIE PIN VERLANGEN WENN EINGESTELLT
-            if (localUser.pin) {
+            if (localUser.pin || localUser.biometric) {
                 setView('pin_entry');
             } else if (localUser.name) {
                 await loadLocalEntries(null);
@@ -520,7 +508,7 @@ function App() {
                                   const loadedUser = { ...defaultUser, ...data.rawData, ...(data.publicProfile || {}) };
                                   setUser(loadedUser);
                                   safeStorageSet('legacy_user', JSON.stringify(loadedUser));
-                                  if (loadedUser.pin) {
+                                  if (loadedUser.pin || loadedUser.biometric) {
                                       if (viewRef.current !== 'dashboard') setView('pin_entry');
                                   } else { 
                                       await loadLocalEntries(null); 
@@ -942,8 +930,11 @@ function App() {
       
       const bookRoot = getBookRoot(entry.id);
       const unsortedEntries = getAllBookEntries(bookRoot?.id || entry.id);
-      const sortedDesc = [...unsortedEntries].sort(sortEntriesChronological);
-      const targetToOpen = sortedDesc[0] || entry; 
+      
+      // FÜR DAS LESE-FENSTER: Wir sortieren ASCENDING, sodass der älteste Eintrag (zuerst erstellt) vorne ist
+      // und der NEUESTE Tag ganz hinten. Wir öffnen automatisch die LETZTE Seite (den neusten Eintrag).
+      const sortedAsc = [...unsortedEntries].sort(sortEntriesAscending);
+      const targetToOpen = sortedAsc[sortedAsc.length - 1] || entry; 
       
       openWithHistory(() => { setViewingEntry(targetToOpen); setCurrentViewerImgIdx(0); });
   };
@@ -1002,7 +993,7 @@ function App() {
       
       if (prev && next) {
           newTime = (new Date(prev.orderTimestamp || prev.date).getTime() + new Date(next.orderTimestamp || next.date).getTime()) / 2;
-          targetDate = prev.date; // Date vom neuen Nachbarn übernehmen
+          targetDate = prev.date; 
       } else if (prev) {
           newTime = new Date(prev.orderTimestamp || prev.date).getTime() - 1000;
           targetDate = prev.date;
@@ -1158,6 +1149,7 @@ function App() {
       touchStartY.current = e.touches[0].clientY; 
   };
 
+  // ROBUSTE WISCH-LOGIK FÜR DAS LESE-FENSTER (SWIPE)
   const handleTouchEndViewer = (e) => {
       if (touchStartX.current === null || touchStartY.current === null || !viewingEntryRef.current) return;
       
@@ -1168,25 +1160,22 @@ function App() {
       const deltaY = touchStartY.current - touchEndY;
       
       // Nur Swipen, wenn es stark horizontal und kaum vertikal war
-      if (Math.abs(deltaX) > 60 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+      if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
           const bookRoot = getBookRoot(viewingEntryRef.current.id);
           const unsortedEntries = getAllBookEntries(bookRoot?.id || viewingEntryRef.current.id);
-          const chronologicalBookEntries = [...unsortedEntries].sort(sortEntriesChronological);
+          const chronologicalBookEntries = [...unsortedEntries].sort(sortEntriesAscending);
           
           let swipeNext = null, swipePrev = null;
           if (chronologicalBookEntries.length > 1) {
               const cIdx = chronologicalBookEntries.findIndex(ex => ex && ex.id === viewingEntryRef.current.id);
               if (cIdx > 0) swipePrev = chronologicalBookEntries[cIdx - 1]; 
               if (cIdx < chronologicalBookEntries.length - 1) swipeNext = chronologicalBookEntries[cIdx + 1]; 
-          } else {
-              const sorted = [...visibleEntries].sort(sortEntriesChronological);
-              const cIdx = sorted.findIndex(ex => ex && ex.id === viewingEntryRef.current.id);
-              if (cIdx > 0) swipePrev = sorted[cIdx - 1]; 
-              if (cIdx < sorted.length - 1) swipeNext = sorted[cIdx + 1]; 
           }
           
-          if (deltaX > 60 && swipeNext) { setViewingEntry(swipeNext); setCurrentViewerImgIdx(0); }
-          else if (deltaX < -60 && swipePrev) { setViewingEntry(swipePrev); setCurrentViewerImgIdx(0); }
+          // Nach Links wischen (deltaX > 0) -> Weiter in die Zukunft (Nächste Seite)
+          if (deltaX > 50 && swipeNext) { setViewingEntry(swipeNext); setCurrentViewerImgIdx(0); }
+          // Nach Rechts wischen (deltaX < 0) -> Zurück in die Vergangenheit (Vorherige Seite)
+          else if (deltaX < -50 && swipePrev) { setViewingEntry(swipePrev); setCurrentViewerImgIdx(0); }
       }
       
       touchStartX.current = null; touchStartY.current = null;
@@ -1294,7 +1283,7 @@ function App() {
               const targetEntry = entriesRef.current.find(ex => ex.id === targetId);
               if (targetEntry) {
                   let newImages = [...(targetEntry.images || [])];
-                  // Overwrite the first image (cover) reliably
+                  // Overwrite the specific image
                   if (newImages.length === 0) newImages = [base64]; else newImages[imgIndex] = base64;
                   const updatedEntry = {...targetEntry, images: newImages};
                   saveToDB(updatedEntry);
@@ -1498,7 +1487,6 @@ function App() {
       }
   }, [view, entries, user.nameColor]);
 
-  // Haupt-Rendern
   if (importId && !isLoaded) return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="w-12 h-12 border-4 border-amber-50 border-t-transparent rounded-full animate-spin"></div></div>;
   if (view === 'loading' || !isLoaded) return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-black"><div className="w-8 h-8 border-4 border-slate-300 dark:border-zinc-800 border-t-black dark:border-t-white rounded-full animate-spin"></div></div>;
 
@@ -1961,11 +1949,11 @@ function App() {
           {['dashboard', 'archive'].includes(view) && visibleEntries.length > 0 && (
             <div ref={view === 'dashboard' && !searchQuery && activeCategory === 'Alle' ? gridRef : null} className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 pb-32`}>
               {renderEntries.map((entry, idx) => {
-                 const coverUrl = getCoverImage(entry);
+                 const coverUrl = getCoverImageForCard(entry, entries);
                  const hasImages = !!coverUrl;
                  
                  return (
-                     <div key={entry.id} data-id={entry.id} onClick={() => handleOpenEntry(entry, true)} className="relative aspect-square rounded-[1.5rem] overflow-hidden cursor-pointer shadow-sm border border-slate-100 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 group hover:scale-[1.02] active:scale-95 transition-transform duration-300">
+                     <div key={entry.id} data-id={entry.id} onClick={() => handleOpenEntry(entry, false)} className="relative aspect-square rounded-[1.5rem] overflow-hidden cursor-pointer shadow-sm border border-slate-100 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 group hover:scale-[1.02] active:scale-95 transition-transform duration-300">
                          {hasImages ? (
                              <img src={coverUrl} className="w-full h-full object-cover block pointer-events-none" alt="Cover" />
                          ) : (
@@ -2084,14 +2072,13 @@ function App() {
                              <TimelineSwipeableEntry 
                                  key={e.id}
                                  entry={e}
-                                 onClick={() => handleOpenEntry(e, true)}
-                                 onMoveUp={(evt) => moveEntryUp(evt, e)}
-                                 onMoveDown={(evt) => moveEntryDown(evt, e)}
+                                 allEntries={entries}
+                                 onClick={() => { setShowTimeline(false); handleOpenEntry(e, true); }}
                                  onArchivePrompt={promptArchiveTimeline}
                                  onTrashPrompt={promptTrashTimeline}
                              />
                          ))}
-                         <button onClick={() => openEditor(null, null, timelineSelectedDate)} className="w-full flex items-center justify-center gap-2 p-4 mt-6 bg-white dark:bg-zinc-900/60 rounded-2xl cursor-pointer hover:scale-[1.02] transition-transform font-bold text-sm text-accent border border-slate-100 dark:border-zinc-800/50 shadow-sm">
+                         <button onClick={() => { setShowTimeline(false); openEditor(null, null, timelineSelectedDate); }} className="w-full flex items-center justify-center gap-2 p-4 mt-6 bg-white dark:bg-zinc-900/60 rounded-2xl cursor-pointer hover:scale-[1.02] transition-transform font-bold text-sm text-accent border border-slate-100 dark:border-zinc-800/50 shadow-sm">
                              <Icon name="plus" size={18} /> Neuer Eintrag für diesen Tag
                          </button>
                      </div>
@@ -2107,7 +2094,7 @@ function App() {
              {(() => {
                  const bookRoot = getBookRoot(viewingEntry.id);
                  const unsortedEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
-                 const allBookEntries = [...unsortedEntries].sort(sortEntriesChronological);
+                 const allBookEntries = [...unsortedEntries].sort(sortEntriesAscending);
                  const cIdx = allBookEntries.findIndex(ex => ex && ex.id === viewingEntry.id);
                  const prevPage = cIdx > 0 ? allBookEntries[cIdx - 1] : null;
                  const nextPage = cIdx < allBookEntries.length - 1 ? allBookEntries[cIdx + 1] : null;
