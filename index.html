@@ -34,7 +34,7 @@
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<!-- Hinzugefügt für perfektes Touch Drag & Drop -->
+<!-- Hinzugefügt für perfektes Touch Drag & Drop (Gruppen-Ordner Verhalten) -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 
 <style>
@@ -79,7 +79,7 @@
   .leaflet-marker-icon.avatar-marker{border:none!important;background:transparent!important;}
   .leaflet-control-attribution{display:none!important;}
   
-  /* Drag and Drop Ghost Class */
+  /* Drag and Drop Styling */
   .sortable-ghost { opacity: 0.4; transform: scale(0.95); }
   .sortable-drag { cursor: grabbing !important; }
 
@@ -130,7 +130,14 @@ const safeParseDate = (dInput) => {
     return isNaN(time) ? new Date(0) : new Date(time);
 };
 
-// KORRIGIERTE SORTIERUNG: Erst nach exaktem Kalendertag, DANN nach OrderTimestamp für die Reihenfolge am selben Tag
+// SORTIERUNG 1: Für Drag & Drop auf dem Dashboard
+const sortEntriesDashboard = (a, b) => {
+    const orderA = safeParseDate(a.orderTimestamp || a.date).getTime() || 0;
+    const orderB = safeParseDate(b.orderTimestamp || b.date).getTime() || 0;
+    return orderB - orderA;
+};
+
+// SORTIERUNG 2: Strikte Chronologie (Nach Kalendertag) für Lese-Fenster und Zeitreise
 const sortEntriesChronological = (a, b) => {
     const dateA = safeParseDate(a.date);
     const dateB = safeParseDate(b.date);
@@ -139,12 +146,11 @@ const sortEntriesChronological = (a, b) => {
     const dayB = new Date(dateB.getFullYear(), dateB.getMonth(), dateB.getDate()).getTime();
     
     if (dayA !== dayB) {
-        return dayB - dayA; 
+        return dayB - dayA; // Neuester Tag zuerst
     }
     
-    const orderA = safeParseDate(a.orderTimestamp || a.date).getTime();
-    const orderB = safeParseDate(b.orderTimestamp || b.date).getTime();
-    
+    const orderA = safeParseDate(a.orderTimestamp || a.date).getTime() || 0;
+    const orderB = safeParseDate(b.orderTimestamp || b.date).getTime() || 0;
     return orderB - orderA;
 };
 
@@ -715,12 +721,20 @@ function App() {
                   publicKey: { challenge, rp: { name: "Legacy Journal", id: rpId }, user: { id: userId, name: user.name || 'User', displayName: user.name || 'User' }, pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }], authenticatorSelection: { authenticatorAttachment: "platform", residentKey: "required", userVerification: "discouraged" }, timeout: 60000 }
               });
               if (cred) {
-                  setUser({...user, biometric: true}); safeStorageSet('legacy_bio_pin', btoa(user.pin)); safeStorageSet('legacy_bio_id', btoa(String.fromCharCode(...new Uint8Array(cred.rawId))));
+                  const updatedUser = {...user, biometric: true};
+                  setUser(updatedUser); 
+                  safeStorageSet('legacy_user', JSON.stringify(updatedUser)); 
+                  safeStorageSet('legacy_bio_pin', btoa(user.pin)); 
+                  safeStorageSet('legacy_bio_id', btoa(String.fromCharCode(...new Uint8Array(cred.rawId))));
                   showDialog({title: 'Aktiviert', message: 'Biometrisches Entsperren ist nun aktiv.', icon: 'fingerprint'});
               }
           } catch(e) { showDialog({title: 'Fehler', message: 'Biometrie abgebrochen.', icon: 'x'}); }
       } else {
-          setUser({...user, biometric: false}); localStorage.removeItem('legacy_bio_pin'); localStorage.removeItem('legacy_bio_id');
+          const updatedUser = {...user, biometric: false};
+          setUser(updatedUser); 
+          safeStorageSet('legacy_user', JSON.stringify(updatedUser)); 
+          localStorage.removeItem('legacy_bio_pin'); 
+          localStorage.removeItem('legacy_bio_id');
       }
   };
 
@@ -879,8 +893,6 @@ function App() {
       showDialog({title: 'Erfolg', message: 'Deine PIN wurde erfolgreich gespeichert.', icon: 'check'});
   };
 
-  const closeEditor = (savedEntry = null) => { setShowEditor(false); if(isRecording) stopRecording(); if(savedEntry) setViewingEntry(savedEntry); };
-
   const openEditor = (entry = null, pillar = null, customDate = null) => {
     isDirtyRef.current = false;
     let targetDateStr = getLocalISO();
@@ -1023,7 +1035,8 @@ function App() {
     });
   }, [entries, searchQuery, activeCategory, view]);
 
-  const renderEntries = [...visibleEntries].sort(sortEntriesChronological);
+  // Auf dem Dashboard nach der Drag&Drop-Reihenfolge sortieren
+  const renderEntries = [...visibleEntries].sort(sortEntriesDashboard);
 
   useEffect(() => {
       if (view === 'dashboard' && gridRef.current && window.Sortable) {
@@ -1155,7 +1168,7 @@ function App() {
       const deltaY = touchStartY.current - touchEndY;
       
       // Nur Swipen, wenn es stark horizontal und kaum vertikal war
-      if (Math.abs(deltaX) > 60 && Math.abs(deltaX) > Math.abs(deltaY) * 2) {
+      if (Math.abs(deltaX) > 60 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
           const bookRoot = getBookRoot(viewingEntryRef.current.id);
           const unsortedEntries = getAllBookEntries(bookRoot?.id || viewingEntryRef.current.id);
           const chronologicalBookEntries = [...unsortedEntries].sort(sortEntriesChronological);
@@ -1237,6 +1250,35 @@ function App() {
       } 
   };
 
+  const handleMainCoverUpload = (e, currentEntry) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const MAX_SIZE = 800; let width = img.width; let height = img.height;
+              if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
+              canvas.width = width; canvas.height = height; canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+              const base64 = canvas.toDataURL('image/jpeg', 0.6);
+              
+              const rootEntry = getBookRoot(currentEntry.id);
+              if (rootEntry) {
+                  let newImages = [...(rootEntry.images || [])];
+                  if (newImages.length === 0) newImages = [base64]; else newImages[0] = base64;
+                  const updatedEntry = {...rootEntry, images: newImages};
+                  saveToDB(updatedEntry);
+                  showDialog({ title: 'Hauptcover aktualisiert', message: 'Das Titelbild für dieses Tagebuch wurde geändert.', icon: 'check' });
+                  if (viewingEntryRef.current && viewingEntryRef.current.id === rootEntry.id) setViewingEntry(updatedEntry);
+              }
+          };
+          img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+      e.target.value = null;
+  };
+
   const handleBookCoverUpload = (e, targetId, imgIndex = 0) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -1253,7 +1295,7 @@ function App() {
               if (targetEntry) {
                   let newImages = [...(targetEntry.images || [])];
                   // Overwrite the first image (cover) reliably
-                  if (newImages.length === 0) newImages = [base64]; else newImages[0] = base64;
+                  if (newImages.length === 0) newImages = [base64]; else newImages[imgIndex] = base64;
                   const updatedEntry = {...targetEntry, images: newImages};
                   saveToDB(updatedEntry);
                   showDialog({ title: 'Bild aktualisiert', message: 'Das Bild wurde erfolgreich geändert.', icon: 'check' });
@@ -2085,7 +2127,7 @@ function App() {
                              
                              <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform cursor-pointer flex items-center justify-center text-slate-500" title="Hauptcover ändern">
                                  <Icon name="image" size={22}/>
-                                 <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id, 0)} className="hidden" />
+                                 <input type="file" accept="image/*" onChange={(e) => handleMainCoverUpload(e, viewingEntry)} className="hidden" />
                              </label>
 
                              <button onClick={() => { openEditor(viewingEntry); }} className="px-4 sm:px-6 py-3 rounded-2xl font-bold text-sm bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform" style={{ color: user.nameColor }}>Bearbeiten</button>
