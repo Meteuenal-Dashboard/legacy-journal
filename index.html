@@ -322,8 +322,8 @@ const TimelineSwipeableEntry = ({ entry, allEntries, onClick, onMoveUp, onMoveDo
                     </div>
                 </button>
                 <div className="flex gap-1 shrink-0 z-20 ml-2 pl-2 border-l border-slate-100 dark:border-zinc-800/50">
-                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveUp(e); }} className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-up" size={20}/></button>
-                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveDown(e); }} className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-down" size={20}/></button>
+                    <button type="button" onTouchStart={(e) => e.stopPropagation()} onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (onMoveUp) onMoveUp(e); }} className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-up" size={20}/></button>
+                    <button type="button" onTouchStart={(e) => e.stopPropagation()} onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (onMoveDown) onMoveDown(e); }} className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-down" size={20}/></button>
                 </div>
             </div>
         </div>
@@ -1517,10 +1517,14 @@ function App() {
       const sameDayEntries = entries.filter(ex => !ex.trashed && safeParseDate(ex.date).toDateString() === dayStr).sort(sortEntriesChronological);
       
       const idx = sameDayEntries.findIndex(ex => ex.id === targetEntry.id);
-      if (idx <= 0) return;
+      let tCurrent = safeParseDate(targetEntry.orderTimestamp || targetEntry.date).getTime();
+      
+      if (idx <= 0) {
+          saveToDB({...targetEntry, orderTimestamp: new Date(tCurrent + 1000).toISOString()});
+          return;
+      }
       
       const above = sameDayEntries[idx - 1];
-      let tCurrent = safeParseDate(targetEntry.orderTimestamp || targetEntry.date).getTime();
       let tAbove = safeParseDate(above.orderTimestamp || above.date).getTime();
       
       let newCurrentTime = tAbove; let newAboveTime = tCurrent;
@@ -1536,10 +1540,14 @@ function App() {
       const sameDayEntries = entries.filter(ex => !ex.trashed && safeParseDate(ex.date).toDateString() === dayStr).sort(sortEntriesChronological);
       
       const idx = sameDayEntries.findIndex(ex => ex.id === targetEntry.id);
-      if (idx === -1 || idx >= sameDayEntries.length - 1) return;
+      let tCurrent = safeParseDate(targetEntry.orderTimestamp || targetEntry.date).getTime();
+      
+      if (idx === -1 || idx >= sameDayEntries.length - 1) {
+          saveToDB({...targetEntry, orderTimestamp: new Date(tCurrent - 1000).toISOString()});
+          return;
+      }
       
       const below = sameDayEntries[idx + 1];
-      let tCurrent = safeParseDate(targetEntry.orderTimestamp || targetEntry.date).getTime();
       let tBelow = safeParseDate(below.orderTimestamp || below.date).getTime();
       
       let newCurrentTime = tBelow; let newBelowTime = tCurrent;
@@ -1962,15 +1970,15 @@ function App() {
             )}
           </div>
           <div className="flex gap-2 items-center">
-            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openWithHistory(() => setShowTimeline(true)); }} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="calendar-days" size={18}/></button>
+            <button type="button" onClick={() => openWithHistory(() => setShowTimeline(true))} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors relative z-50 cursor-pointer"><Icon name="calendar-days" size={18}/></button>
             
             {view === 'dashboard' && (
               <>
-                <button type="button" onClick={() => setIsSearchOpen(!isSearchOpen)} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="search" size={18}/></button>
-                <button type="button" onClick={() => openWithHistory(() => setView('menu'))} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="menu" size={18}/></button>
+                <button type="button" onClick={() => setIsSearchOpen(!isSearchOpen)} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors relative z-50 cursor-pointer"><Icon name="search" size={18}/></button>
+                <button type="button" onClick={() => openWithHistory(() => setView('menu'))} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors relative z-50 cursor-pointer"><Icon name="menu" size={18}/></button>
               </>
             )}
-            {view !== 'dashboard' && <button type="button" onClick={() => window.history.back()} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"><Icon name="x" size={18} /></button>}
+            {view !== 'dashboard' && <button type="button" onClick={() => window.history.back()} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors relative z-50 cursor-pointer"><Icon name="x" size={18} /></button>}
           </div>
           {isSearchOpen && view === 'dashboard' && (
             <div className="absolute top-full left-0 right-0 p-4 bg-white/90 dark:bg-black/90 backdrop-blur-2xl border-b border-slate-200/50 dark:border-zinc-800/50 shadow-xl z-50">
