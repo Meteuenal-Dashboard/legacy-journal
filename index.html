@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Legacy Vision Journal - Ultimate Edition</title>
+<title>Legacy Vision Journal</title>
 
-<!-- PWA & iOS Premium Integration -->
+<!-- PWA Integration -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -45,42 +45,38 @@
   .floating-nav-spacing{padding-bottom:calc(120px + env(safe-area-inset-bottom,20px));}
   h1,h2,h3,h4,h5,h6{font-weight:800;letter-spacing:-0.03em;}
   
-  /* Fast, Snappy Animations */
-  .spring-modal {
-     transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease-out;
-     will-change: transform, opacity;
-  }
-  
-  @keyframes fade-in{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}} 
   .animate-fade-in{animation:fade-in 0.3s cubic-bezier(0.16,1,0.3,1) forwards;}
-  .delay-300 { animation-delay: 0.3s; animation-fill-mode: backwards; }
-  @keyframes slide-up{from{transform:translateY(24px);opacity:0;}to{transform:translateY(0);opacity:1;}} 
+  @keyframes fade-in{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}} 
   .animate-slide-up{animation:slide-up 0.4s cubic-bezier(0.16,1,0.3,1) forwards;}
+  @keyframes slide-up{from{transform:translateY(24px);opacity:0;}to{transform:translateY(0);opacity:1;}} 
   @keyframes pulse-flame{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.8;transform:scale(1.05);}} 
   .animate-flame{animation:pulse-flame 2s infinite ease-in-out;}
+  
   .custom-scrollbar::-webkit-scrollbar{display:none;}
   .hide-scrollbar{-ms-overflow-style:none;scrollbar-width:none;}
   .legacy-editor-content p,.legacy-content p{line-height:1.8;margin-bottom:1.2rem;font-size:1.05rem;font-weight:500;}
   .legacy-editor-content h1,.legacy-content h1{font-size:2.25rem;font-weight:800;margin-top:1.5rem;margin-bottom:1rem;line-height:1.2;}
   .legacy-editor-content h2,.legacy-content h2{font-size:1.75rem;font-weight:700;margin-top:1.5rem;margin-bottom:0.75rem;line-height:1.3;}
-  .legacy-editor-content b,.legacy-content b,.legacy-editor-content strong,.legacy-content strong{font-weight:700;color:inherit;}
+  .legacy-editor-content b,.legacy-content b,.legacy-editor-content strong,.legacy-content strong{font-weight:700;}
   .legacy-editor-content ul,.legacy-content ul{list-style-type:disc;padding-left:1.5rem;margin-top:0.5rem;margin-bottom:0.5rem;}
   .legacy-editor-content ol,.legacy-content ol{list-style-type:decimal;padding-left:1.5rem;margin-top:0.5rem;margin-bottom:0.5rem;}
   .legacy-editor-content li,.legacy-content li{margin-bottom:0.25rem;}
   .legacy-editor-content blockquote,.legacy-content blockquote{border-left:4px solid currentColor;padding-left:1.5rem;font-style:normal;font-weight:500;opacity:0.8;background:transparent;margin:1.5rem 0;font-size:1.1em;}
   .floating-nav{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);width:calc(100% - 48px);max-width:400px;background:rgba(255,255,255,0.75);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(226,232,240,0.6);border-radius:2rem;box-shadow:0 20px 40px -10px rgba(0,0,0,0.1);z-index:100;}
   html.dark .floating-nav{background:rgba(24,24,27,0.75);border-color:rgba(39,39,42,0.6);box-shadow:0 20px 40px -10px rgba(0,0,0,0.5);}
+  
   .inline-img-wrapper{display:inline-block;vertical-align:text-bottom;margin:4px;max-width:100%;position:relative;}
   .inline-img-wrapper img{width:120px;height:auto;object-fit:contain;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.1);}
   .delete-img-btn{position:absolute;top:-10px;right:-10px;background:#ef4444;color:white;border-radius:50%;width:24px;height:24px;text-align:center;line-height:24px;cursor:pointer;font-family:sans-serif;font-size:12px;font-weight:bold;box-shadow:0 2px 5px rgba(0,0,0,0.3);z-index:10;display:none;}
-  .inline-img-wrapper:hover .delete-img-btn,.inline-img-wrapper:active .delete-img-btn{display:block;}
+  .inline-img-wrapper:hover .delete-img-btn{display:block;}
   .legacy-editor-content>img,.legacy-content>img{border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,0.1);display:inline-block;vertical-align:middle;max-width:100%;}
   [contenteditable="true"]:empty:before{content:attr(data-placeholder);opacity:0.3;pointer-events:none;display:block;font-weight:400;}
+  
   html,body,#root{width:100%;height:100%;overflow-x:hidden;}
   .search-highlight{background-color:rgba(245,158,11,0.3);padding:0 2px;border-radius:3px;border-bottom:1px solid #f59e0b;}
-  .map-container{height:100%;width:100%;border-radius:1.5rem;z-index:1;}
   .leaflet-marker-icon.avatar-marker{border:none!important;background:transparent!important;}
   .leaflet-control-attribution{display:none!important;}
+  
   .print-only{display:none;}
   @media print{
     @page{margin:2cm;@bottom-center{content:counter(page);font-family:'Inter',sans-serif;font-size:12px;color:#888;}}
@@ -103,95 +99,53 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useMemo } = React;
 
-const safeStorageGet = (key) => { 
-    try { return localStorage.getItem(key); } catch(e) { return null; } 
-};
-const safeStorageSet = (key, val) => { 
-    try { localStorage.setItem(key, val); } catch(e) {} 
-};
+const safeStorageGet = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
+const safeStorageSet = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
 
-// --- ROBUSTER DATUMS PARSER ---
 const safeParseDate = (dInput) => {
     if (!dInput) return new Date(0);
-    if (dInput instanceof Date) {
-        if (isNaN(dInput.getTime())) return new Date(0);
-        return dInput;
-    }
+    if (dInput instanceof Date) { if (isNaN(dInput.getTime())) return new Date(0); return dInput; }
     if (typeof dInput === 'number') return new Date(dInput);
-    
     let dStr = String(dInput).trim();
-    
     if (/^\d{4}-\d{2}-\d{2}/.test(dStr)) {
         let time = new Date(dStr).getTime();
         if (isNaN(time)) time = new Date(dStr + 'Z').getTime();
         return isNaN(time) ? new Date(0) : new Date(time);
     }
-    
     const deMatch = dStr.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
     if (deMatch) {
         const timeMatch = dStr.match(/\s(\d{2}:\d{2}:\d{2})/);
         const timePart = timeMatch ? timeMatch[1] : '12:00:00';
         return new Date(`${deMatch[3]}-${deMatch[2].padStart(2, '0')}-${deMatch[1].padStart(2, '0')}T${timePart}Z`);
     }
-    
     let time = new Date(dStr).getTime();
     if (isNaN(time)) time = new Date(dStr + 'Z').getTime();
     if (isNaN(time)) time = new Date(dStr.replace(' ', 'T') + 'Z').getTime();
-    
     return isNaN(time) ? new Date(0) : new Date(time);
 };
 
-// ZENTRALE SORTIERUNG: Strikt nach Kalendertag, dann nach OrderTimestamp (für Up/Down Pfeile)
+// SORTIERUNG: Komplett auf orderTimestamp basiert. Erlaubt absolut freies Verschieben.
 const sortEntriesChronological = (a, b) => {
-    const timeA = safeParseDate(a.date).getTime() || 0;
-    const timeB = safeParseDate(b.date).getTime() || 0;
-    
-    const dateA = new Date(timeA);
-    const dateB = new Date(timeB);
-    
-    const dayA = new Date(dateA.getFullYear(), dateA.getMonth(), dateA.getDate()).getTime() || 0;
-    const dayB = new Date(dateB.getFullYear(), dateB.getMonth(), dateB.getDate()).getTime() || 0;
-    
-    if (dayA !== dayB) {
-        return dayB - dayA; 
-    }
-    
     const orderA = safeParseDate(a.orderTimestamp || a.date).getTime() || 0;
     const orderB = safeParseDate(b.orderTimestamp || b.date).getTime() || 0;
-    
-    if (orderA !== orderB) {
-        return orderB - orderA;
-    }
-    return timeB - timeA;
+    return orderB - orderA;
 };
 
 const getLocalISO = () => new Date().toISOString();
 
 const createSafeHtml = (htmlStr) => {
   const safeStr = htmlStr || '';
-  return { 
-      __html: window.DOMPurify ? window.DOMPurify.sanitize(safeStr, { 
-          ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], 
-          ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] 
-      }) : safeStr 
-  };
+  return { __html: window.DOMPurify ? window.DOMPurify.sanitize(safeStr, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] }) : safeStr };
 };
 
 const highlightText = (text, query, isTitle = false) => {
   const safeStr = text || '';
   if (!safeStr) return { __html: '' };
-  
   if (!query) {
-      const safeHTML = window.DOMPurify ? window.DOMPurify.sanitize(safeStr.replace(/<img[^>]*>/g, ' [Bild] '), { 
-          ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], 
-          ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] 
-      }) : safeStr;
-      return { __html: safeHTML };
+      return { __html: window.DOMPurify ? window.DOMPurify.sanitize(safeStr.replace(/<img[^>]*>/g, ' [Bild] '), { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'div', 'span', 'blockquote', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img', 'font'], ALLOWED_ATTR: ['style', 'class', 'dir', 'src', 'alt', 'color', 'width', 'height', 'contenteditable'] }) : safeStr };
   }
-
   const plainText = safeStr.replace(/<img[^>]*>/g, ' [Bild] ').replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
   const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-  
   if (!isTitle) {
       const match = regex.exec(plainText);
       if (match) {
@@ -200,28 +154,18 @@ const highlightText = (text, query, isTitle = false) => {
          let snippet = plainText.substring(start, end);
          if (start > 0) snippet = '...' + snippet;
          if (end < plainText.length) snippet = snippet + '...';
-         
-         const highlightedSnippet = snippet.split(regex).map((part, i) => 
-             part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part
-         ).join('');
+         const highlightedSnippet = snippet.split(regex).map((part, i) => part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part).join('');
          return { __html: highlightedSnippet };
       }
   }
-
-  const highlighted = plainText.split(regex).map((part, i) =>
-      part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part
-  ).join('');
+  const highlighted = plainText.split(regex).map((part, i) => part.toLowerCase() === query.toLowerCase() ? `<span class="search-highlight" key="${i}">${part}</span>` : part).join('');
   return { __html: highlighted };
 };
 
-// --- INTELLIGENTE BILD-ERKENNUNG (COVER) ---
 const getCoverImage = (entry) => {
     if (!entry) return null;
     if (entry.images && entry.images.length > 0) return entry.images[0];
-    if (entry.text) {
-        const match = entry.text.match(/<img[^>]+src="([^">]+)"/);
-        if (match) return match[1];
-    }
+    if (entry.text) { const match = entry.text.match(/<img[^>]+src="([^">]+)"/); if (match) return match[1]; }
     return null;
 };
 
@@ -235,8 +179,7 @@ const getCryptoKey = async (pin, saltStr) => {
     const keyMaterial = await window.crypto.subtle.importKey("raw", encHelper.encode(pin), { name: "PBKDF2" }, false, ["deriveBits", "deriveKey"]);
     const salt = Uint8Array.from(atob(saltStr), c => c.charCodeAt(0));
     const key = await window.crypto.subtle.deriveKey({ name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" }, keyMaterial, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
-    cryptoKeyCache[cacheKey] = key; 
-    return key;
+    cryptoKeyCache[cacheKey] = key; return key;
 };
 
 const encryptData = async (text, pin) => {
@@ -247,18 +190,11 @@ const encryptData = async (text, pin) => {
         const ivStr = btoa(String.fromCharCode.apply(null, iv));
         const key = await getCryptoKey(pin, saltStr);
         const encrypted = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, encHelper.encode(text));
-        
         const bytes = new Uint8Array(encrypted);
         let binary = '';
-        const chunkSize = 8192;
-        for (let i = 0; i < bytes.length; i += chunkSize) {
-            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
-        }
-        
+        for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
         return { cipher: btoa(binary), iv: ivStr, salt: saltStr };
-    } catch(e) { 
-        return null; 
-    }
+    } catch(e) { return null; }
 };
 
 const decryptData = async (encryptedObj, pin) => {
@@ -268,28 +204,17 @@ const decryptData = async (encryptedObj, pin) => {
         const iv = Uint8Array.from(atob(encryptedObj.iv), c => c.charCodeAt(0));
         const atobCipher = atob(encryptedObj.cipher);
         const cipher = new Uint8Array(atobCipher.length);
-        for (let i = 0; i < atobCipher.length; i++) {
-            cipher[i] = atobCipher.charCodeAt(i);
-        }
+        for (let i = 0; i < atobCipher.length; i++) cipher[i] = atobCipher.charCodeAt(i);
         const keyMaterial = await window.crypto.subtle.importKey("raw", encHelper.encode(pin), { name: "PBKDF2" }, false, ["deriveBits", "deriveKey"]);
         const key = await window.crypto.subtle.deriveKey({ name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" }, keyMaterial, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
         const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, cipher);
         return decHelper.decode(decrypted);
-    } catch(e) { 
-        return null; 
-    }
+    } catch(e) { return null; }
 };
 
 class ErrorBoundary extends React.Component {
-  constructor(props) { 
-      super(props); 
-      this.state = { hasError: false, error: null }; 
-  }
-  
-  static getDerivedStateFromError(error) { 
-      return { hasError: true, error }; 
-  }
-  
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
   render() {
     if (this.state.hasError) {
       return (
@@ -308,93 +233,46 @@ class ErrorBoundary extends React.Component {
 
 const Icon = ({ name, size = 24, className = '', ...props }) => {
   const spanRef = useRef(null);
-  
   useEffect(() => {
-    const renderIcon = () => {
-      if (spanRef.current && window.lucide) {
+    if (window.lucide && spanRef.current) {
         spanRef.current.innerHTML = `<i data-lucide="${name}"></i>`;
         window.lucide.createIcons({ root: spanRef.current });
         const svg = spanRef.current.querySelector('svg');
-        if (svg) { 
-            svg.setAttribute('width', size); 
-            svg.setAttribute('height', size); 
-            if (className) svg.setAttribute('class', `lucide lucide-${name} ${className}`); 
-        }
-      }
-    };
-    if (window.lucide) renderIcon(); 
-    else setTimeout(renderIcon, 100);
+        if (svg) { svg.setAttribute('width', size); svg.setAttribute('height', size); if (className) svg.setAttribute('class', `lucide lucide-${name} ${className}`); }
+    }
   }, [name, size, className]);
-  
   return <span ref={spanRef} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} {...props}></span>;
 };
 
 const COLORS = ['#ffffff', '#f8fafc', '#e4e4e7', '#a1a1aa', '#52525b', '#27272a', '#18181b', '#09090b', '#fef08a', '#fbbf24', '#f59e0b', '#d97706', '#fecdd3', '#fb7185', '#f43f5e', '#e11d48', '#bfdbfe', '#3b82f6', '#1d4ed8', '#a7f3d0', '#10b981', '#047857', '#e9d5ff', '#8b5cf6', '#6d28d9'];
 const EDITOR_COLORS = ['#0f172a', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#a8a29e', '#ffffff'];
 
-const isDarkColor = (color) => {
-  if (!color) return true;
-  const hex = color.replace('#', '');
-  if (hex.length === 6) {
-    const r = parseInt(hex.substr(0, 2), 16), g = parseInt(hex.substr(2, 2), 16), b = parseInt(hex.substr(4, 2), 16);
-    return ((r * 299 + g * 587 + b * 114) / 1000) < 128;
-  }
-  return true; 
+const isDarkColor = (c) => { 
+    if (!c) return true; 
+    const hex = c.replace('#', ''); 
+    if (hex.length === 6) { 
+        const r = parseInt(hex.substr(0, 2), 16), g = parseInt(hex.substr(2, 2), 16), b = parseInt(hex.substr(4, 2), 16); 
+        return ((r * 299 + g * 587 + b * 114) / 1000) < 128; 
+    } 
+    return true; 
 };
 
-const getSubtleBorderColor = (hexColor, isDark) => {
-    if (!hexColor) return isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
-    const cleanHex = hexColor.replace('#', '');
-    if (cleanHex.length === 6) {
-        const r = parseInt(cleanHex.slice(0, 2), 16), g = parseInt(cleanHex.slice(2, 4), 16), b = parseInt(cleanHex.slice(4, 6), 16);
-        return `rgba(${r}, ${g}, ${b}, ${isDark ? 0.15 : 0.25})`;
-    }
-    return isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+const getSubtleBorderColor = (c, isD) => { 
+    if (!c) return isD ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'; 
+    const clean = c.replace('#', ''); 
+    if (clean.length === 6) { 
+        const r = parseInt(clean.slice(0, 2), 16), g = parseInt(clean.slice(2, 4), 16), b = parseInt(clean.slice(4, 6), 16); 
+        return `rgba(${r}, ${g}, ${b}, ${isD ? 0.15 : 0.25})`; 
+    } 
+    return isD ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'; 
 };
 
 const CATEGORIES = ['Allgemein', 'Tagebuch', 'Ideen', 'Gesundheit', 'Vision', 'Ziele', 'Bücher', 'Familie'];
-
-const PILLARS = [
-  { id: 'm1', phase: 'Fundament', title: '1. Das Nordstern-Manifest', desc: 'Definiere deine absoluten, unverhandelbaren Grundwerte.' },
-  { id: 'm2', phase: 'Fundament', title: '2. Der Zeitgeist-Stempel', desc: 'Historischer Kontext: Was passiert gerade auf der Welt?' },
-  { id: 'm3', phase: 'Fundament', title: '3. Das Geistige Testament', desc: 'Vererbe deinen Charakter. Welche Lebensweisheiten möchtest du weitergeben?' },
-  { id: 'm4', phase: 'Fundament', title: '4. Die Anti-Vision', desc: 'Definiere glasklar, wer du niemals werden willst und welche Pfade du vermeidest.' },
-  { id: 'm5', phase: 'Fundament', title: '5. Das Narben-Register', desc: 'Eine ehrliche Dokumentation deines größten Fehlschlags und deines Comebacks.' },
-  { id: 'm6', phase: 'Kommunikation', title: '6. Die Zeitkapsel', desc: 'Eine Botschaft an die Zukunft. Nutze die Datums-Siegelfunktion.' },
-  { id: 'm7', phase: 'Kommunikation', title: '7. Der Enkel-Dialog', desc: 'Stelle Fragen, die der zukünftige Leser für sich selbst beantworten soll.' },
-  { id: 'm8', phase: 'Kommunikation', title: '8. Stammbaum der Fähigkeiten', desc: 'Dokumentiere, wie du dir über Jahrzehnte Fähigkeiten angeeignet hast.' },
-  { id: 'm9', phase: 'Kommunikation', title: '9. Schicksals-Tagebuch', desc: 'Ein Ort für unglaubliche Zufälle und unerklärliche Momente deines Lebens.' },
-  { id: 'm10', phase: 'Kommunikation', title: '10. Das Dankbarkeits-Echo', desc: 'Wem verdankst du etwas? Wer waren deine Mentoren, Lehrer, Wegbegleiter?' },
-  { id: 'm11', phase: 'Struktur', title: '11. Purer Text (Agnostisch)', desc: 'Schreibe in einfachen Sätzen rohe Fakten auf, völlig ohne Emotionen.' },
-  { id: 'm12', phase: 'Struktur', title: '12. Matroschka-Ziele', desc: 'Bricht deine 50-Jahres-Vision auf ein 10-Jahres-Ziel und das Heute herunter.' },
-  { id: 'm13', phase: 'Struktur', title: '13. Die Essenz-Filterung', desc: 'Fasse das vergangene Jahr in drei Sätzen zusammen: Triumph, Schmerz, Lektion.' },
-  { id: 'm14', phase: 'Struktur', title: '14. Offene Fragen', desc: 'Dinge im Leben, die du noch nicht verstehst. Zeige intellektuelle Demut.' },
-  { id: 'm15', phase: 'Struktur', title: '15. Denkwerkzeuge', desc: 'Notiere die mentalen Modelle, die dir in schweren Situationen helfen.' },
-  { id: 'm16', phase: 'Tiefe', title: '16. Emotionaler Farb-Code', desc: 'Vergib deiner aktuellen Lebensphase eine Farbe und erkläre, warum.' },
-  { id: 'm17', phase: 'Tiefe', title: '17. Die Friedens-Akte', desc: 'Aufzeichnungen darüber, wie du einen schweren Konflikt gelöst hast.' },
-  { id: 'm18', phase: 'Tiefe', title: '18. Das Alltags-Fossil', desc: 'Dokumentiere einen extrem banalen, minutengenauen Ablauf eines normalen Dienstags.' },
-  { id: 'm19', phase: 'Tiefe', title: '19. Rhythmus-Tracker', desc: 'Beobachte deine eigenen Lebensenergie-Zyklen. Wann musstest du loslassen?' },
-  { id: 'm20', phase: 'Tiefe', title: '20. Ideen-Gewächshaus', desc: 'Ideen, die du heute hast, für die du oder die Welt noch nicht bereit sind.' },
-  { id: 'm21', phase: 'Anpassung', title: '21. Der Pivot-Tracker', desc: 'Hebe Momente hervor, in denen du dein Leben radikal in eine neue Richtung gelenkt hast.' },
-  { id: 'm22', phase: 'Anpassung', title: '22. Umwelt-Resonanz', desc: 'Beobachtungen über die Natur und Umwelt an deinem Wohnort im Wandel der Zeit.' },
-  { id: 'm23', phase: 'Anpassung', title: '23. Die Loslass-Liste', desc: 'Träume, Ziele oder Menschen, die du bewusst (und in Frieden) aufgegeben hast.' },
-  { id: 'm24', phase: 'Anpassung', title: '24. Stimme & Akzent', desc: 'Nutze die Mikrofon-Funktion, um eine Audio-Nachricht mit deiner Stimme zu hinterlassen.' },
-  { id: 'm25', phase: 'Anpassung', title: '25. Raum für Unbegreifliches', desc: 'Platz für Konzepte und Lebensrealitäten, die es heute noch gar nicht gibt.' }
-];
+const PILLARS = [{ id: 'm1', phase: 'Fundament', title: '1. Das Nordstern-Manifest', desc: 'Definiere deine absoluten, unverhandelbaren Grundwerte.' }, { id: 'm2', phase: 'Fundament', title: '2. Der Zeitgeist-Stempel', desc: 'Historischer Kontext: Was passiert gerade auf der Welt?' }, { id: 'm3', phase: 'Fundament', title: '3. Das Geistige Testament', desc: 'Vererbe deinen Charakter. Welche Lebensweisheiten möchtest du weitergeben?' }, { id: 'm6', phase: 'Kommunikation', title: '6. Die Zeitkapsel', desc: 'Eine Botschaft an die Zukunft. Nutze die Datums-Siegelfunktion.' }, { id: 'm11', phase: 'Struktur', title: '11. Purer Text (Agnostisch)', desc: 'Schreibe in einfachen Sätzen rohe Fakten auf, völlig ohne Emotionen.' }, { id: 'm16', phase: 'Tiefe', title: '16. Emotionaler Farb-Code', desc: 'Vergib deiner aktuellen Lebensphase eine Farbe und erkläre, warum.' }, { id: 'm21', phase: 'Anpassung', title: '21. Der Pivot-Tracker', desc: 'Hebe Momente hervor, in denen du dein Leben radikal in eine neue Richtung gelenkt hast.' }, { id: 'm25', phase: 'Anpassung', title: '25. Raum für Unbegreifliches', desc: 'Platz für Konzepte und Lebensrealitäten, die es heute noch gar nicht gibt.' }];
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
-const initDB = () => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('LegacyVisionDB', 4);
-    request.onupgradeneeded = (e) => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains('entries')) db.createObjectStore('entries', { keyPath: 'id' });
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-};
+const initDB = () => new Promise((resolve, reject) => { const req = indexedDB.open('LegacyVisionDB', 4); req.onupgradeneeded = (e) => { const db = e.target.result; if (!db.objectStoreNames.contains('entries')) db.createObjectStore('entries', { keyPath: 'id' }); }; req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); });
 
 const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQuery, onMoveUp, onMoveDown, showMoveControls }) => {
     if (!entry) return null;
@@ -414,12 +292,14 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
             <Icon name="sparkles" size={12}/> Highlight
           </div>
         )}
-        {/* VOLLBILD BILD OHNE VERZERRUNG */}
+        
+        {/* KOMPAKTERES BILD WIE AUF BILD 4 - SCHARF & VOLLBILD (object-cover) */}
         {hasImages && (
-          <div className="w-full relative bg-slate-100 dark:bg-zinc-800">
-            <img src={coverUrl} className="w-full h-auto block" alt="Cover" />
+          <div className="w-full relative bg-slate-100 dark:bg-zinc-800 h-48 sm:h-56 overflow-hidden flex items-center justify-center">
+            <img src={coverUrl} className="w-full h-full object-cover block transform group-hover:scale-105 transition-transform duration-700" alt="Cover" />
           </div>
         )}
+        
         <div className="p-6 relative z-10 flex-1 flex flex-col">
           <div className="flex items-center justify-between mb-3 gap-2">
               <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-50 flex-wrap flex-1">
@@ -431,8 +311,8 @@ const EntryCard = ({ entry, onClick, isGridView, userColor, isDarkTheme, searchQ
               
               {showMoveControls && !isGridView && (
                   <div className="flex gap-1 shrink-0 z-20 ml-2">
-                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveUp(e, entry); }} className="w-8 h-8 bg-white/80 dark:bg-black/80 backdrop-blur rounded-full flex items-center justify-center shadow-sm text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-black hover:text-accent transition-colors"><Icon name="chevron-up" size={16}/></button>
-                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveDown(e, entry); }} className="w-8 h-8 bg-white/80 dark:bg-black/80 backdrop-blur rounded-full flex items-center justify-center shadow-sm text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-black hover:text-accent transition-colors"><Icon name="chevron-down" size={16}/></button>
+                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveUp(e); }} className="w-8 h-8 bg-slate-100 dark:bg-zinc-800 rounded-full flex items-center justify-center shadow-sm text-slate-600 dark:text-slate-300 hover:text-accent transition-colors"><Icon name="chevron-up" size={16}/></button>
+                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveDown(e); }} className="w-8 h-8 bg-slate-100 dark:bg-zinc-800 rounded-full flex items-center justify-center shadow-sm text-slate-600 dark:text-slate-300 hover:text-accent transition-colors"><Icon name="chevron-down" size={16}/></button>
                   </div>
               )}
           </div>
@@ -493,29 +373,16 @@ const TimelineSwipeableEntry = ({ entry, onClick, onMoveUp, onMoveDown, onArchiv
     const startX = useRef(null);
     const dragged = useRef(false);
 
-    const handleTouchStart = (evt) => {
-        startX.current = evt.touches[0].clientX;
-        dragged.current = false;
-    };
-
+    const handleTouchStart = (evt) => { startX.current = evt.touches[0].clientX; dragged.current = false; };
     const handleTouchMove = (evt) => {
         if (startX.current === null) return;
         const diff = evt.touches[0].clientX - startX.current;
         if (Math.abs(diff) > 10) dragged.current = true;
-        if (diff > 100) setOffsetX(100);
-        else if (diff < -100) setOffsetX(-100);
-        else setOffsetX(diff);
+        if (diff > 100) setOffsetX(100); else if (diff < -100) setOffsetX(-100); else setOffsetX(diff);
     };
-
     const handleTouchEnd = () => {
-        if (offsetX > 60) {
-            onArchivePrompt(entry);
-        } else if (offsetX < -60) {
-            onTrashPrompt(entry);
-        }
-        setOffsetX(0);
-        startX.current = null;
-        setTimeout(() => { dragged.current = false; }, 100);
+        if (offsetX > 60) onArchivePrompt(entry); else if (offsetX < -60) onTrashPrompt(entry);
+        setOffsetX(0); startX.current = null; setTimeout(() => { dragged.current = false; }, 100);
     };
 
     const coverUrl = getCoverImage(entry);
@@ -526,29 +393,18 @@ const TimelineSwipeableEntry = ({ entry, onClick, onMoveUp, onMoveDown, onArchiv
                 <div className="text-emerald-600 font-bold flex items-center gap-2 opacity-80 text-sm"><Icon name="archive" size={16}/> Archiv</div>
                 <div className="text-rose-600 font-bold flex items-center gap-2 opacity-80 text-sm">Löschen <Icon name="trash-2" size={16}/></div>
             </div>
-            
             <div style={{ transform: `translateX(${offsetX}px)`, transition: startX.current === null ? 'transform 0.2s ease-out' : 'none' }} className="relative z-10 w-full bg-white dark:bg-zinc-900/90 shadow-sm flex items-center p-3">
-                <button 
-                    onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
-                    onClick={(e) => { if (dragged.current) { e.preventDefault(); return; } onClick(entry); }} 
-                    className="flex-1 flex items-center gap-4 text-left"
-                >
-                    {coverUrl ? (
-                        <img src={coverUrl} className="w-14 h-14 rounded-xl object-cover shrink-0 pointer-events-none" />
-                    ) : (
-                        <div className="w-14 h-14 rounded-xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 pointer-events-none">
-                            <Icon name="book" size={24} className="opacity-40" />
-                        </div>
-                    )}
+                <button onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} onClick={(e) => { if (dragged.current) { e.preventDefault(); return; } onClick(entry); }} className="flex-1 flex items-center gap-4 text-left">
+                    {coverUrl ? <img src={coverUrl} className="w-14 h-14 rounded-xl object-cover shrink-0 pointer-events-none" /> : <div className="w-14 h-14 rounded-xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 pointer-events-none"><Icon name="book" size={24} className="opacity-40" /></div>}
                     <div className="overflow-hidden pointer-events-none">
                         <h4 className="font-bold text-sm text-accent truncate mb-1">{entry.title || 'Ohne Titel'}</h4>
                         <p className="text-[10px] opacity-60 font-bold tracking-widest uppercase">{safeParseDate(entry.orderTimestamp || entry.date).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})} UHR</p>
                     </div>
                 </button>
-                {/* PFEILTASTEN FÜR DIE ZEITREISE (COVER AUSWÄHLEN) */}
+                {/* PFEILTASTEN FÜR DIE ZEITREISE */}
                 <div className="flex gap-1 shrink-0 z-20 ml-2 pl-2 border-l border-slate-100 dark:border-zinc-800/50">
-                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveUp(e, entry); }} className="w-8 h-8 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-up" size={16}/></button>
-                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveDown(e, entry); }} className="w-8 h-8 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-down" size={16}/></button>
+                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveUp(e); }} className="w-8 h-8 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-up" size={16}/></button>
+                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveDown(e); }} className="w-8 h-8 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-down" size={16}/></button>
                 </div>
             </div>
         </div>
@@ -561,10 +417,26 @@ function App() {
   const [authUser, setAuthUser] = useState(null);
   
   const defaultUser = { name: '', appName: '', motto: '', pin: '', avatar: null, nameColor: '#f59e0b', textColor: null, isDark: true, appBgColor: null, cloudSync: true, biometric: false, uiScale: 1 };
-  const [user, setUser] = useState(defaultUser);
-  const [entries, setEntries] = useState([]);
   
-  const [view, setView] = useState('loading'); 
+  const [view, setView] = useState(() => {
+      const savedStr = safeStorageGet('legacy_user');
+      if (savedStr) {
+          try {
+              const u = JSON.parse(savedStr);
+              if (u.pin) return 'pin_entry';
+              if (u.name) return 'dashboard';
+          } catch(e) {}
+      }
+      return 'auth'; 
+  });
+  
+  const [user, setUser] = useState(() => {
+      const savedStr = safeStorageGet('legacy_user');
+      if (savedStr) { try { return { ...defaultUser, ...JSON.parse(savedStr) }; } catch(e){} }
+      return defaultUser;
+  });
+
+  const [entries, setEntries] = useState([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isGridView, setIsGridView] = useState(false); 
   
@@ -611,7 +483,6 @@ function App() {
 
   const [isDrawing, setIsDrawing] = useState(false);
   const canvasRef = useRef(null);
-  
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
 
@@ -633,12 +504,10 @@ function App() {
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [mood, setMood] = useState(null);
   const [entryDate, setEntryDate] = useState('');
-  
   const [rating, setRating] = useState(0);
   const [tags, setTags] = useState('');
   const [people, setPeople] = useState('');
   const [weather, setWeather] = useState('');
-  
   const [parentId, setParentId] = useState('');
   const [inheritedFrom, setInheritedFrom] = useState(null);
   const [pillarGuidance, setPillarGuidance] = useState(null);
@@ -650,53 +519,27 @@ function App() {
   const editingIdRef = useRef(null);
   const viewRef = useRef(view);
   const biometricAttempted = useRef(false);
-
   const entriesRef = useRef(entries);
   
-  useEffect(() => {
-      entriesRef.current = entries;
-  }, [entries]);
-
-  useEffect(() => {
-      viewRef.current = view;
-  }, [view]);
+  useEffect(() => { entriesRef.current = entries; }, [entries]);
+  useEffect(() => { viewRef.current = view; }, [view]);
 
   const syncProfileToCloud = async (userData) => {
       if (!fb || !fb.auth || !fb.auth.currentUser || !userData.cloudSync) return;
       try { 
           let payload = { 
               timestamp: Date.now(),
-              publicProfile: {
-                  name: userData.name || '',
-                  motto: userData.motto || '',
-                  avatar: userData.avatar || null,
-                  nameColor: userData.nameColor,
-                  isDark: userData.isDark
-              }
+              publicProfile: { name: userData.name || '', motto: userData.motto || '', avatar: userData.avatar || null, nameColor: userData.nameColor, isDark: userData.isDark }
           };
           if (userData.pin) {
               const encrypted = await encryptData(JSON.stringify(userData), userData.pin); 
               if (encrypted) payload.encryptedData = encrypted; 
-          } else {
-              payload.rawData = userData;
-          }
+          } else { payload.rawData = userData; }
           await fb.setDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', fb.auth.currentUser.uid, 'profile', 'data'), payload); 
       } catch(e) {}
   };
 
-  useEffect(() => {
-      document.documentElement.style.fontSize = `${(user.uiScale || 1) * 100}%`;
-  }, [user.uiScale]);
-
-  useEffect(() => {
-    if (isLoaded && user.name) {
-       safeStorageSet('legacy_user', JSON.stringify(user));
-       const timer = setTimeout(() => {
-           syncProfileToCloud(user);
-       }, 1500);
-       return () => clearTimeout(timer);
-    }
-  }, [user, isLoaded]);
+  useEffect(() => { document.documentElement.style.fontSize = `${(user.uiScale || 1) * 100}%`; }, [user.uiScale]);
 
   useEffect(() => {
     try { window.history.pushState({ isApp: true }, ''); } catch(e) {}
@@ -707,164 +550,82 @@ function App() {
       else if (showEditorRef.current) { checkSaveEntry(true); trapped = true; } 
       else if (viewingEntryRef.current) { setViewingEntry(null); setCurrentViewerImgIdx(0); trapped = true; }
       else if (showTimelineRef.current) { setShowTimeline(false); trapped = true; }
-      else if (viewRef.current !== 'dashboard' && viewRef.current !== 'loading' && viewRef.current !== 'auth' && viewRef.current !== 'pin_entry' && viewRef.current !== 'onboarding' && viewRef.current !== 'cloud_pin_sync') { setView('dashboard'); trapped = true; }
-
-      if (trapped) {
-          try { window.history.pushState({ isApp: true }, ''); } catch(e) {}
-      }
+      else if (!['dashboard', 'loading', 'auth', 'pin_entry', 'onboarding', 'cloud_pin_sync'].includes(viewRef.current)) { setView('dashboard'); trapped = true; }
+      if (trapped) { try { window.history.pushState({ isApp: true }, ''); } catch(e) {} }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // --- Login Bypass & Firebase Setup ---
+  // --- FAST BOOT & FIREBASE INIT ---
   useEffect(() => {
-    const initFB = async () => {
-       const initialSavedStr = safeStorageGet('legacy_user');
-       let initiallyHasUser = false;
-       if (initialSavedStr) {
-           try {
-               const localUser = JSON.parse(initialSavedStr);
-               setUser(prev => ({...defaultUser, ...prev, ...localUser}));
-               if (localUser.pin) {
-                   setView('pin_entry');
-               } else if (localUser.name) {
-                   await loadLocalEntries(null);
-                   setView('dashboard');
-               } else {
-                   setView('onboarding');
-               }
-               initiallyHasUser = !!localUser.name;
-               setIsLoaded(true);
-           } catch(e) {}
-       }
-
-       let authTimeout = setTimeout(() => {
-           if (!isLoaded) {
-               if (!safeStorageGet('legacy_user')) setView('onboarding');
-               setIsLoaded(true);
-           }
-       }, 5000);
-
-       try {
+    const bootApp = async () => {
+        if (view === 'dashboard') {
+            await loadLocalEntries(user.pin || null);
+            setIsLoaded(true);
+        } else if (view !== 'loading') {
+            setIsLoaded(true);
+        }
+        
+        try {
           const firebaseConfig = { apiKey: "AIzaSyBs7DoO5z8cuIc3DtdArgorKRx_FX7JX-U", authDomain: "tagebuch-og.firebaseapp.com", projectId: "tagebuch-og", storageBucket: "tagebuch-og.firebasestorage.app", messagingSenderId: "418864246292", appId: "1:418864246292:web:957b604fe7ce4380c24101" };
           const nativeImport = new Function('url', 'return import(url)');
           const { initializeApp } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
           const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
           const { getFirestore, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot } = await nativeImport('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
-          
           const app = initializeApp(firebaseConfig); const auth = getAuth(app); const firestoreDb = getFirestore(app);
           setFb({ db: firestoreDb, auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot });
 
-          const handleUserLoad = async (u) => {
-              const currentLocalStr = safeStorageGet('legacy_user');
-              let hasLocal = false;
-              let currentLocalUser = null;
-              if (currentLocalStr) {
-                  try { currentLocalUser = JSON.parse(currentLocalStr); hasLocal = !!currentLocalUser.name; } catch(e){}
-              }
-
-              const proceedToApp = async (userData) => {
-                  const isAuthScreen = ['loading', 'auth', 'onboarding', 'pin_entry'].includes(viewRef.current);
-                  if (isAuthScreen) {
-                      if (userData.pin) {
-                          setView('pin_entry');
-                      } else {
-                          if (userData.name) {
-                              await loadLocalEntries(null);
-                              setView('dashboard');
-                          } else {
-                              setView('onboarding');
-                          }
-                      }
-                  }
-              };
-
-              try {
-                  const profileSnap = await getDoc(doc(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'profile', 'data'));
-                  if (profileSnap.exists()) {
-                      const data = profileSnap.data();
-                      let fetchedProfile = null;
-                      if (data.publicProfile) {
-                          fetchedProfile = data.publicProfile;
-                          setUser(prev => {
-                              const updated = { ...prev, ...fetchedProfile };
-                              safeStorageSet('legacy_user', JSON.stringify(updated));
-                              return updated;
-                          });
-                      }
-                      
-                      if (!hasLocal) {
-                           if (data.encryptedData) {
-                               if (['loading', 'auth', 'onboarding'].includes(viewRef.current)) setView('cloud_pin_sync'); 
-                               return;
-                           } else if (data.rawData) {
-                               const loadedUser = { ...defaultUser, ...data.rawData, ...(fetchedProfile || {}) };
-                               setUser(loadedUser);
-                               safeStorageSet('legacy_user', JSON.stringify(loadedUser));
-                               proceedToApp(loadedUser);
-                               return;
-                           }
-                      } else {
-                           if (fetchedProfile) {
-                               const merged = { ...currentLocalUser, ...fetchedProfile };
-                               safeStorageSet('legacy_user', JSON.stringify(merged));
-                               syncProfileToCloud(merged);
-                           }
-                           proceedToApp(currentLocalUser);
-                           return;
-                      }
-                  }
-              } catch(e) {}
-              
-              if (!hasLocal) {
-                  try {
-                      const entriesSnap = await getDocs(collection(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'entries'));
-                      if (!entriesSnap.empty) {
-                          if (['loading', 'auth', 'onboarding'].includes(viewRef.current)) setView('cloud_pin_sync'); 
-                          return;
-                      }
-                  } catch(e) {}
-                  if (['loading', 'auth', 'pin_entry'].includes(viewRef.current)) setView('onboarding'); 
-              } else {
-                  proceedToApp(currentLocalUser);
-              }
-          };
-
-          onAuthStateChanged(auth, (u) => {
-              clearTimeout(authTimeout);
-              const currentLocalStr = safeStorageGet('legacy_user');
+          onAuthStateChanged(auth, async (u) => {
               if (u) {
                   setAuthUser(u);
-                  handleUserLoad(u);
+                  try {
+                      const profileSnap = await getDoc(doc(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'profile', 'data'));
+                      if (profileSnap.exists()) {
+                          const data = profileSnap.data();
+                          if (data.publicProfile) {
+                              setUser(prev => {
+                                  const updated = { ...prev, ...data.publicProfile };
+                                  safeStorageSet('legacy_user', JSON.stringify(updated));
+                                  return updated;
+                              });
+                          }
+                          const hasLocal = !!safeStorageGet('legacy_user');
+                          if (!hasLocal) {
+                              if (data.encryptedData) {
+                                  if (['auth', 'onboarding'].includes(viewRef.current)) setView('cloud_pin_sync'); 
+                              } else if (data.rawData) {
+                                  const loadedUser = { ...defaultUser, ...data.rawData, ...(data.publicProfile || {}) };
+                                  setUser(loadedUser);
+                                  safeStorageSet('legacy_user', JSON.stringify(loadedUser));
+                                  if (loadedUser.pin) setView('pin_entry');
+                                  else { await loadLocalEntries(null); setView('dashboard'); }
+                              }
+                          }
+                      } else {
+                          const hasLocal = !!safeStorageGet('legacy_user');
+                          if (!hasLocal) {
+                              const entriesSnap = await getDocs(collection(firestoreDb, 'artifacts', 'legacy-vision', 'users', u.uid, 'entries'));
+                              if (!entriesSnap.empty && ['auth', 'onboarding'].includes(viewRef.current)) setView('cloud_pin_sync'); 
+                              else if (['auth', 'pin_entry'].includes(viewRef.current)) setView('onboarding'); 
+                          }
+                      }
+                  } catch(e){}
               } else {
                   setAuthUser(null);
-                  if(!currentLocalStr) setView('auth'); 
+                  if(!safeStorageGet('legacy_user')) setView('auth'); 
               }
-              setIsLoaded(true);
+              if (!isLoaded) setIsLoaded(true);
           });
-       } catch(e) { 
-           if (!safeStorageGet('legacy_user')) setView('onboarding');
-           setIsLoaded(true); 
-       }
+       } catch(e) { if (!safeStorageGet('legacy_user')) setView('onboarding'); setIsLoaded(true); }
     };
-    initFB();
+    bootApp();
   }, []);
 
-  const ensureDb = async () => {
-      if (db) return db;
-      try {
-          const database = await initDB();
-          setDb(database);
-          return database;
-      } catch(e) {
-          return null;
-      }
-  };
+  const ensureDb = async () => { if (db) return db; try { const database = await initDB(); setDb(database); return database; } catch(e) { return null; } };
 
   const loadLocalEntries = async (activePin) => {
-      const currentDb = await ensureDb();
-      if (!currentDb) return;
+      const currentDb = await ensureDb(); if (!currentDb) return;
       return new Promise((resolve) => {
           try {
               const transaction = currentDb.transaction('entries', 'readonly');
@@ -876,96 +637,43 @@ function App() {
                       if (activePin) {
                           loadedEntries = await Promise.all(loadedEntries.map(async (e) => {
                               try {
-                                  if (e.encryptedData) {
-                                      const decStr = await decryptData(e.encryptedData, activePin);
-                                      if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, ...parsed, encryptedData: null, locked: false }; } catch(err){ return { ...e, text: decStr, encryptedData: null, locked: false };} }
-                                  } else if (e.cipher && e.iv && e.salt) {
-                                      const decStr = await decryptData({cipher: e.cipher, iv: e.iv, salt: e.salt}, activePin);
-                                      if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, ...parsed, cipher: null, iv: null, salt: null, locked: false }; } catch(err) { return { ...e, text: decStr, cipher: null, iv: null, salt: null, locked: false };} }
-                                  }
-                              } catch(decErr) {}
-                              return { ...e, locked: false };
+                                  if (e.encryptedData) { const decStr = await decryptData(e.encryptedData, activePin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, ...parsed, encryptedData: null, locked: false }; } catch(err){ return { ...e, text: decStr, encryptedData: null, locked: false };} } } 
+                                  else if (e.cipher && e.iv && e.salt) { const decStr = await decryptData({cipher: e.cipher, iv: e.iv, salt: e.salt}, activePin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, ...parsed, cipher: null, iv: null, salt: null, locked: false }; } catch(err) { return { ...e, text: decStr, cipher: null, iv: null, salt: null, locked: false };} } }
+                              } catch(decErr) {} return { ...e, locked: false };
                           }));
                       }
                       loadedEntries = loadedEntries.map(e => {
-                          try {
-                              if (!e.date) e.date = e.orderTimestamp || (e.timestamp ? new Date(e.timestamp).toISOString() : new Date().toISOString());
-                              if (!e.orderTimestamp) e.orderTimestamp = e.date;
-                          } catch(dtErr) {
-                              e.date = new Date().toISOString(); e.orderTimestamp = e.date;
-                          }
+                          try { if (!e.date) e.date = e.orderTimestamp || (e.timestamp ? new Date(e.timestamp).toISOString() : new Date().toISOString()); if (!e.orderTimestamp) e.orderTimestamp = e.date; } catch(dtErr) { e.date = new Date().toISOString(); e.orderTimestamp = e.date; }
                           return e;
                       });
                       setEntries(loadedEntries.sort(sortEntriesChronological));
-                  } catch (err) {} 
-                  finally { resolve(); }
+                  } catch (err) {} finally { resolve(); }
               };
               request.onerror = () => resolve();
-          } catch(e) {
-              resolve();
-          }
+          } catch(e) { resolve(); }
       });
   };
 
   useEffect(() => {
     if (!fb || !fb.onSnapshot || !authUser || !user.cloudSync) return;
     const q = fb.collection(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'entries');
-    
     const unsubscribe = fb.onSnapshot(q, async (snapshot) => {
         if (snapshot.metadata.hasPendingWrites) return; 
-        
-        let hasChanges = false;
-        const removedIds = [];
-        const currentEntriesMap = new Map(entriesRef.current.map(e => [e.id, e]));
-
+        const removedIds = []; const currentEntriesMap = new Map(entriesRef.current.map(e => [e.id, e]));
         const processChange = async (change) => {
             try {
-                if (change.type === 'removed') {
-                    removedIds.push(change.doc.id);
-                    return null;
-                }
-                
+                if (change.type === 'removed') { removedIds.push(change.doc.id); return null; }
                 const docData = change.doc.data();
-                
                 let existingLocal = currentEntriesMap.get(change.doc.id);
-                if (!existingLocal && db) {
-                    existingLocal = await new Promise(res => {
-                        try {
-                            const req = db.transaction('entries', 'readonly').objectStore('entries').get(change.doc.id);
-                            req.onsuccess = () => res(req.result);
-                            req.onerror = () => res(null);
-                        } catch(e) { res(null); }
-                    });
-                }
-
-                if (existingLocal && existingLocal.text && !existingLocal.text.includes('Entschlüsselung fehlgeschlagen')) {
-                   const cloudTime = docData.timestamp || 0;
-                   const localTime = existingLocal.timestamp || 0;
-                   if (cloudTime <= localTime) {
-                       return { type: 'existing' }; 
-                   }
-                }
-
-                if (!docData.encryptedData && !docData.rawData && !docData.cipher) {
-                    if (existingLocal && existingLocal.text) return { type: 'existing' };
-                }
-                
+                if (!existingLocal && db) { existingLocal = await new Promise(res => { try { const req = db.transaction('entries', 'readonly').objectStore('entries').get(change.doc.id); req.onsuccess = () => res(req.result); req.onerror = () => res(null); } catch(e) { res(null); } }); }
+                if (existingLocal && existingLocal.text && !existingLocal.text.includes('Entschlüsselung fehlgeschlagen')) { const cloudTime = docData.timestamp || 0; const localTime = existingLocal.timestamp || 0; if (cloudTime <= localTime) return { type: 'existing' }; }
+                if (!docData.encryptedData && !docData.rawData && !docData.cipher && existingLocal && existingLocal.text) return { type: 'existing' };
                 if (docData.encryptedData) {
                    if (user.pin) {
                        const decStr = await decryptData(docData.encryptedData, user.pin);
                        if (decStr) { 
                            let parsed = {};
-                           try { 
-                               parsed = JSON.parse(decStr); 
-                               if (parsed.encryptedData) {
-                                   const innerDec = await decryptData(parsed.encryptedData, user.pin);
-                                   if (innerDec) {
-                                       try { parsed = { ...parsed, ...JSON.parse(innerDec) }; }
-                                       catch(e) { parsed.text = innerDec; }
-                                   }
-                               }
-                           } catch(e) { parsed = { text: decStr, title: 'Wiederhergestellter Eintrag' }; }
-                           
+                           try { parsed = JSON.parse(decStr); if (parsed.encryptedData) { const innerDec = await decryptData(parsed.encryptedData, user.pin); if (innerDec) { try { parsed = { ...parsed, ...JSON.parse(innerDec) }; } catch(e) { parsed.text = innerDec; } } } } catch(e) { parsed = { text: decStr, title: 'Wiederhergestellter Eintrag' }; }
                            const fDate = docData.date || parsed.date || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
                            const fOrder = docData.orderTimestamp || parsed.orderTimestamp || fDate;
                            return { ...docData, ...parsed, id: change.doc.id, date: fDate, orderTimestamp: fOrder, encryptedData: null, locked: false }; 
@@ -979,8 +687,7 @@ function App() {
                     if (user.pin) {
                         const decStr = await decryptData({ cipher: docData.cipher, iv: docData.iv, salt: docData.salt }, user.pin);
                         if (decStr) {
-                            let parsed = {};
-                            try { parsed = JSON.parse(decStr); } catch(e) { parsed = { text: decStr, title: docData.title || 'Tagebucheintrag' }; }
+                            let parsed = {}; try { parsed = JSON.parse(decStr); } catch(e) { parsed = { text: decStr, title: docData.title || 'Tagebucheintrag' }; }
                             const fDate = docData.date || parsed.date || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
                             const fOrder = docData.orderTimestamp || parsed.orderTimestamp || fDate;
                             return { ...docData, ...parsed, id: change.doc.id, date: fDate, orderTimestamp: fOrder, cipher: null, iv: null, salt: null, locked: false };
@@ -995,13 +702,10 @@ function App() {
                     const fbOrder = docData.rawData.orderTimestamp || docData.orderTimestamp || fbDate;
                     return { ...docData.rawData, id: change.doc.id, date: fbDate, orderTimestamp: fbOrder, locked: false };
                 }
-                
                 const fDate = docData.date || (docData.timestamp ? new Date(docData.timestamp).toISOString() : new Date().toISOString());
                 const fOrder = docData.orderTimestamp || fDate;
                 return { ...docData, id: change.doc.id, date: fDate, orderTimestamp: fOrder, locked: false };
-            } catch (e) {
-                return null;
-            }
+            } catch (e) { return null; }
         };
 
         const results = await Promise.all(snapshot.docChanges().map(processChange));
@@ -1012,24 +716,9 @@ function App() {
         setEntries(prev => {
             let next = [...prev];
             if (removedIds.length > 0) next = next.filter(e => !removedIds.includes(e.id));
-            
-            updatedEntries.forEach(upd => {
-                const idx = next.findIndex(e => e.id === upd.id);
-                if (idx >= 0) next[idx] = upd;
-                else next.push(upd);
-            });
-            
+            updatedEntries.forEach(upd => { const idx = next.findIndex(e => e.id === upd.id); if (idx >= 0) next[idx] = upd; else next.push(upd); });
             const sorted = next.sort(sortEntriesChronological);
-
-            if (db) {
-                try {
-                    const tx = db.transaction('entries', 'readwrite');
-                    const store = tx.objectStore('entries');
-                    updatedEntries.forEach(item => store.put(item));
-                    removedIds.forEach(id => store.delete(id));
-                } catch(err) {}
-            }
-
+            if (db) { try { const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); updatedEntries.forEach(item => store.put(item)); removedIds.forEach(id => store.delete(id)); } catch(err) {} }
             return sorted;
         });
     });
@@ -1087,11 +776,8 @@ function App() {
       setUser(mergedUser);
       safeStorageSet('legacy_user', JSON.stringify(mergedUser));
       
-      // Direkter Zugriff ohne Ladebildschirm-Flackern!
       if (entries.length === 0) {
-          try {
-              await loadLocalEntries(pinValue);
-          } catch (e) {}
+          try { await loadLocalEntries(pinValue); } catch (e) {}
       }
       setView(mergedUser.name ? 'dashboard' : 'onboarding');
   };
@@ -1105,19 +791,10 @@ function App() {
               const userId = new Uint8Array(16); window.crypto.getRandomValues(userId);
               const rpId = window.location.hostname || "localhost";
               const cred = await navigator.credentials.create({
-                  publicKey: {
-                      challenge, 
-                      rp: { name: "Legacy Journal", id: rpId }, 
-                      user: { id: userId, name: user.name || 'User', displayName: user.name || 'User' },
-                      pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
-                      authenticatorSelection: { authenticatorAttachment: "platform", residentKey: "required", userVerification: "discouraged" }, 
-                      timeout: 60000
-                  }
+                  publicKey: { challenge, rp: { name: "Legacy Journal", id: rpId }, user: { id: userId, name: user.name || 'User', displayName: user.name || 'User' }, pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }], authenticatorSelection: { authenticatorAttachment: "platform", residentKey: "required", userVerification: "discouraged" }, timeout: 60000 }
               });
               if (cred) {
-                  setUser({...user, biometric: true});
-                  safeStorageSet('legacy_bio_pin', btoa(user.pin)); 
-                  safeStorageSet('legacy_bio_id', btoa(String.fromCharCode(...new Uint8Array(cred.rawId))));
+                  setUser({...user, biometric: true}); safeStorageSet('legacy_bio_pin', btoa(user.pin)); safeStorageSet('legacy_bio_id', btoa(String.fromCharCode(...new Uint8Array(cred.rawId))));
                   showDialog({title: 'Aktiviert', message: 'Biometrisches Entsperren ist nun aktiv.', icon: 'fingerprint'});
               }
           } catch(e) { showDialog({title: 'Fehler', message: 'Biometrie abgebrochen.', icon: 'x'}); }
@@ -1132,40 +809,21 @@ function App() {
           const rpId = window.location.hostname || "localhost";
           const savedIdStr = safeStorageGet('legacy_bio_id');
           let allowCredentials = undefined;
-          if (savedIdStr) {
-              const rawId = Uint8Array.from(atob(savedIdStr), c => c.charCodeAt(0));
-              allowCredentials = [{ id: rawId, type: "public-key" }];
-          }
-          const cred = await navigator.credentials.get({ 
-              publicKey: { challenge, rpId, allowCredentials, userVerification: "discouraged" } 
-          });
-          
+          if (savedIdStr) { const rawId = Uint8Array.from(atob(savedIdStr), c => c.charCodeAt(0)); allowCredentials = [{ id: rawId, type: "public-key" }]; }
+          const cred = await navigator.credentials.get({ publicKey: { challenge, rpId, allowCredentials, userVerification: "discouraged" } });
           const savedPin64 = safeStorageGet('legacy_bio_pin');
-          if (cred && savedPin64) {
-              const savedPin = atob(savedPin64);
-              handleUnlockSubmit(savedPin);
-          } else {
-              setShowPinFallback(true);
-          }
-      } catch(e) { 
-          setShowPinFallback(true); 
-      }
+          if (cred && savedPin64) { const savedPin = atob(savedPin64); handleUnlockSubmit(savedPin); } else { setShowPinFallback(true); }
+      } catch(e) { setShowPinFallback(true); }
   };
 
   useEffect(() => {
-      if (view === 'pin_entry' && user.biometric && safeStorageGet('legacy_bio_pin') && !showPinFallback && !biometricAttempted.current) {
-          biometricAttempted.current = true; 
-          handleBiometricUnlock();
-      }
-      if (view !== 'pin_entry' && view !== 'loading') {
-          biometricAttempted.current = false;
-      }
+      if (view === 'pin_entry' && user.biometric && safeStorageGet('legacy_bio_pin') && !showPinFallback && !biometricAttempted.current) { biometricAttempted.current = true; handleBiometricUnlock(); }
+      if (view !== 'pin_entry' && view !== 'loading') { biometricAttempted.current = false; }
   }, [view, user.biometric, showPinFallback]);
 
   const handleCloudRestore = async (pinValue) => {
       if (!pinValue) return;
-      setPinError(false);
-      setView('loading');
+      setPinError(false); setView('loading');
       try {
           let restoredUser = { ...user, pin: pinValue, cloudSync: true };
           const profileSnap = await fb.getDoc(fb.doc(fb.db, 'artifacts', 'legacy-vision', 'users', authUser.uid, 'profile', 'data'));
@@ -1175,30 +833,15 @@ function App() {
                   const decP = await decryptData(pData.encryptedData, pinValue);
                   if (decP) {
                       const parsedDec = JSON.parse(decP);
-                      restoredUser = { 
-                          ...restoredUser, 
-                          ...parsedDec,
-                          avatar: pData.publicProfile?.avatar !== undefined ? pData.publicProfile.avatar : parsedDec.avatar,
-                          motto: pData.publicProfile?.motto !== undefined ? pData.publicProfile.motto : parsedDec.motto,
-                          name: pData.publicProfile?.name !== undefined ? pData.publicProfile.name : parsedDec.name
-                      };
+                      restoredUser = { ...restoredUser, ...parsedDec, avatar: pData.publicProfile?.avatar !== undefined ? pData.publicProfile.avatar : parsedDec.avatar, motto: pData.publicProfile?.motto !== undefined ? pData.publicProfile.motto : parsedDec.motto, name: pData.publicProfile?.name !== undefined ? pData.publicProfile.name : parsedDec.name };
                   } else {
-                      setPinError(true); setTimeout(() => setPinError(false), 1000); setPinInput('');
-                      setView('cloud_pin_sync');
-                      return; 
+                      setPinError(true); setTimeout(() => setPinError(false), 1000); setPinInput(''); setView('cloud_pin_sync'); return; 
                   }
-              } else if (pData.rawData) {
-                  restoredUser = { ...restoredUser, ...pData.rawData };
-              }
+              } else if (pData.rawData) { restoredUser = { ...restoredUser, ...pData.rawData }; }
           }
-          setUser(restoredUser);
-          safeStorageSet('legacy_user', JSON.stringify(restoredUser));
-          setPinInput('');
-          setView('dashboard');
-          showDialog({ title: 'Willkommen zurück', message: 'Dein Profil wurde geladen. Daten werden im Hintergrund synchronisiert...', icon: 'check' });
+          setUser(restoredUser); safeStorageSet('legacy_user', JSON.stringify(restoredUser)); setPinInput(''); setView('dashboard'); showDialog({ title: 'Willkommen zurück', message: 'Dein Profil wurde geladen. Daten werden im Hintergrund synchronisiert...', icon: 'check' });
       } catch(e) {
-          setView('cloud_pin_sync');
-          showDialog({title: 'Verbindungsfehler', message: 'Ein Fehler ist aufgetreten.', icon: 'x'});
+          setView('cloud_pin_sync'); showDialog({title: 'Verbindungsfehler', message: 'Ein Fehler ist aufgetreten.', icon: 'x'});
       }
   };
 
@@ -1207,12 +850,7 @@ function App() {
       const appId = 'legacy-vision'; const userId = fb.auth.currentUser.uid;
       try { 
           let payloadToSave = { id: plainEntry.id, timestamp: plainEntry.timestamp || Date.now() };
-          if (pin) {
-              const encrypted = await encryptData(JSON.stringify(plainEntry), pin); 
-              if (encrypted) payloadToSave.encryptedData = encrypted;
-          } else {
-              payloadToSave.rawData = plainEntry;
-          }
+          if (pin) { const encrypted = await encryptData(JSON.stringify(plainEntry), pin); if (encrypted) payloadToSave.encryptedData = encrypted; } else { payloadToSave.rawData = plainEntry; }
           await fb.setDoc(fb.doc(fb.db, 'artifacts', appId, 'users', userId, 'entries', plainEntry.id), payloadToSave); 
       } catch(e) {}
   };
@@ -1231,10 +869,7 @@ function App() {
             if (parsed.entries) {
                setSyncStatus('Daten werden verarbeitet...');
                if (db) {
-                 const entriesToSave = await Promise.all(parsed.entries.map(async (e) => {
-                     let dbE = { ...e }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []);
-                     return dbE;
-                 }));
+                 const entriesToSave = await Promise.all(parsed.entries.map(async (e) => { let dbE = { ...e }; dbE.images = dbE.images || (dbE.image ? [dbE.image] : []); return dbE; }));
                  const tx = db.transaction('entries', 'readwrite'); const store = tx.objectStore('entries'); entriesToSave.forEach(e => store.put(e));
                  tx.oncomplete = () => { if (parsed.user) safeStorageSet('legacy_user', JSON.stringify(parsed.user)); setSyncStatus('Erfolgreich übertragen!'); setTimeout(() => { window.location.href = window.location.origin + window.location.pathname; }, 2000); };
                }
@@ -1246,18 +881,13 @@ function App() {
 
   useEffect(() => {
      editingIdRef.current = editingId;
-     currentEntryRef.current = { 
-         ...currentEntryRef.current,
-         title, selectedColor, selectedImages, audioUrl, isManifested, category, mood, unlockDate, location, locations, parentId, inheritedFrom, rating, tags, people, weather, date: entryDate 
-     };
+     currentEntryRef.current = { ...currentEntryRef.current, title, selectedColor, selectedImages, audioUrl, isManifested, category, mood, unlockDate, location, locations, parentId, inheritedFrom, rating, tags, people, weather, date: entryDate };
   }, [editingId, title, selectedColor, selectedImages, audioUrl, isManifested, category, mood, unlockDate, location, locations, parentId, inheritedFrom, rating, tags, people, weather, entryDate]);
 
   const saveToDB = async (entry, forcePin = null) => {
     const activePin = forcePin || user.pin; 
     const plainEntry = { ...entry, timestamp: Date.now(), locked: false, encryptedData: null, cipher: null, iv: null, salt: null };
-
     syncSingleEntryToCloud(plainEntry, activePin); 
-
     const updateMemory = () => {
         setEntries(prev => { 
             const exists = prev.find(e => e && e.id === plainEntry.id); 
@@ -1266,13 +896,7 @@ function App() {
         });
     };
     updateMemory();
-
-    if (db) {
-        try {
-            const tx = db.transaction('entries', 'readwrite'); 
-            tx.objectStore('entries').put(plainEntry); 
-        } catch (e) {}
-    }
+    if (db) { try { const tx = db.transaction('entries', 'readwrite'); tx.objectStore('entries').put(plainEntry); } catch (e) {} }
   };
 
   const deleteFromDB = async (id) => { 
@@ -1280,8 +904,7 @@ function App() {
       if (!db) { updateMemory(); await deleteSingleEntryFromCloud(id); return; } 
       return new Promise((resolve) => {
           try {
-              const tx = db.transaction('entries', 'readwrite'); 
-              tx.objectStore('entries').delete(id); 
+              const tx = db.transaction('entries', 'readwrite'); tx.objectStore('entries').delete(id); 
               tx.oncomplete = async () => { updateMemory(); await deleteSingleEntryFromCloud(id); resolve(); }; 
               tx.onerror = () => { updateMemory(); resolve(); };
           } catch(e) { updateMemory(); resolve(); }
@@ -1298,48 +921,30 @@ function App() {
         const hasInlineImage = currentText.includes('<img');
         const isEmpty = !titleSafe.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && !hasInlineImage && (!state.selectedImages || state.selectedImages.length === 0) && !state.audioUrl && !state.weather && !state.tags && !state.people;
         
-        if (isEmpty && closeAndRead) { 
-            closeEditor(entries.find(e => e && e.id === editingIdRef.current) || null); 
-            return; 
-        }
+        if (isEmpty && closeAndRead) { closeEditor(entries.find(e => e && e.id === editingIdRef.current) || null); return; }
         
         const existingEntry = entries.find(e => e && e.id === editingIdRef.current);
         
         let finalDate = state.date || (existingEntry ? existingEntry.date : null) || getLocalISO();
         let finalOrder = existingEntry ? (existingEntry.orderTimestamp || existingEntry.date || getLocalISO()) : finalDate;
 
-        if (existingEntry && state.date && state.date !== existingEntry.date) {
-            finalOrder = state.date;
-        } else if (!existingEntry && state.date) {
-            finalOrder = state.date;
-        }
+        if (existingEntry && state.date && state.date !== existingEntry.date) { finalOrder = state.date; } else if (!existingEntry && state.date) { finalOrder = state.date; }
         
         const newEntry = { 
             id: entryId, title: titleSafe || '', text: currentText, color: state.selectedColor, images: state.selectedImages, audio: state.audioUrl, archived: false, trashed: false, manifested: state.isManifested, category: state.category, mood: state.mood, unlockDate: state.unlockDate, location: state.location, locations: state.locations, parentId: state.parentId, inheritedFrom: state.inheritedFrom, rating: state.rating, tags: state.tags, people: state.people, weather: state.weather, 
-            date: finalDate, 
-            orderTimestamp: finalOrder 
+            date: finalDate, orderTimestamp: finalOrder 
         };
         
         if (!editingIdRef.current) { setEditingId(entryId); editingIdRef.current = entryId; }
         saveToDB(newEntry);
         isDirtyRef.current = false;
-        
-        if (closeAndRead) {
-            closeEditor(newEntry);
-        } else { 
-            setAutoSaveStatus('Gespeichert'); 
-            setTimeout(()=>setAutoSaveStatus(''), 2000); 
-        }
-    } catch (err) { 
-        if (closeAndRead) closeEditor(entries.find(e => e && e.id === editingIdRef.current) || null); 
-    }
+        if (closeAndRead) { closeEditor(newEntry); } else { setAutoSaveStatus('Gespeichert'); setTimeout(()=>setAutoSaveStatus(''), 2000); }
+    } catch (err) { if (closeAndRead) closeEditor(entries.find(e => e && e.id === editingIdRef.current) || null); }
   };
 
   useEffect(() => { 
       if (!showEditor || view === 'burn') return; 
-      const timer = setInterval(() => { 
-          if (isDirtyRef.current) checkSaveEntry(false); 
-      }, 3000); 
+      const timer = setInterval(() => { if (isDirtyRef.current) checkSaveEntry(false); }, 3000); 
       return () => clearInterval(timer); 
   }, [showEditor, view]);
 
@@ -1347,29 +952,18 @@ function App() {
       if (newPinInput.length < 4) { showDialog({title: 'Fehler', message: 'Die neue PIN muss mindestens 4 Zeichen lang sein.', icon: 'x'}); return; }
       if (newPinInput !== confirmPinInput) { showDialog({title: 'Fehler', message: 'Die neuen PINs stimmen nicht überein.', icon: 'x'}); return; }
       if (user.pin && oldPinInput !== user.pin) { showDialog({title: 'Fehler', message: 'Die alte PIN ist falsch.', icon: 'x'}); return; }
-      
       const newUserData = {...user, pin: newPinInput};
-      setUser(newUserData); 
-      setIsChangingPin(false); setOldPinInput(''); setNewPinInput(''); setConfirmPinInput('');
+      setUser(newUserData); setIsChangingPin(false); setOldPinInput(''); setNewPinInput(''); setConfirmPinInput('');
       syncProfileToCloud(newUserData);
       showDialog({title: 'Erfolg', message: 'Deine PIN wurde erfolgreich gespeichert.', icon: 'check'});
   };
 
-  const closeEditor = (savedEntry = null) => { 
-      setShowEditor(false); 
-      if(isRecording) stopRecording(); 
-      if(savedEntry) setViewingEntry(savedEntry); 
-  };
+  const closeEditor = (savedEntry = null) => { setShowEditor(false); if(isRecording) stopRecording(); if(savedEntry) setViewingEntry(savedEntry); };
 
   const openEditor = (entry = null, pillar = null, customDate = null) => {
     isDirtyRef.current = false;
-    
     let targetDateStr = getLocalISO();
-    if (customDate) {
-        const now = new Date();
-        const timeStr = now.toISOString().split('T')[1] || "12:00:00.000Z";
-        targetDateStr = `${customDate}T${timeStr}`;
-    }
+    if (customDate) { const now = new Date(); const timeStr = now.toISOString().split('T')[1] || "12:00:00.000Z"; targetDateStr = `${customDate}T${timeStr}`; }
     const targetDate = entry && entry.id ? (entry.date || getLocalISO()) : targetDateStr;
 
     const newEntryState = entry && entry.id ? {
@@ -1378,97 +972,51 @@ function App() {
         title: pillar ? pillar.title : '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isManifested: false, category: pillar ? 'Weisheit' : (activeCategory === 'Alle' ? CATEGORIES[0] : activeCategory), mood: null, audioUrl: null, unlockDate: '', location: null, locations: [], parentId: '', inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: targetDate, orderTimestamp: targetDate
     };
 
-    currentEntryRef.current = newEntryState;
-    editingIdRef.current = entry && entry.id ? entry.id : null;
-    
+    currentEntryRef.current = newEntryState; editingIdRef.current = entry && entry.id ? entry.id : null;
     setEditingId(editingIdRef.current);
     setTitle(newEntryState.title); setText(newEntryState.text); setSelectedColor(newEntryState.selectedColor); setSelectedImages(newEntryState.selectedImages); setIsManifested(newEntryState.isManifested); setCategory(newEntryState.category); setMood(newEntryState.mood); setAudioUrl(newEntryState.audioUrl); setUnlockDate(newEntryState.unlockDate); setLocation(newEntryState.location); setLocations(newEntryState.locations); setParentId(newEntryState.parentId); setInheritedFrom(newEntryState.inheritedFrom); setRating(newEntryState.rating); setTags(newEntryState.tags); setPeople(newEntryState.people); setWeather(newEntryState.weather); setEntryDate(newEntryState.date); setPillarGuidance(pillar ? pillar.desc : null);
-    
     setShowEditor(true);
   };
 
   const startNewChapter = (parent) => { 
     isDirtyRef.current = false; setViewingEntry(null); 
-    const newEntryState = {
-        title: parent.title || '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isManifested: false, category: parent.category || CATEGORIES[0], mood: null, audioUrl: null, unlockDate: '', location: null, locations: [], parentId: parent.id, inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: getLocalISO(), orderTimestamp: getLocalISO()
-    };
+    const newEntryState = { title: parent.title || '', text: '', selectedColor: user.isDark ? COLORS[8] : COLORS[0], selectedImages: [], isManifested: false, category: parent.category || CATEGORIES[0], mood: null, audioUrl: null, unlockDate: '', location: null, locations: [], parentId: parent.id, inheritedFrom: null, rating: 0, tags: '', people: '', weather: '', date: getLocalISO(), orderTimestamp: getLocalISO() };
     currentEntryRef.current = newEntryState; editingIdRef.current = null;
-    
     setEditingId(null); setTitle(newEntryState.title); setText(newEntryState.text); setSelectedColor(newEntryState.selectedColor); setSelectedImages(newEntryState.selectedImages); setAudioUrl(newEntryState.audioUrl); setIsManifested(newEntryState.isManifested); setUnlockDate(newEntryState.unlockDate); setLocation(newEntryState.location); setLocations(newEntryState.locations); setCategory(newEntryState.category); setMood(newEntryState.mood); setParentId(newEntryState.parentId); setInheritedFrom(newEntryState.inheritedFrom); setRating(newEntryState.rating); setTags(newEntryState.tags); setPeople(newEntryState.people); setWeather(newEntryState.weather); setEntryDate(newEntryState.date); setPillarGuidance(null);
     setShowEditor(true); 
   };
 
   const showDialog = (options) => { setDialog({ type: 'alert', confirmLabel: 'Okay', ...options }); };
 
-  const promptArchiveTimeline = (e) => {
-      showDialog({
-          title: 'Ins Archiv?',
-          message: `Möchtest du diesen Eintrag ins Archiv verschieben?`,
-          icon: 'archive',
-          confirmLabel: 'Archivieren',
-          onConfirm: () => {
-              saveToDB({...e, archived: true});
-          },
-          onCancel: () => {}
-      });
-  };
-
-  const promptTrashTimeline = (e) => {
-      showDialog({
-          title: 'Löschen?',
-          message: `Möchtest du diesen Eintrag in den Papierkorb werfen?`,
-          icon: 'trash-2',
-          iconColor: 'text-rose-500',
-          confirmLabel: 'Löschen',
-          onConfirm: () => {
-              saveToDB({...e, trashed: true});
-          },
-          onCancel: () => {}
-      });
-  };
+  const promptArchiveTimeline = (e) => { showDialog({ title: 'Ins Archiv?', message: `Möchtest du diesen Eintrag ins Archiv verschieben?`, icon: 'archive', confirmLabel: 'Archivieren', onConfirm: () => { saveToDB({...e, archived: true}); }, onCancel: () => {} }); };
+  const promptTrashTimeline = (e) => { showDialog({ title: 'Löschen?', message: `Möchtest du diesen Eintrag in den Papierkorb werfen?`, icon: 'trash-2', iconColor: 'text-rose-500', confirmLabel: 'Löschen', onConfirm: () => { saveToDB({...e, trashed: true}); }, onCancel: () => {} }); };
 
   const handleOpenEntry = async (entry, forceExact = false) => {
       if (!entry) return;
       if (entry.unlockDate) {
           try {
               showDialog({title: 'Kryptografische Zeit-Sperre', message: 'Prüfe globales Zeitsiegel (NTP)...', icon: 'clock'});
-              const res = await fetch('https://worldtimeapi.org/api/timezone/Etc/UTC');
-              const data = await res.json();
-              const realTime = new Date(data.datetime);
-              const unlockTime = new Date(entry.unlockDate);
-              if (realTime < unlockTime) {
-                  setDialog(null); setTimeout(() => showDialog({title: 'Zeitkapsel versiegelt', message: `Das kryptografische Zeitsiegel ist intakt. Die Kapsel öffnet erst am ${unlockTime.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}.`, icon: 'lock', iconColor: 'text-indigo-500'}), 300);
-                  return; 
-              }
+              const res = await fetch('https://worldtimeapi.org/api/timezone/Etc/UTC'); const data = await res.json(); const realTime = new Date(data.datetime); const unlockTime = new Date(entry.unlockDate);
+              if (realTime < unlockTime) { setDialog(null); setTimeout(() => showDialog({title: 'Zeitkapsel versiegelt', message: `Das kryptografische Zeitsiegel ist intakt. Die Kapsel öffnet erst am ${unlockTime.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}.`, icon: 'lock', iconColor: 'text-indigo-500'}), 300); return; }
               setDialog(null);
           } catch(e) {
-              if (new Date() < new Date(entry.unlockDate)) {
-                  showDialog({title: 'Zeitkapsel versiegelt', message: `Öffnet erst am ${new Date(entry.unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}.`, icon: 'lock', iconColor: 'text-indigo-500'});
-                  return; 
-              }
+              if (new Date() < new Date(entry.unlockDate)) { showDialog({title: 'Zeitkapsel versiegelt', message: `Öffnet erst am ${new Date(entry.unlockDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}.`, icon: 'lock', iconColor: 'text-indigo-500'}); return; }
               setDialog(null);
           }
       }
       
-      if (forceExact) {
-          setViewingEntry(entry);
-          setCurrentViewerImgIdx(0);
-          return;
-      }
+      if (forceExact) { setViewingEntry(entry); setCurrentViewerImgIdx(0); return; }
       
       const bookRoot = getBookRoot(entry.id);
       const unsortedEntries = getAllBookEntries(bookRoot?.id || entry.id);
       const sortedDesc = [...unsortedEntries].sort(sortEntriesChronological);
       const targetToOpen = sortedDesc[0] || entry; 
       
-      setViewingEntry(targetToOpen);
-      setCurrentViewerImgIdx(0);
+      setViewingEntry(targetToOpen); setCurrentViewerImgIdx(0);
   };
 
   const moveEntryUp = (e, targetEntry) => {
-      e.preventDefault();
-      e.stopPropagation();
-      
+      e.preventDefault(); e.stopPropagation();
       const dayStr = safeParseDate(targetEntry.date).toDateString();
       const sameDayEntries = entries.filter(ex => !ex.trashed && safeParseDate(ex.date).toDateString() === dayStr).sort(sortEntriesChronological);
       
@@ -1476,13 +1024,10 @@ function App() {
       if (idx <= 0) return;
       
       const above = sameDayEntries[idx - 1];
-      
       let tCurrent = safeParseDate(targetEntry.orderTimestamp || targetEntry.date).getTime();
       let tAbove = safeParseDate(above.orderTimestamp || above.date).getTime();
       
-      let newCurrentTime = tAbove;
-      let newAboveTime = tCurrent;
-      
+      let newCurrentTime = tAbove; let newAboveTime = tCurrent;
       if (newCurrentTime <= newAboveTime) newCurrentTime = newAboveTime + 1000;
       
       saveToDB({...targetEntry, orderTimestamp: new Date(newCurrentTime).toISOString()});
@@ -1490,9 +1035,7 @@ function App() {
   };
   
   const moveEntryDown = (e, targetEntry) => {
-      e.preventDefault();
-      e.stopPropagation();
-      
+      e.preventDefault(); e.stopPropagation();
       const dayStr = safeParseDate(targetEntry.date).toDateString();
       const sameDayEntries = entries.filter(ex => !ex.trashed && safeParseDate(ex.date).toDateString() === dayStr).sort(sortEntriesChronological);
       
@@ -1500,13 +1043,10 @@ function App() {
       if (idx === -1 || idx >= sameDayEntries.length - 1) return;
       
       const below = sameDayEntries[idx + 1];
-      
       let tCurrent = safeParseDate(targetEntry.orderTimestamp || targetEntry.date).getTime();
       let tBelow = safeParseDate(below.orderTimestamp || below.date).getTime();
       
-      let newCurrentTime = tBelow;
-      let newBelowTime = tCurrent;
-      
+      let newCurrentTime = tBelow; let newBelowTime = tCurrent;
       if (newCurrentTime >= newBelowTime) newBelowTime = newCurrentTime + 1000;
       
       saveToDB({...targetEntry, orderTimestamp: new Date(newCurrentTime).toISOString()});
@@ -1519,8 +1059,7 @@ function App() {
       if (view === 'trash') return e.trashed;
       if (e.trashed) return false;
       const q = searchQuery.toLowerCase(); 
-      const safeTitle = e.title || '';
-      const safeText = e.text || '';
+      const safeTitle = e.title || ''; const safeText = e.text || '';
       const matchesSearch = safeTitle.toLowerCase().includes(q) || safeText.toLowerCase().includes(q); 
       if (searchQuery && !matchesSearch) return false; 
       if (view === 'archive') return e.archived;
@@ -1535,7 +1074,6 @@ function App() {
 
   const renderEntries = [...visibleEntries].sort(sortEntriesChronological);
 
-  // --- NEUE TIMELINE / KALENDER LOGIK ---
   const entriesByDate = useMemo(() => {
       const map = {};
       entries.filter(e => e && !e.trashed).forEach(e => {
@@ -1553,18 +1091,12 @@ function App() {
   }, [entries]);
 
   const getCalendarDays = (monthDate) => {
-      const year = monthDate.getFullYear();
-      const month = monthDate.getMonth();
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
-
-      let firstDayIndex = firstDay.getDay() - 1;
-      if (firstDayIndex === -1) firstDayIndex = 6; 
+      const year = monthDate.getFullYear(); const month = monthDate.getMonth();
+      const firstDay = new Date(year, month, 1); const lastDay = new Date(year, month + 1, 0);
+      let firstDayIndex = firstDay.getDay() - 1; if (firstDayIndex === -1) firstDayIndex = 6; 
 
       const days = [];
-      for (let i = 0; i < firstDayIndex; i++) {
-          days.push(null);
-      }
+      for (let i = 0; i < firstDayIndex; i++) days.push(null);
       for (let i = 1; i <= lastDay.getDate(); i++) {
           const date = new Date(year, month, i);
           const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -1583,9 +1115,7 @@ function App() {
               const bqs = doc.getElementsByTagName('blockquote');
               for (let i = 0; i < bqs.length; i++) {
                   const rawText = bqs[i].textContent.trim();
-                  if (rawText) {
-                      quotes.push({ text: rawText, date: entry.date, title: entry.title, id: entry.id + '-bq-' + i, entryId: entry.id }); 
-                  }
+                  if (rawText) quotes.push({ text: rawText, date: entry.date, title: entry.title, id: entry.id + '-bq-' + i, entryId: entry.id }); 
               }
           } catch(e) {
               const blockquoteRegex = /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi; 
@@ -1596,11 +1126,7 @@ function App() {
               } 
           }
       }); 
-      return quotes.sort((a,b) => {
-          const tA = safeParseDate(a.date).getTime() || 0;
-          const tB = safeParseDate(b.date).getTime() || 0;
-          return tB - tA;
-      }); 
+      return quotes.sort((a,b) => safeParseDate(b.date).getTime() - safeParseDate(a.date).getTime()); 
   }, [entries, view]);
   
   const heatmapData = useMemo(() => { return Array.from({ length: 30 }).map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (29 - i)); const dateStr = d.toDateString(); return { date: dateStr, count: entries.filter(e => e && !e.trashed && safeParseDate(e.date || getLocalISO()).toDateString() === dateStr).length }; }); }, [entries]);
@@ -1661,7 +1187,6 @@ function App() {
       const deltaX = touchStartX.current - touchEndX;
       const deltaY = touchStartY.current - touchEndY;
       
-      // Nur Swipen, wenn es stark horizontal und kaum vertikal war
       if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY)) {
           const bookRoot = getBookRoot(viewingEntry.id);
           const unsortedEntries = getAllBookEntries(bookRoot?.id || viewingEntry.id);
@@ -1683,8 +1208,7 @@ function App() {
           else if (deltaX < -40 && swipePrev) { setViewingEntry(swipePrev); setCurrentViewerImgIdx(0); }
       }
       
-      touchStartX.current = null;
-      touchStartY.current = null;
+      touchStartX.current = null; touchStartY.current = null;
   };
 
   const getCanvasCoordinates = (e) => {
@@ -1737,12 +1261,7 @@ function App() {
                   const minDim = Math.min(img.width, img.height); 
                   ctx.drawImage(img, (img.width - minDim) / 2, (img.height - minDim) / 2, minDim, minDim, 0, 0, SIZE, SIZE); 
                   const newAvatarUrl = canvas.toDataURL('image/jpeg', 0.6);
-                  setUser(prev => {
-                      const updated = { ...prev, avatar: newAvatarUrl };
-                      safeStorageSet('legacy_user', JSON.stringify(updated));
-                      syncProfileToCloud(updated);
-                      return updated;
-                  }); 
+                  setUser(prev => { const updated = { ...prev, avatar: newAvatarUrl }; safeStorageSet('legacy_user', JSON.stringify(updated)); syncProfileToCloud(updated); return updated; }); 
               }; 
               img.src = event.target.result; 
           }; 
@@ -1758,28 +1277,17 @@ function App() {
           const img = new Image();
           img.onload = () => {
               const canvas = document.createElement('canvas');
-              const MAX_SIZE = 800;
-              let width = img.width; let height = img.height;
-              if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } }
-              else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
-              canvas.width = width; canvas.height = height;
-              canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+              const MAX_SIZE = 800; let width = img.width; let height = img.height;
+              if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
+              canvas.width = width; canvas.height = height; canvas.getContext('2d').drawImage(img, 0, 0, width, height);
               const base64 = canvas.toDataURL('image/jpeg', 0.6);
-
               const targetEntry = entries.find(ex => ex.id === targetId);
               if (targetEntry) {
                   let newImages = [...(targetEntry.images || [])];
-                  if (imgIndex === 0 && newImages.length === 0) {
-                      newImages = [base64];
-                  } else {
-                      newImages[imgIndex] = base64;
-                  }
-                  
+                  if (imgIndex === 0 && newImages.length === 0) newImages = [base64]; else newImages[imgIndex] = base64;
                   saveToDB({...targetEntry, images: newImages});
                   showDialog({ title: 'Bild aktualisiert', message: 'Das Bild wurde erfolgreich geändert.', icon: 'check' });
-                  if (viewingEntry && viewingEntry.id === targetId) {
-                      setViewingEntry({...viewingEntry, images: newImages});
-                  }
+                  if (viewingEntry && viewingEntry.id === targetId) setViewingEntry({...viewingEntry, images: newImages});
               }
           };
           img.src = event.target.result;
@@ -1801,10 +1309,8 @@ function App() {
                   img.onload = () => {
                       const canvas = document.createElement('canvas');
                       let width = img.width; let height = img.height;
-                      if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } 
-                      else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
-                      canvas.width = width; canvas.height = height;
-                      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                      if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
+                      canvas.width = width; canvas.height = height; canvas.getContext('2d').drawImage(img, 0, 0, width, height);
                       resolve(canvas.toDataURL('image/jpeg', 0.6)); 
                   };
                   img.src = event.target.result;
@@ -1813,13 +1319,8 @@ function App() {
           });
       });
       Promise.all(processedPromises).then(base64Images => {
-          setSelectedImages(prev => {
-              const newImgs = [...prev, ...base64Images];
-              currentEntryRef.current.selectedImages = newImgs; 
-              return newImgs;
-          });
-          isDirtyRef.current = true;
-          checkSaveEntry(false); 
+          setSelectedImages(prev => { const newImgs = [...prev, ...base64Images]; currentEntryRef.current.selectedImages = newImgs; return newImgs; });
+          isDirtyRef.current = true; checkSaveEntry(false); 
       });
     }
     e.target.value = null; 
@@ -1828,25 +1329,13 @@ function App() {
   const wrapImage = (img) => {
       if (!img || !img.parentNode) return; 
       if (img.closest('.inline-img-wrapper')) return; 
-      const wrapper = document.createElement('span');
-      wrapper.className = 'inline-img-wrapper';
-      wrapper.contentEditable = 'false';
-      const delBtn = document.createElement('span');
-      delBtn.className = 'delete-img-btn';
-      delBtn.innerText = 'X';
-      const clonedImg = img.cloneNode(true);
-      clonedImg.removeAttribute('style'); 
-      clonedImg.style.width = '120px'; 
-      clonedImg.style.height = 'auto';
-      wrapper.appendChild(clonedImg);
-      wrapper.appendChild(delBtn);
+      const wrapper = document.createElement('span'); wrapper.className = 'inline-img-wrapper'; wrapper.contentEditable = 'false';
+      const delBtn = document.createElement('span'); delBtn.className = 'delete-img-btn'; delBtn.innerText = 'X';
+      const clonedImg = img.cloneNode(true); clonedImg.removeAttribute('style'); clonedImg.style.width = '120px'; clonedImg.style.height = 'auto';
+      wrapper.appendChild(clonedImg); wrapper.appendChild(delBtn);
       img.parentNode.replaceChild(wrapper, img);
       const space = document.createTextNode('\u00A0');
-      if (wrapper.nextSibling) {
-          wrapper.parentNode.insertBefore(space, wrapper.nextSibling);
-      } else {
-          wrapper.parentNode.appendChild(space);
-      }
+      if (wrapper.nextSibling) wrapper.parentNode.insertBefore(space, wrapper.nextSibling); else wrapper.parentNode.appendChild(space);
       isDirtyRef.current = true;
   };
 
@@ -1861,18 +1350,9 @@ function App() {
                       if (!img.isConnected || img.closest('.inline-img-wrapper')) return;
                       if (img.src.startsWith('blob:')) {
                           fetch(img.src).then(r => r.blob()).then(blob => {
-                              const reader = new FileReader();
-                              reader.onload = () => { 
-                                  img.src = reader.result; 
-                                  wrapImage(img); 
-                                  checkSaveEntry(false); 
-                              };
-                              reader.readAsDataURL(blob);
+                              const reader = new FileReader(); reader.onload = () => { img.src = reader.result; wrapImage(img); checkSaveEntry(false); }; reader.readAsDataURL(blob);
                           }).catch(() => wrapImage(img));
-                      } else {
-                          wrapImage(img);
-                          checkSaveEntry(false);
-                      }
+                      } else { wrapImage(img); checkSaveEntry(false); }
                   }, 100);
               });
           }
@@ -1882,11 +1362,9 @@ function App() {
   const handleEditorPaste = (e) => {
       const clipboardData = e.clipboardData || window.clipboardData || (e.nativeEvent && e.nativeEvent.clipboardData);
       if (!clipboardData) return;
-      let hasImage = false;
       if (clipboardData.items) {
           for (let i = 0; i < clipboardData.items.length; i++) {
               if (clipboardData.items[i].type.indexOf('image') !== -1) {
-                  hasImage = true;
                   const blob = clipboardData.items[i].getAsFile();
                   if (!blob) continue;
                   e.preventDefault();
@@ -1894,14 +1372,11 @@ function App() {
                   reader.onload = (event) => {
                       const base64 = event.target.result;
                       if (editorRef.current) {
-                          editorRef.current.focus();
-                          document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false"><img src="${base64}" /><span class="delete-img-btn">X</span></span>&nbsp;`);
-                          isDirtyRef.current = true;
-                          checkSaveEntry(false);
+                          editorRef.current.focus(); document.execCommand('insertHTML', false, `<span class="inline-img-wrapper" contenteditable="false"><img src="${base64}" /><span class="delete-img-btn">X</span></span>&nbsp;`);
+                          isDirtyRef.current = true; checkSaveEntry(false);
                       }
                   };
-                  reader.readAsDataURL(blob);
-                  break; 
+                  reader.readAsDataURL(blob); break; 
               }
           }
       }
@@ -1909,44 +1384,13 @@ function App() {
 
   const handleEditorClick = (e) => {
       if (e.target.classList.contains('delete-img-btn')) {
-          e.target.closest('.inline-img-wrapper').remove();
-          isDirtyRef.current = true;
-          checkSaveEntry(false);
+          e.target.closest('.inline-img-wrapper').remove(); isDirtyRef.current = true; checkSaveEntry(false);
       } else if (e.target.tagName === 'IMG' && e.target.closest('.inline-img-wrapper')) {
-          const wrapper = e.target.closest('.inline-img-wrapper');
-          const img = wrapper.querySelector('img');
-          setPicker({
-              title: 'Sticker / Bild anpassen',
-              currentValue: null,
-              options: [
-                  {label: 'Klein', value: '120px'},
-                  {label: 'Mittel', value: '250px'},
-                  {label: 'Groß', value: '100%'}
-              ],
-              onSelect: (val) => {
-                  img.style.width = val;
-                  isDirtyRef.current = true;
-                  checkSaveEntry(false);
-              }
-          });
+          const wrapper = e.target.closest('.inline-img-wrapper'); const img = wrapper.querySelector('img');
+          setPicker({ title: 'Sticker / Bild anpassen', currentValue: null, options: [{label: 'Klein', value: '120px'}, {label: 'Mittel', value: '250px'}, {label: 'Groß', value: '100%'}], onSelect: (val) => { img.style.width = val; isDirtyRef.current = true; checkSaveEntry(false); } });
       } else if (e.target.tagName === 'IMG' && !e.target.closest('.inline-img-wrapper')) {
           const img = e.target;
-          setPicker({
-              title: 'Sticker / Bild anpassen',
-              currentValue: null,
-              options: [
-                  {label: 'Klein', value: '120px'},
-                  {label: 'Mittel', value: '250px'},
-                  {label: 'Groß', value: '100%'},
-                  {label: '❌ Löschen', value: 'delete'}
-              ],
-              onSelect: (val) => {
-                  if (val === 'delete') { img.remove(); }
-                  else { img.style.width = val; img.style.height = 'auto'; }
-                  isDirtyRef.current = true;
-                  checkSaveEntry(false);
-              }
-          });
+          setPicker({ title: 'Sticker / Bild anpassen', currentValue: null, options: [{label: 'Klein', value: '120px'}, {label: 'Mittel', value: '250px'}, {label: 'Groß', value: '100%'}, {label: '❌ Löschen', value: 'delete'}], onSelect: (val) => { if (val === 'delete') { img.remove(); } else { img.style.width = val; img.style.height = 'auto'; } isDirtyRef.current = true; checkSaveEntry(false); } });
       }
   };
 
@@ -1954,34 +1398,16 @@ function App() {
       if (!window.JSZip) { showDialog({title: 'Fehler', message: 'JSZip Modul nicht geladen.'}); return; }
       showDialog({title: 'Archiv wird erstellt', message: 'Deine Gedanken werden für die Ewigkeit als reiner Text (.md) verpackt. Bitte warten...', icon: 'loader'});
       try {
-          const zip = new window.JSZip();
-          const textsFolder = zip.folder("Eintraege");
-          const imagesFolder = zip.folder("Bilder");
-
+          const zip = new window.JSZip(); const textsFolder = zip.folder("Eintraege"); const imagesFolder = zip.folder("Bilder");
           let imgCounter = 1;
           entries.filter(e => e && !e.trashed).forEach(e => {
               let mdContent = `# ${e.title || 'Ohne Titel'}\n\nDatum: ${safeParseDate(e.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}\nKategorie: ${e.category}\n\n${(e.text || '').replace(/<[^>]*>?/gm, '')}`;
-              if (e.images && e.images.length > 0) {
-                  e.images.forEach(imgBase64 => {
-                      const base64Data = imgBase64.split(',')[1];
-                      const imgName = `Bild_${imgCounter}.jpg`;
-                      imagesFolder.file(imgName, base64Data, {base64: true});
-                      mdContent += `\n\n[Bild: ${imgName}]`;
-                      imgCounter++;
-                  });
-              }
-              const safeTitle = (e.title || 'Eintrag').replace(/[^a-z0-9]/gi, '_').toLowerCase();
-              textsFolder.file(`${safeParseDate(e.date).toISOString().split('T')[0]}_${safeTitle}.md`, mdContent);
+              if (e.images && e.images.length > 0) { e.images.forEach(imgBase64 => { const base64Data = imgBase64.split(',')[1]; const imgName = `Bild_${imgCounter}.jpg`; imagesFolder.file(imgName, base64Data, {base64: true}); mdContent += `\n\n[Bild: ${imgName}]`; imgCounter++; }); }
+              const safeTitle = (e.title || 'Eintrag').replace(/[^a-z0-9]/gi, '_').toLowerCase(); textsFolder.file(`${safeParseDate(e.date).toISOString().split('T')[0]}_${safeTitle}.md`, mdContent);
           });
-
-          const content = await zip.generateAsync({type:"blob"});
-          const url = URL.createObjectURL(content);
-          const a = document.createElement('a'); a.href = url; a.download = `Legacy_Ewigkeits_Archiv_${new Date().toISOString().split('T')[0]}.zip`;
-          a.click(); URL.revokeObjectURL(url);
-          setDialog(null);
-      } catch(err) {
-          showDialog({title: 'Fehler', message: 'ZIP Erstellung fehlgeschlagen.'});
-      }
+          const content = await zip.generateAsync({type:"blob"}); const url = URL.createObjectURL(content);
+          const a = document.createElement('a'); a.href = url; a.download = `Legacy_Ewigkeits_Archiv_${new Date().toISOString().split('T')[0]}.zip`; a.click(); URL.revokeObjectURL(url); setDialog(null);
+      } catch(err) { showDialog({title: 'Fehler', message: 'ZIP Erstellung fehlgeschlagen.'}); }
   };
 
   const downloadFullApp = () => { const cloneDocument = document.cloneNode(true); const rootDiv = cloneDocument.getElementById('root'); if (rootDiv) rootDiv.innerHTML = ''; const existingInjected = cloneDocument.getElementById('legacy-injected-data'); if (existingInjected) existingInjected.remove(); const data = { user, entries }; const scriptEl = cloneDocument.createElement('script'); scriptEl.id = 'legacy-injected-data'; scriptEl.type = 'application/json'; scriptEl.textContent = JSON.stringify(data); cloneDocument.head.appendChild(scriptEl); const htmlContent = "<!DOCTYPE html>\n" + cloneDocument.documentElement.outerHTML; const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Legacy_${new Date().toISOString().split('T')[0]}.html`; a.click(); URL.revokeObjectURL(a.href); showDialog({ title: 'Erledigt!', message: 'App als HTML-Backup gespeichert.', icon: 'download' }); };
@@ -2611,16 +2037,12 @@ function App() {
                              <button
                                  key={day.dateStr}
                                  onClick={() => setTimelineSelectedDate(day.dateStr)}
-                                 className={`relative w-10 h-10 sm:w-12 sm:h-12 mx-auto rounded-full flex items-center justify-center font-bold text-sm sm:text-base transition-transform hover:scale-110 active:scale-95 overflow-hidden shadow-sm
+                                 className={`relative w-12 h-12 sm:w-14 sm:h-14 mx-auto rounded-full flex items-center justify-center font-bold text-base sm:text-lg transition-transform hover:scale-110 active:scale-95 overflow-hidden shadow-sm
                                  ${isSelected ? 'ring-2 ring-accent ring-offset-2 ring-offset-slate-50 dark:ring-offset-[#0a0a0a]' : ''}
                                  ${!hasEntries && !coverUrl ? 'bg-slate-200 dark:bg-zinc-800 text-slate-500' : ''}`}
                              >
                                  {coverUrl ? (
-                                     <>
-                                         <img src={coverUrl} className="absolute inset-0 w-full h-full object-cover" />
-                                         {/* KEINE ZAHL MEHR WENN EIN BILD DA IST */}
-                                         {hasEntries && <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-accent rounded-full shadow-sm border border-black/50 z-20"></div>}
-                                     </>
+                                     <img src={coverUrl} className="absolute inset-0 w-full h-full object-cover" />
                                  ) : (
                                      <>
                                         <span className="relative z-10">{day.day}</span>
@@ -2686,12 +2108,12 @@ function App() {
                            <div className="flex gap-3">
                              <button onClick={() => {setViewingEntry(null); setCurrentViewerImgIdx(0);}} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform"><Icon name="arrow-left" size={22}/></button>
                            </div>
-                           <div className="flex gap-2 sm:gap-3">
+                           <div className="flex gap-2 sm:gap-3 items-center">
                              <button onClick={() => window.print()} className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform text-slate-500"><Icon name="printer" size={22}/></button>
                              <button onClick={() => handleReadAloud(viewingEntry)} className={`p-3 rounded-2xl transition-transform ${isSpeaking ? 'text-white animate-pulse shadow-md' : 'bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95'}`} style={isSpeaking ? { backgroundColor: user.nameColor } : {}}><Icon name={isSpeaking ? "volume-2" : "volume-1"} size={22}/></button>
                              
-                             <label className="px-4 py-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform font-bold text-sm cursor-pointer flex items-center justify-center gap-2" style={{ color: user.nameColor }} title="Hauptcover ändern">
-                                 <Icon name="image" size={18}/> <span className="hidden sm:inline">Cover ändern</span>
+                             <label className="p-3 rounded-2xl bg-slate-100 dark:bg-zinc-900 hover:scale-105 active:scale-95 transition-transform cursor-pointer flex items-center justify-center text-slate-500" title="Hauptcover ändern">
+                                 <Icon name="image" size={22}/>
                                  <input type="file" accept="image/*" onChange={(e) => handleBookCoverUpload(e, viewingEntry.id, 0)} className="hidden" />
                              </label>
 
