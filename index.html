@@ -34,7 +34,7 @@
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<!-- Hinzugefügt für perfektes Touch Drag & Drop (Gruppen-Ordner Verhalten) -->
+<!-- Hinzugefügt für perfektes Touch Drag & Drop -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 
 <style>
@@ -130,28 +130,22 @@ const safeParseDate = (dInput) => {
     return isNaN(time) ? new Date(0) : new Date(time);
 };
 
-// KORRIGIERTE SORTIERUNG: Erst nach Tag (Datum), dann nach Order-Timestamp für die Reihenfolge innerhalb des Tages
+// KORRIGIERTE SORTIERUNG: Erst nach exaktem Kalendertag, DANN nach OrderTimestamp für die Reihenfolge am selben Tag
 const sortEntriesChronological = (a, b) => {
-    const timeA = safeParseDate(a.date).getTime() || 0;
-    const timeB = safeParseDate(b.date).getTime() || 0;
+    const dateA = safeParseDate(a.date);
+    const dateB = safeParseDate(b.date);
     
-    const dateA = new Date(timeA);
-    const dateB = new Date(timeB);
-    
-    const dayA = new Date(dateA.getFullYear(), dateA.getMonth(), dateA.getDate()).getTime() || 0;
-    const dayB = new Date(dateB.getFullYear(), dateB.getMonth(), dateB.getDate()).getTime() || 0;
+    const dayA = new Date(dateA.getFullYear(), dateA.getMonth(), dateA.getDate()).getTime();
+    const dayB = new Date(dateB.getFullYear(), dateB.getMonth(), dateB.getDate()).getTime();
     
     if (dayA !== dayB) {
         return dayB - dayA; 
     }
     
-    const orderA = safeParseDate(a.orderTimestamp || a.date).getTime() || 0;
-    const orderB = safeParseDate(b.orderTimestamp || b.date).getTime() || 0;
+    const orderA = safeParseDate(a.orderTimestamp || a.date).getTime();
+    const orderB = safeParseDate(b.orderTimestamp || b.date).getTime();
     
-    if (orderA !== orderB) {
-        return orderB - orderA;
-    }
-    return timeB - timeA;
+    return orderB - orderA;
 };
 
 const getLocalISO = () => new Date().toISOString();
@@ -294,7 +288,7 @@ const ColorBtn = ({color, isBg, user, setUser}) => (
    }} className={`w-10 h-10 rounded-full border-2 transition-transform ${ (isBg ? user.appBgColor : user.textColor) === color ? 'border-slate-400 dark:border-zinc-500 scale-125 shadow-md' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: color }} />
 );
 
-const TimelineSwipeableEntry = ({ entry, onClick, onArchivePrompt, onTrashPrompt }) => {
+const TimelineSwipeableEntry = ({ entry, onClick, onMoveUp, onMoveDown, onArchivePrompt, onTrashPrompt }) => {
     const [offsetX, setOffsetX] = useState(0);
     const startX = useRef(null);
     const dragged = useRef(false);
@@ -327,6 +321,11 @@ const TimelineSwipeableEntry = ({ entry, onClick, onArchivePrompt, onTrashPrompt
                         <p className="text-[10px] opacity-60 font-bold tracking-widest uppercase">{safeParseDate(entry.orderTimestamp || entry.date).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})} UHR</p>
                     </div>
                 </button>
+                {/* PFEILTASTEN FÜR DIE ZEITREISE (COVER AUSWÄHLEN) */}
+                <div className="flex gap-1 shrink-0 z-20 ml-2 pl-2 border-l border-slate-100 dark:border-zinc-800/50">
+                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveUp(e); }} className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-up" size={20}/></button>
+                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMoveDown(e); }} className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors"><Icon name="chevron-down" size={20}/></button>
+                </div>
             </div>
         </div>
     );
@@ -469,6 +468,7 @@ function App() {
         if (initialSavedStr) {
             const localUser = JSON.parse(initialSavedStr);
             setUser(prev => ({...defaultUser, ...prev, ...localUser}));
+            // IMMER DIE PIN VERLANGEN WENN EINGESTELLT
             if (localUser.pin) {
                 setView('pin_entry');
             } else if (localUser.name) {
@@ -514,8 +514,12 @@ function App() {
                                   const loadedUser = { ...defaultUser, ...data.rawData, ...(data.publicProfile || {}) };
                                   setUser(loadedUser);
                                   safeStorageSet('legacy_user', JSON.stringify(loadedUser));
-                                  if (loadedUser.pin) setView('pin_entry');
-                                  else { await loadLocalEntries(null); setView('dashboard'); }
+                                  if (loadedUser.pin) {
+                                      if (viewRef.current !== 'dashboard') setView('pin_entry');
+                                  } else { 
+                                      await loadLocalEntries(null); 
+                                      setView('dashboard'); 
+                                  }
                               }
                           }
                       } else {
@@ -671,8 +675,9 @@ function App() {
       if(fb && fb.auth) { try { await fb.signOut(fb.auth); } catch(e){} }
       setUser(defaultUser);
       localStorage.removeItem('legacy_user');
-      setEntries([]);
-      setView('auth');
+      localStorage.removeItem('legacy_bio_pin');
+      localStorage.removeItem('legacy_bio_id');
+      window.location.reload();
   };
 
   const handleUnlockSubmit = async (pinValue) => {
@@ -874,6 +879,8 @@ function App() {
       showDialog({title: 'Erfolg', message: 'Deine PIN wurde erfolgreich gespeichert.', icon: 'check'});
   };
 
+  const closeEditor = (savedEntry = null) => { setShowEditor(false); if(isRecording) stopRecording(); if(savedEntry) setViewingEntry(savedEntry); };
+
   const openEditor = (entry = null, pillar = null, customDate = null) => {
     isDirtyRef.current = false;
     let targetDateStr = getLocalISO();
@@ -927,6 +934,44 @@ function App() {
       const targetToOpen = sortedDesc[0] || entry; 
       
       openWithHistory(() => { setViewingEntry(targetToOpen); setCurrentViewerImgIdx(0); });
+  };
+
+  const moveEntryUp = (e, targetEntry) => {
+      e.preventDefault(); e.stopPropagation();
+      const dayStr = safeParseDate(targetEntry.date).toDateString();
+      const sameDayEntries = entries.filter(ex => !ex.trashed && safeParseDate(ex.date).toDateString() === dayStr).sort(sortEntriesChronological);
+      
+      const idx = sameDayEntries.findIndex(ex => ex.id === targetEntry.id);
+      if (idx <= 0) return;
+      
+      const above = sameDayEntries[idx - 1];
+      let tCurrent = safeParseDate(targetEntry.orderTimestamp || targetEntry.date).getTime();
+      let tAbove = safeParseDate(above.orderTimestamp || above.date).getTime();
+      
+      let newCurrentTime = tAbove; let newAboveTime = tCurrent;
+      if (newCurrentTime <= newAboveTime) newCurrentTime = newAboveTime + 1000;
+      
+      saveToDB({...targetEntry, orderTimestamp: new Date(newCurrentTime).toISOString()});
+      saveToDB({...above, orderTimestamp: new Date(newAboveTime).toISOString()});
+  };
+  
+  const moveEntryDown = (e, targetEntry) => {
+      e.preventDefault(); e.stopPropagation();
+      const dayStr = safeParseDate(targetEntry.date).toDateString();
+      const sameDayEntries = entries.filter(ex => !ex.trashed && safeParseDate(ex.date).toDateString() === dayStr).sort(sortEntriesChronological);
+      
+      const idx = sameDayEntries.findIndex(ex => ex.id === targetEntry.id);
+      if (idx === -1 || idx >= sameDayEntries.length - 1) return;
+      
+      const below = sameDayEntries[idx + 1];
+      let tCurrent = safeParseDate(targetEntry.orderTimestamp || targetEntry.date).getTime();
+      let tBelow = safeParseDate(below.orderTimestamp || below.date).getTime();
+      
+      let newCurrentTime = tBelow; let newBelowTime = tCurrent;
+      if (newCurrentTime >= newBelowTime) newBelowTime = newCurrentTime + 1000;
+      
+      saveToDB({...targetEntry, orderTimestamp: new Date(newCurrentTime).toISOString()});
+      saveToDB({...below, orderTimestamp: new Date(newBelowTime).toISOString()});
   };
 
   const handleReorder = (draggedId, newIndex, currentList) => {
@@ -1110,7 +1155,7 @@ function App() {
       const deltaY = touchStartY.current - touchEndY;
       
       // Nur Swipen, wenn es stark horizontal und kaum vertikal war
-      if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY)) {
+      if (Math.abs(deltaX) > 60 && Math.abs(deltaX) > Math.abs(deltaY) * 2) {
           const bookRoot = getBookRoot(viewingEntryRef.current.id);
           const unsortedEntries = getAllBookEntries(bookRoot?.id || viewingEntryRef.current.id);
           const chronologicalBookEntries = [...unsortedEntries].sort(sortEntriesChronological);
@@ -1127,8 +1172,8 @@ function App() {
               if (cIdx < sorted.length - 1) swipeNext = sorted[cIdx + 1]; 
           }
           
-          if (deltaX > 40 && swipeNext) { setViewingEntry(swipeNext); setCurrentViewerImgIdx(0); }
-          else if (deltaX < -40 && swipePrev) { setViewingEntry(swipePrev); setCurrentViewerImgIdx(0); }
+          if (deltaX > 60 && swipeNext) { setViewingEntry(swipeNext); setCurrentViewerImgIdx(0); }
+          else if (deltaX < -60 && swipePrev) { setViewingEntry(swipePrev); setCurrentViewerImgIdx(0); }
       }
       
       touchStartX.current = null; touchStartY.current = null;
