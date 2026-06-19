@@ -22,18 +22,6 @@
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-<!-- Babel Workaround für React 18: Erzwingt Classic Runtime um Import-Fehler zu vermeiden -->
-<script>
-  if (window.Babel) {
-      window.Babel.registerPreset('react-classic', {
-          presets: [
-              ['react', { runtime: 'classic' }]
-          ]
-      });
-  }
-</script>
-
 <script src="https://unpkg.com/lucide@latest"></script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -105,7 +93,10 @@
     </div>
 </div>
 
-<script type="text/babel" data-presets="env,react-classic">
+<script type="text/babel" data-presets="env,react">
+/** @jsx React.createElement */
+/** @jsxFrag React.Fragment */
+
 const { useState, useEffect, useRef, useMemo } = React;
 
 // --- UTILITY FUNKTIONEN ---
@@ -341,8 +332,8 @@ const TimelineSwipeableEntry = ({ entry, allEntries, onClick, onMoveUp, onMoveDo
                     </div>
                 </button>
                 <div className="flex gap-1 shrink-0 z-20 ml-2 pl-2 border-l border-slate-100 dark:border-zinc-800/50">
-                    <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (onMoveUp) onMoveUp(e); }} className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors cursor-pointer"><Icon name="chevron-up" size={20}/></button>
-                    <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (onMoveDown) onMoveDown(e); }} className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors cursor-pointer"><Icon name="chevron-down" size={20}/></button>
+                    <button type="button" onTouchStart={(e) => e.stopPropagation()} onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (onMoveUp) onMoveUp(e); }} className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors cursor-pointer"><Icon name="chevron-up" size={20}/></button>
+                    <button type="button" onTouchStart={(e) => e.stopPropagation()} onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (onMoveDown) onMoveDown(e); }} className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-full flex items-center justify-center text-slate-500 hover:text-accent transition-colors cursor-pointer"><Icon name="chevron-down" size={20}/></button>
                 </div>
             </div>
         </div>
@@ -353,7 +344,6 @@ const TimelineSwipeableEntry = ({ entry, allEntries, onClick, onMoveUp, onMoveDo
 // EIGENSTÄNDIGE EDITOR-KOMPONENTE
 // ==========================================
 const LegacyEditor = ({ config, onSave, onClose, user, showDialog }) => {
-    // Isoliertes lokales State Management zur Verhinderung von App-Rerenders
     const [title, setTitle] = useState('');
     const [category, setCategory] = useState(CATEGORIES[0]);
     const [selectedColor, setSelectedColor] = useState(user.isDark ? COLORS[8] : COLORS[0]);
@@ -368,7 +358,6 @@ const LegacyEditor = ({ config, onSave, onClose, user, showDialog }) => {
     const [people, setPeople] = useState('');
     const [weather, setWeather] = useState('');
     
-    // Non-UI States
     const [isDrawing, setIsDrawing] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
     const [picker, setPicker] = useState(null);
@@ -380,7 +369,6 @@ const LegacyEditor = ({ config, onSave, onClose, user, showDialog }) => {
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
     
-    // Persistent Storage for Data
     const entryIdRef = useRef(generateId());
     const dateRef = useRef(getLocalISO());
     const orderTimestampRef = useRef(getLocalISO());
@@ -432,15 +420,13 @@ const LegacyEditor = ({ config, onSave, onClose, user, showDialog }) => {
         setTitle(initTitle);
     }, [config]);
 
-    const handlePerformSave = (closeAfter = false) => {
+    // Das ist die AutoSave-Logik, die immer den aktuellsten Stand sichert
+    const performSaveLogic = () => {
         const currentText = editorRef.current ? editorRef.current.innerHTML : initialContentRef.current;
         const hasInlineImage = currentText.includes('<img');
         const isEmpty = !title.trim() && !currentText.replace(/<[^>]*>?/gm, '').trim() && !hasInlineImage && selectedImages.length === 0 && !audioUrl && !weather && !tags && !people;
         
-        if (isEmpty) {
-            if (closeAfter) onClose();
-            return;
-        }
+        if (isEmpty) return;
 
         const newEntry = {
             id: entryIdRef.current, title: title.trim(), text: currentText, color: selectedColor, images: selectedImages, audio: audioUrl,
@@ -451,37 +437,46 @@ const LegacyEditor = ({ config, onSave, onClose, user, showDialog }) => {
 
         onSave(newEntry);
         isDirtyRef.current = false;
-        
-        if (closeAfter) {
-            onClose();
-        } else {
-            setAutoSaveStatus('Gespeichert');
-            setTimeout(() => setAutoSaveStatus(''), 2000);
-        }
+        setAutoSaveStatus('Gespeichert');
+        setTimeout(() => setAutoSaveStatus(''), 2000);
     };
 
-    // AutoSave Loop
+    // Ref, die IMMER auf die aktuelle Speicherfunktion zeigt
+    const performSaveRef = useRef(performSaveLogic);
+    performSaveRef.current = performSaveLogic;
+
+    const handlePerformSave = (closeAfter = false) => {
+        performSaveRef.current();
+        if (closeAfter) onClose();
+    };
+
     useEffect(() => {
+        // Intervall für regelmäßiges Speichern alle 3 Sekunden beim Tippen
         const timer = setInterval(() => {
-            if (isDirtyRef.current) handlePerformSave(false);
+            if (isDirtyRef.current) performSaveRef.current();
         }, 3000);
+
+        const saveNow = () => {
+            if (isDirtyRef.current) performSaveRef.current();
+        };
+
+        // Event Listeners für Tab-Wechsel, App-Schließen oder Anrufe
+        window.addEventListener('beforeunload', saveNow);
+        window.addEventListener('pagehide', saveNow);
+        
+        const handleVis = () => { 
+            if (document.visibilityState === 'hidden') saveNow(); 
+        };
+        document.addEventListener('visibilitychange', handleVis);
+
         return () => {
             clearInterval(timer);
-            // Save exactly ONCE on unmount to prevent data loss
-            if (isDirtyRef.current) handlePerformSave(false);
+            window.removeEventListener('beforeunload', saveNow);
+            window.removeEventListener('pagehide', saveNow);
+            document.removeEventListener('visibilitychange', handleVis);
+            saveNow(); // Ein letztes Mal sichern beim Schließen des Editors
         };
-    }, [title, selectedColor, selectedImages, audioUrl, isManifested, category, unlockDate, location, locations, rating, tags, people, weather]);
-
-    // Handle Hardware Back Button natively inside the Editor
-    useEffect(() => {
-        const popHandler = (e) => {
-            e.preventDefault();
-            handlePerformSave(true);
-        };
-        window.addEventListener('popstate', popHandler);
-        return () => window.removeEventListener('popstate', popHandler);
-    }, [title, selectedColor, selectedImages, audioUrl, isManifested, category, unlockDate, location, locations, rating, tags, people, weather]);
-
+    }, []);
 
     const handleFileUpload = (e, type) => {
         const files = Array.from(e.target.files);
@@ -1103,7 +1098,7 @@ function App() {
   useEffect(() => { entriesRef.current = entries; }, [entries]);
   useEffect(() => { viewRef.current = view; }, [view]);
 
-  // SPERRT DIE APP IM HINTERGRUND SOFORT
+  // SPERRT DIE APP IM HINTERGRUND SOFORT UND SICHERT EDITOREN
   useEffect(() => {
       const handleVisibilityChange = () => {
           if (document.visibilityState === 'hidden') {
@@ -1113,6 +1108,9 @@ function App() {
                       const u = JSON.parse(savedStr);
                       if (u.pin || u.biometric) {
                           setView('pin_entry');
+                          setShowEditor(false); // Schließt Editor, damit sich der PIN-Screen nicht überlagert
+                          setViewingEntry(null);
+                          setShowTimeline(false);
                           biometricAttempted.current = false;
                       }
                   } catch(e){}
@@ -1159,8 +1157,8 @@ function App() {
             if (localUser.pin || localUser.biometric) {
                 setView('pin_entry');
             } else if (localUser.name) {
-                await loadLocalEntries(null);
-                setView('dashboard');
+                // Async im Hintergrund laden um Freezes zu verhindern
+                loadLocalEntries(null).then(() => setView('dashboard'));
             } else {
                 setView('onboarding');
             }
@@ -1204,8 +1202,7 @@ function App() {
                                   if (loadedUser.pin || loadedUser.biometric) {
                                       if (viewRef.current !== 'dashboard') setView('pin_entry');
                                   } else { 
-                                      await loadLocalEntries(null); 
-                                      setView('dashboard'); 
+                                      loadLocalEntries(null).then(() => setView('dashboard'));
                                   }
                               }
                           }
@@ -1401,7 +1398,12 @@ function App() {
       safeStorageSet('legacy_user', JSON.stringify(mergedUser));
       
       if (entries.length === 0) {
-          try { await loadLocalEntries(pinValue); } catch (e) {}
+          try { 
+              // Lade die Einträge asynchron und springe sofort ins Dashboard (kein Warten!)
+              loadLocalEntries(pinValue).then(() => {
+                  if (viewRef.current === 'loading') setView('dashboard');
+              }); 
+          } catch (e) {}
       }
       setView(mergedUser.name ? 'dashboard' : 'onboarding');
   };
@@ -2413,11 +2415,8 @@ function App() {
                          today.setHours(23, 59, 59, 999);
                          const isFuture = day.date > today;
                          
-                         if (!isFuture) {
-                             const entryWithCoverThisDay = dayEntries.find(e => getCoverImageForCard(e, entries));
-                             if (entryWithCoverThisDay) {
-                                 coverUrl = getCoverImageForCard(entryWithCoverThisDay, entries);
-                             }
+                         if (!isFuture && dayEntries.length > 0) {
+                             coverUrl = getCoverImageForCard(dayEntries[0], entries);
                          }
 
                          return (
