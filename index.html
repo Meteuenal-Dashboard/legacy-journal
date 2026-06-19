@@ -83,7 +83,14 @@
 </style>
 </head>
 <body>
-<div id="root"></div>
+<div id="root">
+    <div style="height: 100vh; width: 100vw; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #000000; color: #ffffff; font-family: 'Inter', sans-serif;">
+        <div style="width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.1); border-top-color: #f59e0b; border-radius: 50%; animation: legacy-spin 1s linear infinite; margin-bottom: 24px;"></div>
+        <h2 style="font-weight: 800; font-size: 24px; margin: 0; letter-spacing: -0.05em;">Legacy</h2>
+        <p style="opacity: 0.5; font-size: 12px; margin-top: 8px; text-transform: uppercase; letter-spacing: 2px;">Wird entschlüsselt...</p>
+        <style>@keyframes legacy-spin { to { transform: rotate(360deg); } }</style>
+    </div>
+</div>
 
 <script type="text/babel">
 const { useState, useEffect, useRef, useMemo } = React;
@@ -787,7 +794,7 @@ const LegacyViewer = ({ entry, allEntries, onClose, onEdit, onNavigate, onStartC
         isBook = true;
         navigationList = allBookEntries;
     } else {
-        navigationList = [...allEntries].filter(e => !e.trashed).sort(sortEntriesChronological);
+        navigationList = [...allEntries].filter(e => !e.trashed).sort(sortEntriesDashboard);
     }
 
     const cIdx = navigationList.findIndex(ex => ex && ex.id === entry.id);
@@ -1223,14 +1230,30 @@ function App() {
                   try {
                       let loadedEntries = request.result || [];
                       loadedEntries = loadedEntries.filter(e => e != null);
+                      
                       if (activePin) {
-                          loadedEntries = await Promise.all(loadedEntries.map(async (e) => {
+                          for (let i = 0; i < loadedEntries.length; i++) {
+                              let e = loadedEntries[i];
                               try {
-                                  if (e.encryptedData) { const decStr = await decryptData(e.encryptedData, activePin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, ...parsed, encryptedData: null, locked: false }; } catch(err){ return { ...e, text: decStr, encryptedData: null, locked: false };} } } 
-                                  else if (e.cipher && e.iv && e.salt) { const decStr = await decryptData({cipher: e.cipher, iv: e.iv, salt: e.salt}, activePin); if (decStr) { try { const parsed = JSON.parse(decStr); return { ...e, ...parsed, cipher: null, iv: null, salt: null, locked: false }; } catch(err) { return { ...e, text: decStr, cipher: null, iv: null, salt: null, locked: false };} } }
-                              } catch(decErr) { console.error(decErr); } return { ...e, locked: false };
-                          }));
+                                  if (e.encryptedData) {
+                                      const decStr = await decryptData(e.encryptedData, activePin);
+                                      if (decStr) {
+                                          try { const parsed = JSON.parse(decStr); loadedEntries[i] = { ...e, ...parsed, encryptedData: null, locked: false }; }
+                                          catch(err){ loadedEntries[i] = { ...e, text: decStr, encryptedData: null, locked: false }; }
+                                      }
+                                  } else if (e.cipher && e.iv && e.salt) {
+                                      const decStr = await decryptData({cipher: e.cipher, iv: e.iv, salt: e.salt}, activePin);
+                                      if (decStr) {
+                                          try { const parsed = JSON.parse(decStr); loadedEntries[i] = { ...e, ...parsed, cipher: null, iv: null, salt: null, locked: false }; }
+                                          catch(err) { loadedEntries[i] = { ...e, text: decStr, cipher: null, iv: null, salt: null, locked: false }; }
+                                      }
+                                  } else {
+                                      loadedEntries[i] = { ...e, locked: false };
+                                  }
+                              } catch (decErr) { console.error(decErr); loadedEntries[i] = { ...e, locked: false }; }
+                          }
                       }
+                      
                       loadedEntries = loadedEntries.map(e => {
                           try { if (!e.date) e.date = e.orderTimestamp || (e.timestamp ? new Date(e.timestamp).toISOString() : new Date().toISOString()); if (!e.orderTimestamp) e.orderTimestamp = e.date; } catch(dtErr) { e.date = new Date().toISOString(); e.orderTimestamp = e.date; }
                           return e;
@@ -2383,12 +2406,6 @@ function App() {
                              const entryWithCoverThisDay = dayEntries.find(e => getCoverImage(e));
                              if (entryWithCoverThisDay) {
                                  coverUrl = getCoverImage(entryWithCoverThisDay);
-                             } else {
-                                 const targetTimeEnd = safeParseDate(`${day.dateStr}T23:59:59Z`).getTime();
-                                 const pastEntryWithCover = allEntriesSortedDesc.find(e => safeParseDate(e.date).getTime() <= targetTimeEnd && getCoverImage(e));
-                                 if (pastEntryWithCover) {
-                                     coverUrl = getCoverImage(pastEntryWithCover);
-                                 }
                              }
                          }
 
